@@ -1,0 +1,2 @@
+tools/dos4/restoration.patch -text
+docs/validation/dos4/build.log -text -diff

@@ -1,0 +1,2572 @@
+diff --git a/v4.0/src/.gitattributes b/v4.0/src/.gitattributes
+new file mode 100644
+index 0000000..db594ab
+--- /dev/null
++++ b/v4.0/src/.gitattributes
+@@ -0,0 +1,11 @@
++# Used as redirected input for EXE2BIN
++BIOS/LOCSCR          text eol=crlf
++DEV/DISPLAY/ZERO.DAT text eol=crlf
++DEV/PRINTER/ZERO.DAT text eol=crlf
++
++# Need to be CR-LF so NOSRVBLD works correctly
++*.SKL                text eol=crlf
++
++# These are copied directly to the distribution and need to be CR-LF
++CMD/GRAPHICS/GRAPHICS.PRO text eol=crlf
++SELECT/SELECT.PRT         text eol=crlf
+diff --git a/v4.0/src/BIOS/LOCSCR b/v4.0/src/BIOS/LOCSCR
+index 2bbd69c..998d9cc 100644
+--- a/v4.0/src/BIOS/LOCSCR
++++ b/v4.0/src/BIOS/LOCSCR
+@@ -1 +1,2 @@
+ 70
++
+diff --git a/v4.0/src/BIOS/MSBIO.SKL b/v4.0/src/BIOS/MSBIO.SKL
+index 9c890df..f3cb1db 100644
+--- a/v4.0/src/BIOS/MSBIO.SKL
++++ b/v4.0/src/BIOS/MSBIO.SKL
+@@ -136,4 +136,3 @@
+ 			DB	"System halted",0DH,0AH,"$"
+ ;
+ :END
+-
+diff --git a/v4.0/src/BOOT/BOOT.SKL b/v4.0/src/BOOT/BOOT.SKL
+index 764febd..c11a246 100644
+--- a/v4.0/src/BOOT/BOOT.SKL
++++ b/v4.0/src/BOOT/BOOT.SKL
+@@ -6,3 +6,4 @@
+ :use 001 BOOT SYSMSG
+ 
+ :end
++
+diff --git a/v4.0/src/CMD/APPEND/APPEND.SKL b/v4.0/src/CMD/APPEND/APPEND.SKL
+index 3fc30ef..b605f79 100644
+--- a/v4.0/src/CMD/APPEND/APPEND.SKL
++++ b/v4.0/src/CMD/APPEND/APPEND.SKL
+@@ -21,4 +21,3 @@
+ ;:use    9       COMMON1                 ;"APPEND already installed"
+ 
+ :end
+-
+\ No newline at end of file
+diff --git a/v4.0/src/CMD/ASSIGN/ASSIGN.SKL b/v4.0/src/CMD/ASSIGN/ASSIGN.SKL
+index 5233c46..7781ffd 100644
+--- a/v4.0/src/CMD/ASSIGN/ASSIGN.SKL
++++ b/v4.0/src/CMD/ASSIGN/ASSIGN.SKL
+@@ -6,4 +6,3 @@
+ 	       ;"Incorrect DOS version"
+ :def 2 "Original %1: set to %2:",cr,lf
+ :end
+-
+\ No newline at end of file
+diff --git a/v4.0/src/CMD/ATTRIB/ATTRIB.SKL b/v4.0/src/CMD/ATTRIB/ATTRIB.SKL
+index aab62fa..2436368 100644
+--- a/v4.0/src/CMD/ATTRIB/ATTRIB.SKL
++++ b/v4.0/src/CMD/ATTRIB/ATTRIB.SKL
+@@ -28,3 +28,4 @@
+ ;;;:def 208  "Extended attribute value not supported",CR,LF               ;AN000;
+ 
+ :end                                                                   ;AN000;
++
+diff --git a/v4.0/src/CMD/BACKUP/BACKUP.SKL b/v4.0/src/CMD/BACKUP/BACKUP.SKL
+index c083c25..4593144 100644
+--- a/v4.0/src/CMD/BACKUP/BACKUP.SKL
++++ b/v4.0/src/CMD/BACKUP/BACKUP.SKL
+@@ -50,3 +50,4 @@
+ 
+ :end								  ;AN000;
+ ;==========================================================
++
+diff --git a/v4.0/src/CMD/CHKDSK/CHKDSK.SKL b/v4.0/src/CMD/CHKDSK/CHKDSK.SKL
+index cf2f149..5d96c11 100644
+--- a/v4.0/src/CMD/CHKDSK/CHKDSK.SKL
++++ b/v4.0/src/CMD/CHKDSK/CHKDSK.SKL
+@@ -80,3 +80,4 @@
+ :use 74 extend29			;write fault error			;an033;bgb
+ 
+ :end
++
+diff --git a/v4.0/src/CMD/COMMAND/COMMAND.SKL b/v4.0/src/CMD/COMMAND/COMMAND.SKL
+index 44b1eef..eef01cc 100644
+--- a/v4.0/src/CMD/COMMAND/COMMAND.SKL
++++ b/v4.0/src/CMD/COMMAND/COMMAND.SKL
+@@ -210,4 +210,3 @@
+ :def 1078 "Directory already exists",CR,LF      ;AC000;
+ 
+ :end				;AC000;
+-
+diff --git a/v4.0/src/CMD/COMP/COMP.SKL b/v4.0/src/CMD/COMP/COMP.SKL
+index 96a1115..95a1957 100644
+--- a/v4.0/src/CMD/COMP/COMP.SKL
++++ b/v4.0/src/CMD/COMP/COMP.SKL
+@@ -27,4 +27,3 @@
+ :use 22 EXTEND37	   ;"Code page mismatch"                         ;AN000;
+ :DEF 23 "Files compare ok",CR,LF                                         ;AN000;
+ :end									 ;AN000;
+-
+\ No newline at end of file
+diff --git a/v4.0/src/CMD/DEBUG/DEBUG.SKL b/v4.0/src/CMD/DEBUG/DEBUG.SKL
+index 0720426..f17ddcc 100644
+--- a/v4.0/src/CMD/DEBUG/DEBUG.SKL
++++ b/v4.0/src/CMD/DEBUG/DEBUG.SKL
+@@ -123,3 +123,4 @@
+ 
+ ;=========================================================================
+ ;=========================================================================
++
+diff --git a/v4.0/src/CMD/DISKCOMP/DISKCOMP.SKL b/v4.0/src/CMD/DISKCOMP/DISKCOMP.SKL
+index 44e8251..3db0b4d 100644
+--- a/v4.0/src/CMD/DISKCOMP/DISKCOMP.SKL
++++ b/v4.0/src/CMD/DISKCOMP/DISKCOMP.SKL
+@@ -53,4 +53,3 @@
+ ;
+ :def 22 CR,LF                                                                   ;AC007;
+ :end                                                                            ;AN000;
+-              
+\ No newline at end of file
+diff --git a/v4.0/src/CMD/DISKCOPY/DISKCOPY.SKL b/v4.0/src/CMD/DISKCOPY/DISKCOPY.SKL
+index bc346ac..2629136 100644
+--- a/v4.0/src/CMD/DISKCOPY/DISKCOPY.SKL
++++ b/v4.0/src/CMD/DISKCOPY/DISKCOPY.SKL
+@@ -60,6 +60,3 @@
+ :use 26 COMMON36           ;AN001;"Volume Serial Number is %1-%2",CR,LF
+ 
+ :end                                                                            ;AN000;
+-lume Serial Number is %1-%2",CR,LF
+-
+-:end        
+\ No newline at end of file
+diff --git a/v4.0/src/CMD/EDLIN/EDLIN.SKL b/v4.0/src/CMD/EDLIN/EDLIN.SKL
+index ff5109e..bda92b2 100644
+--- a/v4.0/src/CMD/EDLIN/EDLIN.SKL
++++ b/v4.0/src/CMD/EDLIN/EDLIN.SKL
+@@ -73,3 +73,4 @@
+ 
+ ;=========================================================================
+ ;=========================================================================
++
+diff --git a/v4.0/src/CMD/EXE2BIN/EXE2BIN.SKL b/v4.0/src/CMD/EXE2BIN/EXE2BIN.SKL
+index 6a6a0f3..1a87407 100644
+--- a/v4.0/src/CMD/EXE2BIN/EXE2BIN.SKL
++++ b/v4.0/src/CMD/EXE2BIN/EXE2BIN.SKL
+@@ -68,4 +68,3 @@
+ 
+ 
+ 
+-
+\ No newline at end of file
+diff --git a/v4.0/src/CMD/FASTOPEN/FASTOPEN.SKL b/v4.0/src/CMD/FASTOPEN/FASTOPEN.SKL
+index 25c7c5e..47c8c6f 100644
+--- a/v4.0/src/CMD/FASTOPEN/FASTOPEN.SKL
++++ b/v4.0/src/CMD/FASTOPEN/FASTOPEN.SKL
+@@ -26,3 +26,4 @@
+ :end
+ 
+ ;==========================================================
++
+diff --git a/v4.0/src/CMD/FDISK/FDISK.SKL b/v4.0/src/CMD/FDISK/FDISK.SKL
+index b50bb13..603824a 100644
+--- a/v4.0/src/CMD/FDISK/FDISK.SKL
++++ b/v4.0/src/CMD/FDISK/FDISK.SKL
+@@ -16,3 +16,4 @@
+ ;
+ ;
+ :end
++
+diff --git a/v4.0/src/CMD/FDISK/FDISK5.SKL b/v4.0/src/CMD/FDISK/FDISK5.SKL
+index e7f401d..d63f44d 100644
+--- a/v4.0/src/CMD/FDISK/FDISK5.SKL
++++ b/v4.0/src/CMD/FDISK/FDISK5.SKL
+@@ -12,4 +12,3 @@
+ :use 1116 fdisk m3:
+ ;
+ :end
+-
+\ No newline at end of file
+diff --git a/v4.0/src/CMD/FILESYS/FILESYS.SKL b/v4.0/src/CMD/FILESYS/FILESYS.SKL
+index 734246d..162ef43 100644
+--- a/v4.0/src/CMD/FILESYS/FILESYS.SKL
++++ b/v4.0/src/CMD/FILESYS/FILESYS.SKL
+@@ -13,3 +13,4 @@
+ :def 15 "No entries found",CR,LF
+ :def 16 "  ERROR   %1   %2   %3",CR,LF
+ :end
++
+diff --git a/v4.0/src/CMD/FIND/FIND.SKL b/v4.0/src/CMD/FIND/FIND.SKL
+index 071c9d1..5d2b312 100644
+--- a/v4.0/src/CMD/FIND/FIND.SKL
++++ b/v4.0/src/CMD/FIND/FIND.SKL
+@@ -10,3 +10,4 @@
+ :def 4  "FIND: "                          ;AN005;
+ 
+ :end
++
+diff --git a/v4.0/src/CMD/FORMAT/FORMAT.SKL b/v4.0/src/CMD/FORMAT/FORMAT.SKL
+index 11f18fd..dbb8f1b 100644
+--- a/v4.0/src/CMD/FORMAT/FORMAT.SKL
++++ b/v4.0/src/CMD/FORMAT/FORMAT.SKL
+@@ -226,4 +226,3 @@
+ ;MsgVerify
+ :def 55  CR,"Attempting to recover allocation unit %1                          ",CR
+ :end
+-
+diff --git a/v4.0/src/CMD/GRAFTABL/GRAFTABL.SKL b/v4.0/src/CMD/GRAFTABL/GRAFTABL.SKL
+index e148585..3909f5d 100644
+--- a/v4.0/src/CMD/GRAFTABL/GRAFTABL.SKL
++++ b/v4.0/src/CMD/GRAFTABL/GRAFTABL.SKL
+@@ -25,4 +25,3 @@
+ :def 10 "    863  - Canadian French Graphic Character Set",CR,LF    ;AC007;
+ "    865  - Nordic Graphic Character Set",CR,LF                     ;AC007;
+ :end										;AN000;
+-
+\ No newline at end of file
+diff --git a/v4.0/src/CMD/GRAPHICS/GRAPHICS.SKL b/v4.0/src/CMD/GRAPHICS/GRAPHICS.SKL
+index 8e6dd15..aa242d4 100644
+--- a/v4.0/src/CMD/GRAPHICS/GRAPHICS.SKL
++++ b/v4.0/src/CMD/GRAPHICS/GRAPHICS.SKL
+@@ -64,3 +64,4 @@
+ :def 17 '/B invalid with a black and white printer',CR,LF                       ;AN000;
+ :def 18 'Unable to reload with profile supplied',CR,LF                          ;AN000;
+ :end										;AN000;
++
+diff --git a/v4.0/src/CMD/IFSFUNC/IFSFUNC.SKL b/v4.0/src/CMD/IFSFUNC/IFSFUNC.SKL
+index 4188c7f..ebb0457 100644
+--- a/v4.0/src/CMD/IFSFUNC/IFSFUNC.SKL
++++ b/v4.0/src/CMD/IFSFUNC/IFSFUNC.SKL
+@@ -47,3 +47,4 @@
+ :use 3	COMMON10	   ;%1 not installed						 ;AN000;
+ :def 4	"Invalid configuration",CR,LF                                                    ;AN00?;
+ :end											 ;AN000;
++
+diff --git a/v4.0/src/CMD/JOIN/JOIN.SKL b/v4.0/src/CMD/JOIN/JOIN.SKL
+index dd6806f..46e0909 100644
+--- a/v4.0/src/CMD/JOIN/JOIN.SKL
++++ b/v4.0/src/CMD/JOIN/JOIN.SKL
+@@ -20,3 +20,4 @@
+ :use 12 COMMON12                        ;Cannot %1 a network drive      ;AN000;
+ 
+ :end                                    ;END UTIL                       ;AN000;
++
+diff --git a/v4.0/src/CMD/KEYB/KEYB.SKL b/v4.0/src/CMD/KEYB/KEYB.SKL
+index 7bb2b5c..34af28c 100644
+--- a/v4.0/src/CMD/KEYB/KEYB.SKL
++++ b/v4.0/src/CMD/KEYB/KEYB.SKL
+@@ -35,3 +35,4 @@
+ :def 17 "Unable to create KEYB table in resident memory",CR,LF                        ;AN000;
+ :use 18 PARSE8			     ; 'Parameter format not correct'                 ;AN000;
+ :end						    ;AN000;
++
+diff --git a/v4.0/src/CMD/LABEL/LABL.SKL b/v4.0/src/CMD/LABEL/LABL.SKL
+index fa12e33..bd9c094 100644
+--- a/v4.0/src/CMD/LABEL/LABL.SKL
++++ b/v4.0/src/CMD/LABEL/LABL.SKL
+@@ -23,4 +23,3 @@
+ :use 10 COMMON38                        ;CR,LF                          ;AN001;
+ 
+ :end                                    ;END UTIL                       ;AN000;
+-
+\ No newline at end of file
+diff --git a/v4.0/src/CMD/MEM/MEM.SKL b/v4.0/src/CMD/MEM/MEM.SKL
+index af49786..fe1cc1d 100644
+--- a/v4.0/src/CMD/MEM/MEM.SKL
++++ b/v4.0/src/CMD/MEM/MEM.SKL
+@@ -51,3 +51,4 @@
+ :def 51 "Data",0
+ 
+ :end
++
+diff --git a/v4.0/src/CMD/MODE/MODE.SKL b/v4.0/src/CMD/MODE/MODE.SKL
+index b93dfc5..50f00e5 100644
+--- a/v4.0/src/CMD/MODE/MODE.SKL
++++ b/v4.0/src/CMD/MODE/MODE.SKL
+@@ -191,3 +191,4 @@
+ :def  73 "system",0        ;AN001;CPMSG13_SYS
+ 
+ :end													      ;AN000;
++
+diff --git a/v4.0/src/CMD/MORE/MORE.SKL b/v4.0/src/CMD/MORE/MORE.SKL
+index b624280..9791107 100644
+--- a/v4.0/src/CMD/MORE/MORE.SKL
++++ b/v4.0/src/CMD/MORE/MORE.SKL
+@@ -13,4 +13,3 @@
+ :def 2 "-- More --"                                                 ;AN000;
+ 
+ :end								    ;AN000;
+-
+\ No newline at end of file
+diff --git a/v4.0/src/CMD/NLSFUNC/NLSFUNC.SKL b/v4.0/src/CMD/NLSFUNC/NLSFUNC.SKL
+index e33ba64..a14eccc 100644
+--- a/v4.0/src/CMD/NLSFUNC/NLSFUNC.SKL
++++ b/v4.0/src/CMD/NLSFUNC/NLSFUNC.SKL
+@@ -13,3 +13,4 @@
+ :use 2 COMMON2		   ;AN000;;MSG 2 is always "%1 already installed"
+ :use 3 EXTEND2		   ;AN000;;MSG 3 is always  "File not found - %1"
+ :end			   ;AN000;
++
+diff --git a/v4.0/src/CMD/PRINT/PRINT.SKL b/v4.0/src/CMD/PRINT/PRINT.SKL
+index 2ec5ffa..4c2acf1 100644
+--- a/v4.0/src/CMD/PRINT/PRINT.SKL
++++ b/v4.0/src/CMD/PRINT/PRINT.SKL
+@@ -67,4 +67,3 @@
+ :def 27 "Name of list device [PRN]: "
+ 
+ :end
+-
+diff --git a/v4.0/src/CMD/RECOVER/RECOVER.SKL b/v4.0/src/CMD/RECOVER/RECOVER.SKL
+index ee8fcdf..c7d7760 100644
+--- a/v4.0/src/CMD/RECOVER/RECOVER.SKL
++++ b/v4.0/src/CMD/RECOVER/RECOVER.SKL
+@@ -26,4 +26,3 @@
+ :def  13 CR,LF
+ :use  14 extend8			 ;insufficent memory			 ;an013;bgb
+ :end						;END UTIL
+-
+\ No newline at end of file
+diff --git a/v4.0/src/CMD/REPLACE/REPLACE.SKL b/v4.0/src/CMD/REPLACE/REPLACE.SKL
+index 495b2db..61e421f 100644
+--- a/v4.0/src/CMD/REPLACE/REPLACE.SKL
++++ b/v4.0/src/CMD/REPLACE/REPLACE.SKL
+@@ -36,3 +36,4 @@
+ :def 23 CR,LF,"Add %1? (Y/N)"                                                   ;AN000;
+ 
+ :end                                                   ;END UTIL                ;AN000;
++
+diff --git a/v4.0/src/CMD/RESTORE/RESTORE.SKL b/v4.0/src/CMD/RESTORE/RESTORE.SKL
+index 81bf2cc..742ef88 100644
+--- a/v4.0/src/CMD/RESTORE/RESTORE.SKL
++++ b/v4.0/src/CMD/RESTORE/RESTORE.SKL
+@@ -44,3 +44,4 @@
+ :def 31  CR,LF							;AN000;
+ :end								;AN000;
+ ;==========================================================
++
+diff --git a/v4.0/src/CMD/SHARE/SHARE.SKL b/v4.0/src/CMD/SHARE/SHARE.SKL
+index 0be6308..ff2b72c 100644
+--- a/v4.0/src/CMD/SHARE/SHARE.SKL
++++ b/v4.0/src/CMD/SHARE/SHARE.SKL
+@@ -24,4 +24,3 @@
+ :use 2  COMMON2                         ; "%1 already installed"
+ 
+ :end
+-
+\ No newline at end of file
+diff --git a/v4.0/src/CMD/SORT/SORT.SKL b/v4.0/src/CMD/SORT/SORT.SKL
+index b7a695f..979b370 100644
+--- a/v4.0/src/CMD/SORT/SORT.SKL
++++ b/v4.0/src/CMD/SORT/SORT.SKL
+@@ -10,3 +10,4 @@
+ :def 5 "SORT: "                           ;AN003;
+ 
+ :end                                      ;AN000;
++
+diff --git a/v4.0/src/CMD/SUBST/SUBST.SKL b/v4.0/src/CMD/SUBST/SUBST.SKL
+index fa33102..4d75fda 100644
+--- a/v4.0/src/CMD/SUBST/SUBST.SKL
++++ b/v4.0/src/CMD/SUBST/SUBST.SKL
+@@ -20,3 +20,4 @@
+ :use 12 COMMON12                        ;Cannot %1 a network drive      ;AN000;
+ 
+ :end                                                   ;END UTIL        ;AN000;
++
+diff --git a/v4.0/src/CMD/SYS/SYS.SKL b/v4.0/src/CMD/SYS/SYS.SKL
+index c9cebd9..28e1eef 100644
+--- a/v4.0/src/CMD/SYS/SYS.SKL
++++ b/v4.0/src/CMD/SYS/SYS.SKL
+@@ -46,3 +46,4 @@
+ :use 17 COMMON28                  ; Press any key to continue. .; Old
+ 
+ :end
++
+diff --git a/v4.0/src/CMD/TREE/TREE.SKL b/v4.0/src/CMD/TREE/TREE.SKL
+index 3a7a74a..f80d62f 100644
+--- a/v4.0/src/CMD/TREE/TREE.SKL
++++ b/v4.0/src/CMD/TREE/TREE.SKL
+@@ -18,4 +18,3 @@
+ ;	2. EACH OF THE FOUR MUST BE UNIQUE
+ ;	3. EACH CHAR MUST BE A SINGLE BYTE (NO DBCS)
+ :end			 ;							;AN000;
+-
+\ No newline at end of file
+diff --git a/v4.0/src/CMD/XCOPY/XCOPY.SKL b/v4.0/src/CMD/XCOPY/XCOPY.SKL
+index 43a1fde..ff02833 100644
+--- a/v4.0/src/CMD/XCOPY/XCOPY.SKL
++++ b/v4.0/src/CMD/XCOPY/XCOPY.SKL
+@@ -81,3 +81,4 @@
+ 
+ :end                            ;AN000;
+ ;==========================================================
++
+diff --git a/v4.0/src/DEV/ANSI/ANSI.SKL b/v4.0/src/DEV/ANSI/ANSI.SKL
+index d797678..9b8332d 100644
+--- a/v4.0/src/DEV/ANSI/ANSI.SKL
++++ b/v4.0/src/DEV/ANSI/ANSI.SKL
+@@ -13,4 +13,3 @@
+ :def 10 "Invalid parameter - %1",CR,LF   ; 'Invalid parameter'
+ 
+ :end
+-
+\ No newline at end of file
+diff --git a/v4.0/src/DEV/DISPLAY/DISPLAY.SKL b/v4.0/src/DEV/DISPLAY/DISPLAY.SKL
+index 985006a..aee0c28 100644
+--- a/v4.0/src/DEV/DISPLAY/DISPLAY.SKL
++++ b/v4.0/src/DEV/DISPLAY/DISPLAY.SKL
+@@ -13,3 +13,4 @@
+ :def 12 "Invalid syntax on DISPLAY.SYS code page driver",CR,LF,BELL
+ 
+ :end
++
+diff --git a/v4.0/src/DEV/DISPLAY/INT10COM.INC b/v4.0/src/DEV/DISPLAY/INT10COM.INC
+index 6931ca6..584434f 100644
+--- a/v4.0/src/DEV/DISPLAY/INT10COM.INC
++++ b/v4.0/src/DEV/DISPLAY/INT10COM.INC
+@@ -38,7 +38,7 @@
+ ;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ IF1					;
+-	%OUT .		     ï¿½INT10COM.INCï¿½
++	%OUT .		     ³INT10COM.INC³
+ ENDIF
+ 
+ ;Modification history *********************************************************
+@@ -221,8 +221,8 @@ FIND_FONT	ENDP			;
+ ;
+ ;		     7 6 5 4 3 2 1 0
+ ;		     0 0 0 0 0 0 x x
+-;				 ï¿½ ï¿½ï¿½ï¿½ 1 - AX=1100H
+-;				 ï¿½ï¿½ï¿½ï¿½ï¿½ 1 = AX=1400H
++;				 ³ ÀÄÄ 1 - AX=1100H
++;				 ÀÄÄÄÄ 1 = AX=1400H
+ ;
+ ;		ES : DI points to start of font data
+ ;		CX = ?	count of characters to load
+@@ -517,8 +517,8 @@ ASK_BIOS_SCAN_LINES ENDP		;
+ ;
+ ;		7 6 5 4 3 2 1 0
+ ;		x x x x 0 0 0 0
+-;		    ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1 = INT 1FH
+-;		    ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1 = INT 43H
++;		    ³ ÀÄÄÄÄÄÄÄÄÄÄ 1 = INT 1FH
++;		    ÀÄÄÄÄÄÄÄÄÄÄÄÄ 1 = INT 43H
+ ;				  1 = int 1FH special handling
+ ;
+ ;
+diff --git a/v4.0/src/DEV/DISPLAY/ZERO.DAT b/v4.0/src/DEV/DISPLAY/ZERO.DAT
+index 573541a..77ac542 100644
+--- a/v4.0/src/DEV/DISPLAY/ZERO.DAT
++++ b/v4.0/src/DEV/DISPLAY/ZERO.DAT
+@@ -1 +1,2 @@
+ 0
++
+diff --git a/v4.0/src/DEV/DRIVER/DRIVER.SKL b/v4.0/src/DEV/DRIVER/DRIVER.SKL
+index 4fb910f..d833a3c 100644
+--- a/v4.0/src/DEV/DRIVER/DRIVER.SKL
++++ b/v4.0/src/DEV/DRIVER/DRIVER.SKL
+@@ -18,4 +18,3 @@
+ :def 3	"Loaded External Disk Driver for Drive %1",CR,LF,"$"
+ 
+ :end
+-
+\ No newline at end of file
+diff --git a/v4.0/src/DEV/PRINTER/PRINTER.SKL b/v4.0/src/DEV/PRINTER/PRINTER.SKL
+index 6cfb2f6..e802467 100644
+--- a/v4.0/src/DEV/PRINTER/PRINTER.SKL
++++ b/v4.0/src/DEV/PRINTER/PRINTER.SKL
+@@ -14,4 +14,3 @@
+ :def 12 "Invalid syntax on PRINTER.SYS code page driver",CR,LF,BELL
+ 
+ :end
+-
+\ No newline at end of file
+diff --git a/v4.0/src/DEV/PRINTER/ZERO.DAT b/v4.0/src/DEV/PRINTER/ZERO.DAT
+index 573541a..77ac542 100644
+--- a/v4.0/src/DEV/PRINTER/ZERO.DAT
++++ b/v4.0/src/DEV/PRINTER/ZERO.DAT
+@@ -1 +1,2 @@
+ 0
++
+diff --git a/v4.0/src/DEV/VDISK/VDISK.SKL b/v4.0/src/DEV/VDISK/VDISK.SKL
+index 9555298..63959cd 100644
+--- a/v4.0/src/DEV/VDISK/VDISK.SKL
++++ b/v4.0/src/DEV/VDISK/VDISK.SKL
+@@ -32,5 +32,3 @@
+ 	 "do not match system memory size",CR,LF,CR,LF  ;AN000;
+ 
+ :end					 ;AN000;
+-
+-
+diff --git a/v4.0/src/DEV/XMA2EMS/XMA2EMS.SKL b/v4.0/src/DEV/XMA2EMS/XMA2EMS.SKL
+index d2a8169..6d3bdc8 100644
+--- a/v4.0/src/DEV/XMA2EMS/XMA2EMS.SKL
++++ b/v4.0/src/DEV/XMA2EMS/XMA2EMS.SKL
+@@ -37,3 +37,4 @@
+ :use	30	xma2ems XMA2EMS_Msg_Term1
+ 
+ :end
++
+diff --git a/v4.0/src/DEV/XMAEM/XMAEM.SKL b/v4.0/src/DEV/XMAEM/XMAEM.SKL
+index 6275a6c..0232ce9 100644
+--- a/v4.0/src/DEV/XMAEM/XMAEM.SKL
++++ b/v4.0/src/DEV/XMAEM/XMAEM.SKL
+@@ -13,4 +13,3 @@
+ 
+ 
+ 
+-
+\ No newline at end of file
+diff --git a/v4.0/src/DOS/MSDOS.SKL b/v4.0/src/DOS/MSDOS.SKL
+index c76c224..39d819b 100644
+--- a/v4.0/src/DOS/MSDOS.SKL
++++ b/v4.0/src/DOS/MSDOS.SKL
+@@ -14,4 +14,3 @@
+ :use 003 msdos  NLS_no2
+ 
+ :end
+-
+\ No newline at end of file
+diff --git a/v4.0/src/MAPPER/GETMSG.ASM b/v4.0/src/MAPPER/GETMSG.ASM
+index 12dfaa3..b366a5a 100644
+--- a/v4.0/src/MAPPER/GETMSG.ASM
++++ b/v4.0/src/MAPPER/GETMSG.ASM
+@@ -470,7 +470,7 @@ dosgetmessage  endp
+ 
+ 	page
+ 
+-;ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ 
+ Tens	dd	10000000
+ 	dd	1000000
+diff --git a/v4.0/src/SELECT/COLORS.ASM b/v4.0/src/SELECT/COLORS.ASM
+index a959623..1a66f29 100644
+--- a/v4.0/src/SELECT/COLORS.ASM
++++ b/v4.0/src/SELECT/COLORS.ASM
+@@ -55,7 +55,7 @@ CODE	SEGMENT PARA PUBLIC 'CODE'      ;AN000;
+ ;      AC	- Reserved
+ ;
+ ;		     A1, A2, A3, A4, A5, A6, A7, A8, A9, AA, AB, AC
+-;		      ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½
++;		      Ä   Ä   Ä   Ä   Ä   Ä   Ä   Ä   Ä   Ä   Ä   Ä
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ WR_CIS	       DB    31,113, 48,113, 31, 31, 30, 30,112, 28, 00, 00  ;AN000;Logo Scr
+ WR_CIS_W       EQU   $-WR_CIS					     ;AN000;
+@@ -70,7 +70,7 @@ L_WR_CIS       EQU  ($-WR_CIS)/WR_CIS_W 			     ;AN000;
+ ; Color Index Structure (Actual MONO values)
+ ;
+ ;		     A1, A2, A3, A4, A5, A6, A7, A8, A9, AA, AB, AC
+-;		      ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½   ï¿½
++;		      Ä   Ä   Ä   Ä   Ä   Ä   Ä   Ä   Ä   Ä   Ä   Ä
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ WR_CIS2        DB     7,112, 48,112,  7,  7,  7,  7,112, 28, 00, 00  ;AN000;Logo Scr
+ WR_CIS2_W      EQU   $-WR_CIS2					     ;AN000;
+diff --git a/v4.0/src/SELECT/DATA.MAC b/v4.0/src/SELECT/DATA.MAC
+index ca1b67d..1727f34 100644
+--- a/v4.0/src/SELECT/DATA.MAC
++++ b/v4.0/src/SELECT/DATA.MAC
+@@ -315,8 +315,8 @@ IN_DECSEP      DB   0,0 		     ;AN000;decimal separator
+ IN_DELIMITEN   DB   '[]'                     ;AN000;left & right bracket char - on
+ IN_DELIMITEX   DB   '  '                     ;AN000;left & right bracket char - off
+ IN_DELIMITDIR  DB   '<>'                     ;AN000;direction delimitors (horz wind)
+-IN_BORDEREN    DB   'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'               ;AN000;8 border char (ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½) entry
+-IN_BORDEREX    DB   '12345678'               ;AN000;8 border char (ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½) exit
++IN_BORDEREN    DB   'ÚÄ¿³³ÀÄÙ'               ;AN000;8 border char (ÚÄ¿³³ÀÄÙ) entry
++IN_BORDEREX    DB   '12345678'               ;AN000;8 border char (ÚÄ¿³³ÀÄÙ) exit
+ IN_LVBOFF      DW   0			     ;AN000;log vid buf offset override
+ IN_LVBSEG      DW   0			     ;AN000;log vid buf segment override
+ IN_CURINSOFF   DW   0			     ;AN000;offset insert cursor bit map   (W)
+@@ -499,4 +499,4 @@ LVB_INITED     DB   0			     ;AN000;flag for LVB allocated
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ DATA	       ENDS			     ;AN000;
+ PAGE					     ;AN000;
+-
+\ No newline at end of file
++
+diff --git a/v4.0/src/SELECT/INPUT.ASM b/v4.0/src/SELECT/INPUT.ASM
+index 59996a7..87eb0af 100644
+--- a/v4.0/src/SELECT/INPUT.ASM
++++ b/v4.0/src/SELECT/INPUT.ASM
+@@ -105,7 +105,7 @@ WR_ICB1        DW   ICB_BEN+ICB_RTA+ICB_LFA+ICB_BKS ;AN000;option word one
+ 	       DW   0			     ;AN000;offset of plus sign string
+ 	       DW   0			     ;AN000;segment of plus sign string
+ 					     ;
+-WR_PATH_CHAR  DB   "'",',0-9,,a-z,,A-Z,,ï¿½-ï¿½, $!"#%&()-.@\`_{}~^,,,' ;AN000;
++WR_PATH_CHAR  DB   "'",',0-9,,a-z,,A-Z,,€-þ, $!"#%&()-.@\`_{}~^,,,' ;AN000;
+ WR_PATH_CHAR_LEN  EQU ($-WR_PATH_CHAR)	     ;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+@@ -213,7 +213,7 @@ WR_ICB3        DW   ICB_BEN+ICB_RTA+ICB_LFA+ICB_BKS ;AN000;option word one
+ 	       DW   0			     ;AN000;segment of plus sign string
+ 					     ;;;
+ 					       ;
+-WR_APPEND_CHAR	DB   "'",',0-9,,a-z,,A-Z,,ï¿½-ï¿½, ;$!"#%&()-.:@\`_{}~^,,,' ;AN000;
++WR_APPEND_CHAR	DB   "'",',0-9,,a-z,,A-Z,,€-þ, ;$!"#%&()-.:@\`_{}~^,,,' ;AN000;
+ WR_APPEND_CHAR_LEN  EQU ($-WR_APPEND_CHAR)     ;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+@@ -321,7 +321,7 @@ WR_ICB5        DW   ICB_BEN+ICB_RTA+ICB_LFA+ICB_BKS ;AN000;option word one
+ 	       DW   0			     ;AN000;segment of plus sign string
+ 					     ;;;;;;;;;;;;;
+ 							 ;
+-WR_PROMPT_CHAR	DB   "'",',0-9,,a-z,,A-Z,,ï¿½-ï¿½,\/ $!"#%()*+-.;@`[]_{}~,,,' ;AN000;
++WR_PROMPT_CHAR	DB   "'",',0-9,,a-z,,A-Z,,€-ÿ,\/ $!"#%()*+-.;@`[]_{}~,,,' ;AN000;
+ WR_PROMPT_CHAR_LEN  EQU ($-WR_PROMPT_CHAR)		 ;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+@@ -1728,7 +1728,7 @@ KD_PLUS        DB   43,0		     ;AN000;ASCII plus sign
+ ; Define Buffers and Strings
+ ;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+-WR_ALLOW_CHAR  DB   ', -ï¿½,'                  ;AN000;
++WR_ALLOW_CHAR  DB   ', -þ,'                  ;AN000;
+ WR_ALLOW_CHAR_LEN  EQU ($-WR_ALLOW_CHAR)     ;AN000;
+ WR_ALLOW_NUM   DB   ' ,0-9,'                 ;AN000;
+ WR_ALLOW_NUM_LEN   EQU ($-WR_ALLOW_NUM)      ;AN000;
+diff --git a/v4.0/src/SELECT/PANELS.ASM b/v4.0/src/SELECT/PANELS.ASM
+index 4dc5578..b1d6416 100644
+--- a/v4.0/src/SELECT/PANELS.ASM
++++ b/v4.0/src/SELECT/PANELS.ASM
+@@ -150,7 +150,7 @@ PCB1	LABEL	WORD		;AN000;
+ 	DW	PANEL1_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -215,7 +215,7 @@ PCB2	LABEL	WORD		;AN000;
+ 	DW	PANEL2_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -255,7 +255,7 @@ PCB3	LABEL	WORD		;AN000;
+ 	DW	PANEL3_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -312,7 +312,7 @@ PCB4	LABEL	WORD		;AN000;
+ 	DW	PANEL4_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -352,7 +352,7 @@ PCB5	LABEL	WORD		;AN000;
+ 	DW	PANEL5_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -392,7 +392,7 @@ PCB6	LABEL	WORD		;AN000;
+ 	DW	PANEL6_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -432,7 +432,7 @@ PCB7	LABEL	WORD		;AN000;
+ 	DW	PANEL7_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -472,7 +472,7 @@ PCB8	LABEL	WORD		;AN000;
+ 	DW	PANEL8_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -512,7 +512,7 @@ PCB9	LABEL	WORD		;AN000;
+ 	DW	PANEL9_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -552,7 +552,7 @@ PCB10	LABEL	WORD		;AN000;
+ 	DW	PANEL10_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -592,7 +592,7 @@ PCB11	LABEL	WORD		;AN000;
+ 	DW	PANEL11_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -632,7 +632,7 @@ PCB12	LABEL	WORD		;AN000;
+ 	DW	PANEL12_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -672,7 +672,7 @@ PCB13	LABEL	WORD		;AN000;
+ 	DW	PANEL13_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -712,7 +712,7 @@ PCB14	LABEL	WORD		;AN000;
+ 	DW	PANEL14_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -752,7 +752,7 @@ PCB15	LABEL	WORD		;AN000;
+ 	DW	PANEL15_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -792,7 +792,7 @@ PCB16	LABEL	WORD		;AN000;
+ 	DW	PANEL16_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -832,7 +832,7 @@ PCB17	LABEL	WORD		;AN000;
+ 	DW	PANEL17_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -872,7 +872,7 @@ PCB18	LABEL	WORD		;AN000;
+ 	DW	PANEL18_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -912,7 +912,7 @@ PCB19	LABEL	WORD		;AN000;
+ 	DW	PANEL19_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -952,7 +952,7 @@ PCB20	LABEL	WORD		;AN000;
+ 	DW	PANEL20_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -992,7 +992,7 @@ PCB21	LABEL	WORD		;AN000;
+ 	DW	PANEL21_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1032,7 +1032,7 @@ PCB22	LABEL	WORD		;AN000;
+ 	DW	PANEL22_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1072,7 +1072,7 @@ PCB23	LABEL	WORD		;AN000;
+ 	DW	PANEL23_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1112,7 +1112,7 @@ PCB24	LABEL	WORD		;AN000;
+ 	DW	PANEL24_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1152,7 +1152,7 @@ PCB25	LABEL	WORD		;AN000;
+ 	DW	PANEL25_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1192,7 +1192,7 @@ PCB26	LABEL	WORD		;AN000;
+ 	DW	PANEL26_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1232,7 +1232,7 @@ PCB27	LABEL	WORD		;AN000;
+ 	DW	PANEL27_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1272,7 +1272,7 @@ PCB28	LABEL	WORD		;AN000;
+ 	DW	PANEL28_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1312,7 +1312,7 @@ PCB29	LABEL	WORD		;AN000;
+ 	DW	PANEL29_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1352,7 +1352,7 @@ PCB30	LABEL	WORD		;AN000;
+ 	DW	PANEL30_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1410,7 +1410,7 @@ PCB31	LABEL	WORD		;AN000;
+ 	DW	PANEL31_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1450,7 +1450,7 @@ PCB32	LABEL	WORD		;AN000;
+ 	DW	PANEL32_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1491,7 +1491,7 @@ PCB33	LABEL	WORD		;AN000;
+ 	DW	PANEL33_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1532,7 +1532,7 @@ PCB34	LABEL	WORD		;AN000;
+ 	DW	PANEL34_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1573,7 +1573,7 @@ PCB35	LABEL	WORD		;AN000;
+ 	DW	PANEL35_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1614,7 +1614,7 @@ PCB36	LABEL	WORD		;AN000;
+ 	DW	PANEL36_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	BLACK_WHITE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1680,7 +1680,7 @@ PCB37	LABEL	WORD		;AN000;
+ 	DW	PANEL37_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1721,7 +1721,7 @@ PCB38	LABEL	WORD		;AN000;
+ 	DW	PANEL38_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1762,7 +1762,7 @@ PCB39	LABEL	WORD		;AN000;
+ 	DW	PANEL39_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1803,7 +1803,7 @@ PCB40	LABEL	WORD		;AN000;
+ 	DW	PANEL40_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1843,7 +1843,7 @@ PCB41	LABEL	WORD		;AN000;
+ 	DW	PANEL41_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1883,7 +1883,7 @@ PCB42	LABEL	WORD		;AN000;
+ 	DW	PANEL42_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1923,7 +1923,7 @@ PCB43	LABEL	WORD		;AN000;
+ 	DW	PANEL43_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -1963,7 +1963,7 @@ PCB44	LABEL	WORD		;AN000;
+ 	DW	PANEL44_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2003,7 +2003,7 @@ PCB45	LABEL	WORD		;AN000;
+ 	DW	PANEL45_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2043,7 +2043,7 @@ PCB46	LABEL	WORD		;AN000;
+ 	DW	PANEL46_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2083,7 +2083,7 @@ PCB47	LABEL	WORD		;AN000;
+ 	DW	PANEL47_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2123,7 +2123,7 @@ PCB48	LABEL	WORD		;AN000;
+ 	DW	PANEL48_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2163,7 +2163,7 @@ PCB49	LABEL	WORD		;AN000;
+ 	DW	PANEL49_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2203,7 +2203,7 @@ PCB50	LABEL	WORD		;AN000;
+ 	DW	PANEL50_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2243,7 +2243,7 @@ PCB51	LABEL	WORD		;AN000;
+ 	DW	PANEL51_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2283,7 +2283,7 @@ PCB52	LABEL	WORD		;AN000;
+ 	DW	PANEL52_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2323,7 +2323,7 @@ PCB53	LABEL	WORD		;AN000;
+ 	DW	PANEL53_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2363,7 +2363,7 @@ PCB54	LABEL	WORD		;AN000;
+ 	DW	PANEL54_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2403,7 +2403,7 @@ PCB55	LABEL	WORD		;AN000;
+ 	DW	PANEL55_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2443,7 +2443,7 @@ PCB56	LABEL	WORD		;AN000;
+ 	DW	PANEL56_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2483,7 +2483,7 @@ PCB57	LABEL	WORD		;AN000;
+ 	DW	PANEL57_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2523,7 +2523,7 @@ PCB58	LABEL	WORD		;AN000;
+ 	DW	PANEL58_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2563,7 +2563,7 @@ PCB59	LABEL	WORD		;AN000;
+ 	DW	PANEL59_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2603,7 +2603,7 @@ PCB60	LABEL	WORD		;AN000;
+ 	DW	PANEL60_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2643,7 +2643,7 @@ PCB61	LABEL	WORD		;AN000;
+ 	DW	PANEL61_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2683,7 +2683,7 @@ PCB62	LABEL	WORD		;AN000;
+ 	DW	PANEL62_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2723,7 +2723,7 @@ PCB63	LABEL	WORD		;AN000;
+ 	DW	PANEL63_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2763,7 +2763,7 @@ PCB64	LABEL	WORD		;AN000;
+ 	DW	PANEL64_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2803,7 +2803,7 @@ PCB65	LABEL	WORD		;AN000;
+ 	DW	PANEL65_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2843,7 +2843,7 @@ PCB66	LABEL	WORD		;AN000;
+ 	DW	PANEL66_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2883,7 +2883,7 @@ PCB67	LABEL	WORD		;AN000;
+ 	DW	PANEL67_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2940,7 +2940,7 @@ PCB68	LABEL	WORD		;AN000;
+ 	DW	PANEL68_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -2980,7 +2980,7 @@ PCB69	LABEL	WORD		;AN000;
+ 	DW	PANEL69_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3020,7 +3020,7 @@ PCB70	LABEL	WORD		;AN000;
+ 	DW	PANEL70_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3060,7 +3060,7 @@ PCB71	LABEL	WORD		;AN000;
+ 	DW	PANEL71_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3100,7 +3100,7 @@ PCB72	LABEL	WORD		;AN000;
+ 	DW	PANEL72_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3140,7 +3140,7 @@ PCB73	LABEL	WORD		;AN000;
+ 	DW	PANEL73_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3180,7 +3180,7 @@ PCB74	LABEL	WORD		;AN000;
+ 	DW	PANEL74_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3220,7 +3220,7 @@ PCB75	LABEL	WORD		;AN000;
+ 	DW	PANEL75_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3260,7 +3260,7 @@ PCB76	LABEL	WORD		;AN000;
+ 	DW	PANEL76_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3300,7 +3300,7 @@ PCB77	LABEL	WORD		;AN000;
+ 	DW	PANEL77_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3340,7 +3340,7 @@ PCB78	LABEL	WORD		;AN000;
+ 	DW	PANEL78_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3380,7 +3380,7 @@ PCB79	LABEL	WORD		;AN000;
+ 	DW	PANEL79_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3420,7 +3420,7 @@ PCB80	LABEL	WORD		;AN000;
+ 	DW	PANEL80_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3460,7 +3460,7 @@ PCB81	LABEL	WORD		;AN000;
+ 	DW	PANEL81_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3500,7 +3500,7 @@ PCB82	LABEL	WORD		;AN000;
+ 	DW	PANEL82_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3540,7 +3540,7 @@ PCB83	LABEL	WORD		;AN000;
+ 	DW	PANEL83_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3580,7 +3580,7 @@ PCB84	LABEL	WORD		;AN000;
+ 	DW	PANEL84_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3620,7 +3620,7 @@ PCB85	LABEL	WORD		;AN000;
+ 	DW	PANEL85_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3660,7 +3660,7 @@ PCB86	LABEL	WORD		;AN000;
+ 	DW	PANEL86_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3700,7 +3700,7 @@ PCB87	LABEL	WORD		;AN000;
+ 	DW	PANEL87_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3740,7 +3740,7 @@ PCB88	LABEL	WORD		;AN000;
+ 	DW	PANEL88_W      ;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3780,7 +3780,7 @@ PCB89	LABEL	WORD		;AN000;
+ 	DW	PANEL89_W      ;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3820,7 +3820,7 @@ PCB90	LABEL	WORD		;AN000;
+ 	DW	PANEL90_W      ;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3860,7 +3860,7 @@ PCB91	LABEL	WORD		;AN000;
+ 	DW	PANEL91_W      ;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3900,7 +3900,7 @@ PCB92	LABEL	WORD		;AN000;
+ 	DW	PANEL92_W      ;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3940,7 +3940,7 @@ PCB93	LABEL	WORD		;AN000;
+ 	DW	PANEL93_W      ;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -3980,7 +3980,7 @@ PCB94	LABEL	WORD		;AN000;
+ 	DW	PANEL94_W      ;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -4020,7 +4020,7 @@ PCB95	LABEL	WORD		;AN000;
+ 	DW	PANEL95_W      ;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -4060,7 +4060,7 @@ PCB96	LABEL	WORD		;AN000;
+ 	DW	PANEL96_W      ;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -4100,7 +4100,7 @@ PCB97	LABEL	WORD		;AN000;
+ 	DW	PANEL97_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_RED	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -4140,7 +4140,7 @@ PCB98	LABEL	WORD		;AN000;
+ 	DW	PANEL98_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -4180,7 +4180,7 @@ PCB99	LABEL	WORD		;AN000;
+ 	DW	PANEL99_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -4220,7 +4220,7 @@ PCB100	LABEL	WORD		;AN000;
+ 	DW	PANEL100_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -4260,7 +4260,7 @@ PCB101	LABEL	WORD		;AN000;
+ 	DW	PANEL101_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -4300,7 +4300,7 @@ PCB102	LABEL	WORD		;AN000;
+ 	DW	PANEL102_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -4340,7 +4340,7 @@ PCB103	LABEL	WORD		;AN000;
+ 	DW	PANEL103_W	;AN000;text char width of panel
+ 	DW	0		;AN000;Max poss panel sizing in text
+ 	DW	WHITE_BLUE	;AN000;Index number of log color
+-	DB	'ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½'      ;AN000;8 log border characters
++	DB	'ÚÄ¿³³ÀÄÙ'      ;AN000;8 log border characters
+ 	DW	0		;AN000;Length compress panel in mem
+ 	DW	0		;AN000;Off addr compressed panel
+ 	DW	0		;AN000;Seg addr compressed panel
+@@ -4371,4 +4371,3 @@ PCB103	LABEL	WORD		;AN000;
+ 
+ CODE	ENDS			;AN000;
+ 	END			;AN000;
+-
+\ No newline at end of file
+diff --git a/v4.0/src/SELECT/ROUTINES.ASM b/v4.0/src/SELECT/ROUTINES.ASM
+index cd4fc0d..fa7f1c3 100644
+--- a/v4.0/src/SELECT/ROUTINES.ASM
++++ b/v4.0/src/SELECT/ROUTINES.ASM
+@@ -1074,7 +1074,7 @@ CHK_EX_MEM_ROUTINE PROC FAR			;AN000;
+ 	 .IF < AL eq 04 > or			;AN000;
+ 	 .IF < AL eq 05 >			;AN000;
+ 					;-------------------------------------
+-					; Search for XMA/A cards	      ï¿½
++					; Search for XMA/A cards	      ³
+ 					;-------------------------------------
+ 	      XOR     CX,CX			;AN000;Check all slots starting at 0	 @RH2
+ 	      MOV     BX,0			;AN000;JW say not a model 80
+@@ -1109,7 +1109,7 @@ CHK_EX_MEM_ROUTINE PROC FAR			;AN000;
+ 						;
+ 	 .ELSE					;AN000; AT or XT
+ 					;-------------------------------------
+-					; Search for XMA cards		      ï¿½
++					; Search for XMA cards		      ³
+ 					;-------------------------------------
+ 	      MOV     DX,MODE_REG		;AN000;SAVE CONTENTS OF MODE REG
+ 	      IN      AL,DX			;AN000;
+diff --git a/v4.0/src/SELECT/SCROLL.ASM b/v4.0/src/SELECT/SCROLL.ASM
+index 260d75a..269093c 100644
+--- a/v4.0/src/SELECT/SCROLL.ASM
++++ b/v4.0/src/SELECT/SCROLL.ASM
+@@ -3311,7 +3311,7 @@ WR_UIINDLEN    EQU  ($-WR_UIIND)	     ;AN000;
+ WR_DIIND       DB   25			     ;AN000;define down indicator buffer
+ WR_DIINDLEN    EQU  ($-WR_DIIND)	     ;AN000;
+ 
+-WR_PIIND       DB   'ï¿½'                      ;AN000;selection pointer indicator buff
++WR_PIIND       DB   'þ'                      ;AN000;selection pointer indicator buff
+ WR_PIINDLEN    EQU  ($-WR_PIIND)	     ;AN000;
+ 
+ WR_AIIND       DB   '<'                      ;AN000;active string indicator buffer
+@@ -3353,4 +3353,3 @@ WR_SELECT_MOD  DW   10 DUP (0)		     ;AN000;
+ 
+ CODE	ENDS				     ;AN000;
+ 	END				     ;AN000;
+-
+\ No newline at end of file
+diff --git a/v4.0/src/SELECT/SELECT.SKL b/v4.0/src/SELECT/SELECT.SKL
+index 93b383f..8843181 100644
+--- a/v4.0/src/SELECT/SELECT.SKL
++++ b/v4.0/src/SELECT/SELECT.SKL
+@@ -41,3 +41,4 @@
+ 	'Press Enter to continue.',CR,LF                                 ;AN000;
+ :use 20 EXTEND8 							  ;AN067;SEH insufficient memory
+ :end									 ;AN000;
++
+diff --git a/v4.0/src/SELECT/SELECT0.ASM b/v4.0/src/SELECT/SELECT0.ASM
+index f7198c4..0ae3473 100644
+--- a/v4.0/src/SELECT/SELECT0.ASM
++++ b/v4.0/src/SELECT/SELECT0.ASM
+@@ -14,12 +14,12 @@ SUBTTL	select0.asm						;AN000;
+ ;
+ ;		  Panel flow is defined in the following files:
+ ;
+-;		      ï¿½ SELECT1.ASM
+-;		      ï¿½ SELECT2.ASM
+-;		      ï¿½ SELECT3.ASM
+-;		      ï¿½ SELECT4.ASM
+-;		      ï¿½ SELECT5.ASM
+-;		      ï¿½ SELECT6.ASM
++;		      þ SELECT1.ASM
++;		      þ SELECT2.ASM
++;		      þ SELECT3.ASM
++;		      þ SELECT4.ASM
++;		      þ SELECT5.ASM
++;		      þ SELECT6.ASM
+ ;
+ ;	CHANGE HISTORY:
+ ;
+diff --git a/v4.0/src/SELECT/SELECT1.ASM b/v4.0/src/SELECT/SELECT1.ASM
+index 3770fd7..e4c5f5a 100644
+--- a/v4.0/src/SELECT/SELECT1.ASM
++++ b/v4.0/src/SELECT/SELECT1.ASM
+@@ -343,10 +343,10 @@ MEMORY_ALLOCATED:						;AN000;
+ 	CALL			CURSOROFF			;AN054; SEH moved from earlier in code
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½WELCOME_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³WELCOME_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The WELCOME screen is always presented.
+ ;  The screen does not have help, F3 function or input variables.
+@@ -386,10 +386,10 @@ WELCOME_SCREEN2:						;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½INTRO_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³INTRO_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The INTRODUCTION screen is always presented.
+ ;  The screen does not have help, F3 function or any variables.
+diff --git a/v4.0/src/SELECT/SELECT2.ASM b/v4.0/src/SELECT/SELECT2.ASM
+index d6dc952..29c6c69 100644
+--- a/v4.0/src/SELECT/SELECT2.ASM
++++ b/v4.0/src/SELECT/SELECT2.ASM
+@@ -15,12 +15,12 @@ SUBTTL	SELECT2.asm						;AN000;
+ ;
+ ;		  Panel flow is defined in the following files:
+ ;
+-;		      ï¿½ SELECT1.ASM
+-;		      ï¿½ SELECT2.ASM
+-;		      ï¿½ SELECT3.ASM
+-;		      ï¿½ SELECT4.ASM
+-;		      ï¿½ SELECT5.ASM
+-;		      ï¿½ SELECT6.ASM
++;		      þ SELECT1.ASM
++;		      þ SELECT2.ASM
++;		      þ SELECT3.ASM
++;		      þ SELECT4.ASM
++;		      þ SELECT5.ASM
++;		      þ SELECT6.ASM
+ ;
+ ;
+ ;  Module contains code for :
+@@ -72,10 +72,10 @@ SELECT	SEGMENT PARA PUBLIC 'SELECT'                            ;AN000;
+ 	EXTRN	GET_OVERLAY:NEAR				;AN000;DT
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½WORKSPACE_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³WORKSPACE_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The User Function and Memory Workspace Needs Screen is always presented.
+ ;  The screen allows the user to define the memory requirements for
+@@ -86,42 +86,42 @@ SELECT	SEGMENT PARA PUBLIC 'SELECT'                            ;AN000;
+ ;  All values are re-initialized the second time round only if the new option
+ ;  is different from the previously selected option.
+ ;
+-; ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-; ï¿½		 ï¿½  I_WORKSPACE=1 ï¿½  I_WORKSPACE=2 ï¿½  I_WORKSPACE=3 ï¿½
+-; ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´
+-; ï¿½ P_BREAK	 ï¿½  'ON'          ï¿½  'ON'          ï¿½  'ON'          ï¿½
+-; ï¿½ P_BUFFERS	 ï¿½  ' '           ï¿½  '20'          ï¿½  '50,4'        ï¿½
+-; ï¿½ P_CPSW	 ï¿½  'OFF'         ï¿½  'OFF'         ï¿½  'OFF'         ï¿½
+-; ï¿½ F_CPSW	 ï¿½  no		  ï¿½  no 	   ï¿½  no	    ï¿½
+-; ï¿½ P_FCBS	 ï¿½  ' '           ï¿½  ' '           ï¿½  '20,8'        ï¿½
+-; ï¿½ P_FILES	 ï¿½  '8'           ï¿½  '20'          ï¿½  '20'          ï¿½
+-; ï¿½ P_LASTDRIVE  ï¿½  'E'           ï¿½  'E'           ï¿½  'E'           ï¿½
+-; ï¿½ P_STACKS	 ï¿½  ' '           ï¿½  ' '           ï¿½  ' '           ï¿½
+-; ï¿½ P_VERIFY	 ï¿½  'OFF'         ï¿½  'OFF'         ï¿½  'OFF'         ï¿½
+-; ï¿½ P_PROMPT	 ï¿½  '$P$G'        ï¿½  '$P$G'        ï¿½  '$P$G'        ï¿½
+-; ï¿½ F_PROMPT	 ï¿½  no		  ï¿½  no 	   ï¿½  no	    ï¿½
+-; ï¿½ P_PATH	 ï¿½  ' '           ï¿½  ' '           ï¿½  ' '           ï¿½
+-; ï¿½ F_PATH	 ï¿½  no		  ï¿½  no 	   ï¿½  no	    ï¿½
+-; ï¿½ P_APPEND	 ï¿½  ' '           ï¿½  ' '           ï¿½  ' '           ï¿½
+-; ï¿½ F_APPEND	 ï¿½  no		  ï¿½  no 	   ï¿½  no	    ï¿½
+-; ï¿½ P_ANSI	 ï¿½  ' '           ï¿½  ' '           ï¿½  '/X'          ï¿½
+-; ï¿½ F_ANSI	 ï¿½  no		  ï¿½  yes	   ï¿½  yes	    ï¿½
+-; ï¿½ P_FASTOPEN	 ï¿½  ' '           ï¿½  'C:=(50,25)'  ï¿½  'C:=(100,200)'ï¿½
+-; ï¿½ F_FASTOPEN	 ï¿½  no		  ï¿½  yes	   ï¿½  yes	    ï¿½
+-; ï¿½ F_GRAFTABL	 ï¿½  no		  ï¿½  no 	   ï¿½  no	    ï¿½
+-; ï¿½ P_GRAPHICS	 ï¿½  ' '           ï¿½  ' '           ï¿½  ' '           ï¿½
+-; ï¿½ F_GRAPHICS	 ï¿½  no		  ï¿½  yes	   ï¿½  yes	    ï¿½
+-; ï¿½ P_SHARE	 ï¿½  ' '           ï¿½  ' '           ï¿½  ' '           ï¿½
+-; ï¿½ F_SHARE	 ï¿½  no		  ï¿½  no 	   ï¿½  no	    ï¿½
+-; ï¿½ P_SHELL	 ï¿½  '/R'          ï¿½  '/R'          ï¿½  '/R'          ï¿½
+-; ï¿½ F_SHELL	 ï¿½  yes 	  ï¿½  yes	   ï¿½  yes	    ï¿½
+-; ï¿½ P_VDISK	 ï¿½  ' '           ï¿½  ' '           ï¿½  ' '           ï¿½
+-; ï¿½ F_VDISK	 ï¿½  no		  ï¿½  no 	   ï¿½  no	    ï¿½
+-; ï¿½ P_XMAEM	 ï¿½  ' '           ï¿½  ' '           ï¿½  ' '           ï¿½
+-; ï¿½ DOS_LOC	 ï¿½  'DOS'         ï¿½  'DOS'         ï¿½  'DOS'         ï¿½
+-; ï¿½ F_XMA	 ï¿½  yes 	  ï¿½  yes	   ï¿½  yes	    ï¿½
+-; ï¿½ P_XMA2EMS	 ï¿½  'FRAME=D000 P254=C800 P255=CC00' for all optionsï¿½
+-; ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++; ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++; ³		 ³  I_WORKSPACE=1 ³  I_WORKSPACE=2 ³  I_WORKSPACE=3 ³
++; ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
++; ³ P_BREAK	 ³  'ON'          ³  'ON'          ³  'ON'          ³
++; ³ P_BUFFERS	 ³  ' '           ³  '20'          ³  '50,4'        ³
++; ³ P_CPSW	 ³  'OFF'         ³  'OFF'         ³  'OFF'         ³
++; ³ F_CPSW	 ³  no		  ³  no 	   ³  no	    ³
++; ³ P_FCBS	 ³  ' '           ³  ' '           ³  '20,8'        ³
++; ³ P_FILES	 ³  '8'           ³  '20'          ³  '20'          ³
++; ³ P_LASTDRIVE  ³  'E'           ³  'E'           ³  'E'           ³
++; ³ P_STACKS	 ³  ' '           ³  ' '           ³  ' '           ³
++; ³ P_VERIFY	 ³  'OFF'         ³  'OFF'         ³  'OFF'         ³
++; ³ P_PROMPT	 ³  '$P$G'        ³  '$P$G'        ³  '$P$G'        ³
++; ³ F_PROMPT	 ³  no		  ³  no 	   ³  no	    ³
++; ³ P_PATH	 ³  ' '           ³  ' '           ³  ' '           ³
++; ³ F_PATH	 ³  no		  ³  no 	   ³  no	    ³
++; ³ P_APPEND	 ³  ' '           ³  ' '           ³  ' '           ³
++; ³ F_APPEND	 ³  no		  ³  no 	   ³  no	    ³
++; ³ P_ANSI	 ³  ' '           ³  ' '           ³  '/X'          ³
++; ³ F_ANSI	 ³  no		  ³  yes	   ³  yes	    ³
++; ³ P_FASTOPEN	 ³  ' '           ³  'C:=(50,25)'  ³  'C:=(100,200)'³
++; ³ F_FASTOPEN	 ³  no		  ³  yes	   ³  yes	    ³
++; ³ F_GRAFTABL	 ³  no		  ³  no 	   ³  no	    ³
++; ³ P_GRAPHICS	 ³  ' '           ³  ' '           ³  ' '           ³
++; ³ F_GRAPHICS	 ³  no		  ³  yes	   ³  yes	    ³
++; ³ P_SHARE	 ³  ' '           ³  ' '           ³  ' '           ³
++; ³ F_SHARE	 ³  no		  ³  no 	   ³  no	    ³
++; ³ P_SHELL	 ³  '/R'          ³  '/R'          ³  '/R'          ³
++; ³ F_SHELL	 ³  yes 	  ³  yes	   ³  yes	    ³
++; ³ P_VDISK	 ³  ' '           ³  ' '           ³  ' '           ³
++; ³ F_VDISK	 ³  no		  ³  no 	   ³  no	    ³
++; ³ P_XMAEM	 ³  ' '           ³  ' '           ³  ' '           ³
++; ³ DOS_LOC	 ³  'DOS'         ³  'DOS'         ³  'DOS'         ³
++; ³ F_XMA	 ³  yes 	  ³  yes	   ³  yes	    ³
++; ³ P_XMA2EMS	 ³  'FRAME=D000 P254=C800 P255=CC00' for all options³
++; ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ WORKSPACE_SCREEN:						;AN000;
+ 	INIT_PQUEUE		PAN_WORKSPACE			;AN000; initialize queue
+@@ -162,10 +162,10 @@ WORKSPACE_SCREEN:						;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½CTY_KYBD_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³CTY_KYBD_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The COUNTRY and KEYBOARD support screen is always presented.
+ ;  The screen allows the user to choose the pre-defined country and
+@@ -235,10 +235,10 @@ CTY_KYBD_SCREEN:						;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½COUNTRY_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³COUNTRY_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The COUNTRY CODE screen is presented if the user selected to define
+ ;  country specific support (CTY_KYBD_SCREEN).
+@@ -328,10 +328,10 @@ COUNTRY_SCREEN: 						;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½KEYBOARD_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³KEYBOARD_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;  The KEYBOARD CODE screen is presented if the user had selected to
+ ;  define country specific support and the country code selected has a valid
+ ;  keyboard code association.
+@@ -405,10 +405,10 @@ KEYBOARD_SCREEN:						;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½ALT_KYB_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³ALT_KYB_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The ALTERNATE KEYBOARD CODE screen is presented if the selected keyboard
+ ;  has different keyboard layouts.
+@@ -472,13 +472,13 @@ ALT_KYB_SCREEN: 						;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;   ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½
+-;  ï¿½ LOAD_KEYBOARD			 ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³ LOAD_KEYBOARD			 ³
+ ;
+-;  ï¿½	This will execute the keyboard	 ï¿½
++;  ³	This will execute the keyboard	 ³
+ ;	program to load the requested
+-;  ï¿½	keyboard routine.		 ï¿½
+-;   ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½
++;  ³	keyboard routine.		 ³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ LOAD_KEYBOARD:							;AN000;
+@@ -540,10 +540,10 @@ LOAD_KEYBOARD:							;AN000;
+ 								;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½DEST_DRIVE_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³DEST_DRIVE_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The DESTINATION DRIVE screen is presented when there is an option for
+ ;  the destination drive. Possible options are:
+diff --git a/v4.0/src/SELECT/SELECT2A.ASM b/v4.0/src/SELECT/SELECT2A.ASM
+index f253a3f..7c73d32 100644
+--- a/v4.0/src/SELECT/SELECT2A.ASM
++++ b/v4.0/src/SELECT/SELECT2A.ASM
+@@ -15,12 +15,12 @@ SUBTTL	SELECT2A.asm						;AN000;
+ ;
+ ;		  Panel flow is defined in the following files:
+ ;
+-;		      ï¿½ SELECT1.ASM
+-;		      ï¿½ SELECT2.ASM
+-;		      ï¿½ SELECT3.ASM
+-;		      ï¿½ SELECT4.ASM
+-;		      ï¿½ SELECT5.ASM
+-;		      ï¿½ SELECT6.ASM
++;		      þ SELECT1.ASM
++;		      þ SELECT2.ASM
++;		      þ SELECT3.ASM
++;		      þ SELECT4.ASM
++;		      þ SELECT5.ASM
++;		      þ SELECT6.ASM
+ ;
+ ;	CHANGE HISTORY:
+ ;
+@@ -67,10 +67,10 @@ SELECT	SEGMENT PARA PUBLIC 'SELECT'                            ;AN000;
+ 	EXTRN	choose_shell_screen:NEAR			;mrw0 ;AC020;SEH
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½DOS_LOC_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³DOS_LOC_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The DOS LOCATION screen is presented only if DOS is to be installed
+ ;  on drive C:.
+@@ -163,10 +163,10 @@ GET_DOS_LOCATION:						;AN000;
+ 	PUSH_HEADING		DOS_LOC_SCREEN			;AC051;SEH ;AN000;    save screen address on SELECT STACK
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½PRINTER_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³PRINTER_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The PRINTER SCREEN is always presented.
+ ;  The screen allows the user to indicate the number of printers attached.
+@@ -200,10 +200,10 @@ PRINTER_SCREEN: 						;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½PRINTER_TYPE_SCREEN 		ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³PRINTER_TYPE_SCREEN 		³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;	Get type of printer
+ ;
+diff --git a/v4.0/src/SELECT/SELECT3.ASM b/v4.0/src/SELECT/SELECT3.ASM
+index 64c46c5..cf6a4d1 100644
+--- a/v4.0/src/SELECT/SELECT3.ASM
++++ b/v4.0/src/SELECT/SELECT3.ASM
+@@ -15,12 +15,12 @@ SUBTTL	SELECT3.asm						;AN000;
+ ;
+ ;		  Panel flow is defined in the following files:
+ ;
+-;		      ï¿½ SELECT1.ASM
+-;		      ï¿½ SELECT2.ASM
+-;		      ï¿½ SELECT3.ASM
+-;		      ï¿½ SELECT4.ASM
+-;		      ï¿½ SELECT5.ASM
+-;		      ï¿½ SELECT6.ASM
++;		      þ SELECT1.ASM
++;		      þ SELECT2.ASM
++;		      þ SELECT3.ASM
++;		      þ SELECT4.ASM
++;		      þ SELECT5.ASM
++;		      þ SELECT6.ASM
+ ;
+ ;
+ ;  The following screens are contained in this module:
+@@ -74,10 +74,10 @@ SELECT	SEGMENT PARA PUBLIC 'SELECT'                            ;AN000;
+ 	PUBLIC	choose_shell_screen	 			;AC020; SEH
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½choose_shell_screen			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³choose_shell_screen			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The CHOOSE SHELL SCREEN is always presented.
+ ;  This screen allows the user to decide whether or not the DOS 
+@@ -108,10 +108,10 @@ IFNDEF NOSHELL
+ ENDIF
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½REVIEW_SELECTION_SCREEN		ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³REVIEW_SELECTION_SCREEN		³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The REVIEW SELECTION SCREEN is always presented.
+ ;  The screen asks the user if SELECT generated choices are to be presented.
+@@ -136,10 +136,10 @@ REVIEW_SELECTION_SCREEN:					;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½REVIEW_DISK_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³REVIEW_DISK_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The REVIEW SELECT DOS FUNCTIONS SELECTION SCREEN is presented if
+ ;  the user selected to view/change the selections generated by
+@@ -229,10 +229,10 @@ REVIEW_DISK_SCREEN:						;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½REVIEW_DISKETTE_SCREEN		ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³REVIEW_DISKETTE_SCREEN		³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The REVIEW SELECT DOS FUNCTIONS SELECTION SCREEN is presented if
+ ;  the user selected to view/change the selections generated by
+diff --git a/v4.0/src/SELECT/SELECT4.ASM b/v4.0/src/SELECT/SELECT4.ASM
+index bd56ddd..1694897 100644
+--- a/v4.0/src/SELECT/SELECT4.ASM
++++ b/v4.0/src/SELECT/SELECT4.ASM
+@@ -15,12 +15,12 @@ SUBTTL	SELECT4.asm						;AN000;
+ ;
+ ;		  Panel flow is defined in the following files:
+ ;
+-;		      ï¿½ SELECT1.ASM
+-;		      ï¿½ SELECT2.ASM
+-;		      ï¿½ SELECT3.ASM
+-;		      ï¿½ SELECT4.ASM
+-;		      ï¿½ SELECT5.ASM
+-;		      ï¿½ SELECT6.ASM
++;		      þ SELECT1.ASM
++;		      þ SELECT2.ASM
++;		      þ SELECT3.ASM
++;		      þ SELECT4.ASM
++;		      þ SELECT5.ASM
++;		      þ SELECT6.ASM
+ ;
+ ;
+ ;
+@@ -74,10 +74,10 @@ ICB_OUT 	EQU  0000000100000000B				;AN000;display default and accept input
+ 	EXTRN	EXIT_DOS:NEAR					;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½DOS_PARAMETERS_SCREENS		ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³DOS_PARAMETERS_SCREENS		³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The DOS PARAMETERS SCREEN is presented if the user selected to
+ ;  view/change the selections generated by SELECT ( F_REVIEW = 2 ).
+@@ -183,10 +183,10 @@ GET_PARAMETERS: 						;AN000;
+ 	GOTO			SHELL_SCREEN			;AN000;    goto the next screen (SHELL)
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½SHELL_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³SHELL_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The SHELL PARAMETERS SCREEN is presented if the user selected to
+ ;  install SHELL support and the user wants to view/change parameters.
+@@ -220,10 +220,10 @@ SHELL_SCREEN:							;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½FASTOPEN_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³FASTOPEN_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The FASTOPEN PARAMETERS SCREEN is presented if the user selected to
+ ;  install FASTOPEN support and the user wants to view/change the parameters.
+@@ -258,10 +258,10 @@ FASTOPEN_SCREEN:						;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½SHARE_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³SHARE_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The SHARE PARAMETERS SCREEN is presented if the user selected to
+ ;  install SHARE support and the user wants to view/change parameters.
+@@ -297,10 +297,10 @@ SHARE_SCREEN:							;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½GRAPHICS_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³GRAPHICS_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The GRAPHICS PARAMETERS SCREEN is presented if the user selected to
+ ;  install GRAPHICS support and the user wants to view/change parameters.
+@@ -340,10 +340,10 @@ GRAPHICS_SCREEN:						;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½EXP_MEMORY_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³EXP_MEMORY_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The EXPANDED MEMORY PARAMETERS SCREEN is presented if the user selected to
+ ;  install expanded memory support and the user wants to view/change parameters.
+diff --git a/v4.0/src/SELECT/SELECT5.ASM b/v4.0/src/SELECT/SELECT5.ASM
+index 68920be..6b74e16 100644
+--- a/v4.0/src/SELECT/SELECT5.ASM
++++ b/v4.0/src/SELECT/SELECT5.ASM
+@@ -15,12 +15,12 @@ SUBTTL	SELECT5.asm						;AN000;
+ ;
+ ;		  Panel flow is defined in the following files:
+ ;
+-;		      ï¿½ SELECT1.ASM
+-;		      ï¿½ SELECT2.ASM
+-;		      ï¿½ SELECT3.ASM
+-;		      ï¿½ SELECT4.ASM
+-;		      ï¿½ SELECT5.ASM
+-;		      ï¿½ SELECT6.ASM
++;		      þ SELECT1.ASM
++;		      þ SELECT2.ASM
++;		      þ SELECT3.ASM
++;		      þ SELECT4.ASM
++;		      þ SELECT5.ASM
++;		      þ SELECT6.ASM
+ ;
+ ;  Module contains code for :
+ ;	- VDISK screen
+@@ -87,10 +87,10 @@ SELECT	SEGMENT PARA PUBLIC 'SELECT'                            ;AN000;segment fo
+ 	EXTRN	EXIT_SELECT:NEAR				;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½VDISK_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³VDISK_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The VDISK PARAMETERS SCREEN is presented if the user selected to
+ ;  install virtual disk support and the user wants to view/change parameters.
+@@ -122,10 +122,10 @@ VDISK_SCREEN:							;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½CONFIG_SYS_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³CONFIG_SYS_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The CONFIG.SYS PARAMETERS SCREEN is presented if the user selected to
+ ;  view/change SELECT generated commands ( F_REVIEW = 2 ).
+@@ -222,10 +222,10 @@ CONFIG_SYS_SCREEN:						;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½FIRST_DISK_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³FIRST_DISK_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The PARTITION FIXED DISK SCREEN is presented if the first fixed drive
+ ;  exists and is completely unused.
+@@ -251,11 +251,11 @@ FIRST_DISK_SCREEN:						;AN000;
+ 	.ENDIF							;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½MAKE_BACKUP_DISKETTE		ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³MAKE_BACKUP_DISKETTE		³
++;  ³					³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;	WE NEED TO MAKE A DUPLICATE OF THE SELECT/SHELL DISKETTE 
+ ;	FOR R/W PURPOSES!
+@@ -323,8 +323,8 @@ MAKE_BACKUP_DISKETTE:						;AN000;
+ 	OR  SEL_FLG,INSTALLRW					;AN000; indicate INSTALL diskette is R/W
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+-; ï¿½ Create the CONFIG.340, AUTOEXEC.340, and SHELL.BAT on the	ï¿½
+-; ï¿½ INSTALL COPY diskette in drive A:				ï¿½
++; ³ Create the CONFIG.340, AUTOEXEC.340, and SHELL.BAT on the	³
++; ³ INSTALL COPY diskette in drive A:				³
+ ;  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 	CREATE_CONFIG		S_CONFIG_NEW, N_RETCODE 	;AN000;
+@@ -345,11 +345,11 @@ MAKE_BACKUP_DISKETTE:						;AN000;
+ 	.ENDIF							;AN000;DT
+ 								;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½DISK_PARTITION_OPTION		ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³DISK_PARTITION_OPTION		³
++;  ³					³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;	If the first fixed disk is not new (existing partition)
+ ;	goto different screen.	Else present screen with partition
+@@ -479,11 +479,11 @@ FDISK_ERROR:							;AN000;
+ 	GOTO	       INSTALL_ERROR				;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½BOTH_DISK_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³BOTH_DISK_SCREEN			³
++;  ³					³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;	Ask user if they want to change the existing partition
+ ;	layout or leave it the same (for both disks if 2nd exists).
+@@ -573,4 +573,4 @@ GET_ENTER_KEY ENDP						;AN000;DT
+ 								;
+ SELECT	ENDS							;AN000;
+ 	END							;AN000;
+-
+\ No newline at end of file
++
+diff --git a/v4.0/src/SELECT/SELECT5A.ASM b/v4.0/src/SELECT/SELECT5A.ASM
+index 1a7d29e..a735e0b 100644
+--- a/v4.0/src/SELECT/SELECT5A.ASM
++++ b/v4.0/src/SELECT/SELECT5A.ASM
+@@ -15,12 +15,12 @@ SUBTTL	SELECT5A.asm						;AN000;
+ ;
+ ;		  Panel flow is defined in the following files:
+ ;
+-;		      ï¿½ SELECT1.ASM
+-;		      ï¿½ SELECT2.ASM
+-;		      ï¿½ SELECT3.ASM
+-;		      ï¿½ SELECT4.ASM
+-;		      ï¿½ SELECT5.ASM
+-;		      ï¿½ SELECT6.ASM
++;		      þ SELECT1.ASM
++;		      þ SELECT2.ASM
++;		      þ SELECT3.ASM
++;		      þ SELECT4.ASM
++;		      þ SELECT5.ASM
++;		      þ SELECT6.ASM
+ ;
+ ;  Module contains code for :
+ ;	- Date/Time screen
+@@ -64,10 +64,10 @@ SELECT	SEGMENT PARA PUBLIC 'SELECT'                            ;AN000;segment fo
+ 	EXTRN	EXIT_SELECT:NEAR				;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;  ï¿½DATE_TIME_SCREEN			ï¿½
+-;  ï¿½					ï¿½
+-;  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;  ³DATE_TIME_SCREEN			³
++;  ³					³
++;  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;  The INSTALL DATE and TIME SCREEN is presented if the active date is 1/1/80.
+ ;  If the user is installing to drive C: , this is the first screen presented
+diff --git a/v4.0/src/SELECT/SELECT6.ASM b/v4.0/src/SELECT/SELECT6.ASM
+index 863aecc..79ae075 100644
+--- a/v4.0/src/SELECT/SELECT6.ASM
++++ b/v4.0/src/SELECT/SELECT6.ASM
+@@ -15,7 +15,7 @@ SUBTTL	SELECT6.asm						;AN000;
+ ;
+ ;		  Panel flow is defined in the following files:
+ ;
+-;		      ï¿½ SELECT1.ASM
++;		      þ SELECT1.ASM
+ ;		      ;AN000; SELECT2.ASM
+ ;		      ;AN000; SELECT3.ASM
+ ;		      ;AN000; SELECT4.ASM
+diff --git a/v4.0/src/SELECT/SELECT7.ASM b/v4.0/src/SELECT/SELECT7.ASM
+index 5882cd0..9d64860 100644
+--- a/v4.0/src/SELECT/SELECT7.ASM
++++ b/v4.0/src/SELECT/SELECT7.ASM
+@@ -15,7 +15,7 @@ SUBTTL	SELECT7.asm						;AN000;
+ ;
+ ;		  Panel flow is defined in the following files:
+ ;
+-;		      ï¿½ SELECT1.ASM
++;		      þ SELECT1.ASM
+ ;		      ;AN000; SELECT2.ASM
+ ;		      ;AN000; SELECT3.ASM
+ ;		      ;AN000; SELECT4.ASM
+@@ -461,4 +461,4 @@ GET_OVERLAY	ENDP						;AN000;
+ 								;
+ SELECT	ENDS							;AN000;
+ 	END							;AN000;
+-
+\ No newline at end of file
++
+diff --git a/v4.0/src/SELECT/SELECT9.ASM b/v4.0/src/SELECT/SELECT9.ASM
+index e294c6c..1abf14d 100644
+--- a/v4.0/src/SELECT/SELECT9.ASM
++++ b/v4.0/src/SELECT/SELECT9.ASM
+@@ -15,12 +15,12 @@ SUBTTL	SELECT9.asm
+ ;
+ ;		  Panel flow is defined in the following files:
+ ;
+-;		      ï¿½ SELECT1.ASM
+-;		      ï¿½ SELECT2.ASM
+-;		      ï¿½ SELECT3.ASM
+-;		      ï¿½ SELECT4.ASM
+-;		      ï¿½ SELECT5.ASM
+-;		      ï¿½ SELECT6.ASM
++;		      þ SELECT1.ASM
++;		      þ SELECT2.ASM
++;		      þ SELECT3.ASM
++;		      þ SELECT4.ASM
++;		      þ SELECT5.ASM
++;		      þ SELECT6.ASM
+ ;
+ ;
+ ;  Module contains code for :
+@@ -515,4 +515,4 @@ Free_Parser:
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ SELECT	ENDS
+ 	END
+-
+\ No newline at end of file
++
+diff --git a/v4.0/src/SELECT/USA.INF b/v4.0/src/SELECT/USA.INF
+index f98c4eb..18a9289 100644
+--- a/v4.0/src/SELECT/USA.INF
++++ b/v4.0/src/SELECT/USA.INF
+@@ -22,52 +22,52 @@ IF SCROLL				;A000;
+ ;
+ ;
+ ;	<R1>	The quotation marks have to left-right justified
+-;		ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;		ï¿½ The quotation marks (') tell SELECT where   ï¿½
+-;		ï¿½ to start wrapping the text onto the next    ï¿½
+-;		ï¿½ line.  The assembler line immediately after ï¿½
+-;		ï¿½ the first text line automatically calculatesï¿½
+-;		ï¿½ the length of this field.  The right border ï¿½
+-;		ï¿½ of the text can be adjusted freely - a rulerï¿½
+-;		ï¿½ is drawn for each entry to help in centeringï¿½
+-;		ï¿½ text. 				      ï¿½
+-;		ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;               ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;		³ The quotation marks (') tell SELECT where   ³
++;		³ to start wrapping the text onto the next    ³
++;		³ line.  The assembler line immediately after ³
++;		³ the first text line automatically calculates³
++;		³ the length of this field.  The right border ³
++;		³ of the text can be adjusted freely - a ruler³
++;		³ is drawn for each entry to help in centering³
++;		³ text. 				      ³
++;               ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;	<R2>	The '[' and ']' input field markers cannot be moved
+-;		ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;		ï¿½ These characters must remain in the same    ï¿½
+-;		ï¿½ position.  They define the boundries of     ï¿½
+-;		ï¿½ input fields. 			      ï¿½
+-;		ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;               ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;		³ These characters must remain in the same    ³
++;		³ position.  They define the boundries of     ³
++;		³ input fields. 			      ³
++;               ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;	<R3>	The panel will be centered in an 80 column screen
+-;		ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;		ï¿½ This panel will be centered on the screen   ï¿½
+-;		ï¿½ when it is displayed.  Please translate     ï¿½
+-;		ï¿½ accordingly.				      ï¿½
+-;		ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;               ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;		³ This panel will be centered on the screen   ³
++;		³ when it is displayed.  Please translate     ³
++;		³ accordingly.				      ³
++;               ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;	<R4>	The number of lines for the entry MUST be maintained
+-;		ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;		ï¿½ The number of lines (from top to bottom)    ï¿½
+-;		ï¿½ must not change.  Translated text must      ï¿½
+-;		ï¿½ conform to the existing number of lines.    ï¿½
+-;		ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;               ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;		³ The number of lines (from top to bottom)    ³
++;		³ must not change.  Translated text must      ³
++;		³ conform to the existing number of lines.    ³
++;               ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;	<R5>	The width of the entry must not exceed the RULER provided.
+-;		ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;		ï¿½ Translated text should remain the same      ï¿½
+-;		ï¿½ width (do not exceed the ruler).  Otherwise ï¿½
+-;		ï¿½ the text will not fit within the panel.     ï¿½
+-;		ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;               ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;		³ Translated text should remain the same      ³
++;		³ width (do not exceed the ruler).  Otherwise ³
++;		³ the text will not fit within the panel.     ³
++;               ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;	<R9>	DO NOT TRANSLATE OR CHANGE!!!!
+-;		ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
+-;		ï¿½ The information contained in the quotations ï¿½
+-;		ï¿½ should NEVER be changed.  These fields are  ï¿½
+-;		ï¿½ established for the size of the help text   ï¿½
+-;		ï¿½ or error panels.			      ï¿½
+-;		ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
++;               ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
++;		³ The information contained in the quotations ³
++;		³ should NEVER be changed.  These fields are  ³
++;		³ established for the size of the help text   ³
++;		³ or error panels.			      ³
++;               ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ ;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;
+@@ -1276,20 +1276,20 @@ PANEL35_L	EQU	($-PANEL35)/PANEL35_W		     ;AN028;
+ ;	      |---------1---------2---------3---------4---------5----|
+ 
+ PANEL36  LABEL	 BYTE					      ;AN000;
+-	DB   'ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿';AN000;
++	DB   'ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿';AN000;
+ PANEL36_W	EQU	($-PANEL36)			      ;AN000;
+-	DB   'ï¿½                                                      ï¿½';AN000;
+-	DB   'ï¿½                                                      ï¿½';AN000;
+-	DB   'ï¿½                                                      ï¿½';AN000;
+-	DB   'ï¿½                                                      ï¿½';AN000;
+-	DB   'ï¿½                                                      ï¿½';AN000;
+-	DB   'ï¿½                                                      ï¿½';AN000;
+-	DB   'ï¿½                                                      ï¿½';AN000;
+-	DB   'ï¿½                                                      ï¿½';AN000;
+-	DB   'ï¿½                                                      ï¿½';AN000;
+-	DB   'ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´';AN000;
+-	DB   'ï¿½                                                      ï¿½';AN000;
+-	DB   'ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½';AN000;
++	DB   '³                                                      ³';AN000;
++	DB   '³                                                      ³';AN000;
++	DB   '³                                                      ³';AN000;
++	DB   '³                                                      ³';AN000;
++	DB   '³                                                      ³';AN000;
++	DB   '³                                                      ³';AN000;
++	DB   '³                                                      ³';AN000;
++	DB   '³                                                      ³';AN000;
++	DB   '³                                                      ³';AN000;
++	DB   'ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´';AN000;
++	DB   '³                                                      ³';AN000;
++	DB   'ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ';AN000;
+ PANEL36_L	EQU	($-PANEL36)/PANEL36_W		      ;AN000;
+ 
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+@@ -1301,7 +1301,7 @@ PANEL36_L	EQU	($-PANEL36)/PANEL36_W		      ;AN000;
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 
+ PANEL37  LABEL	 BYTE					      ;AN000;
+-	DB 'ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½';AN000;
++	DB 'ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ';AN000;
+ PANEL37_W	EQU	($-PANEL37)			      ;AN000;
+ PANEL37_L	EQU	($-PANEL37)/PANEL37_W		      ;AN000;
+ 
+@@ -1316,7 +1316,7 @@ PANEL37_L	EQU	($-PANEL37)/PANEL37_W		      ;AN000;
+ ;     |---------1---------2---------3---------4---------5---------6---------7---------8
+ 
+ PANEL38  LABEL	 BYTE					      ;AN000;
+-	DB 'Press Enter (ï¿½ï¿½) to continue or Esc to Cancel'   ;AN000;
++	DB 'Press Enter (ÄÙ) to continue or Esc to Cancel'   ;AN000;
+ PANEL38_W	EQU	($-PANEL38)			      ;AN000;
+ PANEL38_L	EQU	($-PANEL38)/PANEL38_W		      ;AN000;
+ 
+@@ -1774,16 +1774,16 @@ PANEL66_L	EQU	($-PANEL66)/PANEL66_W	   ;AN000;
+ ;	      |---------1---------2---------3---------4---------5-|
+ 
+ PANEL67 LABEL BYTE				;AN000;
+-	DB   'ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿';AN000;
++	DB   'ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿';AN000;
+ PANEL67_W	EQU	($-PANEL67)		;AN000;
+-	DB   'ï¿½                                                   ï¿½';AN000;
+-	DB   'ï¿½                                                   ï¿½';AN000;
+-	DB   'ï¿½                                                   ï¿½';AN000;
+-	DB   'ï¿½                                                   ï¿½';AN000;
+-	DB   'ï¿½                                                   ï¿½';AN000;
+-	DB   'ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´';AN000;
+-	DB   'ï¿½                                                   ï¿½';AN000;
+-	DB   'ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½';AN000;
++	DB   '³                                                   ³';AN000;
++	DB   '³                                                   ³';AN000;
++	DB   '³                                                   ³';AN000;
++	DB   '³                                                   ³';AN000;
++	DB   '³                                                   ³';AN000;
++	DB   'ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´';AN000;
++	DB   '³                                                   ³';AN000;
++	DB   'ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ';AN000;
+ PANEL67_L	EQU	($-PANEL67)/PANEL67_W	;AN000;
+ 
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+@@ -2378,4 +2378,3 @@ PANEL103_L	EQU	($-PANEL103)/PANEL103_W	    ;AN000;
+ 
+ 
+ ENDIF
+-
+\ No newline at end of file
+diff --git a/v4.0/src/SETENV.BAT b/v4.0/src/SETENV.BAT
+index 0a67782..928044f 100644
+--- a/v4.0/src/SETENV.BAT
++++ b/v4.0/src/SETENV.BAT
+@@ -6,7 +6,7 @@ set MASM=
+ set COUNTRY=usa-ms
+ set BAKROOT=d:
+ rem BAKROOT points to the home drive/directory of the sources.
+-set LIB=%BAKROOT%\src\tools\lib
++set LIB=%BAKROOT%\src\tools\bld\lib
+ set INIT=%BAKROOT%\src\tools
+-set INCLUDE=%BAKROOT%\src\tools\inc
+-set PATH=%BAKROOT%\src\tools
++set INCLUDE=%BAKROOT%\src\tools\bld\inc
++set PATH=%BAKROOT%\src\tools;%PATH%
