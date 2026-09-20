@@ -1,0 +1,257 @@
+{
+  "IO.SYS": {
+    "size": 33321,
+    "sha256": "755c79c16d3db5280b5286f1032a4f77bb8556b79f0c22f9c9f85556c7b69e39"
+  },
+  "MSDOS.SYS": {
+    "size": 37376,
+    "sha256": "573626782a3c45f0d9e5f00af1bd0f52a7de44bea96d2a2d3d660e9ae06158d5"
+  },
+  "COMMAND.COM": {
+    "size": 37556,
+    "sha256": "19ebe2e5a8e18ca5d447a3d1fc42c42e4942ff5f3ef50e39ab01374bb01d8ea9"
+  },
+  "APPEND.EXE": {
+    "size": 11154,
+    "sha256": "2b166b708e0d1b50719ac50ce32bc0e7d04ce76e6c28850d8d0ce2bd5502578b"
+  },
+  "ASSIGN.COM": {
+    "size": 5753,
+    "sha256": "edf9bb8136b4a89d06f801a1e620b7107842e06fbca1c83643ca256f74437bd2"
+  },
+  "ATTRIB.EXE": {
+    "size": 18263,
+    "sha256": "e66d22f2873bfa59a9d6908f85fc43c9c2b52cc62ab63ebc13b98e900aecabf7"
+  },
+  "BACKUP.COM": {
+    "size": 36880,
+    "sha256": "c709fcafb7428a3ce637623a3d32f8d4334231c11fed26ee599e554e1652847e"
+  },
+  "CHKDSK.COM": {
+    "size": 17787,
+    "sha256": "02a683582160a16638098d9055b14d0d3e66d4ccea27a82435bebbac7f733ad3"
+  },
+  "COMP.COM": {
+    "size": 9459,
+    "sha256": "a4478bbb749c518d8ab514e42901de86c6c7bf44c0cbba585a9f4ab39017c662"
+  },
+  "DEBUG.COM": {
+    "size": 21574,
+    "sha256": "f688545d0839f07be5aa96ef43e6afc055cca25324607af65b22a713d6eb6f83"
+  },
+  "DISKCOMP.COM": {
+    "size": 9857,
+    "sha256": "55b54c43100b366931a3ed462d26697a43b86718f91cf7e9282205a5c0384d7f"
+  },
+  "DISKCOPY.COM": {
+    "size": 10396,
+    "sha256": "9bda2fd91ac1088d75d6acd4688165689f8c5c75a2ef60705df0c43c922b1358"
+  },
+  "EDLIN.COM": {
+    "size": 14069,
+    "sha256": "cd22745bd242ac3229f28301a5ce1d19c0e7b8faf3ba66d4391e3d489e277902"
+  },
+  "EXE2BIN.EXE": {
+    "size": 7963,
+    "sha256": "4b3d197ddbfb2f98250553bcce677358ea925a1feb2850addf5c8ac288a8088c"
+  },
+  "FASTOPEN.EXE": {
+    "size": 16702,
+    "sha256": "14d619e40476e18b5c9429cfd159646797e8233d1fb150961b5243403e9160b8"
+  },
+  "FILESYS.EXE": {
+    "size": 11129,
+    "sha256": "4cae8b7bab236e1a246a064b14b404fed754b0e3b7610e80ddce0f76f194587a"
+  },
+  "FDISK.EXE": {
+    "size": 60935,
+    "sha256": "ea6ce9926199117edc55d7fe61369c628add43c15cd627fd7abcfbc63b55bf65"
+  },
+  "FIND.EXE": {
+    "size": 5941,
+    "sha256": "2d6c67ab0d1a15beaa18590b9ca6d4c618ff2f6af625f7bc8e2ac6a2155731e6"
+  },
+  "FC.EXE": {
+    "size": 15807,
+    "sha256": "2f4b0ffae400a45f144b4ab9ff6e750589afe23602767f3ea8df0b62741f391e"
+  },
+  "FORMAT.COM": {
+    "size": 22859,
+    "sha256": "f44685e84b092a17603704ed5023aaff360bba414843076306fd7693d477696c"
+  },
+  "GRAFTABL.COM": {
+    "size": 10239,
+    "sha256": "2e65cc87908390e8e476bf577de705948f532c1e3d5b94aeeb00048f044b32e3"
+  },
+  "GRAPHICS.COM": {
+    "size": 16693,
+    "sha256": "b7abce9f4119662fc2546b00c62230ab300ff2512f4000ad3e4c81142a01e2c7"
+  },
+  "GRAPHICS.PRO": {
+    "size": 9397,
+    "sha256": "c8d534ec76423fd10acc27db9507255a3db9d3aa37fb5c11153c2f2c411da6b4"
+  },
+  "IFSFUNC.EXE": {
+    "size": 21739,
+    "sha256": "86c8861f82bdcffa50f08590f00b317d3fb7ce262c951963e26a7ed783042e15"
+  },
+  "JOIN.EXE": {
+    "size": 17813,
+    "sha256": "a415bf465c21e863d612626d00fedc401dcded2d6041e5ccb4250f2a7cd90aa2"
+  },
+  "LABEL.COM": {
+    "size": 4458,
+    "sha256": "a8fce248d06392d9e0adc7ed557aa63cffdade89878825c689b2b84e8ccf8d44"
+  },
+  "MEM.EXE": {
+    "size": 20005,
+    "sha256": "b3678169c59d359fdef9e21cd616a8d7ce2f81caabd9006de5e68a6caa744b91"
+  },
+  "MODE.COM": {
+    "size": 22960,
+    "sha256": "50fe27e2f2f437b7ce268d89ad4c763c8048669fa38aab17dd584f198f7c46f8"
+  },
+  "MORE.COM": {
+    "size": 2134,
+    "sha256": "d36f092cb61d8ef2e25b66b6dfea70c08290ec958d325b8ec798b62a2ef14864"
+  },
+  "NLSFUNC.EXE": {
+    "size": 6878,
+    "sha256": "8851cacdc3260f38cbce388edd1821e08563d35ec9208be95b75ba910f57446b"
+  },
+  "PRINT.COM": {
+    "size": 14131,
+    "sha256": "7236ffee35ebe46ae1e7895245c83bea4fbd71b684220d5f71ec1140a529a0c8"
+  },
+  "RECOVER.COM": {
+    "size": 10588,
+    "sha256": "46bb0d3e730a7302247dbf6b1a418ec4d371d0a947ce6bbe7a7153cd4f6f7dca"
+  },
+  "REPLACE.EXE": {
+    "size": 19415,
+    "sha256": "2887db67f7297cfef20254d9c770fab060966d032758563c8063a5a3c51becf4"
+  },
+  "RESTORE.COM": {
+    "size": 36946,
+    "sha256": "9c3a711d30fe61f6a3b33133036f71bd229c85dd1e4967d340f1632ca1407b8b"
+  },
+  "SELECT.EXE": {
+    "size": 95107,
+    "sha256": "f61c9640004b6417f3667240b98851a1e6d470369416abf23972cc353365c8d0"
+  },
+  "SELECT.COM": {
+    "size": 3642,
+    "sha256": "bdbf51f86a171f633020fe74d007a28020c189e9cd9c52fb12e2a54f0cbddae0"
+  },
+  "SELECT.DAT": {
+    "size": 22999,
+    "sha256": "d9bced9807446d012e042d048f26fd7aac808fd63ae9403bb19fcde888c2254d"
+  },
+  "SELECT.PRT": {
+    "size": 1329,
+    "sha256": "ff73db5a8318cd83430e926cd046a4c3d21dab857a00dc234c305141facbea39"
+  },
+  "SELECT.HLP": {
+    "size": 28695,
+    "sha256": "b2e15f740c133427af7f5a295cb780b3a028bd8429c7a483fd98af97a2ba62a5"
+  },
+  "SHARE.EXE": {
+    "size": 13424,
+    "sha256": "e30e3f392da0be3f64feda5f678b69e4043a58bf4defb723d6807f38eceaec81"
+  },
+  "SORT.EXE": {
+    "size": 5882,
+    "sha256": "1de1a1457a242a19448871152b91afb57650a2fd68c211e217d11f38f4cb59fd"
+  },
+  "SYS.COM": {
+    "size": 11456,
+    "sha256": "1083138f28a35a16985f8d6c3b8afb276649d3bdb35a4444cccb22a1f7149e4c"
+  },
+  "SUBST.EXE": {
+    "size": 18467,
+    "sha256": "ea91985a23b83a8a26a4e9a4f61e05638d96bb1c0d9ca17ac1e5dd30e19b5268"
+  },
+  "TREE.COM": {
+    "size": 6302,
+    "sha256": "a830b50b7304bebda3d82e98e13f758b1ede9a90bcb6917ea8f62aab6b01a0d5"
+  },
+  "XCOPY.EXE": {
+    "size": 17055,
+    "sha256": "7f1b05b60767d9ec9bbd8730bcb91491e970687d351268e607917e91dbc145ea"
+  },
+  "KEYB.COM": {
+    "size": 14727,
+    "sha256": "6a66e27fe7865243bb631fe247701a93956caa641af4926811280ebd7a2d061c"
+  },
+  "ANSI.SYS": {
+    "size": 9105,
+    "sha256": "c6d23b1ecaa670f6de83c1e003bec50967962e0fcca2e96737bba38057e27581"
+  },
+  "COUNTRY.SYS": {
+    "size": 12806,
+    "sha256": "cd1abba25c110531d4ce0588eae9c1353214d4e322cd4c7989b8b51fea170bb3"
+  },
+  "DISPLAY.SYS": {
+    "size": 15692,
+    "sha256": "3de3e2951122ead73f57d39889fb15afee0bf8a7f82e9557ddfd513cb42f97b2"
+  },
+  "EGA.CPI": {
+    "size": 49068,
+    "sha256": "154e76387efde2950e6372a6c60fe591a0a598104b25c90545f0f75158af52a5"
+  },
+  "LCD.CPI": {
+    "size": 10703,
+    "sha256": "2f62b85f088c4e4143a35642086f23f735bdd082c2905f1092a9657d06755034"
+  },
+  "KEYBOARD.SYS": {
+    "size": 23328,
+    "sha256": "0a3e9ce32f0426c43e163b5dd9832bf5f78626426ab6143c3a3c96c673a91a89"
+  },
+  "PRINTER.SYS": {
+    "size": 18914,
+    "sha256": "b15bf75a8d4ee8b517fc6014e35ef04d3051b1e28bb29afced89fbcb9ab23855"
+  },
+  "4201.CPI": {
+    "size": 6404,
+    "sha256": "e46d224fc096d3e2903ca58d7356bb37b16fd1d9ffda439903f386860a664e88"
+  },
+  "4208.CPI": {
+    "size": 720,
+    "sha256": "1f4a05e6ccf80d187702f6abaecb9966d120cf9a336d30cc2390692ba2a2fa22"
+  },
+  "5202.CPI": {
+    "size": 370,
+    "sha256": "3f503e60c30e60f6833755fd9284d84afc7125bacce16ee83a42c596c2143f4b"
+  },
+  "SMARTDRV.SYS": {
+    "size": 10224,
+    "sha256": "c9895111576d6d898dcffe4b4efbe746169b81e22cf9fc51b49ef10c46e2436f"
+  },
+  "RAMDRIVE.SYS": {
+    "size": 8235,
+    "sha256": "34b8b368b2835b8a572bb21ae015336c5af8e62c84d29209c726e18ee56b60e2"
+  },
+  "DRIVER.SYS": {
+    "size": 5241,
+    "sha256": "6a3ae37bcfde3dfda435e285a547d38f86dc3c91eb9fc2ad7123e3e72c2c7a46"
+  },
+  "XMA2EMS.SYS": {
+    "size": 29211,
+    "sha256": "f6ffe886e4e2be63a0de05075daaf3812fecaf34e30173439de4a81368495172"
+  },
+  "XMAEM.SYS": {
+    "size": 19264,
+    "sha256": "5ea3e0d5cf4ff17126cdcc79abc77f7ee5f67b8ba4868a1c8dfd8540c3edd498"
+  },
+  "EMM386.SYS": {
+    "size": 87776,
+    "sha256": "03434e799e5ea72c2f27a2e79014a4e9f519322d6acfe7a2ae25aa9675111f55"
+  },
+  "AUTOEXEC.BAT": {
+    "size": 151,
+    "sha256": "218f122afa08bef303a8143eb12a209f9d7b5240103bc357ed672f06462564f2"
+  },
+  "image": {
+    "sha256": "f5e8ec0b90a9db0441539cc1afdece3a0c223b196cd8a9d4d99c7240587e64cd"
+  }
+}

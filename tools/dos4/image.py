@@ -105,8 +105,12 @@ def create(work):
         name = path.name.upper()
         if name not in {n for n, _ in files}:
             files.append((name, (src / path).read_bytes()))
-    files.append(("AUTOEXEC.BAT", b"@echo off\r\nver > VER.TXT\r\ndir > DIR.TXT\r\necho DOS4-WRITE-READ> PROBE.TXT\r\ntype PROBE.TXT > READ.TXT\r\necho COMPLETE> DONE.TXT\r\nver\r\ndir\r\ntype READ.TXT\r\n"))
-    image = make_image((src / "BOOT/MSBOOT.BIN").read_bytes(), files)
+    files.append(("AUTOEXEC.BAT", b"@echo off\r\nver > VER.TXT\r\ndir > DIR.TXT\r\necho DOS4-WRITE-READ> PROBE.TXT\r\ntype PROBE.TXT > READ.TXT\r\ndir\r\nver\r\ntype READ.TXT\r\necho COMPLETE> DONE.TXT\r\n"))
+    # MSBOOT.ASM uses ORG 7C00h; EXE2BIN preserves that zero-filled prefix.
+    binary = (src / "BOOT/MSBOOT.BIN").read_bytes()
+    if len(binary) != 0x7E00 or any(binary[:0x7C00]):
+        raise ValueError("Unexpected EXE2BIN boot output layout")
+    image = make_image(binary[0x7C00:], files)
     if read_files(image) != dict(files):
         raise ValueError("FAT image round-trip validation failed")
     output = work / "msdos4-boot.img"

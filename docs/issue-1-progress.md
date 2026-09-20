@@ -6,12 +6,12 @@ create a reproducible FAT12 boot image, and verify it in QEMU.
 ## Progress
 
 - [x] Read issue #1 and inspect repository baseline (2d04cac).
-- [ ] Record pinned tools and restoration provenance.
-- [ ] Implement isolated source preparation and build automation.
-- [ ] Build and inspect logs and artifacts.
-- [ ] Implement and validate boot image generation.
-- [ ] Verify VER, DIR, and file write/read in QEMU.
-- [ ] Document clean reproduction and mark PR ready.
+- [x] Record pinned tools and restoration provenance.
+- [x] Implement isolated source preparation and build automation.
+- [x] Build and inspect logs and artifacts.
+- [x] Implement and validate boot image generation.
+- [x] Verify VER, DIR, and file write/read in QEMU.
+- [x] Document clean reproduction (PR readiness is recorded below).
 
 ## Resume
 
@@ -37,3 +37,18 @@ Resume by checking .work/build/checkpoint.json and v4.0/src/BUILD.LOG.
 If needed rerun the build stage (no prepare on an existing tree), then image.py
 and verify.py under WSL. A second fresh preparation/build is still required.
 No QEMU boot validation has passed yet; keep PR draft until it does.
+
+
+## Final implementation checkpoint 2026-09-20
+
+Both build directories completed successfully; each has all 62 CPY.BAT outputs.
+Both pristine 1.44 MB images have identical SHA256:
+f5e8ec0b90a9db0441539cc1afdece3a0c223b196cd8a9d4d99c7240587e64cd
+All file hashes also match. Both QEMU boot probes passed VER, DIR, write/read.
+The one-command PowerShell wrapper passed in Resume mode, including WSL path
+translation and QEMU verification. All 3 image unit tests passed.
+
+Final entry point: tools/dos4/run.ps1. User guide: docs/build-msdos4.md.
+Versioned evidence: docs/validation-msdos4.md and docs/validation/dos4/.
+Earlier checkpoint statements are historical; the outstanding validation there
+is now complete. No sub-agents were used. Ready for final PR review/undrafting.

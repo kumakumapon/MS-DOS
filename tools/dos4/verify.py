@@ -17,6 +17,11 @@ from image import read_files
 def verify(work, qemu, timeout):
     original = work / "msdos4-boot.img"
     tested = work / "qemu-test.img"
+    (work / "verification.json").unlink(missing_ok=True)
+    if "," in str(tested):
+        raise ValueError("QEMU drive paths must not contain commas")
+    if {"DONE.TXT", "VER.TXT", "DIR.TXT", "PROBE.TXT", "READ.TXT"} & read_files(original.read_bytes()).keys():
+        raise ValueError("The input must be a pristine image without probe results")
     shutil.copyfile(original, tested)
     version = subprocess.check_output([qemu, "--version"], text=True).splitlines()[0]
     # Use a Unix QMP socket in WSL's /tmp, not on a Windows-mounted filesystem.
