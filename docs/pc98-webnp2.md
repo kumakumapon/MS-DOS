@@ -55,6 +55,7 @@ WebNP2 のファイルマネージャで FD 内容を確認・保存できます
 ```sh
 # WebNP2 リポジトリ
 npm ci
+mkdir -p public/test
 cp /path/to/MS-DOS/ports/pc98/build/msdos2-pc98.xdf public/test/msdos2-pc98.xdf
 npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
 ```

@@ -28,6 +28,7 @@ jobs:
       - run: npm ci
         working-directory: webnp2
       - run: |
+          mkdir -p webnp2/public/test
           cp dos/ports/pc98/build/msdos2-pc98.xdf webnp2/public/test/msdos2-pc98-ci.xdf
           npm --prefix webnp2 run dev -- --host 127.0.0.1 --port 5173 --strictPort > /tmp/webnp2.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:5173/ > /dev/null && break; sleep 1; done
