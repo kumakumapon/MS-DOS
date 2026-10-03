@@ -10,6 +10,9 @@ The MS-DOS v1.25 and v2.0 files [were originally shared at the Computer History 
 For this fork's reproducible Windows build and WSL/QEMU boot workflow, see
 [Building MS-DOS 4.00](docs/build-msdos4.md) (Japanese).
 
+For the native PC-98 / WebNP2 OEM BIOS and boot floppy, see
+[MS-DOS 2.0 on PC-98](docs/pc98-webnp2.md) (Japanese).
+
 # License
 
 All files within this repo are released under the [MIT License]( https://en.wikipedia.org/wiki/MIT_License) as per the [LICENSE file](https://github.com/Microsoft/MS-DOS/blob/main/LICENSE) stored in the root of this repo.

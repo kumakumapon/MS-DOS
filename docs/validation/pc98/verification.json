@@ -1,0 +1,13 @@
+{
+  "browser": "Chrome/151.0.7922.173",
+  "image_sha256": "06c61f74897107c937abba509cb286cb2dc1fbf23c516cbfab082887c1b0cd84",
+  "webnp2_commit": "4c21552727cfe4019b4dc0f68f0dca124026f650",
+  "cpu_clock_multiplier": 8,
+  "results": [
+    "Microsoft MS-DOS 2.00 kernel and bundled Command 2.02 boot",
+    "DOS VER, ECHO redirection, TYPE and COPY",
+    "PC-98 RTC calendar read through DOS DATE",
+    "readback of guest-written FAT12 files and both FAT copies"
+  ],
+  "screen": "MS-DOS version 2.00\nCopyright 1981,82,83 Microsoft Corp.\n\nCommand v. 2.02\n\nA>ECHO OFF\nMS-DOS 2.0 PC-98 / WebNP2\n\nA>VER\n\nMS-DOS Version  2.00\n\nA>ECHO DOS2-WRITE-READ>PROBE.TXT\n\nA>TYPE PROBE.TXT\nDOS2-WRITE-READ\n\nA>COPY PROBE.TXT COPIED.TXT\n        1 File(s) copied\n\nA>DATE\nCurrent date is Sat 10-03-2026\nEnter new date:\n\nA>"
+}

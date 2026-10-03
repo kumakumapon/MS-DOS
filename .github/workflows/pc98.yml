@@ -1,0 +1,40 @@
+name: PC-98 MS-DOS 2.0
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  build-and-boot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: dos
+      - uses: actions/checkout@v4
+        with:
+          repository: kumakumapon/webnp2
+          ref: 4c21552727cfe4019b4dc0f68f0dca124026f650
+          path: webnp2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python3 ports/pc98/toolchain.py
+        working-directory: dos
+      - run: |
+          python3 ports/pc98/build.py --jwasm .work/pc98-tools/JWasm/GccUnixR/jwasm --jwlink .work/pc98-tools/JWlink/build/jwlinkLR/jwlink
+          python3 ports/pc98/image.py
+          python3 -m unittest discover -s ports/pc98 -p 'test_*.py'
+        working-directory: dos
+      - run: npm ci
+        working-directory: webnp2
+      - run: |
+          mkdir -p webnp2/public/test
+          cp dos/ports/pc98/build/msdos2-pc98.xdf webnp2/public/test/msdos2-pc98-ci.xdf
+          npm --prefix webnp2 run dev -- --host 127.0.0.1 --port 5173 --strictPort > /tmp/webnp2.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:5173/ > /dev/null && break; sleep 1; done
+          CHROMIUM=/usr/bin/google-chrome WEBNP2_NO_SANDBOX=1 node dos/ports/pc98/verify-webnp2.mjs webnp2 msdos2-pc98-ci.xdf dos/ports/pc98/build/validation
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: msdos2-pc98
+          path: dos/ports/pc98/build

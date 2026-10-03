@@ -1,2 +1,7 @@
 .work/
 __pycache__/
+ports/pc98/build/
+ports/pc98/*.obj
+ports/pc98/*.exe
+ports/pc98/*.map
+ports/pc98/*.bin
