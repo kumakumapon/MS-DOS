@@ -1,0 +1,42 @@
+{
+  "image": "msdos4-pc98.xdf",
+  "dos_version": "4.00",
+  "sha256": "491e68a6329a35031ce41b26cb31618df3e4f182ac9fa92ee032582ea7254926",
+  "files": [
+    {
+      "name": "IO.SYS",
+      "size": 16180,
+      "sha256": "37d9ad61ba4f974f2745831132981bc3883e0838d34c1040529424b988ed120d"
+    },
+    {
+      "name": "MSDOS.SYS",
+      "size": 37376,
+      "sha256": "573626782a3c45f0d9e5f00af1bd0f52a7de44bea96d2a2d3d660e9ae06158d5"
+    },
+    {
+      "name": "COMMAND.COM",
+      "size": 37556,
+      "sha256": "19ebe2e5a8e18ca5d447a3d1fc42c42e4942ff5f3ef50e39ab01374bb01d8ea9"
+    },
+    {
+      "name": "AUTOEXEC.BAT",
+      "size": 43,
+      "sha256": "98fa204a4cba0b1688cb4bda355a2481f9185a8cfd7080defd46d7a8bd83e5c3"
+    },
+    {
+      "name": "DOSLIC.TXT",
+      "size": 1074,
+      "sha256": "b5179f780ec212a434efcc989a2295a140deb0bdb17182d2bf9c5f6f1f1a01c4"
+    },
+    {
+      "name": "CONFIG.SYS",
+      "size": 34,
+      "sha256": "2bca5ac0479c3760f5da20a9e5b6069657204d347a21e22687ca3f5938110490"
+    },
+    {
+      "name": "P98TEST.COM",
+      "size": 75,
+      "sha256": "1ad2574b94b621ed85d35c8d8a99fcd0c01f6c733c55961172227650f49c9b81"
+    }
+  ]
+}

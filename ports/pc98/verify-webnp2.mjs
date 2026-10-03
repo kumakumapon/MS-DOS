@@ -21,6 +21,9 @@ const sourceImage = await readHostFile(join(resolve(checkout), 'public/test', im
 const imageSha256 = createHash('sha256').update(sourceImage).digest('hex');
 const webnp2Commit = execFileSync('git', ['-C', resolve(checkout), 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const base = process.env.WEBNP2_URL ?? 'http://127.0.0.1:5173';
+const dosVersion = process.env.DOS_VERSION ?? '2';
+assert.ok(['2', '4'].includes(dosVersion), 'DOS_VERSION must be 2 or 4');
+const probe = `DOS${dosVersion}-WRITE-READ`;
 await mkdir(output, { recursive: true });
 function readFile(image, name) {
   const fat = image.subarray(1024, 3072), root = image.subarray(5120, 11264);
@@ -60,23 +63,31 @@ try {
     await page.waitForFunction(needle => window.np2debug.np2.getScreenText().lines.some(s => s.trim() === needle), { timeout }, needle).catch(async e=>{console.log('TIMEOUT',await text());console.log(await page.evaluate(()=>window.np2debug.np2.dbgReadRegs()));throw e;});
   };
   await line('A>');
-  assert.ok((await text()).includes('MS-DOS version 2.00'));
+  if (dosVersion === '2') assert.ok((await text()).includes('MS-DOS version 2.00'));
   assert.ok(!(await text()).includes('Specified COMMAND search directory bad'));
-  results.push('Microsoft MS-DOS 2.00 kernel and bundled Command 2.02 boot');
+  results.push(dosVersion === '2' ? 'Microsoft MS-DOS 2.00 kernel and bundled Command 2.02 boot' : 'source-built Microsoft MS-DOS 4.00 and COMMAND.COM boot');
   await command('VER');
-  await line('MS-DOS Version  2.00');
-  await command('ECHO DOS2-WRITE-READ>PROBE.TXT');
+  await line(dosVersion === '2' ? 'MS-DOS Version  2.00' : 'MS-DOS Version 4.00');
+  await command(`ECHO ${probe}>PROBE.TXT`);
   await command('TYPE PROBE.TXT');
-  await line('DOS2-WRITE-READ');
+  await line(probe);
   await command('COPY PROBE.TXT COPIED.TXT');
-  await line('1 File(s) copied');
+  await page.waitForFunction(() => window.np2debug.np2.getScreenText().lines.some(s => /^1\s+file\(s\) copied\.?$/i.test(s.trim())), { timeout: 10000 }).catch(async e => { console.log(await text()); throw e; });
   results.push('DOS VER, ECHO redirection, TYPE and COPY');
   await command('DATE');
-  await page.waitForFunction(() => window.np2debug.np2.getScreenText().text.includes('Enter new date:'), { timeout: 10000 });
+  await page.waitForFunction(() => window.np2debug.np2.getScreenText().text.includes('Enter new date'), { timeout: 10000 });
   const currentDate = (await text()).split('\n').find(s => s.includes('Current date is'));
   assert.ok(currentDate?.includes(String(new Date().getFullYear())), 'RTC year must match the emulator host');
   await command('');
   results.push('PC-98 RTC calendar read through DOS DATE');
+  if (dosVersion === '4') {
+    await command('P98TEST > EXEC.TXT');
+    await command('TYPE EXEC.TXT');
+    await line('DOS4 EXEC OK');
+    await command('ECHO DOS4-RETURN-OK');
+    await line('DOS4-RETURN-OK');
+    results.push('COM EXEC, DOS version API 4.00, redirected output and INT 21h/4Ch return');
+  }
   if (process.env.RETROBASIC === '1') {
     await command('RBASIC');
     await line('Ready');
@@ -111,18 +122,26 @@ try {
       }
       results.push(`native sample ${file}${file==='MANSMOKE.BAS'?' (STEP 32; full-resolution original kept as MANDEL.BAS)':''}`);
     }
+    if (process.env.RETROBASIC_FILES === '1') {
+      await command('RBASIC FILEIO.BAS');
+      await line('NATIVE FILE IO OK');
+      results.push('native OPEN INPUT/OUTPUT/APPEND, WRITE#/PRINT#/INPUT#/LINE INPUT#, EOF/LOF/LOC/INPUT$ and CLOSE');
+    }
   }
   const exported = await page.evaluate(async () => window.np2debug.np2.exportDiskBase64('fd1'));
   const image = Buffer.from(exported.base64, 'base64');
-  assert.equal(readFile(image, 'PROBE.TXT').toString('ascii').trim(), 'DOS2-WRITE-READ');
+  assert.equal(readFile(image, 'PROBE.TXT').toString('ascii').trim(), probe);
   assert.deepEqual(readFile(image, 'PROBE.TXT'), readFile(image, 'COPIED.TXT'));
+  if (dosVersion === '4') assert.equal(readFile(image, 'EXEC.TXT').toString('ascii'), 'DOS4 EXEC OK\r\n');
   if (process.env.RETROBASIC === '1') {
     assert.equal(readFile(image, 'PROOF.BAS').toString('ascii'), '10 FOR I=1 TO 3\r\n20 PRINT I\r\n30 NEXT I\r\n40 PRINT "NATIVE OUTPUT OK"\r\n');
+    if (process.env.RETROBASIC_FILES === '1')
+      assert.equal(readFile(image, 'SEQ.TXT').toString('ascii'), '"A,B",42,"Q""R"\r\nTAIL\r\nAPPEND\r\n');
   }
   results.push('readback of guest-written FAT12 files and both FAT copies');
   assert.deepEqual(pageErrors, [], 'WebNP2 page errors');
   await writeFile(join(output, 'guest-written.xdf'), image);
   await page.screenshot({ path: join(output, 'screen.png') });
-  await writeFile(join(output, 'verification.json'), JSON.stringify({ browser: await browser.version(), image_sha256: imageSha256, webnp2_commit: webnp2Commit, cpu_clock_multiplier: 8, results, screen: await text() }, null, 2) + '\n');
+  await writeFile(join(output, 'verification.json'), JSON.stringify({ browser: await browser.version(), dos_version: dosVersion, image_sha256: imageSha256, webnp2_commit: webnp2Commit, cpu_clock_multiplier: 8, results, screen: await text() }, null, 2) + '\n');
   console.log('PASS', results);
 } finally { await browser.close(); }

@@ -1,4 +1,4 @@
-; PC-98 OEM BIOS for Microsoft's bundled MS-DOS 2.0 kernel and SYSINIT.
+; PC-98 OEM BIOS for Microsoft DOS; DOS4 selects the v4.0 SYSINIT contract.
 ; All hardware access uses NEC BIOS or PC-98 text VRAM, never IBM PC BIOS.
 .8086
 EXTRN SYSINIT:FAR, CURRENT_DOS_LOCATION:WORD, FINAL_DOS_LOCATION:WORD
@@ -38,6 +38,16 @@ bpb dw 1024
     dw 192,1232
     db 0feh
     dw 2
+IFDEF DOS4
+    dw 8,2
+    dd 0,0
+    db 6 dup(0)
+    PUBLIC MulTrk_flag, KEYRD_Func, KEYSTS_Func, EC35_Flag
+MulTrk_flag dw 1 ; disable IBM multi-track optimization
+KEYRD_Func db 0
+KEYSTS_Func db 1
+EC35_Flag db 0
+ENDIF
 bpblist dw bpb
 clockdata dw 0
           db 0,0,0,0
@@ -791,7 +801,11 @@ ASSUME DS:SEG SYSINIT
     mov WORD PTR DEVICE_LIST,OFFSET condev
     mov WORD PTR DEVICE_LIST+2,cs
     mov WORD PTR MEMORY_SIZE,0a000h
+IFDEF DOS4
+    mov BYTE PTR DEFAULT_DRIVE,1 ; DOS 4 SYSINIT uses one-based A:
+ELSE
     mov BYTE PTR DEFAULT_DRIVE,0
+ENDIF
     jmp SYSINIT
     db 256 dup (0)
 init_stack_end LABEL BYTE

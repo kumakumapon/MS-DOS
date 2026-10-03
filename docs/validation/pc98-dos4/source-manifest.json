@@ -1,0 +1,21 @@
+{
+  "base": "2d04cacc5322951f187bb17e017c12920ac8ebe2",
+  "sysinit": {
+    "SYSINIT1.ASM": {
+      "source": "175f73e761ae3207e7b50e207c1a5402ff693b002913d679783c5a04d6fc32ce",
+      "patched": "e2eaba71759d6cb9c21303c72cd625ea6babc9405c2c5ab2e0a0b98cdda1fb67"
+    },
+    "SYSCONF.ASM": {
+      "source": "d423781848ee58ab803193ed483b3f4bf9f0d0af6dd446775bcfa5f18c6bdf8e",
+      "patched": "3cfd2bc5f404fc96913983cade27354a5fd1248f86ce6681e49eb336ab50b9bb"
+    },
+    "SYSINIT2.ASM": {
+      "source": "649ca305d201ab1779853712cfe78688b720f5b3e83fd25b25db613c0a237020",
+      "patched": "6884a33aed111bde55845f45fefde98dda28f7b725f6896b98c013c0a26aea61"
+    },
+    "SYSIMES.ASM": {
+      "source": "05a5f444b2575a5c5bbb18e72f38932295c70db0f3413b3ab9976d1a9c1c6412",
+      "patched": "05a5f444b2575a5c5bbb18e72f38932295c70db0f3413b3ab9976d1a9c1c6412"
+    }
+  }
+}

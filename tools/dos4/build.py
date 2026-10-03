@@ -11,6 +11,17 @@ ROOT = Path(__file__).resolve().parents[2]
 BASE = "2d04cacc5322951f187bb17e017c12920ac8ebe2"
 
 
+def dos_path(root, name):
+    """Resolve DOS's case-insensitive filenames on a Linux host."""
+    current = root
+    for part in name.replace('\\', '/').split('/'):
+        matches = [p for p in current.iterdir() if p.name.casefold() == part.casefold()]
+        if len(matches) != 1:
+            raise FileNotFoundError(name)
+        current = matches[0]
+    return current
+
+
 def prepare(work):
     if work.exists():
         raise ValueError(f"Refusing to overwrite existing build: {work}")
@@ -55,7 +66,13 @@ def build(work, dosbox):
     if not (src / "BUILD.OK").exists() or re.search(r"fatal error|error [A-Z]+\d+|Stop\.", log, re.I):
         raise RuntimeError(f"Build failed; inspect {src / 'BUILD.LOG'}")
     files = re.findall(r"^copy\s+\.\\(\S+)\s+%1", (src / "CPY.BAT").read_text(), re.M | re.I)
-    missing = [f for f in files if not (src / Path(f.replace('\\', '/'))).is_file()]
+    missing = []
+    for name in files:
+        try:
+            if not dos_path(src, name).is_file():
+                missing.append(name)
+        except FileNotFoundError:
+            missing.append(name)
     if missing:
         raise RuntimeError(f"Missing CPY.BAT outputs: {missing}")
     (work / "checkpoint.json").write_text(json.dumps({"base": BASE, "stage": "built", "outputs": len(files)}, indent=2))

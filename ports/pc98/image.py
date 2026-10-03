@@ -26,18 +26,28 @@ def flatten_exe(data, segment=0xC0):
     return bytes(result)
 
 
-def make_image(ipl, bios, extra=()):
-    if len(ipl) != 1024 or len(bios) > 0x4000:
+def make_image(ipl, bios, extra=(), *, kernel=None, command=None, autoexec=None):
+    # IO.SYS must stay below the kernel's final 1000h segment and the IPL
+    # loads each payload without wrapping its 16-bit buffer offset.
+    limit = 0xF400 if kernel is not None else 0x4000
+    if len(ipl) != 1024 or len(bios) > limit:
         raise ValueError('invalid IPL size or oversized BIOS')
     image = bytearray(1232 * 1024)
     image[:1024] = ipl
     count_offset = image.index(b'COUNTS') + 6
-    kernel = (ROOT / 'v2.0/bin/MSDOS.SYS').read_bytes()
+    if kernel is None:
+        kernel = (ROOT / 'v2.0/bin/MSDOS.SYS').read_bytes()
+    if not kernel or len(kernel) > 0xA000:
+        raise ValueError('invalid kernel load size')
+    if command is None:
+        command = (ROOT / 'v2.0/bin/COMMAND.COM').read_bytes()
+    if autoexec is None:
+        autoexec = (Path(__file__).parent / 'AUTOEXEC.BAT').read_text().replace('\n', '\r\n').encode('ascii')
     struct.pack_into('<HH', image, count_offset,
                      (len(bios) + 1023) // 1024, (len(kernel) + 1023) // 1024)
     files = [('IO.SYS', bios), ('MSDOS.SYS', kernel),
-             ('COMMAND.COM', (ROOT / 'v2.0/bin/COMMAND.COM').read_bytes()),
-             ('AUTOEXEC.BAT', (Path(__file__).parent / 'AUTOEXEC.BAT').read_text().replace('\n', '\r\n').encode('ascii')),
+             ('COMMAND.COM', command),
+             ('AUTOEXEC.BAT', autoexec),
              ('DOSLIC.TXT', (ROOT / 'LICENSE').read_bytes()),
              *extra]
     fat = bytearray(2048)
