@@ -27,6 +27,7 @@ jobs:
           python3 -m unittest discover -s ports/pc98 -p 'test_*.py'
           python3 -m unittest discover -s tools/dos4 -p 'test_*.py'
           make -C tools/filer test
+          make -C tools/editor test
           python3 tools/filer/verify_ibm.py
         working-directory: dos
         env:
@@ -42,6 +43,8 @@ jobs:
           DOS_VERSION=4 CHROMIUM=/usr/bin/google-chrome WEBNP2_NO_SANDBOX=1 node dos/ports/pc98/verify-webnp2.mjs webnp2 msdos4-pc98-ci.xdf dos/ports/pc98/build/dos4/validation
           cp dos/ports/pc98/build/dos4/msdos4-pc98.xdf webnp2/public/test/dos4-filer.xdf
           CHROMIUM=/usr/bin/google-chrome WEBNP2_NO_SANDBOX=1 node dos/tools/filer/verify-webnp2.mjs webnp2 http://127.0.0.1:5173/ dos/tools/filer/build/pc98-validation
+          cp dos/ports/pc98/build/dos4/msdos4-pc98.xdf webnp2/public/test/dos4-editor.xdf
+          CHROMIUM=/usr/bin/google-chrome WEBNP2_NO_SANDBOX=1 node dos/tools/editor/verify-webnp2.mjs webnp2 http://127.0.0.1:5173/ dos/tools/editor/build/pc98-validation
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -49,5 +52,6 @@ jobs:
           path: |
             dos/ports/pc98/build/dos4
             dos/tools/filer/build
+            dos/tools/editor/build
             dos/.work/pc98-dos4/checkpoint.json
             dos/.work/pc98-dos4/v4.0/src/BUILD.LOG

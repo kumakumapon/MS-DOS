@@ -86,6 +86,8 @@ def build_port(work, output, dosbox, jwasm):
 def package(output, extra=()):
     filer = ROOT/'tools/filer'
     subprocess.run(['make', '-C', str(filer), 'all'], check=True)
+    editor = ROOT/'tools/editor'
+    subprocess.run(['make', '-C', str(editor), 'all'], check=True)
     bios = flatten_exe((output/'bios.exe').read_bytes())
     kernel = (output/'MSDOS.SYS').read_bytes()
     command = (output/'COMMAND.COM').read_bytes()
@@ -93,6 +95,7 @@ def package(output, extra=()):
     config = ('CONFIG.SYS', b'FILES=20\r\nBUFFERS=8\r\nLASTDRIVE=A\r\n')
     probe = ('P98TEST.COM', (output/'P98TEST.COM').read_bytes())
     apps = [(name, (filer/'build'/name).read_bytes()) for name in ('FD98.COM', 'FILER.TXT', 'FILERLIC.TXT')]
+    apps += [(name, (editor/'build'/name).read_bytes()) for name in ('EDIT98.COM', 'EDIT.COM', 'EDIT.TXT', 'EDITLIC.TXT', 'JPHELLO.TXT')]
     disk, files = make_image((output/'ipl.bin').read_bytes(), bios, [config, probe, *apps, *extra],
                             kernel=kernel, command=command, autoexec=autoexec)
     (output/'IO.SYS').write_bytes(bios)

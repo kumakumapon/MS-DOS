@@ -1,0 +1,26 @@
+EDIT98 - PC-98 Shift_JIS text editor
+==================================
+Usage: EDIT [file] or EDIT98 [file]. In FD98 select a file and press E.
+F1 Help, F2 Open/new, F3/Ctrl-S Save, F4 Save as, F5/Ctrl-F Find,
+F6 Find next, F10/Esc Quit (asks before discarding unsaved changes).
+Arrows move, HOME/Ctrl-A line start, Ctrl-E line end, ROLL UP/DOWN page.
+Backspace/Delete remove a whole character, Ctrl-Y deletes a line,
+Ctrl-Z toggles the last edit (undo/redo). Open and Save clear undo.
+Tab inserts a tab. Long lines scroll horizontally.
+
+Use WebNP2's text input with your host OS IME, then Send the committed
+Japanese text. Input and files use Shift_JIS, including half-width kana.
+This is not a standalone DOS FEP. File names must be ASCII DOS 8.3 names.
+Files up to 16 KiB (after newline normalization) can be edited.
+Binary files and invalid Shift_JIS byte pairs are rejected.
+CRLF, CR, and LF input is normalized; saving always writes DOS CRLF.
+Read-only files can be opened; use Save as to create a different file.
+
+Save writes an exclusive EDxxxxxx.TMP in the same directory, closes it,
+then renames the original to EDxxxxxx.BAK before installing the new file.
+On failure the original is restored where possible. If cleanup/restore
+fails, the recovery path is shown. A retained .BAK is the original file;
+a retained .TMP contains the attempted save. Inspect it before retrying.
+Power loss between renames may leave a .BAK; restore it from DOS or FD98.
+
+EDIT98 is new MIT-licensed code; see EDITLIC.TXT.

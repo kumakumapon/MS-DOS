@@ -117,7 +117,13 @@ int p_attrs(const char *path, u8 attrs) {
     return chmod(name, attrs & 1 ? 0400 : 0600) < 0 ? error_code() : 0;
 }
 int p_rename(const char *source, const char *destination) {
+    static int calls;
     Entry entry;
+    const char *at = getenv("FD_FAIL_RENAME_AT");
+    calls++;
+    if (at && calls <= 9 && strchr(at, '0' + calls)) return -5;
+    const char *fail = getenv("FD_FAIL_RENAME");
+    if (fail && (!strcmp(fail, "ALL") || strstr(source, fail))) return -5;
     if (source[0] != destination[0] || getenv("FD_CROSS_DEVICE")) return -17;
     if (!p_stat(destination, &entry)) return -FD_EXISTS;
     char from[FD_PATH + 2], to[FD_PATH + 2];
@@ -125,6 +131,10 @@ int p_rename(const char *source, const char *destination) {
     return rename(from, to) < 0 ? error_code() : 0;
 }
 int p_unlink(const char *path) {
+    static int calls;
+    const char *at = getenv("FD_FAIL_UNLINK_AT");
+    calls++;
+    if (at && calls <= 9 && strchr(at, '0' + calls)) return -5;
     const char *fail = getenv("FD_FAIL_UNLINK");
     if (fail && (!strcmp(fail, "ALL") || strstr(path, fail))) return -5;
     Entry entry;
@@ -144,6 +154,7 @@ int p_rmdir(const char *path) {
 }
 int p_cancel(void) { return getenv("FD_ABORT_COPY") != 0; }
 
+#ifndef FD_LIBRARY
 int main(int argc, char **argv) {
     static Panel panel;
     char source[FD_PATH], destination[FD_PATH];
@@ -170,3 +181,4 @@ int main(int argc, char **argv) {
     if (error) printf("ERROR %d\n", error);
     return error ? 1 : 0;
 }
+#endif
