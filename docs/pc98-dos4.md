@@ -30,6 +30,10 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
 WebNP2 の FD1 に読み込み、386 設定で起動してください。
 `--add /path/APP.COM` で 8.3 名のアプリを追加できます。
 
+起動FDには二画面ファイラー `FD98.COM`、操作説明 `FILER.TXT`、
+ライセンス `FILERLIC.TXT` も同梱します。`A>` で `FD98` を実行してください。
+[操作・IBM PC版・ビルドと検証](filer.md)を参照してください。
+
 同じコマンドを再実行すると、成功済みのカーネルビルドを再利用し、OEM 層と FD を
 作り直します。カーネルもクリーンに再ビルドする場合は `--work .work/dos4-repro`
 のような新しいパスを指定してください。中断された作業は checkpoint に基づき
