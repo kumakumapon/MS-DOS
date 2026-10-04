@@ -1,0 +1,15 @@
+{
+  "browser": "Chrome/151.0.7922.173",
+  "dos_version": "4",
+  "image_sha256": "491e68a6329a35031ce41b26cb31618df3e4f182ac9fa92ee032582ea7254926",
+  "webnp2_commit": "4c21552727cfe4019b4dc0f68f0dca124026f650",
+  "cpu_clock_multiplier": 8,
+  "results": [
+    "source-built Microsoft MS-DOS 4.00 and COMMAND.COM boot",
+    "DOS VER, ECHO redirection, TYPE and COPY",
+    "PC-98 RTC calendar read through DOS DATE",
+    "COM EXEC, DOS version API 4.00, redirected output and INT 21h/4Ch return",
+    "readback of guest-written FAT12 files and both FAT copies"
+  ],
+  "screen": "A>VER\n\nMS-DOS Version 4.00\n\nA>ECHO DOS4-WRITE-READ>PROBE.TXT\n\nA>TYPE PROBE.TXT\nDOS4-WRITE-READ\n\nA>COPY PROBE.TXT COPIED.TXT\n        1 File(s) copied\n\nA>DATE\nCurrent date is Sat 10-03-2026\nEnter new date (mm-dd-yy):\n\nA>P98TEST > EXEC.TXT\n\nA>TYPE EXEC.TXT\nDOS4 EXEC OK\n\nA>ECHO DOS4-RETURN-OK\nDOS4-RETURN-OK\n\nA>"
+}

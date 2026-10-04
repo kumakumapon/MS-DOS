@@ -1,0 +1,43 @@
+FD Filer 1.0 / MS-DOS 4.0
+========================
+
+FD.COM: IBM PC 80x25 text / INT 10h and INT 16h
+FD98.COM: PC-98 80x25 text VRAM / NEC INT 18h
+Both use DOS INT 21h for files and require a 386 or later.
+
+This is an original MIT-licensed two-pane filer inspired by keyboard-driven
+file managers. It does not contain FD-clone source or claim full compatibility.
+See FILERLIC.TXT for its full license notice.
+
+Run FD98 from A> in WebNP2. Use FD on an IBM PC-compatible DOS 4.0 machine.
+
+Up/Down (J/K): select       PgUp/PgDn: page       Home: first
+Tab / Left / Right: switch pane                 Backspace: parent
+Enter: open directory / view file
+F1 / ?: help               F2 / R: rename       F3 / V: view
+F4: refresh                F5 / C: copy         F6 / M: move
+F7 / N: create directory   F8 / D: delete        F9 / X: run
+F10 / Q / Esc: quit
+
+Copy/move defaults to the OTHER pane's directory. Edit the proposed path,
+then press Enter. Ctrl-U clears a prompt; Esc cancels. Paths may be relative
+or absolute (A:\DIR\FILE.TXT); names use DOS 8.3 ASCII.
+Existing destinations are never overwritten, including a copy to itself.
+Esc cancels a file copy. Failed copies remove partial output; the source
+is retained. If cleanup itself fails, inspect both paths before retrying.
+Deleting files or EMPTY directories requires Y confirmation.
+Directories can be renamed/moved on the same drive; copying them recursively
+or moving them across drives is unsupported.
+
+F3 views ASCII text; other bytes are shown as dots. Space / PgDn advances,
+PgUp goes back through the last 127 pages, Home starts over, and Esc returns.
+F9 runs COM/EXE applications. BAS files use RBASIC.COM at the root of the
+startup drive; press any key after the application returns to resume the filer.
+Applications must be compatible with the machine they run on.
+
+Each pane lists up to 256 entries (255 plus ".." in a subdirectory); a visible
+message indicates truncation. One entry is handled per operation.
+This release has no editor, archive support, long names, recursive operations,
+multiple-file marking, or Japanese filename/display support.
+WebNP2's DOS 4.0 port supports only its bundled A: FAT12 floppy. Adding this
+filer does not add HDD/FAT16 or a second drive to that port.
