@@ -1,4 +1,5 @@
 #include "filer.h"
+#include "sjis.h"
 
 #define ROWS 18
 static Panel panels[2];
@@ -98,7 +99,7 @@ static void render(void) {
     Entry *entry = selected();
     if (entry) text(active ? 25 : 24, 22, entry->name, 0);
     field(0, 23, 80, message, 0);
-    field(0, 24, 80, "F2 Rename F3 View F4 Refresh F5 Copy F6 Move F7 Mkdir F8 Delete F9 Run", 1);
+    field(0, 24, 80, "F2 Rename F3 View F4 Refresh F5 Copy F6 Move F7 Mkdir F8 Delete F9 Run E Edit", 1);
 }
 static int prompt(const char *label, char *value) {
     int length = fd_len(value), position = length;
@@ -166,13 +167,26 @@ static void view(const char *path) {
             unsigned char c = (u8)buffer[used++]; position++;
             if (c == '\r') continue;
             if (c == '\n') { x = 1; y++; continue; }
+            if (sjis_lead(c)) {
+                if (used == count) {
+                    count = p_read(handle, buffer, sizeof buffer); used = 0;
+                    if (count < 0) { error = count; break; }
+                }
+                if (count && sjis_trail((u8)buffer[used])) {
+                    if (x > 77) { x = 1; y++; }
+                    if (y == 23) { position--; break; }
+                    p_pair(x, y, c, (u8)buffer[used++], 0); position++; x += 2;
+                    if (x == 79) { x = 1; y++; }
+                    continue;
+                }
+            }
             if (c == '\t') {
                 do {
                     p_cell(x++, y, ' ', 0);
                     if (x == 79) { x = 1; y++; break; }
                 } while ((x - 1) & 7);
             } else {
-                p_cell(x++, y, c >= 32 && c < 127 ? (char)c : '.', 0);
+                p_cell(x++, y, (c >= 32 && c < 127) || (c >= 0xa1 && c <= 0xdf) ? (char)c : '.', 0);
                 if (x == 79) x = 1, y++;
             }
         }
@@ -223,7 +237,7 @@ static void operation(int action) {
     }
     refresh();
 }
-static void run(void) {
+static void run(int editing) {
     char path[FD_PATH], program[FD_PATH], cwd[FD_PATH], arguments[FD_PATH];
     Entry *entry = selected();
     if (!entry_path(path) || (entry->attr & FD_DIR)) { status(5, ""); return; }
@@ -231,7 +245,11 @@ static void run(void) {
     const char *ext = length > 4 ? entry->name + length - 4 : "";
     arguments[0] = 0;
     fd_text(program, path, FD_PATH);
-    if (!fd_cmp(ext, ".BAS")) {
+    if (editing) {
+        char root[4] = {original[0], ':', '\\', 0};
+        fd_path(program, root, "EDIT98.COM");
+        fd_text(arguments, path, FD_PATH);
+    } else if (!fd_cmp(ext, ".BAS")) {
         char root[4] = {original[0], ':', '\\', 0};
         fd_path(program, root, "RBASIC.COM");
         fd_text(arguments, path, FD_PATH);
@@ -265,7 +283,7 @@ static void help(void) {
         "Up/Down or J/K: select     PgUp/PgDn: page     Home: first",
         "Tab or Left/Right: switch pane                Backspace: parent",
         "Enter: open directory / view file            F1 or ?: this help",
-        "F2 or R: rename     F3 or V: text viewer      F4: refresh",
+        "F2 or R: rename     F3 or V: text viewer      F4: refresh   E: EDIT98",
         "F5 or C: copy       F6 or M: move             F7 or N: mkdir",
         "F8 or D: delete selected file / empty directory (confirmation required)",
         "F9 or X: run COM/EXE; run BAS using RBASIC.COM on the startup drive",
@@ -310,7 +328,8 @@ int main(void) {
         else if (key == KEY_F1 + 5 || key == 'm' || key == 'M') operation(6);
         else if (key == KEY_F1 + 6 || key == 'n' || key == 'N') operation(7);
         else if (key == KEY_F1 + 7 || key == 'd' || key == 'D') operation(8);
-        else if (key == KEY_F1 + 8 || key == 'x' || key == 'X') run();
+        else if (key == KEY_F1 + 8 || key == 'x' || key == 'X') run(0);
+        else if (key == 'e' || key == 'E') run(1);
         else if (key == 13 || key == KEY_F1 + 2 || key == 'v' || key == 'V') {
             Entry *entry = selected();
             if (entry) {

@@ -28,7 +28,7 @@ typedef struct {
 
 enum {
     KEY_UP = 256, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_HOME, KEY_END,
-    KEY_PAGEUP, KEY_PAGEDOWN, KEY_F1 = 280
+    KEY_PAGEUP, KEY_PAGEDOWN, KEY_DELETE, KEY_INSERT, KEY_F1 = 280
 };
 
 int fd_len(const char *s);
@@ -67,6 +67,7 @@ void p_init(void);
 void p_screen(void);
 void p_finish(void);
 void p_cell(int x, int y, char character, int highlighted);
+void p_pair(int x, int y, u8 lead, u8 trail, int highlighted);
 int p_key(void);
 void p_output(const char *text);
 

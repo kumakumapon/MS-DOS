@@ -1,4 +1,5 @@
 #include "filer.h"
+#include "sjis.h"
 
 static u8 dta[43];
 static int result(unsigned value) { return (int)value; }
@@ -177,6 +178,19 @@ void p_cell(int x, int y, char character, int highlighted) {
     far_word(0xb800, offset, (u8)character | (highlighted ? 0x7000 : 0x1700));
 #endif
 }
+void p_pair(int x, int y, u8 lead, u8 trail, int highlighted) {
+    if (x < 0 || x >= 79 || y < 0 || y >= 25) return;
+#ifdef PC98
+    unsigned offset = (unsigned)(y * 80 + x) * 2;
+    far_word(0xa000, offset, (u16)sjis_vram(lead, trail));
+    far_word(0xa000, offset + 2, 0);
+    far_word(0xa000, 0x2000 + offset, highlighted ? 0xe5 : 0xe1);
+    far_word(0xa000, 0x2002 + offset, highlighted ? 0xe5 : 0xe1);
+#else
+    (void)lead; (void)trail;
+    p_cell(x, y, '?', highlighted); p_cell(x + 1, y, '?', highlighted);
+#endif
+}
 void p_screen(void) {
 #ifdef PC98
     bios18(0x4100, 0); /* Disable graphics so a previously run BASIC sample cannot obscure text. */
@@ -213,8 +227,11 @@ int p_key(void) {
     if (scan == 0x3b) return KEY_LEFT;
     if (scan == 0x3c) return KEY_RIGHT;
     if (scan == 0x3e) return KEY_HOME;
+    if (scan == 0x3f) return KEY_END;
     if (scan == 0x36) return KEY_PAGEUP;
     if (scan == 0x37) return KEY_PAGEDOWN;
+    if (scan == 0x38) return KEY_INSERT;
+    if (scan == 0x39) return KEY_DELETE;
 #else
     __asm__ volatile("int $0x16" : "+a"(a) :: "cc", "memory");
     unsigned scan = (a >> 8) & 255;
@@ -227,6 +244,8 @@ int p_key(void) {
     if (scan == 0x4f) return KEY_END;
     if (scan == 0x49) return KEY_PAGEUP;
     if (scan == 0x51) return KEY_PAGEDOWN;
+    if (scan == 0x52) return KEY_INSERT;
+    if (scan == 0x53) return KEY_DELETE;
 #endif
     return a & 255;
 }

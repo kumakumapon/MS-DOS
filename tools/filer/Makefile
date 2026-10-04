@@ -7,11 +7,11 @@ $(BUILD):
 	mkdir -p $@
 $(BUILD)/core.o: core.c filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/ui.o: ui.c filer.h | $(BUILD)
+$(BUILD)/ui.o: ui.c filer.h sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/dos.o: dos.c filer.h | $(BUILD)
+$(BUILD)/dos.o: dos.c filer.h sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/dos98.o: dos.c filer.h | $(BUILD)
+$(BUILD)/dos98.o: dos.c filer.h sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -DPC98 -c $< -o $@
 $(BUILD)/start.o: start.s | $(BUILD)
 	as --32 $< -o $@

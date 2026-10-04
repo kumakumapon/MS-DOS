@@ -1,5 +1,6 @@
 .work/
 tools/filer/build/
+tools/editor/build/
 __pycache__/
 ports/pc98/build/
 ports/pc98/*.obj

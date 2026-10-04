@@ -27,6 +27,7 @@ request dd 0
 cursor dw 0
 bootdrive db 90h
 ansi_state db 0
+sjis_pending db 0
 ansi_row dw 0
 ansi_col dw 0
 text_attr dw 0e1h
@@ -566,6 +567,8 @@ putchar PROC NEAR
     push cs
     pop ds
     mov bx,cursor
+    cmp sjis_pending,0
+    jne normal_output
     cmp ansi_state,0
     jne ansi_input
     cmp al,27
@@ -573,6 +576,95 @@ putchar PROC NEAR
     mov ansi_state,1
     jmp output_end
 normal_output:
+    cmp sjis_pending,0
+    jne sjis_second
+    cmp al,81h
+    jb single_output
+    cmp al,9fh
+    jbe sjis_first
+    cmp al,0e0h
+    jb single_output
+    cmp al,0efh
+    ja single_output
+sjis_first:
+    mov sjis_pending,al
+    jmp output_end
+sjis_second:
+    mov ah,sjis_pending
+    mov sjis_pending,0
+    cmp al,40h
+    jb sjis_invalid
+    cmp al,0fch
+    ja sjis_invalid
+    cmp al,7fh
+    je sjis_invalid
+    mov si,ax
+    ; A wide character must start before column 79. Blank the final cell first.
+    mov ax,bx
+    xor dx,dx
+    mov cx,160
+    div cx
+    cmp dx,158
+    jne sjis_convert
+    mov ax,0a000h
+    mov es,ax
+    mov WORD PTR es:[bx],32
+    mov ax,text_attr
+    mov es:[bx+2000h],ax
+    add bx,2
+    cmp bx,4000
+    jb sjis_convert
+    call scroll_text
+sjis_convert:
+    mov ax,si
+    mov dl,al
+    mov al,ah
+    cmp al,9fh
+    ja sjis_high
+    sub al,81h
+    jmp sjis_ku
+sjis_high:
+    sub al,0c1h
+sjis_ku:
+    shl al,1
+    add al,21h
+    cmp dl,9fh
+    jb sjis_lower
+    inc al
+    sub dl,7eh
+    jmp sjis_code
+sjis_lower:
+    cmp dl,80h
+    jb sjis_below_gap
+    sub dl,20h
+    jmp sjis_code
+sjis_below_gap:
+    sub dl,1fh
+sjis_code:
+    sub al,20h
+    mov ah,dl
+    or ah,80h
+    mov dx,0a000h
+    mov es,dx
+    mov es:[bx],ax
+    mov WORD PTR es:[bx+2],0
+    mov ax,text_attr
+    mov es:[bx+2000h],ax
+    mov es:[bx+2002h],ax
+    add bx,4
+    jmp output_scroll
+sjis_invalid:
+    ; Preserve an invalid sequence visibly and still interpret CR/LF/ESC normally.
+    push ax
+    mov al,'?'
+    call putchar
+    pop ax
+    mov bx,cursor
+    cmp al,27
+    jne single_output
+    mov ansi_state,1
+    jmp output_end
+single_output:
     cmp al,13
     je output_cr
     cmp al,10
@@ -713,6 +805,15 @@ output_tab:
 output_scroll:
     cmp bx,4000
     jb output_end
+    call scroll_text
+    jmp output_end
+scroll_text PROC NEAR
+    push ax
+    push cx
+    push si
+    push di
+    push ds
+    push es
     mov ax,0a000h
     mov ds,ax
     mov es,ax
@@ -723,9 +824,22 @@ output_scroll:
     mov ax,32
     mov cx,80
     rep stosw
-    push cs
-    pop ds
+    mov si,2000h+160
+    mov di,2000h
+    mov cx,1920
+    rep movsw
+    mov ax,cs:text_attr
+    mov cx,80
+    rep stosw
     sub bx,160
+    pop es
+    pop ds
+    pop di
+    pop si
+    pop cx
+    pop ax
+    ret
+scroll_text ENDP
 output_end:
     mov cursor,bx
     mov dx,bx

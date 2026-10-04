@@ -18,6 +18,7 @@ F1 / ?: help               F2 / R: rename       F3 / V: view
 F4: refresh                F5 / C: copy         F6 / M: move
 F7 / N: create directory   F8 / D: delete        F9 / X: run
 F10 / Q / Esc: quit
+E: edit the selected file with EDIT98.COM (PC-98 bundled disk)
 
 Copy/move defaults to the OTHER pane's directory. Edit the proposed path,
 then press Enter. Ctrl-U clears a prompt; Esc cancels. Paths may be relative
@@ -29,7 +30,8 @@ Deleting files or EMPTY directories requires Y confirmation.
 Directories can be renamed/moved on the same drive; copying them recursively
 or moving them across drives is unsupported.
 
-F3 views ASCII text; other bytes are shown as dots. Space / PgDn advances,
+F3 views ASCII and (on PC-98) Shift_JIS Japanese text. Invalid bytes are dots.
+Space / PgDn advances,
 PgUp goes back through the last 127 pages, Home starts over, and Esc returns.
 F9 runs COM/EXE applications. BAS files use RBASIC.COM at the root of the
 startup drive; press any key after the application returns to resume the filer.
@@ -37,7 +39,9 @@ Applications must be compatible with the machine they run on.
 
 Each pane lists up to 256 entries (255 plus ".." in a subdirectory); a visible
 message indicates truncation. One entry is handled per operation.
-This release has no editor, archive support, long names, recursive operations,
-multiple-file marking, or Japanese filename/display support.
+E uses EDIT98.COM at the startup drive's root, then returns to the filer.
+EDIT.TXT and EDITLIC.TXT describe the editor and its MIT license.
+Archive support, long names, recursive operations, multiple-file marking,
+and Japanese filenames are unsupported.
 WebNP2's DOS 4.0 port supports only its bundled A: FAT12 floppy. Adding this
 filer does not add HDD/FAT16 or a second drive to that port.

@@ -33,6 +33,9 @@ WebNP2 の FD1 に読み込み、386 設定で起動してください。
 起動FDには二画面ファイラー `FD98.COM`、操作説明 `FILER.TXT`、
 ライセンス `FILERLIC.TXT` も同梱します。`A>` で `FD98` を実行してください。
 [操作・IBM PC版・ビルドと検証](filer.md)を参照してください。
+`EDIT.COM` / `EDIT98.COM`、`EDIT.TXT`、`EDITLIC.TXT`、日本語サンプル
+`JPHELLO.TXT`も同梱します。`EDIT MEMO.TXT`で編集を開始します。
+[日本語表示・入力・エディタの操作](japanese-editor.md)を参照してください。
 
 同じコマンドを再実行すると、成功済みのカーネルビルドを再利用し、OEM 層と FD を
 作り直します。カーネルもクリーンに再ビルドする場合は `--work .work/dos4-repro`
@@ -81,8 +84,9 @@ COM、XDF、ビルドログ、ソースの変更前後のハッシュ、検証�
 
 ## 対応範囲
 
-初期対象は単一の1.23 MB FAT12 FD、640 KiBの通常メモリ、80×25の英語テキストです。
-PC-98 の AUX / PRN、漢字・日本語入力、HDD / FAT16、拡張メモリ、全付属ツールの
+対象は単一の1.23 MB FAT12 FD、640 KiBの通常メモリ、80×25のテキストです。
+CONとEDIT98はShift_JIS日本語本文を表示します。日本語変換はWebNP2のホストIMEを使い、
+DOS単体のFEPと日本語ファイル名は対象外です。PC-98 の AUX / PRN、HDD / FAT16、拡張メモリ、全付属ツールの
 動作確認は含めません。特に FORMAT / SYS / FDISK / MODE / ANSI.SYS / EMM386 などの
 IBM PC 用プログラムを PC-98 用として扱わないでください。FDにはそれらを格納しません。
 COMMAND.COM の通常操作と DOS API を使うアプリを対象にしています。
