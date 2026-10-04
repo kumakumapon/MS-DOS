@@ -29,9 +29,9 @@ export async function verifyFiler(page, { screenshot, basic = false } = {}) {
   };
   await type('ECHO FILER-GUEST-DATA>SOURCE.TXT\r');
   await wait('A>');
+  assert.equal((await guest('SOURCE.TXT')).toString(), 'FILER-GUEST-DATA\r\n');
   await type('FD98\r');
   await wait('FD Filer 1.0');
-  await wait('SOURCE.TXT');
   await key('TAB'); await wait('Active: RIGHT');
   await key('TAB'); await wait('Active: LEFT');
   await key('F1'); await wait('Keyboard help'); await key('ESC');
