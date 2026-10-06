@@ -102,5 +102,17 @@ class PortTests(unittest.TestCase):
         data = bios[segment*16+0x35:segment*16+0x43]
         self.assertEqual(struct.unpack('<7H', data), (0, 0x14, segment+0xC0, 0x11, segment+0xC0, 0x34, segment+0xC0))
 
+    def test_dos4_image_bundles_xms_and_ems(self):
+        image_path = HERE/'build/dos4/msdos4-pc98.xdf'
+        if not image_path.exists():
+            self.skipTest('run dos4.py first')
+        image = image_path.read_bytes()
+        config = read_root(image, 'CONFIG.SYS')
+        self.assertIn(b'DEVICE=FDXMS286.SYS\r\n', config)
+        self.assertIn(b'DEVICE=EMM386.EXE EMM=8192\r\n', config)
+        for name in ('FDXMS286.SYS', 'EMM386.EXE', 'XMSLIC.TXT', 'EMM386L.TXT',
+                     'XMSCHK.COM', 'EMSCHK.COM'):
+            self.assertTrue(read_root(image, name), name)
+
 if __name__ == '__main__':
     unittest.main()

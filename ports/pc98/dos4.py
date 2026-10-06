@@ -57,6 +57,10 @@ def build_port(work, output, dosbox, jwasm):
     subprocess.run([jwasm, '-DDOS4', '-Fo'+str(init/'P98BIO.OBJ'), str(HERE/'bios.asm')], check=True)
     subprocess.run([jwasm, '-bin', '-Fo'+str(output/'ipl.bin'), str(HERE/'ipl.asm')], check=True)
     subprocess.run([jwasm, '-bin', '-Fo'+str(output/'P98TEST.COM'), str(HERE/'probe4.asm')], check=True)
+    subprocess.run([jwasm, '-bin', '-Fo'+str(output/'XMSCHK.COM'),
+                    str(HERE/'memory/tests/xmscheck.asm')], check=True)
+    subprocess.run([jwasm, '-bin', '-Fo'+str(output/'EMSCHK.COM'),
+                    str(HERE/'memory/tests/emscheck.asm')], check=True)
     commands = ['@echo off', 'call ..\\SETENV.BAT']
     for name in ('SYSINIT1', 'SYSCONF', 'SYSINIT2', 'SYSIMES'):
         commands += [f'masm -Mx -t -I. -I..\\BIOS -I..\\INC -I..\\DOS {name}.ASM,{name}.OBJ; > {name}.LOG', 'if errorlevel 1 goto failed']
@@ -92,10 +96,15 @@ def package(output, extra=()):
     kernel = (output/'MSDOS.SYS').read_bytes()
     command = (output/'COMMAND.COM').read_bytes()
     autoexec = b'@ECHO OFF\r\nECHO MS-DOS 4.0 PC-98 / WebNP2\r\n'
-    config = ('CONFIG.SYS', b'FILES=20\r\nBUFFERS=8\r\nLASTDRIVE=A\r\n')
+    config = ('CONFIG.SYS', b'FILES=20\r\nBUFFERS=8\r\nLASTDRIVE=A\r\n'
+              b'DEVICE=FDXMS286.SYS\r\nDEVICE=EMM386.EXE EMM=8192\r\n')
     probe = ('P98TEST.COM', (output/'P98TEST.COM').read_bytes())
     apps = [(name, (filer/'build'/name).read_bytes()) for name in ('FD98.COM', 'FILER.TXT', 'FILERLIC.TXT')]
     apps += [(name, (editor/'build'/name).read_bytes()) for name in ('EDIT98.COM', 'EDIT.COM', 'EDIT.TXT', 'EDITLIC.TXT', 'JPHELLO.TXT')]
+    memory = HERE/'memory'
+    apps += [(name, (memory/'bin'/name).read_bytes()) for name in
+             ('FDXMS286.SYS', 'EMM386.EXE', 'XMSLIC.TXT', 'EMM386L.TXT')]
+    apps += [(name, (output/name).read_bytes()) for name in ('XMSCHK.COM', 'EMSCHK.COM')]
     disk, files = make_image((output/'ipl.bin').read_bytes(), bios, [config, probe, *apps, *extra],
                             kernel=kernel, command=command, autoexec=autoexec)
     (output/'IO.SYS').write_bytes(bios)

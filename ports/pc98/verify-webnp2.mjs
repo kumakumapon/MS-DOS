@@ -22,7 +22,9 @@ const imageSha256 = createHash('sha256').update(sourceImage).digest('hex');
 const webnp2Commit = execFileSync('git', ['-C', resolve(checkout), 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const base = process.env.WEBNP2_URL ?? 'http://127.0.0.1:5173';
 const dosVersion = process.env.DOS_VERSION ?? '2';
+const memoryMb = process.env.MEMORY_MB;
 assert.ok(['2', '4'].includes(dosVersion), 'DOS_VERSION must be 2 or 4');
+assert.ok(memoryMb === undefined || /^\d+$/.test(memoryMb), 'MEMORY_MB must be an integer');
 const probe = `DOS${dosVersion}-WRITE-READ`;
 await mkdir(output, { recursive: true });
 function readFile(image, name) {
@@ -52,7 +54,7 @@ try {
   const page = await browser.newPage();
   const pageErrors = [];
   page.on('pageerror', e => pageErrors.push(e.message));
-  await page.goto(`${base}/?fd1=./test/${imageName}&run=1&worklet=0&lang=en&clk=8`, { waitUntil: 'networkidle2' });
+  await page.goto(`${base}/?fd1=./test/${imageName}${memoryMb ? `&mem=${memoryMb}` : ''}&run=1&worklet=0&lang=en&clk=8`, { waitUntil: 'networkidle2' });
   await page.waitForFunction(() => window.np2debug?.np2?.isBooted());
   const text = () => page.evaluate(() => window.np2debug.np2.getScreenText().text);
   const command = async value => {
@@ -87,6 +89,11 @@ try {
     await command('ECHO DOS4-RETURN-OK');
     await line('DOS4-RETURN-OK');
     results.push('COM EXEC, DOS version API 4.00, redirected output and INT 21h/4Ch return');
+    await command('XMSCHK');
+    await line('XMS allocation/move/free OK');
+    await command('EMSCHK');
+    await line('EMS map/read/write/free OK');
+    results.push('PC-98 XMS allocation/move/free and EMS page mapping/data/free APIs');
   }
   if (process.env.RETROBASIC === '1') {
     await command('RBASIC');

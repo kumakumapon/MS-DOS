@@ -54,7 +54,9 @@ class Dos4Tests(unittest.TestCase):
         self.assertEqual(dos_sectors, 37)
         start = (11+bios_sectors)*1024
         self.assertEqual(disk[start:start+37376], read_root(disk, 'MSDOS.SYS'))
-        self.assertEqual(read_root(disk, 'CONFIG.SYS'), b'FILES=20\r\nBUFFERS=8\r\nLASTDRIVE=A\r\n')
+        self.assertEqual(read_root(disk, 'CONFIG.SYS'),
+                         b'FILES=20\r\nBUFFERS=8\r\nLASTDRIVE=A\r\n'
+                         b'DEVICE=FDXMS286.SYS\r\nDEVICE=EMM386.EXE EMM=8192\r\n')
         self.assertEqual(disk[1024:3072], disk[3072:5120])
 
 
