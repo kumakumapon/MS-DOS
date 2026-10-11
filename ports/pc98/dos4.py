@@ -92,6 +92,8 @@ def package(output, extra=()):
     subprocess.run(['make', '-C', str(filer), 'all'], check=True)
     editor = ROOT/'tools/editor'
     subprocess.run(['make', '-C', str(editor), 'all'], check=True)
+    control = ROOT/'tools/control'
+    subprocess.run(['make', '-C', str(control), 'all'], check=True)
     bios = flatten_exe((output/'bios.exe').read_bytes())
     kernel = (output/'MSDOS.SYS').read_bytes()
     command = (output/'COMMAND.COM').read_bytes()
@@ -101,6 +103,7 @@ def package(output, extra=()):
     probe = ('P98TEST.COM', (output/'P98TEST.COM').read_bytes())
     apps = [(name, (filer/'build'/name).read_bytes()) for name in ('FD98.COM', 'FILER.TXT', 'FILERLIC.TXT')]
     apps += [(name, (editor/'build'/name).read_bytes()) for name in ('EDIT98.COM', 'EDIT.COM', 'EDIT.TXT', 'EDITLIC.TXT', 'JPHELLO.TXT')]
+    apps += [(name, (control/'build'/name).read_bytes()) for name in ('CPANEL.COM', 'CPANEL.TXT', 'CPLIC.TXT')]
     memory = HERE/'memory'
     apps += [(name, (memory/'bin'/name).read_bytes()) for name in
              ('FDXMS286.SYS', 'EMM386.EXE', 'XMSLIC.TXT', 'EMM386L.TXT')]
