@@ -106,9 +106,14 @@ try {
       await page.evaluate(value => window.np2debug.np2.typeText(value), value);
       await new Promise(resolve => setTimeout(resolve, 250));
     };
-    const guestText = async name => Buffer.from(await page.evaluate(
-      async name => btoa(String.fromCharCode(...await window.np2debug.np2.diskReadFile('fd1', name))), name,
-    ), 'base64').toString('ascii');
+    const guestText = async name => Buffer.from(await page.evaluate(async name => {
+      const bytes = await window.np2debug.np2.diskReadFile('fd1', name);
+      let binary = '';
+      for (let offset = 0; offset < bytes.length; offset += 4096) {
+        binary += String.fromCharCode(...bytes.slice(offset, offset + 4096));
+      }
+      return btoa(binary);
+    }, name), 'base64').toString('ascii');
     console.log('CPANEL first edit');
     await panelKey('x');
     await panelKey('=');
