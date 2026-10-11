@@ -55,5 +55,6 @@ jobs:
             dos/ports/pc98/build/dos4
             dos/tools/filer/build
             dos/tools/editor/build
+            dos/tools/control/build
             dos/.work/pc98-dos4/checkpoint.json
             dos/.work/pc98-dos4/v4.0/src/BUILD.LOG
