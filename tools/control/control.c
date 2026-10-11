@@ -126,7 +126,7 @@ static int scan_autoexec(void) {
         int end = at;
         while (end < size && input[end] != '\r' && input[end] != '\n') end++;
         int length = end - at;
-        if (length == 21 && equal(input + at, "REM CPANEL AUTO FD98")) {
+        if (length == 20 && equal(input + at, "REM CPANEL AUTO FD98")) {
             int next = end;
             while (next < size && (input[next] == '\r' || input[next] == '\n')) next++;
             int next_end = next;
@@ -195,7 +195,7 @@ static int build_autoexec(char *dest, int *length) {
         while (end < size && input[end] != '\r' && input[end] != '\n') end++;
         int skip = 0, next = end;
         int n = end - at;
-        if (n == 21 && equal(input + at, "REM CPANEL AUTO FD98")) {
+        if (n == 20 && equal(input + at, "REM CPANEL AUTO FD98")) {
             next = end;
             while (next < size && (input[next] == '\r' || input[next] == '\n')) next++;
             int next_end = next;
@@ -220,14 +220,6 @@ static int build_autoexec(char *dest, int *length) {
 static int save_file(const char *path, const char *data, int length) {
     char temp[16], backup[16];
     int handle = -1;
-    for (int i = 0; i < 1000; i++) {
-        temp[0] = 'C'; temp[1] = 'P';
-        for (int j = 7; j >= 2; j--) { temp[j] = (char)('0' + i % 10); i /= 10; }
-        /* Recompute with a bounded decimal conversion on the next iteration. */
-        temp[8] = '.'; temp[9] = 'T'; temp[10] = 'M'; temp[11] = 'P'; temp[12] = 0;
-        i = i; /* The filename is replaced below with a stable sequence. */
-        break;
-    }
     for (int i = 0; i < 10; i++) {
         temp[0] = 'C'; temp[1] = 'P'; temp[2] = '0'; temp[3] = '0';
         temp[4] = '0'; temp[5] = '0'; temp[6] = (char)('0' + i); temp[7] = '0';
