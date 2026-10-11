@@ -18,6 +18,11 @@ static int begins(const char *a, const char *b) {
     while (*b) { if (upper(*a++) != upper(*b++)) return 0; }
     return 1;
 }
+static int equal_line(const char *a, const char *b, int length) {
+    int i = 0;
+    while (i < length && b[i] && upper(a[i]) == upper(b[i])) i++;
+    return i == length && !b[i];
+}
 static int number(const char *s) {
     int n = 0;
     while (*s == ' ' || *s == '\t') s++;
@@ -126,7 +131,7 @@ static int scan_autoexec(void) {
         int end = at;
         while (end < size && input[end] != '\r' && input[end] != '\n') end++;
         int length = end - at;
-        if (length == 20 && equal(input + at, "REM CPANEL AUTO FD98")) {
+        if (length == 20 && equal_line(input + at, "REM CPANEL AUTO FD98", length)) {
             int next = end;
             while (next < size && (input[next] == '\r' || input[next] == '\n')) next++;
             int next_end = next;
@@ -195,7 +200,7 @@ static int build_autoexec(char *dest, int *length) {
         while (end < size && input[end] != '\r' && input[end] != '\n') end++;
         int skip = 0, next = end;
         int n = end - at;
-        if (n == 20 && equal(input + at, "REM CPANEL AUTO FD98")) {
+        if (n == 20 && equal_line(input + at, "REM CPANEL AUTO FD98", n)) {
             next = end;
             while (next < size && (input[next] == '\r' || input[next] == '\n')) next++;
             int next_end = next;
@@ -298,7 +303,7 @@ int main(void) {
             int error = save_all();
             fd_text(message, error ? "Save failed; check free disk space and file access." :
                     "Saved. Reboot for CONFIG.SYS changes to take effect.", sizeof message);
-            if (!error) load();
+            if (!error) { scan_config(); scan_autoexec(); }
         }
     }
     p_finish();
