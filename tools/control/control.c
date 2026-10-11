@@ -39,7 +39,6 @@ static void put_number(char *out, unsigned n) {
 }
 static void render(void) {
     char value[12], row[80];
-    p_screen();
     line(0, "PC-98 SYSTEM SETTINGS", 1);
     line(2, "Changes are saved to A: and take effect after reboot.", 0);
     line(4, "MEMORY DRIVERS  (CONFIG.SYS)", 1);
@@ -282,6 +281,7 @@ static void load(void) {
 }
 int main(void) {
     p_init();
+    p_screen();
     load();
     for (;;) {
         render();
