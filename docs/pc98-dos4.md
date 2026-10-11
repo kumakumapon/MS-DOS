@@ -35,6 +35,9 @@ WebNP2 の FD1 に読み込み、386 設定で起動してください。
 [操作・IBM PC版・ビルドと検証](filer.md)を参照してください。
 `EDIT.COM` / `EDIT98.COM`、`EDIT.TXT`、`EDITLIC.TXT`、日本語サンプル
 `JPHELLO.TXT`も同梱します。`EDIT MEMO.TXT`で編集を開始します。
+`CPANEL.COM` / `CPANEL.TXT`も同梱し、XMS/EMS、FILES/BUFFERS、FD98の自動起動を
+メニューから変更できます。`CPANEL`で起動します。変更はCONFIG.SYS/AUTOEXEC.BATへ保存し、
+CONFIG.SYSの設定は再起動後に有効になります。キーボード配列とホストIMEはWebNP2側で設定します。
 [日本語表示・入力・エディタの操作](japanese-editor.md)を参照してください。
 
 同じコマンドを再実行すると、成功済みのカーネルビルドを再利用し、OEM 層と FD を

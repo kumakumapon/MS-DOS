@@ -1,0 +1,24 @@
+PC-98 SYSTEM SETTINGS / CPANEL 1.0
+=====================================
+
+Run CPANEL from the A: prompt.
+
+X  Enable or disable the PC-98 XMS manager (FDXMS286.SYS).
+E  Enable or disable EMS (NEC EMM386.EXE); enabling EMS also enables XMS.
++/- Change DOS FILES between 20, 30, 40, 50 and 60.
+[ or ] Toggle DOS BUFFERS between 8 and 16.
+F  Start FD98 automatically after boot.
+S  Save changes to CONFIG.SYS and AUTOEXEC.BAT.
+R  Reload the current settings from the files.
+Q or Esc  Exit without saving pending changes.
+
+CONFIG.SYS settings take effect after reboot. EMS requires the XMS manager
+and uses the configured 8192 KiB pool. CPANEL preserves other configuration
+lines and writes a temporary file before replacing each original.
+
+Automatic FD98 startup is stored as a marked two-line block in AUTOEXEC.BAT.
+CPANEL only changes its own marked block and leaves other lines intact.
+This application reports saved startup configuration; it does not inspect
+WebNP2 keyboard layout or host IME settings.
+
+CPLIC.TXT contains the MIT license for CPANEL.
