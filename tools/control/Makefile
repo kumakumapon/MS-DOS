@@ -18,7 +18,7 @@ $(BUILD)/cpanel.elf: $(BUILD)/control.o $(BUILD)/start.o $(BUILD)/core.o $(BUILD
 $(BUILD)/CPANEL.COM: $(BUILD)/cpanel.elf
 	objcopy -O binary $< $@
 $(BUILD)/CPANEL.TXT: CPANEL.TXT | $(BUILD)
-	python3 -c "from pathlib import Path; Path('$@').write_bytes(Path('$<').read_text().replace('\\n', '\\r\\n').encode('ascii'))"
+	python3 -c "from pathlib import Path; Path('$@').write_bytes(Path('$<').read_text().replace('\n', '\r\n').encode('ascii'))"
 $(BUILD)/CPLIC.TXT: LICENSE | $(BUILD)
 	cp $< $@
 .PHONY: all
