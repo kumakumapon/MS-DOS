@@ -47,7 +47,7 @@ try {
   results.push('CPANEL starts and reads the enabled XMS/EMS and DOS startup settings');
 
   await key('x');
-  await key('+');
+  await key('=');
   await key(']');
   await key('f');
   await key('s');
