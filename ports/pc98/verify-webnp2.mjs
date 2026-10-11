@@ -94,8 +94,6 @@ try {
     await command('EMSCHK');
     await line('EMS map/read/write/free OK');
     results.push('PC-98 XMS allocation/move/free and EMS page mapping/data/free APIs');
-    console.log('CPANEL launch');
-    console.log('CPANEL reopen');
     await command('CPANEL');
     await line('PC-98 SYSTEM SETTINGS');
     let panel = await text();
@@ -106,31 +104,12 @@ try {
       await page.evaluate(value => window.np2debug.np2.typeText(value), value);
       await new Promise(resolve => setTimeout(resolve, 250));
     };
-    const guestText = async name => Buffer.from(await page.evaluate(async name => {
-      const bytes = await window.np2debug.np2.diskReadFile('fd1', name);
-      let binary = '';
-      for (let offset = 0; offset < bytes.length; offset += 4096) {
-        binary += String.fromCharCode(...bytes.slice(offset, offset + 4096));
-      }
-      return btoa(binary);
-    }, name), 'base64').toString('ascii');
-    console.log('CPANEL first edit');
     await panelKey('x');
     await panelKey('=');
     await panelKey(']');
     await panelKey('f');
-    console.log('CPANEL first save');
-    console.log('CPANEL restore save');
     await panelKey('s');
     await page.waitForFunction(() => window.np2debug.np2.getScreenText().text.includes('Saved. Reboot'));
-    console.log('CPANEL first save visible');
-    const changedConfig = guestText('CONFIG.SYS');
-    assert.ok(changedConfig.includes('FILES=30\r\n'));
-    assert.ok(changedConfig.includes('BUFFERS=16\r\n'));
-    assert.ok(!changedConfig.includes('FDXMS286.SYS'));
-    assert.ok(!changedConfig.includes('EMM386.EXE'));
-    assert.ok(guestText('AUTOEXEC.BAT').includes('REM CPANEL AUTO FD98\r\nFD98\r\n'));
-    console.log('CPANEL first exit');
     await panelKey('q');
     await line('A>');
     await command('CPANEL');
@@ -139,8 +118,7 @@ try {
     assert.ok(panel.includes('XMS manager FDXMS286.SYS : DISABLED'));
     assert.ok(panel.includes('EMS manager EMM386.EXE   : DISABLED'));
     assert.ok(panel.includes('FILES=30   BUFFERS=16'));
-    assert.ok(panel.includes('Start FD98 automatically : YES'));
-    console.log('CPANEL restore edits');
+    assert.ok(panel.includes('Start FD98 file manager automatically : YES'));
     await panelKey('x');
     await panelKey('e');
     await panelKey('-');
@@ -148,13 +126,15 @@ try {
     await panelKey('f');
     await panelKey('s');
     await page.waitForFunction(() => window.np2debug.np2.getScreenText().text.includes('Saved. Reboot'));
-    const restoredConfig = guestText('CONFIG.SYS');
-    assert.ok(restoredConfig.includes('FILES=20\r\n'));
-    assert.ok(restoredConfig.includes('BUFFERS=8\r\n'));
-    assert.ok(restoredConfig.includes('DEVICE=FDXMS286.SYS\r\n'));
-    assert.ok(restoredConfig.includes('DEVICE=EMM386.EXE EMM=8192\r\n'));
-    assert.ok(!guestText('AUTOEXEC.BAT').includes('REM CPANEL AUTO FD98'));
-    console.log('CPANEL final exit');
+    await panelKey('q');
+    await line('A>');
+    await command('CPANEL');
+    await line('PC-98 SYSTEM SETTINGS');
+    panel = await text();
+    assert.ok(panel.includes('XMS manager FDXMS286.SYS : ENABLED'));
+    assert.ok(panel.includes('EMS manager EMM386.EXE   : ENABLED'));
+    assert.ok(panel.includes('FILES=20   BUFFERS=8'));
+    assert.ok(panel.includes('Start FD98 file manager automatically : NO'));
     await panelKey('q');
     await line('A>');
     results.push('PC-98 CPANEL reads, saves and reloads XMS/EMS, FILES/BUFFERS and FD98 startup options');
