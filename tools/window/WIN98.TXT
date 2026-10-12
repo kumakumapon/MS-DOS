@@ -1,0 +1,33 @@
+WIN98 - Original PC-98 window desktop 1.0
+
+Run WIN98 from the MS-DOS 4.0 PC-98 prompt. Requires a 386-compatible
+PC-98 with 640 x 400 graphics and the native text layer (WebNP2 works).
+
+F1 Help       F2 Launcher   F3 Files   F4 Memo   F5 About
+Tab           Switch to the next open/minimized window
+F6, arrows    Move the active window; F6 or Enter finishes moving
+F7, arrows    Resize the active window; F7 or Enter finishes resizing
+F8            Minimize the active window (Tab restores it)
+Escape        Close the active window
+F10           Exit to DOS (confirm if the memo has unsaved changes)
+
+Launcher: Up/Down selects; Enter starts the selected DOS program.
+Files: Up/Down selects; Enter opens directories, COM/EXE programs,
+       TXT files in EDIT98, and BAS files in the installed BASIC.
+       Backspace goes to the parent directory.
+Memo: type ASCII text, Enter adds a line, Backspace removes a character.
+      Ctrl+S saves NOTE.TXT in the directory where WIN98 was started.
+      Escape asks before discarding unsaved text; Enter saves, D discards,
+      Escape cancels. A failed save keeps the text and the window open.
+      Saves use W98TMP.TMP/W98OLD.TMP so an unsuccessful write retains
+      the original note. Existing temporary files prevent replacement.
+      Non-ASCII or oversized existing notes are left for the Text editor.
+
+Desktop tools are located relative to WIN98's initial working directory.
+The file window can browse elsewhere without changing the memo destination.
+DOS tools run in the foreground, one at a time. After exiting a DOS tool,
+press any key to return to the desktop. Use EXIT to leave the DOS shell.
+
+This release uses the keyboard. It does not require a mouse driver.
+The desktop does not run external DOS programs simultaneously or add an IME.
+Use EDIT98 for Shift_JIS/Japanese text; the built-in memo accepts ASCII.

@@ -32,3 +32,6 @@ Use of Microsoft trademarks or logos in modified versions of this project must n
 Any use of third-party trademarks or logos are subject to those third-party's policies.
 
 MS-DOS 4.0 の PC-98 / WebNP2 移植は [ビルド・検証手順](docs/pc98-dos4.md) を参照してください。
+
+PC-98用の独自ウィンドウデスクトップは `WIN98` で起動できます。
+[操作と検証手順](docs/window-desktop.md)を参照してください。
