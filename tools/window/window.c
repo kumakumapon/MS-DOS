@@ -65,13 +65,13 @@ static void next(void) {
 static int save(void) {
     char temp[FD_PATH], backup[FD_PATH]; Entry existing;
     if (memo_blocked) { message("NOTE.TXT needs Text editor; original file retained"); return 0; }
-    if (fd_path(temp, home, "W98TMP.TMP") || fd_path(backup, home, "W98OLD.TMP")) return 0;
+    if (fd_path(temp, home, "KDTMP.TMP") || fd_path(backup, home, "KDOLD.TMP")) return 0;
     int present = p_stat(note_path, &existing), old = p_stat(backup, &existing);
     if ((present < 0 && present != -2) || old != -2) {
-        message("Cannot save: read error or W98OLD.TMP already exists"); return 0;
+        message("Cannot save: read error or KDOLD.TMP already exists"); return 0;
     }
     int handle = p_create(temp), length = 0;
-    if (handle < 0) { message("Cannot create W98TMP.TMP; original file retained"); return 0; }
+    if (handle < 0) { message("Cannot create KDTMP.TMP; original file retained"); return 0; }
     for (int i = 0; i < used; i++) {
         if (memo[i] == '\n') io[length++] = '\r';
         io[length++] = memo[i];
@@ -85,12 +85,12 @@ static int save(void) {
     }
     if (p_rename(temp, note_path) < 0) {
         if (present == 0 && p_rename(backup, note_path) < 0) {
-            message("Save failed; recover original from W98OLD.TMP"); return 0;
+            message("Save failed; recover original from KDOLD.TMP"); return 0;
         }
         p_unlink(temp); message("Save failed; original file and text retained"); return 0;
     }
     dirty = 0;
-    if (present == 0 && p_unlink(backup) < 0) message("Saved NOTE.TXT; backup remains in W98OLD.TMP");
+    if (present == 0 && p_unlink(backup) < 0) message("Saved NOTE.TXT; backup remains in KDOLD.TMP");
     else message("Saved NOTE.TXT");
     return 1;
 }
@@ -125,7 +125,7 @@ static void launch(const char *program, const char *arguments) {
     int result = p_exec(program, arguments);
     if (result < 0) message("Cannot start program; check its path and memory");
     else {
-        p_output("\r\nPress any key to return to WIN98...");
+        p_output("\r\nPress any key to return to KDESK...");
         p_key(); message("Program returned to desktop");
     }
     if (!dirty) load();
@@ -203,18 +203,18 @@ static void draw_window(int id) {
         static const char *help[] = {"F1 Help   F2 Launcher   F3 Files", "F4 Memo   F5 About      Tab: switch", "F6 then arrows: move window", "F7 then arrows: resize window", "Enter: finish moving/resizing", "F8: minimize  Tab: restore", "Esc: close    F10: exit to DOS", "Memo: ASCII text, Ctrl+S saves", "DOS tools run in the foreground"};
         for (int i = 0; i < 9; i++) line(w, i, help[i], 0);
     } else {
-        line(w, 0, "WIN98 Desktop 1.0", 0);
+        line(w, 0, "Kuma Desktop 1.0", 0);
         line(w, 2, "Original PC-98 window system", 0);
         line(w, 3, "MS-DOS 4.0 / 640 x 400 / 8 colors", 0);
         line(w, 5, "Copyright 2026 kumakumapon", 0);
-        line(w, 6, "MIT license - see WINLIC.TXT", 0);
+        line(w, 6, "MIT license - see KDLIC.TXT", 0);
     }
 }
 static void draw(void) {
     rect(0, 0, 80, 25, 1);
     for (int y = 0; y < 25; y++) for (int x = 0; x < 80; x++) p_cell(x, y, ' ', 0);
     rect(0, 0, 80, 1, 0);
-    text(1, 0, "WIN98 Desktop  F1 Help  F2 Launcher  F3 Files  F4 Memo  F5 About  F10 Exit", 78, 0);
+    text(1, 0, "Kuma Desktop  F1 Help  F2 Launcher  F3 Files  F4 Memo  F5 About  F10 Exit", 78, 0);
     for (int i = 0; i < WINDOWS; i++) {
         int id = order[i];
         if (windows[id].open && !windows[id].hidden) draw_window(id);
@@ -309,5 +309,5 @@ int main(void) {
             } else if (used == (int)sizeof memo - 1) message("Memo full (1023 characters); use the Text editor for larger files");
         }
     }
-    bios(0x4100, 0); p_finish(); p_output("WIN98 exited.\r\n"); return 0;
+    bios(0x4100, 0); p_finish(); p_output("KDESK exited.\r\n"); return 0;
 }

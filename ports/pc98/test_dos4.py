@@ -58,7 +58,7 @@ class Dos4Tests(unittest.TestCase):
                          b'FILES=20\r\nBUFFERS=8\r\nLASTDRIVE=A\r\n'
                          b'DEVICE=FDXMS286.SYS\r\nDEVICE=EMM386.EXE EMM=8192\r\n')
         self.assertEqual(disk[1024:3072], disk[3072:5120])
-        for name in ('WIN98.COM', 'WIN98.TXT', 'WINLIC.TXT'):
+        for name in ('KDESK.COM', 'KDESK.TXT', 'KDLIC.TXT'):
             self.assertEqual(read_root(disk, name),
                              (ROOT/'tools/window/build'/name).read_bytes())
 

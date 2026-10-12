@@ -30,7 +30,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
     for (let i = 0; i < index; i++) await key('DOWN');
   };
   await type('MD GUIWORK\r');
-  await type('WIN98\r'); await wait('WIN98 Desktop'); await title('Launcher', 3, 5);
+  await type('KDESK\r'); await wait('Kuma Desktop'); await title('Launcher', 3, 5);
   const planes = await page.evaluate(() => [0xa8000, 0xb0000, 0xb8000]
     .map(addr => window.np2debug.np2.readMemoryBase64(addr, 32000).base64));
   const point = (x, y) => planes.reduce((color, b64, i) => color |
@@ -58,27 +58,27 @@ export async function verifyWindow(page, { screenshot } = {}) {
   if (screenshot) await page.screenshot({ path: screenshot });
   await key('ESC'); await key('F2'); await title('Launcher', 4, 6);
   await key('HOME'); await key('DOWN'); await key('DOWN'); await key('ENTER');
-  await wait('PC-98 SYSTEM SETTINGS'); await type('q'); await wait('Press any key to return to WIN98');
-  await key('SPACE'); await wait('WIN98 Desktop'); await wait('Program returned to desktop');
+  await wait('PC-98 SYSTEM SETTINGS'); await type('q'); await wait('Press any key to return to KDESK');
+  await key('SPACE'); await wait('Kuma Desktop'); await wait('Program returned to desktop');
   await key('F3'); await wait('Backspace: parent');
   await selectFile('GUIWORK'); await key('ENTER'); await wait('A:\\GUIWORK'); await wait('Empty directory');
   await key('BS');
   await selectFile('P98TEST.COM'); await key('ENTER'); await wait('DOS4 EXEC OK');
-  await wait('Press any key to return to WIN98'); await key('SPACE'); await wait('WIN98 Desktop');
+  await wait('Press any key to return to KDESK'); await key('SPACE'); await wait('Kuma Desktop');
   await selectFile('NOTE.TXT'); await key('ENTER'); await wait('EDIT98'); await wait('WINDOW MEMO OK');
-  await key('F10'); await wait('Press any key to return to WIN98');
-  await key('SPACE'); await wait('WIN98 Desktop');
-  await key('F10'); await wait('WIN98 exited.');
+  await key('F10'); await wait('Press any key to return to KDESK');
+  await key('SPACE'); await wait('Kuma Desktop');
+  await key('F10'); await wait('KDESK exited.');
   // Test a failed save against a real DOS-created conflicting temporary file.
-  await type('ECHO RESERVED>W98TMP.TMP\r'); await type('WIN98\r'); await wait('WIN98 Desktop');
+  await type('ECHO RESERVED>KDTMP.TMP\r'); await type('KDESK\r'); await wait('Kuma Desktop');
   await key('F4'); await wait('WINDOW MEMO OK'); await type('X'); await key('CTRL+S');
-  await wait('Cannot create W98TMP.TMP');
+  await wait('Cannot create KDTMP.TMP');
   assert.deepEqual(await guest('NOTE.TXT'), note, 'A failed save preserves the original file');
   await key('F10'); await wait('Unsaved memo:'); await key('ESC'); await wait('Close cancelled');
-  await key('F10'); await wait('Unsaved memo:'); await type('d'); await wait('WIN98 exited.');
-  await type('DEL W98TMP.TMP\r');
+  await key('F10'); await wait('Unsaved memo:'); await type('d'); await wait('KDESK exited.');
+  await type('DEL KDTMP.TMP\r');
   return [
-    'WIN98 real PC-98 graphics planes, native text, window move and resize',
+    'KDESK real PC-98 graphics planes, native text, window move and resize',
     'overlapping windows, focus, minimize/restore, close and help',
     'memo CRLF save, reopen, unsaved-change cancel/discard and failed-save preservation',
     'directory navigation; CPANEL, child COM and EDIT98 launch/return; DOS exit',

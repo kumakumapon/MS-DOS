@@ -1,6 +1,6 @@
-# PC-98 window desktop
+# Kuma Desktop for PC-98
 
-`WIN98.COM` provides an original window desktop for the MS-DOS 4.0 PC-98 port
+Kuma Desktop (`KDESK.COM`) provides an original window desktop for the MS-DOS 4.0 PC-98 port
 on WebNP2. The desktop uses the PC-98 640 x 400 graphics planes and native text
 layer, and requires a 386-compatible CPU, like the existing DOS utilities.
 
@@ -11,7 +11,7 @@ This is a DOS application shell with built-in windows; external DOS programs
 run one at a time.
 
 Build with `make -C tools/window all`, or use `ports/pc98/dos4.py` to include
-`WIN98.COM`, `WIN98.TXT` and `WINLIC.TXT` in the boot image. Start with `WIN98`
+`KDESK.COM`, `KDESK.TXT` and `KDLIC.TXT` in the boot image. Start with `KDESK`
 at the DOS prompt. Launch it from the directory containing the bundled utilities.
 
 F1 opens help, F2 the launcher, F3 files, F4 memo, and F5 about. Tab switches
@@ -28,8 +28,8 @@ directory. Child programs use DOS EXEC; their exit returns to the desktop.
 An unavailable program reports an error and keeps the desktop running.
 
 The memo supports up to 1023 ASCII characters, CRLF disk files, and Ctrl+S
-to save `NOTE.TXT` in the initial directory. It writes `W98TMP.TMP` before
-moving the previous note to `W98OLD.TMP` and replacing it. Failed writes retain
+to save `NOTE.TXT` in the initial directory. It writes `KDTMP.TMP` before
+moving the previous note to `KDOLD.TMP` and replacing it. Failed writes retain
 the original note; existing temporary files prevent replacement. Non-ASCII or
 larger existing notes remain available through the full text editor.
 

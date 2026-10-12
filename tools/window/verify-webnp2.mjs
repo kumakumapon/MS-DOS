@@ -22,8 +22,8 @@ try {
   await page.evaluate(() => window.np2debug.np2.persistNow({ force: true }));
   await page.reload({ waitUntil: 'networkidle2' });
   await page.waitForFunction(() => window.np2debug.np2.getScreenText().lines.some(s => s.trim() === 'A>'), { timeout: 60000 });
-  await page.evaluate(() => window.np2debug.np2.typeText('WIN98\r'));
-  await page.waitForFunction(() => window.np2debug.np2.getScreenText().text.includes('WIN98 Desktop'));
+  await page.evaluate(() => window.np2debug.np2.typeText('KDESK\r'));
+  await page.waitForFunction(() => window.np2debug.np2.getScreenText().text.includes('Kuma Desktop'));
   await page.evaluate(() => window.np2debug.np2.sendKeys('F4'));
   await page.waitForFunction(() => window.np2debug.np2.getScreenText().text.includes('WINDOW MEMO OK'));
   results.push('saved desktop memo survives browser reload');
