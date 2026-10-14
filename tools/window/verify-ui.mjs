@@ -25,7 +25,8 @@ export async function verifyWindow(page, { screenshot } = {}) {
     if (!screenshot) return;
     // Help text is mirrored before painting finishes. The final task button
     // marks the end of the scene; also allow the next emulator video frame.
-    await title('Help', 24, 65);
+    await page.waitForFunction(() => window.np2debug.np2.getScreenText().lines[24]?.slice(65, 69) === 'Help',
+      { timeout: 60000 });
     await new Promise(resolve => setTimeout(resolve, 100));
     await page.screenshot({ path: screenshot });
   };
