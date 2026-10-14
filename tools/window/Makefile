@@ -11,9 +11,11 @@ $(BUILD)/core.o: ../filer/core.c ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/dos98.o: ../filer/dos.c ../filer/filer.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -DPC98 -c $< -o $@
-$(BUILD)/window.o: window.c ../filer/filer.h | $(BUILD)
+$(BUILD)/window.o: window.c hardware.h ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/start.o $(BUILD)/core.o $(BUILD)/dos98.o ../filer/com.ld
+$(BUILD)/hardware.o: hardware.c hardware.h ../filer/filer.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/hardware.o $(BUILD)/start.o $(BUILD)/core.o $(BUILD)/dos98.o ../filer/com.ld
 	ld -m elf_i386 -T ../filer/com.ld $(filter %.o,$^) -o $@
 $(BUILD)/KDESK.COM: $(BUILD)/window.elf
 	objcopy -O binary $< $@

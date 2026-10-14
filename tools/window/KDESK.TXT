@@ -1,7 +1,7 @@
-Kuma Desktop (KDESK) - Original PC-98 window desktop 1.0
+Kuma Desktop (KDESK) - Original PC-98 window desktop 1.1
 
 Run KDESK from the MS-DOS 4.0 PC-98 prompt. Requires a 386-compatible
-PC-98 with 640 x 400 graphics and the native text layer (WebNP2 works).
+PC-98 with 640 x 400, 16-color graphics and a PC-98 bus mouse (WebNP2 works).
 
 F1 Help       F2 Launcher   F3 Files   F4 Memo   F5 About
 Tab           Switch to the next open/minimized window
@@ -10,6 +10,14 @@ F7, arrows    Resize the active window; F7 or Enter finishes resizing
 F8            Minimize the active window (Tab restores it)
 Escape        Close the active window
 F10           Exit to DOS (confirm if the memo has unsaved changes)
+
+Mouse: click the top menus to open windows; click a window to focus it.
+       Drag the title bar to move, or the lower-right grip to resize.
+       An outline previews the change; release to apply it.
+       Title buttons: _ minimizes, x closes. Taskbar buttons restore/focus.
+       Click a launcher row to start a program. In Files, click to select,
+       double-click or use Open; Parent and ^/v navigate/scroll.
+       Memo Save and the Save/Discard/Cancel dialog accept clicks.
 
 Launcher: Up/Down selects; Enter starts the selected DOS program.
 Files: Up/Down selects; Enter opens directories, COM/EXE programs,
@@ -26,8 +34,12 @@ Memo: type ASCII text, Enter adds a line, Backspace removes a character.
 Desktop tools are located relative to KDESK's initial working directory.
 The file window can browse elsewhere without changing the memo destination.
 DOS tools run in the foreground, one at a time. After exiting a DOS tool,
-press any key to return to the desktop. Use EXIT to leave the DOS shell.
+press any key or click to return to the desktop. Use EXIT to leave the DOS shell.
 
-This release uses the keyboard. It does not require a mouse driver.
+Keyboard controls also work without a mouse. No mouse driver is required.
+KDESK polls the PC-98 bus mouse, uses CG-ROM glyphs and a 16-color palette,
+and restores the mouse control/palette state before child programs and exit.
+WebNP2: move/click on the emulated screen; use Mouse resync if misaligned.
+DOS child programs keep their own controls (usually keyboard input).
 The desktop does not run external DOS programs simultaneously or add an IME.
 Use EDIT98 for Shift_JIS/Japanese text; the built-in memo accepts ASCII.
