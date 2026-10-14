@@ -21,6 +21,14 @@ export async function verifyWindow(page, { screenshot } = {}) {
     ({ name, row, column }) => window.np2debug.np2.getScreenText().lines[row]?.indexOf(name) === column,
     { timeout: 60000 }, { name, row, column },
   );
+  const capture = async () => {
+    if (!screenshot) return;
+    // Help text is mirrored before painting finishes. The final task button
+    // marks the end of the scene; also allow the next emulator video frame.
+    await title('Help', 24, 65);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await page.screenshot({ path: screenshot });
+  };
   const selectFile = async name => {
     const names = await page.evaluate(async () =>
       (await window.np2debug.np2.diskListFiles('fd1')).entries.map(entry => entry.name));
@@ -55,7 +63,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
   await key('F8'); await wait('Window minimized');
   assert.ok(!(await text()).includes('F6 then arrows: move window'));
   await key('TAB'); await wait('F6 then arrows: move window');
-  if (screenshot) await page.screenshot({ path: screenshot });
+  await capture();
   await key('ESC'); await key('F2'); await title('Launcher', 4, 6);
   await key('HOME'); await key('DOWN'); await key('DOWN'); await key('ENTER');
   await wait('PC-98 SYSTEM SETTINGS'); await type('q'); await wait('Press any key or click to return to KDESK');
@@ -155,7 +163,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
   await click(600, 350); await wait('Program returned to desktop');
   // The desktop mouse still works after two child EXEC/return cycles.
   await cell(49, 0); await wait('Drag title: move');
-  if (screenshot) await page.screenshot({ path: screenshot });
+  await capture();
   await cell(73, 0); await wait('KDESK exited.');
   return [
     'KDESK 16-color graphics, CG-ROM labels, keyboard window move and resize',
