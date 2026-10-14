@@ -45,3 +45,8 @@ minimize/restore, directory navigation, memo save/cancel/discard, preservation
 after a failed save, child COM/CPANEL/editor launch and return, exit to DOS and
 memo persistence after browser reload. CI stores screenshots and results in
 the `msdos4-pc98` artifact under `tools/window/build/pc98-validation`.
+
+## Mouse and visual update
+
+Mouse input and a refreshed desktop appearance are being implemented for WebNP2.
+The update will keep the existing keyboard controls and DOS program launch/return.
