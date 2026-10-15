@@ -266,7 +266,10 @@ static int mouse_event(Mouse now, int previous) {
     has_selection = 0; sx = last_x = mx; sy = last_y = my;
     if (tool == FILL) { if (flood(mx, my)) { dirty = 1; publish(); message("Filled area"); } return 1; }
     painting = 1;
-    if (tool == PENCIL || tool == ERASE) paint_pixel(mx, my, tool == ERASE ? WHITE : color);
+    if (tool == PENCIL || tool == ERASE) {
+        paint_pixel(mx, my, tool == ERASE ? WHITE : color);
+        dirty = 1; /* A key may interrupt the stroke before button release. */
+    }
     return 0;
 }
 int main(void) {

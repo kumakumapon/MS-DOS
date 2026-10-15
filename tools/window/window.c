@@ -321,7 +321,12 @@ static int handle_key(int key) {
     if (key == 9) { next(); return 0; }
     if (active < 0) return 0;
     Window *w = &windows[active];
-    if (key == KEY_F1 + 5 || key == KEY_F1 + 6) { int wanted = key == KEY_F1 + 5 ? 1 : 2; mode = mode == wanted ? 0 : wanted; return 0; }
+    if (key == KEY_F1 + 5 || key == KEY_F1 + 6) {
+        int wanted = key == KEY_F1 + 5 ? 1 : 2;
+        mode = mode == wanted ? 0 : wanted;
+        if (mode) w->ox = w->oy = 0; /* Keyboard geometry uses whole cells. */
+        return 0;
+    }
     if (mode && (key == 13 || key == 27)) { mode = 0; return 0; }
     if (mode) {
         int dx = key == KEY_RIGHT ? 1 : key == KEY_LEFT ? -1 : 0;
@@ -389,8 +394,9 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
             if (!(now.buttons & 1)) { w->ox = gfx_colors() == 256 ? px & 7 : 0; w->oy = gfx_colors() == 256 ? py & 15 : 0; gfx_drag_end(); live_drag = 0; }
         } else {
             width = clamp(drag_w + (now.x - drag_mx) / 8, 30, 79 - w->x);
-            height = clamp(drag_h + (now.y - drag_my) / 16, 10, 23 - w->y);
+            height = clamp(drag_h + (now.y - drag_my) / 16, 10, 23 - w->y - (w->oy != 0));
         }
+        gfx_origin(w->ox, w->oy);
         if (preview_visible) gfx_outline(preview_x, preview_y, preview_w, preview_h);
         preview_visible = 0;
         if (!(now.buttons & 1)) {
@@ -400,6 +406,7 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
             preview_x = x; preview_y = y; preview_w = width; preview_h = height;
             gfx_outline(x, y, width, height); preview_visible = 1;
         }
+        gfx_origin(0, 0);
         return 0;
     }
     if (!(now.buttons & 1)) { drag = 0; return 0; }

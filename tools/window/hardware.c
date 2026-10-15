@@ -244,7 +244,8 @@ void gfx_outline(int x, int y, int w, int h) {
     /* XOR the preview frame twice to remove it without repainting the scene. */
     int top = y * 16, bottom = (y + h) * 16 - 1, left = x, right = x + w - 1;
     if (packed) {
-        left *= 8; right = (right + 1) * 8 - 1;
+        top += origin_y; bottom += origin_y;
+        left = left * 8 + origin_x; right = (right + 1) * 8 - 1 + origin_x;
         for (int row = top; row <= bottom; row++) {
             int step = row == top || row == bottom ? 1 : right - left;
             for (int col = left; col <= right; col += step) {
