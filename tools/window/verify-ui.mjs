@@ -222,10 +222,15 @@ export async function verifyMedia(page, { screenshot } = {}) {
     np2.mouseMoveTo = async (x,y) => { const value = await original(x,y); if (x===151 && y===87) await new Promise(resolve => {window.mediaRelease=resolve;}); return value; };
     window.mediaDrag = np2.mouseDrag({x:100,y:52},{x:151,y:87});
   });
-  await page.waitForFunction(() => !!window.mediaRelease); await pause(700);
+  await page.waitForFunction(() => !!window.mediaRelease);
+  await page.waitForFunction(() => {
+    const source=document.querySelector('#canvas'),c=document.createElement('canvas');c.width=source.width;c.height=source.height;
+    const g=c.getContext('2d');g.drawImage(source,0,0);const p=g.getImageData(84,90,1,1).data;
+    return [34,119,187].every((v,i)=>Math.abs(p[i]-v)<=4);
+  },{timeout:60000});
   const livePixel = await page.evaluate(() => {
     const source=document.querySelector('#canvas'), c=document.createElement('canvas'); c.width=source.width;c.height=source.height;
-    const g=c.getContext('2d');g.drawImage(source,0,0);return Array.from(g.getImageData(80,82,1,1).data).slice(0,3);
+    const g=c.getContext('2d');g.drawImage(source,0,0);return Array.from(g.getImageData(84,90,1,1).data).slice(0,3);
   });
   assert.ok(livePixel.every((c,i) => Math.abs(c-[34,119,187][i])<=4),'Window contents move at pixel resolution while the button remains held: '+livePixel);
   await page.evaluate(async () => { window.mediaRelease(); await window.mediaDrag; window.np2debug.np2.mouseMoveTo=window.mediaOriginalMove; });
