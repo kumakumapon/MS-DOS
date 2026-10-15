@@ -1,18 +1,18 @@
-#include "hardware.h"
+#include "clipboard.h"
 
 /* Window positions use 8 x 16 cells. Four graphics planes hold both the
  * 16-color scene and CG-ROM glyphs; hidden text VRAM mirrors the labels. */
 enum { LAUNCHER, FILES, MEMO, HELP, ABOUT, WINDOWS };
-typedef struct { int x, y, w, h, open, hidden, selected; } Window;
+typedef struct { int x, y, w, h, open, hidden, selected, ox, oy; } Window;
 static Window windows[WINDOWS];
 static int order[WINDOWS], active = -1, mode, dirty, confirm, exiting;
 static char home[FD_PATH], folder[FD_PATH], note_path[FD_PATH];
 static char memo[1024], io[2048], status[80] = "Ready";
-static int used, count, truncated, list_error, memo_blocked;
+static int used, count, truncated, list_error, memo_blocked, select_all;
 static Entry entries[128];
 static const char *titles[] = {"Launcher", "Files", "Memo", "Help", "About"};
-static const char *apps[] = {"FD98.COM", "EDIT98.COM", "CPANEL.COM", "RBASIC.COM", "COMMAND.COM"};
-static const char *labels[] = {"File manager", "Text editor", "System settings", "BASIC", "DOS shell (EXIT returns)"};
+static const char *apps[] = {"FD98.COM", "EDIT98.COM", "CPANEL.COM", "RBASIC.COM", "COMMAND.COM", "KVIEW.COM", "KPAINT.COM"};
+static const char *labels[] = {"File manager", "Text editor", "System settings", "BASIC", "DOS shell (EXIT returns)", "Image viewer", "Image editor"};
 
 static void label(int x, int y, const char *s, int width, int fg, int bg, int selected) {
     for (int i = 0; i < width && s[i]; i++) gfx_cell(x + i, y, s[i], fg, bg, selected);
@@ -88,7 +88,7 @@ static int save(void) {
     return 1;
 }
 static void load(void) {
-    used = 0; memo_blocked = 0;
+    used = 0; memo_blocked = 0; select_all = 0;
     int handle = p_open(note_path);
     if (handle < 0) {
         if (handle != -2) memo_blocked = 1;
@@ -107,10 +107,11 @@ static void load(void) {
     }
     if (memo_blocked) { used = 0; message("NOTE.TXT needs Text editor; original file retained"); }
 }
-static void enter_graphics(void) { gfx_start(); }
+static void enter_graphics(void) { gfx_start(); clip_state(1); }
 static void launch(const char *program, const char *arguments) {
-    gfx_stop(); p_finish();
+    clip_mouse_save(); clip_state(2); gfx_stop(); p_finish();
     int result = p_exec(program, arguments);
+    clip_mouse_resume();
     if (result < 0) message("Cannot start program; check its path and memory");
     else {
         p_output("\r\nPress any key or click to return to KDESK...");
@@ -147,10 +148,11 @@ static void file_open(void) {
         /* The bundled DOS tools parse bare DOS paths, so refuse ambiguous spaces. */
         for (int i = 0; path[i]; i++) if (path[i] == ' ') { message("Open paths without spaces using the DOS shell"); return; }
         tool(!fd_cmp(extension, ".BAS") ? 3 : 1, path);
-    } else message("Open COM/EXE, TXT or BAS; use File manager for other files");
+    } else if (!fd_cmp(extension, ".BMP")) tool(5, path);
+    else message("Open COM/EXE, TXT, BAS or BMP; use File manager for other files");
 }
 static void draw_memo(Window *w) {
-    int cols = w->w - 4, rows = w->h - 5, row = 0, col = 0;
+    int cols = w->w - 4, rows = w->h - 6, row = 0, col = 0;
     for (int i = 0; i < used; i++) {
         if (memo[i] == '\n') { row++; col = 0; }
         else if (++col == cols) { row++; col = 0; }
@@ -159,7 +161,7 @@ static void draw_memo(Window *w) {
     row = 0; col = 0;
     for (int i = 0; i < used; i++) {
         if (memo[i] == '\n') { row++; col = 0; continue; }
-        if (row >= top) gfx_cell(w->x + 2 + col, w->y + 3 + row - top, memo[i], INK, PAPER, 0);
+        if (row >= top) gfx_cell(w->x + 2 + col, w->y + 3 + row - top, memo[i], select_all ? WHITE : INK, select_all ? SELECTED : PAPER, select_all);
         if (++col == cols) { row++; col = 0; }
     }
     if (active == MEMO) gfx_cell(w->x + 2 + col, w->y + 3 + row - top, '_', WHITE, SELECTED, 1);
@@ -178,7 +180,7 @@ static void frame(int x, int y, int w, int h) {
     gfx_clear_text(x, y, w + 1, h + 1);
 }
 static void draw_window(int id) {
-    Window *w = &windows[id]; int title_color = active == id ? ACCENT : INACTIVE;
+    Window *w = &windows[id]; gfx_origin(w->ox, w->oy); int title_color = active == id ? ACCENT : INACTIVE;
     frame(w->x, w->y, w->w, w->h);
     gfx_rect(w->x * 8 + 3, w->y * 16 + 8, w->w * 8 - 6, 28, title_color);
     label(w->x + 2, w->y + 1, titles[id], w->w - 13, active == id ? WHITE : INK, title_color, 0);
@@ -186,8 +188,8 @@ static void draw_window(int id) {
     button(w->x + w->w - 5, w->y + 1, 3, "x", 0);
     if (id == LAUNCHER) {
         int top = launcher_top(w), visible = (w->h - 4) / 2;
-        static const char *icons[] = {"F", "E", "S", "B", ">"};
-        for (int row = 0; row < visible && row + top < 5; row++) {
+        static const char *icons[] = {"F", "E", "S", "B", ">", "V", "P"};
+        for (int row = 0; row < visible && row + top < 7; row++) {
             int i = row + top, y = w->y + 3 + row * 2, bg = i == w->selected ? SELECTED : BUTTON;
             gfx_rect((w->x + 2) * 8, y * 16, (w->w - 4) * 8, 16, bg);
             gfx_rect((w->x + 2) * 8, y * 16, 16, 16, ACCENT);
@@ -218,37 +220,51 @@ static void draw_window(int id) {
         if (memo_blocked) line(w, 0, "Open NOTE.TXT in the Text editor", 0);
         else draw_memo(w);
         button(w->x + 2, w->y + w->h - 2, 9, "Save", 0);
-        text(w->x + 12, w->y + w->h - 2, dirty ? "NOTE.TXT *" : "NOTE.TXT", w->w - 14, 0);
+        text(w->x + 2, w->y + w->h - 3, dirty ? "NOTE.TXT *" : "NOTE.TXT", w->w - 4, 0);
+        button(w->x + 12, w->y + w->h - 2, 7, "Copy", 0);
+        button(w->x + 20, w->y + w->h - 2, 6, "Cut", 0);
+        if (w->w >= 40) button(w->x + 27, w->y + w->h - 2, 8, "Paste", 0);
+        if (w->w >= 46) button(w->x + 36, w->y + w->h - 2, 7, "All", 0);
     } else if (id == HELP) {
-        static const char *help[] = {"F1 Help   F2 Launcher   F3 Files", "F4 Memo   F5 About      Tab: switch", "Drag title: move / corner: resize", "F6 then arrows: move window", "F7 then arrows: resize window", "F8: minimize  Tab/taskbar: restore", "Esc: close    F10: exit to DOS", "Memo: ASCII text, Ctrl+S saves", "Files: double-click or Open"};
+        static const char *help[] = {"F1 Help   F2 Launcher   F3 Files", "F4 Memo   F5 About      F9: Paint", "Drag title: move / corner: resize", "F6 then arrows: move window", "F7 then arrows: resize window", "F8: minimize  Tab/taskbar: restore", "Esc: close    F10: exit to DOS", "Memo: ASCII text, Ctrl+S saves", "Memo: Ctrl+A/C/X/V clipboard"};
         for (int i = 0; i < 9; i++) line(w, i, help[i], 0);
     } else {
-        line(w, 0, "Kuma Desktop 1.1", 0);
+        line(w, 0, "Kuma Desktop 1.2", 0);
         line(w, 2, "Original PC-98 window system", 0);
-        line(w, 3, "MS-DOS 4.0 / 640 x 400 / 16 colors", 0);
+        line(w, 3, gfx_colors() == 256 ? "MS-DOS 4.0 / 640 x 400 / 256 colors" : "MS-DOS 4.0 / 640 x 400 / 16 colors", 0);
         line(w, 5, "Copyright 2026 kumakumapon", 0);
         line(w, 6, "MIT license - see KDLIC.TXT", 0);
     }
     for (int i = 0; i < 3; i++)
         gfx_rect((w->x + w->w) * 8 - 7 + i * 2, (w->y + w->h) * 16 - 5 - i * 3, 1, 3 + i * 3, MUTED);
+    gfx_origin(0, 0);
 }
 static void draw(void) {
     gfx_rect(0, 0, 640, 400, DESKTOP); gfx_clear_text(0, 0, 80, 25);
-    for (int y = 64; y < 352; y += 32) gfx_rect(0, y, 640, 1, DESKTOP_LIGHT);
+    if (gfx_colors() == 256) for (int y = 16; y < 368; y++)
+        gfx_rect(0, y, 640, 1, 232 + (y - 16) * 23 / 351);
+    else for (int y = 64; y < 352; y += 32) gfx_rect(0, y, 640, 1, DESKTOP_LIGHT);
     label(60, 21, "PC-98 / MS-DOS", 18, HANDLE, DESKTOP, 0);
     gfx_rect(0, 0, 640, 16, INK);
     label(2, 0, "Kuma Desktop", 16, WHITE, INK, 0);
-    static const char *menus[] = {"Apps", "Files", "Memo", "Help", "About", "Exit"};
-    static const int menu_x[] = {22, 30, 39, 47, 55, 71};
-    for (int i = 0; i < 6; i++) button(menu_x[i], 0, 7, menus[i], 0);
+    static const char *menus[] = {"Apps", "Files", "Memo", "Help", "About", "Paint", "Exit"};
+    static const int menu_x[] = {22, 30, 39, 47, 55, 63, 71};
+    for (int i = 0; i < 7; i++) button(menu_x[i], 0, 7, menus[i], 0);
     for (int i = 0; i < WINDOWS; i++) {
         int id = order[i];
-        if (windows[id].open && !windows[id].hidden) draw_window(id);
+        if (id != active && windows[id].open && !windows[id].hidden) draw_window(id);
     }
     gfx_rect(0, 368, 640, 16, BORDER); gfx_rect(0, 384, 640, 16, SURFACE);
     label(1, 24, "F1 Help  Tab switch  F6/F7 move/resize", 38, INK, SURFACE, 0);
     static const char *tasks[] = {"Apps", "Files", "Memo", "Help", "About"};
     for (int i = 0; i < WINDOWS; i++) if (windows[i].open) button(40 + i * 8, 24, 8, tasks[i], active == i);
+    if (!confirm) {
+        gfx_background();
+        if (active >= 0 && !windows[active].hidden) draw_window(active);
+        gfx_rect(0, 368, 640, 16, BORDER); gfx_rect(0, 384, 640, 16, SURFACE);
+        label(1, 24, "F1 Help  Tab switch  F6/F7 move/resize", 38, INK, SURFACE, 0);
+        for (int i = 0; i < WINDOWS; i++) if (windows[i].open) button(40 + i * 8, 24, 8, tasks[i], active == i);
+    } else if (active >= 0 && !windows[active].hidden) draw_window(active);
     if (confirm) {
         label(1, 23, "Unsaved memo: Enter saves / D discards / Esc cancels", 78, WHITE, BORDER, 0);
         frame(17, 9, 46, 8);
@@ -274,10 +290,26 @@ static int handle_confirm(int key) {
     }
     return 1;
 }
+static int paste_memo(void) {
+    char incoming[1024]; int n = clipboard.length, length = 0;
+    if (memo_blocked || n >= CLIP_CAPACITY) { message("Cannot paste into this memo"); return 0; }
+    for (int i = 0; i < n; i++) {
+        unsigned char ch = clipboard.text[i];
+        if (ch == '\r') { if (i + 1 < n && clipboard.text[i + 1] == '\n') continue; ch = '\n'; }
+        if (!(ch == '\n' || (ch >= 32 && ch <= 126))) { message("Clipboard needs ASCII text; use Text editor for Japanese"); return 0; }
+        incoming[length++] = ch;
+    }
+    int start = select_all ? 0 : used;
+    if (start + length > 1023) { message("Clipboard exceeds memo capacity; text retained"); return 0; }
+    for (int i = 0; i < length; i++) memo[start + i] = incoming[i];
+    if (length || select_all) dirty = 1;
+    used = start + length; select_all = 0; message("Pasted clipboard"); return 1;
+}
 static int handle_key(int key) {
     int decision = handle_confirm(key);
     if (decision == 2) return 1;
     if (decision) return 0;
+    if (key == KEY_F1 + 8) { tool(6, ""); return 0; }
     if (key == KEY_F1 + 9) {
         if (dirty) { confirm = 1; exiting = 1; return 0; }
         return 1;
@@ -290,7 +322,12 @@ static int handle_key(int key) {
     if (key == 9) { next(); return 0; }
     if (active < 0) return 0;
     Window *w = &windows[active];
-    if (key == KEY_F1 + 5 || key == KEY_F1 + 6) { int wanted = key == KEY_F1 + 5 ? 1 : 2; mode = mode == wanted ? 0 : wanted; return 0; }
+    if (key == KEY_F1 + 5 || key == KEY_F1 + 6) {
+        int wanted = key == KEY_F1 + 5 ? 1 : 2;
+        mode = mode == wanted ? 0 : wanted;
+        if (mode) w->ox = w->oy = 0; /* Keyboard geometry uses whole cells. */
+        return 0;
+    }
     if (mode && (key == 13 || key == 27)) { mode = 0; return 0; }
     if (mode) {
         int dx = key == KEY_RIGHT ? 1 : key == KEY_LEFT ? -1 : 0;
@@ -314,7 +351,7 @@ static int handle_key(int key) {
         return 0;
     }
     if (active == LAUNCHER || active == FILES) {
-        int limit = active == LAUNCHER ? 5 : count;
+        int limit = active == LAUNCHER ? 7 : count;
         if (key == KEY_UP && w->selected > 0) w->selected--;
         if (key == KEY_DOWN && w->selected + 1 < limit) w->selected++;
         if (key == KEY_HOME) w->selected = 0;
@@ -323,16 +360,23 @@ static int handle_key(int key) {
         if (active == FILES && key == 8) { fd_parent(folder); w->selected = 0; refresh(); }
     } else if (active == MEMO) {
         if (memo_blocked) { message("Use Text editor for non-ASCII or larger NOTE.TXT"); return 0; }
-        if (key == 19) save();
+        if (key == 1) { select_all = !select_all; message(select_all ? "Selected all memo text" : "Selection cleared"); }
+        else if (key == 3 || key == 24) {
+            clip_copy(memo, used); message("Copied memo to clipboard");
+            if (key == 24 && used) { used = 0; dirty = 1; select_all = 0; message("Cut memo to clipboard"); }
+        } else if (key == 22) paste_memo();
+        else if (key == 19) save();
+        else if (key == 8 && select_all) { used = 0; dirty = 1; select_all = 0; }
         else if (key == 8 && used) { used--; dirty = 1; }
-        else if ((key == 13 || (key >= 32 && key <= 126)) && used < (int)sizeof memo - 1) {
+        else if ((key == 13 || (key >= 32 && key <= 126)) && (select_all || used < (int)sizeof memo - 1)) {
+            if (select_all) { used = 0; select_all = 0; }
             memo[used++] = key == 13 ? '\n' : key; dirty = 1;
         } else if (used == (int)sizeof memo - 1) message("Memo full (1023 characters); use the Text editor for larger files");
     }
     return 0;
 }
 
-static int drag, drag_id, drag_mx, drag_my, drag_x, drag_y, drag_w, drag_h;
+static int live_drag, drag, drag_id, drag_mx, drag_my, drag_x, drag_y, drag_w, drag_h;
 static int preview_x, preview_y, preview_w, preview_h, preview_visible;
 static int last_file = -1;
 static u32 last_click;
@@ -344,21 +388,26 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
         if (!w->open || w->hidden || confirm) { drag = 0; return 0; }
         int x = w->x, y = w->y, width = w->w, height = w->h;
         if (drag == 1) {
-            x = clamp(drag_x + (now.x - drag_mx) / 8, 0, 79 - w->w);
-            y = clamp(drag_y + (now.y - drag_my) / 16, 1, 23 - w->h);
+            int px = clamp(drag_x + now.x - drag_mx, 0, 640 - w->w * 8 - 5);
+            int py = clamp(drag_y + now.y - drag_my, 16, 368 - w->h * 16);
+            if (live_drag) gfx_drag_move(px, py);
+            x = px / 8; y = py / 16;
+            if (!(now.buttons & 1)) { w->ox = gfx_colors() == 256 ? px & 7 : 0; w->oy = gfx_colors() == 256 ? py & 15 : 0; gfx_drag_end(); live_drag = 0; }
         } else {
             width = clamp(drag_w + (now.x - drag_mx) / 8, 30, 79 - w->x);
-            height = clamp(drag_h + (now.y - drag_my) / 16, 10, 23 - w->y);
+            height = clamp(drag_h + (now.y - drag_my) / 16, 10, 23 - w->y - (w->oy != 0));
         }
+        gfx_origin(w->ox, w->oy);
         if (preview_visible) gfx_outline(preview_x, preview_y, preview_w, preview_h);
         preview_visible = 0;
         if (!(now.buttons & 1)) {
             w->x = x; w->y = y; w->w = width; w->h = height;
             drag = 0; *redraw = 1;
-        } else {
+        } else if (!live_drag) {
             preview_x = x; preview_y = y; preview_w = width; preview_h = height;
             gfx_outline(x, y, width, height); preview_visible = 1;
         }
+        gfx_origin(0, 0);
         return 0;
     }
     if (!(now.buttons & 1)) { drag = 0; return 0; }
@@ -375,9 +424,9 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
         return 0;
     }
     if (cy == 0) {
-        static const int menu_x[] = {22, 30, 39, 47, 55, 71};
-        static const int menu_key[] = {KEY_F1 + 1, KEY_F1 + 2, KEY_F1 + 3, KEY_F1, KEY_F1 + 4, KEY_F1 + 9};
-        for (int i = 0; i < 6; i++) if (cx >= menu_x[i] && cx < menu_x[i] + 7) return menu_key[i];
+        static const int menu_x[] = {22, 30, 39, 47, 55, 63, 71};
+        static const int menu_key[] = {KEY_F1 + 1, KEY_F1 + 2, KEY_F1 + 3, KEY_F1, KEY_F1 + 4, KEY_F1 + 8, KEY_F1 + 9};
+        for (int i = 0; i < 7; i++) if (cx >= menu_x[i] && cx < menu_x[i] + 7) return menu_key[i];
         return 0;
     }
     if (cy == 24 && cx >= 40) {
@@ -387,7 +436,9 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
     }
     for (int i = WINDOWS - 1; i >= 0; i--) {
         int id = order[i]; Window *w = &windows[id];
-        if (!w->open || w->hidden || cx < w->x || cx >= w->x + w->w || cy < w->y || cy >= w->y + w->h) continue;
+        cx = (now.x - w->ox) / 8; cy = (now.y - w->oy) / 16;
+        if (!w->open || w->hidden || now.x < w->x * 8 + w->ox || now.x >= (w->x + w->w) * 8 + w->ox ||
+            now.y < w->y * 16 + w->oy || now.y >= (w->y + w->h) * 16 + w->oy) continue;
         focus(id);
         if (cy == w->y + 1 && cx >= w->x + w->w - 5 && cx < w->x + w->w - 2) return 27;
         if (cy == w->y + 1 && cx >= w->x + w->w - 9 && cx < w->x + w->w - 6) return KEY_F1 + 7;
@@ -395,13 +446,13 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
         else if (cy <= w->y + 1) drag = 1;
         if (drag) {
             last_file = -1; drag_id = id; drag_mx = now.x; drag_my = now.y;
-            drag_x = w->x; drag_y = w->y; drag_w = w->w; drag_h = w->h; return 0;
+            drag_x = w->x * 8 + w->ox; drag_y = w->y * 16 + w->oy; drag_w = w->w; drag_h = w->h; return 0;
         }
         if (id == LAUNCHER) {
             int row = cy - w->y - 3;
             if (row >= 0 && row < w->h - 5 && !(row & 1) && cx >= w->x + 2 && cx < w->x + w->w - 2) {
                 int selected = launcher_top(w) + row / 2;
-                if (selected < 5) { w->selected = selected; tool(selected, ""); }
+                if (selected < 7) { w->selected = selected; tool(selected, ""); }
             }
         } else if (id == FILES) {
             if (cx >= w->x + w->w - 3) {
@@ -420,7 +471,14 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
                     w->selected = selected; last_file = -1; file_open();
                 } else { w->selected = selected; last_file = selected; last_click = tick; }
             }
-        } else if (id == MEMO && cy == w->y + w->h - 2 && cx >= w->x + 2 && cx < w->x + 11) save();
+        } else if (id == MEMO && cy == w->y + w->h - 2) {
+            int col = cx - w->x;
+            if (col >= 2 && col < 11) save();
+            else if (col >= 12 && col < 19) return 3;
+            else if (col >= 20 && col < 26) return 24;
+            else if (w->w >= 40 && col >= 27 && col < 35) return 22;
+            else if (w->w >= 46 && col >= 36 && col < 43) return 1;
+        }
         return 0;
     }
     last_file = -1; return 0;
@@ -431,13 +489,19 @@ int main(void) {
     fd_text(folder, home, sizeof folder);
     if (fd_path(note_path, home, "NOTE.TXT")) return 1;
     for (int i = 0; i < WINDOWS; i++) {
-        windows[i] = (Window){3 + i * 4, 2 + i, 48, 16, 0, 0, 0}; order[i] = i;
+        windows[i] = (Window){3 + i * 4, 2 + i, 48, 16, 0, 0, 0, 0, 0}; order[i] = i;
     }
     load(); refresh(); focus(LAUNCHER); enter_graphics();
     draw(); Mouse previous = mouse_read(); gfx_pointer_show(previous.x, previous.y);
     for (;;) {
         Mouse now = mouse_read(); int ready = key_ready(), redraw = 0, stop = 0;
-        if (now.x != previous.x || now.y != previous.y || now.buttons != previous.buttons || ready) {
+        if (clipboard.command) {
+            int request = clipboard.command; clipboard.result = 0;
+            if (request != 1 || confirm || mode || memo_blocked) clipboard.result = 1;
+            else { focus(MEMO); if (!paste_memo()) clipboard.result = 2; }
+            clipboard.command = 0; clipboard.sequence++; redraw = 1;
+        }
+        if (now.x != previous.x || now.y != previous.y || now.buttons != previous.buttons || ready || redraw) {
             gfx_pointer_hide();
             for (int i = 0; i < 16; i++) {
                 int key = mouse_event(now, previous.buttons, &redraw);
@@ -448,15 +512,19 @@ int main(void) {
             }
             if (stop) break;
             if (ready) {
-                drag = 0; last_file = -1; redraw = 1;
+                drag = 0; gfx_drag_end(); live_drag = 0; last_file = -1; redraw = 1;
                 for (int i = 0; i < 16 && key_ready(); i++)
                     if (handle_key(key_read())) { stop = 1; break; }
                 if (stop) break;
             }
             if (redraw) { preview_visible = 0; draw(); }
+            if (drag == 1 && !live_drag) {
+                Window *w = &windows[drag_id];
+                live_drag = gfx_drag_begin(w->x * 8 + w->ox, w->y * 16 + w->oy, w->w * 8 + 5, w->h * 16 + 5);
+            }
             gfx_pointer_show(now.x, now.y);
         }
         previous = now; input_idle();
     }
-    gfx_stop(); p_finish(); p_output("KDESK exited.\r\n"); return 0;
+    clip_state(0); gfx_stop(); p_finish(); p_output("KDESK exited.\r\n"); return 0;
 }

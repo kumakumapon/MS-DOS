@@ -40,13 +40,16 @@ export async function verifyWindow(page, { screenshot } = {}) {
   };
   await type('MD GUIWORK\r');
   await type('KDESK\r'); await wait('Kuma Desktop'); await title('Launcher', 3, 5);
-  const planes = await page.evaluate(() => [0xa8000, 0xb0000, 0xb8000, 0xe0000]
-    .map(addr => window.np2debug.np2.readMemoryBase64(addr, 32000).base64));
-  const point = (x, y) => planes.reduce((color, b64, i) => color |
-    ((Buffer.from(b64, 'base64')[y * 80 + (x >> 3)] & (0x80 >> (x & 7))) ? 1 << i : 0), 0);
-  assert.equal(point(0, 32), 1, 'Desktop is drawn to PC-98 graphics VRAM');
-  assert.equal(point(24, 32), 7, 'Window frame is drawn to graphics VRAM');
-  assert.equal(point(35, 48), 4, 'Active title bar has the focus color');
+  await wait('Ready');
+  const point = (x, y) => page.evaluate(({ x, y }) => {
+    const source = document.querySelector('#canvas'), canvas = document.createElement('canvas');
+    canvas.width = source.width; canvas.height = source.height;
+    const ctx = canvas.getContext('2d'); ctx.drawImage(source, 0, 0);
+    return Array.from(ctx.getImageData(x, y, 1, 1).data).slice(0, 3);
+  }, { x, y });
+  assert.ok((await point(0,32)).every((c,i) => Math.abs(c-[25,66,90][i])<=4), 'Desktop uses the PEGC gradient palette (RGB565 output tolerance)');
+  assert.ok((await point(24,32)).every(c => Math.abs(c-255)<=4), 'Window frame is drawn by the guest');
+  assert.ok((await point(35,48)).every((c,i) => Math.abs(c-[34,119,187][i])<=4), 'Active title bar has the focus color');
   await key('F6'); await key('RIGHT'); await key('DOWN'); await key('ENTER');
   await title('Launcher', 4, 6);
   await key('F7'); await key('RIGHT'); await key('DOWN'); await key('ENTER');
@@ -104,8 +107,12 @@ export async function verifyWindow(page, { screenshot } = {}) {
     await page.evaluate(({ from, to }) => window.np2debug.np2.mouseDrag(from, to), { from, to });
     await pause(250);
   };
-  const region = () => page.evaluate(() => [0xa8000, 0xb0000, 0xb8000, 0xe0000].map(
-    addr => window.np2debug.np2.readMemoryBase64(addr + 354 * 80 + 74, 16 * 80).base64));
+  const region = () => page.evaluate(() => {
+    const source = document.querySelector('#canvas'), canvas = document.createElement('canvas');
+    canvas.width = source.width; canvas.height = source.height;
+    const ctx = canvas.getContext('2d'); ctx.drawImage(source, 0, 0);
+    return Array.from(ctx.getImageData(592, 350, 48, 32).data);
+  });
   await type('KDESK\r'); await title('Launcher', 3, 5);
   await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(250);
   const clean = await region();
@@ -166,12 +173,153 @@ export async function verifyWindow(page, { screenshot } = {}) {
   await cell(49, 0); await wait('Drag title: move');
   await capture();
   await cell(73, 0); await wait('KDESK exited.');
+  const mediaResults = await verifyMedia(page, { screenshot: screenshot?.replace(/\.png$/, '-media.png') });
   return [
-    'KDESK 16-color graphics, CG-ROM labels, keyboard window move and resize',
+    ...mediaResults,
+    'KDESK PEGC 256-color graphics, CG-ROM labels, keyboard window move and resize',
     'overlapping windows, focus, minimize/restore, close and help',
     'memo CRLF save, reopen, unsaved-change cancel/discard and failed-save preservation',
     'directory navigation; CPANEL, child COM and EDIT98 launch/return; DOS exit',
     'bus-mouse pointer restoration/edge clipping; title drag, resize, close and taskbar restore',
     'mouse memo Save/Cancel/Discard, launcher, file scrolling/double-click/Open/Parent and child return',
   ];
+}
+
+export async function verifyMedia(page, { screenshot } = {}) {
+  const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const text = () => page.evaluate(() => window.np2debug.np2.getScreenText().text);
+  const wait = needle => page.waitForFunction(needle => window.np2debug.np2.getScreenText().text.includes(needle),
+    { timeout: 60000 }, needle).catch(async e => { console.error(await text()); throw e; });
+  const key = async value => { await page.evaluate(v => window.np2debug.np2.sendKeys(v), value); await pause(250); };
+  const type = async value => { await page.evaluate(v => window.np2debug.np2.typeText(v), value); await pause(250); };
+  const move = async (x,y) => { await page.evaluate(({x,y}) => window.np2debug.np2.mouseMoveTo(x,y), {x,y}); await pause(200); };
+  const click = async (x,y) => { await move(x,y); await page.evaluate(() => window.np2debug.np2.mouseClick()); await pause(250); };
+  const drag = async (from,to) => { await move(from.x,from.y); await page.evaluate(({from,to}) => window.np2debug.np2.mouseDrag(from,to), {from,to}); await pause(250); };
+  const guest = async name => Buffer.from(await page.evaluate(async name => Array.from(await window.np2debug.np2.diskReadFile('fd1',name)),name));
+  const pixel=(bmp,x,y)=>bmp[1078+(bmp.readInt32LE(22)-y-1)*((bmp.readInt32LE(18)+3)&~3)+x];
+  // Absolute bus-mouse delivery can differ by two pixels from the host estimate.
+  const near=(bmp,x,y,c)=>[-2,-1,0,1,2].some(dy=>[-2,-1,0,1,2].some(dx=>pixel(bmp,x+dx,y+dy)===c));
+  const mailbox = active => page.evaluate(active => {
+    const np2 = window.np2debug.np2, start = 0x1000;
+    const bytes = atob(np2.readMemoryBase64(start,0x9f000).base64);
+    let at = -1;
+    while ((at = bytes.indexOf('KDESKCLP',at+1)) >= 0) {
+      const word = offset => bytes.charCodeAt(at+offset) | bytes.charCodeAt(at+offset+1)<<8;
+      if (word(8) === 1 && word(10) === active) return {
+        address:start+at, text:bytes.slice(at+30,at+30+word(12)), width:word(22), height:word(24),segment:word(26),
+      };
+    }
+    return null;
+  },active);
+  await type('KDESK\r'); await wait('Ready'); await key('F4'); await wait('NOTE.TXT');
+  await key('CTRL+A'); await key('CTRL+C'); await wait('Copied memo');
+  assert.equal((await mailbox(1)).text, 'WINDOW MEMO OK\nSECOND LINE');
+  await key('CTRL+X'); await wait('Cut memo'); await key('CTRL+V'); await wait('Pasted clipboard');
+  await key('CTRL+S'); await wait('Saved NOTE.TXT');
+  assert.equal((await guest('NOTE.TXT')).toString(),'WINDOW MEMO OK\r\nSECOND LINE');
+  await key('F2'); await wait('Click an app'); await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(500);
+  await move(100,52);
+  await page.evaluate(() => {
+    const np2 = window.np2debug.np2, original = np2.mouseMoveTo.bind(np2);
+    window.mediaOriginalMove = original;
+    np2.mouseMoveTo = async (x,y) => { const value = await original(x,y); if (x===151 && y===87) await new Promise(resolve => {window.mediaRelease=resolve;}); return value; };
+    window.mediaDrag = np2.mouseDrag({x:100,y:52},{x:151,y:87});
+  });
+  await page.waitForFunction(() => !!window.mediaRelease);
+  await page.waitForFunction(() => {
+    const source=document.querySelector('#canvas'),c=document.createElement('canvas');c.width=source.width;c.height=source.height;
+    const g=c.getContext('2d');g.drawImage(source,0,0);const p=g.getImageData(84,90,1,1).data;
+    return [34,119,187].every((v,i)=>Math.abs(p[i]-v)<=4);
+  },{timeout:60000});
+  const livePixel = await page.evaluate(() => {
+    const source=document.querySelector('#canvas'), c=document.createElement('canvas'); c.width=source.width;c.height=source.height;
+    const g=c.getContext('2d');g.drawImage(source,0,0);return Array.from(g.getImageData(84,90,1,1).data).slice(0,3);
+  });
+  assert.ok(livePixel.every((c,i) => Math.abs(c-[34,119,187][i])<=4),'Window contents move at pixel resolution while the button remains held: '+livePixel);
+  await page.evaluate(async () => { window.mediaRelease(); await window.mediaDrag; window.np2debug.np2.mouseMoveTo=window.mediaOriginalMove; });
+  // Foreground image apps inherit and return the desktop's bus-mouse position.
+  // Do not home/resync between the parent and child: that would conceal a reset.
+  await key('F9');await wait('KPAINT - Image editor');await wait('Ready');
+  await click(116,140);await wait('Image changed');await key('F4');await wait('Save BMP as:');
+  await key('CTRL+U');await type('BRIDGE.BMP\r');await wait('Saved BMP');
+  assert.ok(near(await guest('BRIDGE.BMP'),50,30,196),'KDESK passes its current mouse position to KPAINT');
+  await key('F10');await wait('Press any key or click to return to KDESK');await click(600,350);await wait('Program returned to desktop');
+  await pause(200);
+  const returnedPointer=await page.evaluate(()=>{
+    const source=document.querySelector('#canvas'),c=document.createElement('canvas');c.width=source.width;c.height=source.height;
+    const g=c.getContext('2d');g.drawImage(source,0,0);const p=g.getImageData(598,348,6,6).data;
+    for(let i=0;i<p.length;i+=4) if([34,51,68].every((v,j)=>Math.abs(p[i+j]-v)<=4)) return true;
+    return false;
+  });
+  assert.ok(returnedPointer,'KPAINT returns its updated mouse position to KDESK');
+  await key('F10'); await wait('KDESK exited.');
+  await type('ECHO NOTBMP>BAD.BMP\r'); await type('KVIEW COLORS.BMP\r'); await wait('256 colors'); await wait('Opened BMP');
+  await pause(150);
+  const paletteColors = await page.evaluate(() => {
+    const source=document.querySelector('#canvas'),c=document.createElement('canvas');c.width=source.width;c.height=source.height;
+    const g=c.getContext('2d');g.drawImage(source,0,0);const colors=new Set();
+    for(let i=0;i<256;i++) colors.add(Array.from(g.getImageData(515+i%16*7,88+Math.floor(i/16)*16,1,1).data).slice(0,3).join(','));
+    return colors.size;
+  });
+  assert.ok(paletteColors>200,'More than 200 distinct RGB colors are visible simultaneously');
+  await key('CTRL+C'); await wait('Copied image');
+  assert.deepEqual([...(b=>[b.width,b.height])(await mailbox(3))],[160,112]);
+  if(screenshot) await page.screenshot({path:screenshot.replace(/\.png$/,'-viewer.png')});
+  await key('F10'); await wait('KVIEW exited.');
+  // Odd widths exercise row padding; top-down 24-bit data also checks orientation.
+  const fixtures = [1,4,24].map(bits => {
+    const palette = [[255,0,0],[0,0,255],[0,255,0],[0,0,0]].slice(0,bits===1?2:4);
+    const indices = bits===1 ? [0,1,0,1,0,1] : [0,1,2,3,2,1];
+    const stride = Math.ceil(3*bits/32)*4, offset = 54+(bits===24?0:palette.length*4);
+    const bmp = Buffer.alloc(offset+stride*2); bmp.write('BM');bmp.writeUInt32LE(bmp.length,2);bmp.writeUInt32LE(offset,10);
+    bmp.writeUInt32LE(40,14);bmp.writeInt32LE(3,18);bmp.writeInt32LE(bits===24?-2:2,22);bmp.writeUInt16LE(1,26);bmp.writeUInt16LE(bits,28);
+    if(bits!==24) {bmp.writeUInt32LE(palette.length,46);palette.forEach(([r,g,b],i)=>bmp.set([b,g,r,0],54+i*4));}
+    for(let y=0;y<2;y++) for(let x=0;x<3;x++) {
+      const i=indices[y*3+x], at=offset+(bits===24?y:1-y)*stride;
+      if(bits===24) {const [r,g,b]=palette[i];bmp.set([b,g,r],at+x*3);}
+      else if(bits===4) bmp[at+(x>>1)] |= i << (x%2?0:4);
+      else bmp[at] |= i << (7-x);
+    }
+    return {name:`B${bits}.BMP`,bytes:Array.from(bmp),expected:indices.map(i=>[196,21,46,16][i])};
+  });
+  for(const fixture of fixtures) {
+    await page.evaluate(async ({name,bytes})=>window.np2debug.np2.diskWriteFile('fd1',name,new Uint8Array(bytes)),fixture);
+    await type(`KVIEW ${fixture.name}\r`);await wait('Opened BMP');
+    const image=await mailbox(3);assert.deepEqual([image.width,image.height],[3,2]);
+    const pixels=await page.evaluate(segment=>Array.from(atob(window.np2debug.np2.readMemoryBase64(segment*16,6).base64),c=>c.charCodeAt(0)),image.segment);
+    assert.deepEqual(pixels,fixture.expected,`${fixture.name}: palette, row padding and orientation`);
+    await key('F10');await wait('KVIEW exited.');
+  }
+  await type('KPAINT\r'); await wait('Ready'); await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(500);
+  await drag({x:36,y:100},{x:96,y:140}); await wait('Image changed'); await key('F3'); await wait('Saved BMP');
+  let bmp=await guest('DRAW.BMP'); assert.equal(bmp.readUInt16LE(28),8);assert.equal(bmp.readInt32LE(18),224);assert.equal(bmp.length,33334);
+  for(const [x,y] of [[20,17],[25,20],[30,23]]) assert.ok(near(bmp,x,y,196),'Pencil interpolates the drag path');
+  await key('CTRL+Z'); await wait('Undo / redo'); await key('F3'); await wait('Saved BMP');
+  assert.ok(!near(await guest('DRAW.BMP'),25,20,196),'Undo restores the original pixels');
+  await key('CTRL+Z'); await wait('Undo / redo'); await key('s'); await wait('Tool: Select');
+  await drag({x:32,y:96},{x:100,y:144}); await wait('Selection ready'); await key('CTRL+C'); await wait('Copied image');
+  const clip=await mailbox(4);assert.deepEqual([clip.width,clip.height],[35,25]);
+  await move(136,160); await key('CTRL+V'); await wait('Pasted image');await key('F3');await wait('Saved BMP');
+  assert.ok(near(await guest('DRAW.BMP'),77,52,196),'Image selection pastes at the cursor');
+  await key('F5');await wait('New image');await key('r');await wait('Tool: Rect');
+  await drag({x:26,y:90},{x:56,y:120});await wait('Image changed');
+  await click(550,104);await key('f');await wait('Tool: Fill');await click(30,94);await wait('Filled area');
+  await key('F3');await wait('Replace existing image?');await type('y');await wait('Saved BMP');
+  bmp=await guest('DRAW.BMP');assert.equal(pixel(bmp,7,7),21);assert.ok(near(bmp,5,5,196),'Rectangle boundary remains after filling');assert.equal(pixel(bmp,0,0),7);
+  await key('F2');await wait('Open BMP:');await key('CTRL+U');await type('BAD.BMP\r');await wait('Cannot open BMP:');
+  assert.deepEqual(await guest('DRAW.BMP'),bmp,'Malformed input does not alter the saved image');
+  if(screenshot) {await pause(150);await page.screenshot({path:screenshot});}
+  await key('F10');await wait('KPAINT exited.');
+  await type('COPY DRAW.BMP KEEP.BMP\r');await type('ECHO RESERVED>KDIMG.TMP\r');
+  await type('KPAINT DRAW.BMP\r');await wait('Opened BMP');await key('SPACE');await key('F3');await wait('Save failed; image retained');
+  assert.deepEqual(await guest('DRAW.BMP'),bmp,'A failed image save preserves the original');
+  await key('F4');await wait('Save BMP as:');await key('CTRL+U');await type('KEEP.BMP\r');await wait('Replace existing image?');await type('n');
+  assert.deepEqual(await guest('KEEP.BMP'),bmp,'Overwrite cancellation preserves the destination');
+  await key('F10');await wait('Discard unsaved image changes?');await type('n');
+  await wait('KPAINT - Image editor');await key('F10');await wait('Discard unsaved image changes?');await type('y');await wait('KPAINT exited.');
+  await type('DEL KDIMG.TMP\r');
+  return ['native text clipboard copy/cut/paste and exact CRLF save; parent/child mouse continuity without resync',
+    'live pixel-resolution window movement while held; PEGC palette displays over 200 simultaneous RGB colors',
+    'KVIEW 1/4/8/24-bit BMP display/copy, row padding and top-down orientation; KPAINT pencil, undo/redo, selection clipboard, rectangle, flood fill and 8-bit BMP save',
+    'malformed BMP rejection, safe image save failure, overwrite cancellation and unsaved-change protection'];
 }
