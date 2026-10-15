@@ -196,6 +196,9 @@ export async function verifyMedia(page, { screenshot } = {}) {
   const click = async (x,y) => { await move(x,y); await page.evaluate(() => window.np2debug.np2.mouseClick()); await pause(250); };
   const drag = async (from,to) => { await move(from.x,from.y); await page.evaluate(({from,to}) => window.np2debug.np2.mouseDrag(from,to), {from,to}); await pause(250); };
   const guest = async name => Buffer.from(await page.evaluate(async name => Array.from(await window.np2debug.np2.diskReadFile('fd1',name)),name));
+  const pixel=(bmp,x,y)=>bmp[1078+(bmp.readInt32LE(22)-y-1)*((bmp.readInt32LE(18)+3)&~3)+x];
+  // Absolute bus-mouse delivery can differ by two pixels from the host estimate.
+  const near=(bmp,x,y,c)=>[-2,-1,0,1,2].some(dy=>[-2,-1,0,1,2].some(dx=>pixel(bmp,x+dx,y+dy)===c));
   const mailbox = active => page.evaluate(active => {
     const np2 = window.np2debug.np2, start = 0x1000;
     const bytes = atob(np2.readMemoryBase64(start,0x9f000).base64);
@@ -234,6 +237,21 @@ export async function verifyMedia(page, { screenshot } = {}) {
   });
   assert.ok(livePixel.every((c,i) => Math.abs(c-[34,119,187][i])<=4),'Window contents move at pixel resolution while the button remains held: '+livePixel);
   await page.evaluate(async () => { window.mediaRelease(); await window.mediaDrag; window.np2debug.np2.mouseMoveTo=window.mediaOriginalMove; });
+  // Foreground image apps inherit and return the desktop's bus-mouse position.
+  // Do not home/resync between the parent and child: that would conceal a reset.
+  await key('F9');await wait('KPAINT - Image editor');await wait('Ready');
+  await click(116,140);await wait('Image changed');await key('F4');await wait('Save BMP as:');
+  await key('CTRL+U');await type('BRIDGE.BMP\r');await wait('Saved BMP');
+  assert.ok(near(await guest('BRIDGE.BMP'),50,30,196),'KDESK passes its current mouse position to KPAINT');
+  await key('F10');await wait('Press any key or click to return to KDESK');await click(600,350);await wait('Program returned to desktop');
+  await pause(200);
+  const returnedPointer=await page.evaluate(()=>{
+    const source=document.querySelector('#canvas'),c=document.createElement('canvas');c.width=source.width;c.height=source.height;
+    const g=c.getContext('2d');g.drawImage(source,0,0);const p=g.getImageData(598,348,6,6).data;
+    for(let i=0;i<p.length;i+=4) if([34,51,68].every((v,j)=>Math.abs(p[i+j]-v)<=4)) return true;
+    return false;
+  });
+  assert.ok(returnedPointer,'KPAINT returns its updated mouse position to KDESK');
   await key('F10'); await wait('KDESK exited.');
   await type('ECHO NOTBMP>BAD.BMP\r'); await type('KVIEW COLORS.BMP\r'); await wait('256 colors'); await wait('Opened BMP');
   await pause(150);
@@ -274,10 +292,6 @@ export async function verifyMedia(page, { screenshot } = {}) {
   }
   await type('KPAINT\r'); await wait('Ready'); await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(500);
   await drag({x:36,y:100},{x:96,y:140}); await wait('Image changed'); await key('F3'); await wait('Saved BMP');
-  const pixel=(bmp,x,y)=>bmp[1078+(bmp.readInt32LE(22)-y-1)*((bmp.readInt32LE(18)+3)&~3)+x];
-  // Absolute bus-mouse coordinates are host estimates; allow a two-pixel
-  // delivery offset while checking several points along the interpolated stroke.
-  const near=(bmp,x,y,c)=>[-2,-1,0,1,2].some(dy=>[-2,-1,0,1,2].some(dx=>pixel(bmp,x+dx,y+dy)===c));
   let bmp=await guest('DRAW.BMP'); assert.equal(bmp.readUInt16LE(28),8);assert.equal(bmp.readInt32LE(18),224);assert.equal(bmp.length,33334);
   for(const [x,y] of [[20,17],[25,20],[30,23]]) assert.ok(near(bmp,x,y,196),'Pencil interpolates the drag path');
   await key('CTRL+Z'); await wait('Undo / redo'); await key('F3'); await wait('Saved BMP');
@@ -304,7 +318,7 @@ export async function verifyMedia(page, { screenshot } = {}) {
   await key('F10');await wait('Discard unsaved image changes?');await type('n');
   await wait('KPAINT - Image editor');await key('F10');await wait('Discard unsaved image changes?');await type('y');await wait('KPAINT exited.');
   await type('DEL KDIMG.TMP\r');
-  return ['native text clipboard copy/cut/paste and exact CRLF save',
+  return ['native text clipboard copy/cut/paste and exact CRLF save; parent/child mouse continuity without resync',
     'live pixel-resolution window movement while held; PEGC palette displays over 200 simultaneous RGB colors',
     'KVIEW 1/4/8/24-bit BMP display/copy, row padding and top-down orientation; KPAINT pencil, undo/redo, selection clipboard, rectangle, flood fill and 8-bit BMP save',
     'malformed BMP rejection, safe image save failure, overwrite cancellation and unsaved-change protection'];

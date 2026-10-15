@@ -371,6 +371,10 @@ Mouse mouse_read(void) {
     mouse.ticks = input_ticks(); return mouse;
 }
 int mouse_queued(void) { return event_count != 0; }
+Mouse mouse_position(void) { return mouse; }
+void mouse_position_set(int x, int y) {
+    if (x >= 0 && x < 640 && y >= 0 && y < 400) { mouse.x = x; mouse.y = y; }
+}
 static int bios_key_ready(void) {
     unsigned a = 0x0100, b = 0;
     __asm__ volatile("int $0x18" : "+a"(a), "+b"(b) :: "cc", "memory");

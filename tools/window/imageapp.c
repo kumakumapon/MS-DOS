@@ -283,8 +283,8 @@ int main(void) {
     unsigned used = 0; while (start < length) argument[used++] = mem_get(local_segment(), 0x81 + start++);
     while (used && argument[used - 1] == ' ') used--;
     argument[used] = 0;
-    gfx_start(); clip_state(VIEW_ONLY ? 3 : 4);
-    if (!bitmap_new(&image, 224, 144, WHITE)) { clip_state(0); gfx_stop(); p_output("Image allocation failed\r\n"); return 8; }
+    clip_mouse_inherit(); gfx_start(); clip_state(VIEW_ONLY ? 3 : 4);
+    if (!bitmap_new(&image, 224, 144, WHITE)) { clip_mouse_return(); clip_state(0); gfx_stop(); p_output("Image allocation failed\r\n"); return 8; }
     fd_text(path, VIEW_ONLY ? "COLORS.BMP" : "DRAW.BMP", sizeof path);
     if (used || VIEW_ONLY) {
         char normalized[FD_PATH];
@@ -310,6 +310,6 @@ int main(void) {
         }
         previous = now; input_idle();
     }
-    clip_state(0); gfx_stop(); bitmap_free(&image); bitmap_free(&undo); bitmap_free(&copied);
+    clip_mouse_return(); clip_state(0); gfx_stop(); bitmap_free(&image); bitmap_free(&undo); bitmap_free(&copied);
     p_finish(); p_output(VIEW_ONLY ? "KVIEW exited.\r\n" : "KPAINT exited.\r\n"); return 0;
 }

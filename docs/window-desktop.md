@@ -42,7 +42,10 @@ the editor, BAS files in the installed BASIC, and BMP files in KVIEW. The launch
 file manager, editor, settings panel and DOS shell relative to the starting
 directory. Child programs use DOS EXEC; after their exit, press any key or
 click to return to the desktop.
-Each child retains its own controls; KDESK mouse support does not add mouse
+KVIEW/KPAINT inherit the desktop mouse position through an optional mailbox
+extension in the parent PSP allocation and return the updated position on exit.
+No resync is required between the desktop and its image tools. Other child
+programs retain their own controls; KDESK mouse support does not add mouse
 controls to the text editor or settings panel.
 An unavailable program reports an error and keeps the desktop running.
 

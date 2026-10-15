@@ -109,8 +109,9 @@ static void load(void) {
 }
 static void enter_graphics(void) { gfx_start(); clip_state(1); }
 static void launch(const char *program, const char *arguments) {
-    clip_state(2); gfx_stop(); p_finish();
+    clip_mouse_save(); clip_state(2); gfx_stop(); p_finish();
     int result = p_exec(program, arguments);
+    clip_mouse_resume();
     if (result < 0) message("Cannot start program; check its path and memory");
     else {
         p_output("\r\nPress any key or click to return to KDESK...");

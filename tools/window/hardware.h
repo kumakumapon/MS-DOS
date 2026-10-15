@@ -34,6 +34,8 @@ void gfx_outline(int x, int y, int w, int h);
 void mouse_start(void);
 void mouse_stop(void);
 Mouse mouse_read(void);
+Mouse mouse_position(void);
+void mouse_position_set(int x, int y);
 int mouse_queued(void);
 int key_ready(void);
 int key_read(void);
