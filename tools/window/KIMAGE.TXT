@@ -1,0 +1,26 @@
+KVIEW / KPAINT - PC-98 image tools 1.0
+
+KVIEW [file.bmp] shows BMP images; the default is COLORS.BMP.
+KPAINT [file.bmp] edits images; without a path it creates a new 224x144 image.
+Supported BMP: uncompressed 1/4/8/24-bit, max 320x200, top-down or bottom-up.
+Images are mapped to the desktop palette. Save produces uncompressed 8-bit BMP.
+The 256-color palette uses the PC-9821 PEGC on WebNP2; 16-color fallback is available.
+
+F1 Help, F2 Open, F3 Save, F4 SaveAs, F5 New, F10 Quit.
+SaveAs asks before replacing a different existing image. Open/New/Quit ask
+before discarding changes. Path dialogs: Ctrl+U clears; Escape cancels.
+A failed save preserves the image and original file. KDIMG.TMP/KDIMG.BAK
+are reserved for safe replacement; existing files with those names block saving.
+
+P Pencil, L Line, R Rectangle, F Flood fill, I Pick color, E Erase, S Select.
+Click a palette swatch to choose a color. Right-click the canvas picks a color.
+Drag on the image to draw or select a rectangle. Ctrl+C copies the selection
+(or entire image); Ctrl+X copies and clears it. Ctrl+V pastes at the cursor.
+Ctrl+Z or U swaps the last change for undo/redo. Arrows move the image cursor;
+Space draws at it. Image clipboard and undo are held in memory for this process.
+
+WebNP2's KDESK media panel can copy text/images to the host clipboard using
+explicit buttons, and import browser-supported PNG/JPEG/etc. as BMP files.
+Clipboard permission is requested by the browser only when those buttons are used.
+
+These applications share KDESK's MIT license; see KDLIC.TXT.

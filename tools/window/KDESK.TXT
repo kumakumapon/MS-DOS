@@ -1,19 +1,22 @@
-Kuma Desktop (KDESK) - Original PC-98 window desktop 1.1
+Kuma Desktop (KDESK) - Original PC-98 window desktop 1.2
 
 Run KDESK from the MS-DOS 4.0 PC-98 prompt. Requires a 386-compatible
-PC-98 with 640 x 400, 16-color graphics and a PC-98 bus mouse (WebNP2 works).
+PC-98 with 640 x 400 graphics and a PC-98 bus mouse (WebNP2 works).
+WebNP2 uses PC-9821 PEGC 256 colors; other supported machines retain 16 colors.
 
 F1 Help       F2 Launcher   F3 Files   F4 Memo   F5 About
 Tab           Switch to the next open/minimized window
 F6, arrows    Move the active window; F6 or Enter finishes moving
 F7, arrows    Resize the active window; F7 or Enter finishes resizing
+F9            Open the KPAINT image editor
 F8            Minimize the active window (Tab restores it)
 Escape        Close the active window
 F10           Exit to DOS (confirm if the memo has unsaved changes)
 
 Mouse: click the top menus to open windows; click a window to focus it.
        Drag the title bar to move, or the lower-right grip to resize.
-       An outline previews the change; release to apply it.
+       Moving shows the window contents at pixel resolution. Resizing uses an
+       outline. If sprite memory is unavailable, moving also uses an outline.
        Title buttons: _ minimizes, x closes. Taskbar buttons restore/focus.
        Click a launcher row to start a program. In Files, click to select,
        double-click or use Open; Parent and ^/v navigate/scroll.
@@ -21,9 +24,13 @@ Mouse: click the top menus to open windows; click a window to focus it.
 
 Launcher: Up/Down selects; Enter starts the selected DOS program.
 Files: Up/Down selects; Enter opens directories, COM/EXE programs,
-       TXT files in EDIT98, and BAS files in the installed BASIC.
+       TXT files in EDIT98, BAS files in the installed BASIC, and BMP in KVIEW.
        Backspace goes to the parent directory.
 Memo: type ASCII text, Enter adds a line, Backspace removes a character.
+      Ctrl+A selects all, Ctrl+C copies, Ctrl+X cuts, Ctrl+V pastes.
+      Copy/Cut use the full memo; Paste replaces the selected text or appends.
+      The clipboard holds up to 1023 ASCII characters. Invalid or oversized
+      paste leaves the memo unchanged. Save/Copy/Cut/Paste/All buttons also work.
       Ctrl+S saves NOTE.TXT in the directory where KDESK was started.
       Escape asks before discarding unsaved text; Enter saves, D discards,
       Escape cancels. A failed save keeps the text and the window open.
@@ -37,9 +44,20 @@ DOS tools run in the foreground, one at a time. After exiting a DOS tool,
 press any key or click to return to the desktop. Use EXIT to leave the DOS shell.
 
 Keyboard controls also work without a mouse. No mouse driver is required.
-KDESK polls the PC-98 bus mouse, uses CG-ROM glyphs and a 16-color palette,
+KDESK polls the PC-98 bus mouse, uses CG-ROM glyphs and the PEGC palette,
 and restores the mouse control/palette state before child programs and exit.
 WebNP2: move/click on the emulated screen; use Mouse resync if misaligned.
 DOS child programs keep their own controls (usually keyboard input).
 The desktop does not run external DOS programs simultaneously or add an IME.
 Use EDIT98 for Shift_JIS/Japanese text; the built-in memo accepts ASCII.
+
+Image tools: KVIEW [file.bmp] displays images, KPAINT [file.bmp] edits them.
+The launcher includes both tools; F9 / Paint starts KPAINT. See KIMAGE.TXT
+for pencil, line, rectangle, fill, color picker, eraser, selection, clipboard,
+undo/redo and safe BMP saving. COLORS.BMP is an original 256-index color chart.
+
+WebNP2: the toolbar's More menu contains KDESK Clipboard and Images. Explicit
+buttons exchange text and images with the host clipboard, export PNG, and
+import PNG/JPEG/etc. or a host clipboard image as BMP on FDD1 (max 320x200).
+Open the imported file with Files/KVIEW, or F2 in KPAINT. No host clipboard
+access occurs automatically. Browser permission may be required.

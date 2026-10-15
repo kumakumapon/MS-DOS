@@ -34,5 +34,6 @@ Any use of third-party trademarks or logos are subject to those third-party's po
 MS-DOS 4.0 の PC-98 / WebNP2 移植は [ビルド・検証手順](docs/pc98-dos4.md) を参照してください。
 
 PC-98用の独自ウィンドウデスクトップは `KDESK` で起動できます。
-WebNP2上でマウス操作に対応し、16色の表示、ウィンドウ移動・サイズ変更、クリックによる起動・保存が使えます。
+WebNP2上で256色表示、ウィンドウ本体の移動表示、クリップボード、クリックによる起動・保存が使えます。
+画像ビューア `KVIEW` と画像エディタ `KPAINT` も同梱します（[操作方法](docs/kdesk-media.md)）。
 [操作と検証手順](docs/window-desktop.md)を参照してください。

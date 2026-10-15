@@ -1,12 +1,17 @@
 #include "hardware.h"
 
-/* PC-98 16-color planar VRAM and CG-ROM; no embedded external font or TSR. */
+/* PC-98 planar / PC-9821 PEGC VRAM and CG-ROM; no external font or TSR. */
 static const unsigned segments[] = {0xa800, 0xb000, 0xb800, 0xe000};
 static const u16 theme[] = {
     0x234, 0x256, 0xeff, 0xcde, 0x27b, 0x259, 0xfc6, 0xfff,
     0x123, 0xbcd, 0x678, 0x467, 0x367, 0x7ab, 0xeef, 0xacd,
 };
-static u8 fonts[256][16], palette[16][3], saved_mode, saved_index;
+static u8 fonts[256][16], palette[16][3], palette256[256][3], saved_mode, saved_index;
+static int packed, bank = -1, origin_x, origin_y;
+static u8 saved_gate, saved_256, saved_banks[4], saved_pegc_mode, saved_pegc_enable;
+static u8 packed_under[16][16];
+static unsigned drag_sprite;
+static int sprite_x, sprite_y, sprite_w, sprite_h;
 static int fonts_ready, cursor_visible, cursor_x, cursor_y, cursor_rows, cursor_bytes;
 static u8 underneath[4][16][3];
 static u8 saved_mouse_c;
@@ -56,12 +61,124 @@ static void masked(unsigned segment, unsigned offset, u8 mask, int set) {
     u8 value = get(segment, offset);
     put(segment, offset, set ? value | mask : value & (u8)~mask);
 }
+static int query(u8 selector) { out(0x9a0, selector); return in(0x9a0) & 1; }
+static void select_bank(int n) {
+    if (bank != n) { put(0xe000, 4, n); put(0xe000, 5, 0); bank = n; }
+}
+int gfx_colors(void) { return packed ? 256 : 16; }
+void gfx_origin(int x, int y) { origin_x = x; origin_y = y; }
+u32 gfx_rgb(int index) {
+    if (index < 16) {
+        unsigned c = theme[index];
+        return ((c >> 8) * 17u << 16) | (((c >> 4) & 15) * 17u << 8) | ((c & 15) * 17u);
+    }
+    if (index < 232) {
+        index -= 16;
+        return (index / 36 * 51u << 16) | (index / 6 % 6 * 51u << 8) | (index % 6 * 51u);
+    }
+    unsigned t = index - 232;
+    return ((24 + t) << 16) | ((64 + t * 2) << 8) | (88 + t * 2);
+}
+int gfx_nearest(int r, int g, int b) {
+    int found = packed ? 16 + (r + 25) / 51 * 36 + (g + 25) / 51 * 6 + (b + 25) / 51 : 0;
+    u32 initial = gfx_rgb(found);
+    int dr = r - (int)(initial >> 16), dg = g - (int)((initial >> 8) & 255), db = b - (int)(initial & 255);
+    unsigned best = dr * dr + dg * dg + db * db;
+    for (int j = 0; j < (packed ? 40 : 16); j++) {
+        int i = j < 16 ? j : j + 216;
+        u32 rgb = gfx_rgb(i); int dr = r - (int)(rgb >> 16), dg = g - (int)((rgb >> 8) & 255), db = b - (int)(rgb & 255);
+        unsigned distance = dr * dr + dg * dg + db * db;
+        if (distance < best) { best = distance; found = i; }
+    }
+    return found;
+}
+static void packed_fill(u32 at, unsigned count, u8 color) {
+    while (count) {
+        unsigned n = 32768 - (at & 32767); if (n > count) n = count;
+        select_bank(at >> 15); fill(0xa800, at & 32767, n, color);
+        at += n; count -= n;
+    }
+}
+void gfx_read_span(int x, int y, unsigned segment, u32 offset, unsigned count) {
+    u32 at = y * 640u + x;
+    while (count) {
+        unsigned n = 32768 - (at & 32767); if (n > count) n = count;
+        select_bank(at >> 15); mem_copy(segment, offset, 0xa800, at & 32767, n);
+        at += n; offset += n; count -= n;
+    }
+}
+void gfx_write_span(int x, int y, unsigned segment, u32 offset, unsigned count) {
+    u32 at = y * 640u + x;
+    while (count) {
+        unsigned n = 32768 - (at & 32767); if (n > count) n = count;
+        select_bank(at >> 15); mem_copy(0xa800, at & 32767, segment, offset, n);
+        at += n; offset += n; count -= n;
+    }
+}
+void gfx_background(void) {
+    if (!packed) return;
+    for (unsigned page = 0; page < 8; page++) {
+        select_bank(page); put(0xe000, 6, page + 8); put(0xe000, 7, 0);
+        unsigned n = page == 7 ? 26624 : 32768;
+        mem_copy(0xb000, 0, 0xa800, 0, n); mouse_pump();
+    }
+}
+static void restore_background(int x, int y, int w, int h) {
+    for (int row = 0; row < h; row++) {
+        u32 at = (y + row) * 640u + x; unsigned count = w;
+        while (count) {
+            unsigned n = 32768 - (at & 32767); if (n > count) n = count;
+            select_bank((at >> 15) + 8); put(0xe000, 6, at >> 15); put(0xe000, 7, 0);
+            mem_copy(0xb000, at & 32767, 0xa800, at & 32767, n);
+            at += n; count -= n;
+        }
+        if (!(row & 15)) mouse_pump();
+    }
+}
+void gfx_drag_end(void) { mem_free(drag_sprite); drag_sprite = 0; }
+int gfx_drag_begin(int x, int y, int w, int h) {
+    gfx_drag_end();
+    if (!packed) return 0;
+    sprite_x = x; sprite_y = y; sprite_w = w - 5; sprite_h = h - 5;
+    w = sprite_w; h = sprite_h;
+    drag_sprite = mem_alloc(w * (u32)h);
+    if (!drag_sprite) return 0;
+    for (int row = 0; row < h; row++) {
+        gfx_read_span(x, y + row, drag_sprite, row * (u32)w, w);
+        if (!(row & 15)) mouse_pump();
+    }
+    return 1;
+}
+void gfx_drag_move(int x, int y) {
+    if (!drag_sprite || (x == sprite_x && y == sprite_y)) return;
+    int old_h = sprite_h + 5;
+    if (sprite_y + old_h > 368) old_h = 368 - sprite_y;
+    restore_background(sprite_x, sprite_y, sprite_w + 5, old_h);
+    int side_h = sprite_h;
+    if (y + 5 + side_h > 368) side_h = 368 - y - 5;
+    int bottom_h = 368 - y - sprite_h; if (bottom_h > 5) bottom_h = 5;
+    gfx_rect(x + sprite_w, y + 5, 5, side_h, SHADOW);
+    gfx_rect(x + 5, y + sprite_h, sprite_w, bottom_h, SHADOW);
+    for (int row = 0; row < sprite_h; row++) {
+        gfx_write_span(x, y + row, drag_sprite, row * (u32)sprite_w, sprite_w);
+        if (!(row & 15)) mouse_pump();
+    }
+    sprite_x = x; sprite_y = y;
+}
 void gfx_rect(int x, int y, int w, int h, int color) {
+    x += origin_x; y += origin_y;
     if (x < 0) { w += x; x = 0; }
     if (y < 0) { h += y; y = 0; }
     if (x + w > 640) w = 640 - x;
     if (y + h > 400) h = 400 - y;
     if (w <= 0 || h <= 0) return;
+    if (packed) {
+        for (int row = y; row < y + h; row++) {
+            packed_fill(row * 640u + x, w, color);
+            if (!(row & 7)) mouse_pump();
+        }
+        return;
+    }
     int left = x / 8, right = (x + w - 1) / 8;
     u8 first = 255 >> (x & 7), last = 255 << (7 - ((x + w - 1) & 7));
     for (int p = 0; p < 4; p++) {
@@ -93,6 +210,17 @@ void gfx_cell(int x, int y, char ch, int foreground, int background, int selecte
     /* Mirror labels in text VRAM for accessibility/debugging; the visible
      * glyphs are rendered into graphics so the pointer can cover them cleanly. */
     p_cell(x, y, ch, selected);
+    if (packed) {
+        for (int row = 0; row < 16; row++) {
+            u32 at = (y * 16 + origin_y + row) * 640u + x * 8 + origin_x;
+            for (int col = 0; col < 8; col++) {
+                select_bank(at >> 15);
+                put(0xa800, at & 32767, fonts[(u8)ch][row] & (0x80 >> col) ? foreground : background); at++;
+            }
+        }
+        if (!(++cells & 7)) mouse_pump();
+        return;
+    }
     for (int p = 0; p < 4; p++) for (int row = 0; row < 16; row++) {
         u8 bits = fonts[(u8)ch][row];
         u8 value = (foreground & (1 << p) ? bits : 0) |
@@ -115,6 +243,19 @@ void gfx_clear_text(int x, int y, int w, int h) {
 void gfx_outline(int x, int y, int w, int h) {
     /* XOR the preview frame twice to remove it without repainting the scene. */
     int top = y * 16, bottom = (y + h) * 16 - 1, left = x, right = x + w - 1;
+    if (packed) {
+        left *= 8; right = (right + 1) * 8 - 1;
+        for (int row = top; row <= bottom; row++) {
+            int step = row == top || row == bottom ? 1 : right - left;
+            for (int col = left; col <= right; col += step) {
+                u32 at = row * 640u + col;
+                select_bank(at >> 15);
+                put(0xa800, at & 32767, get(0xa800, at & 32767) ^ 255);
+            }
+            if (!(row & 15)) mouse_pump();
+        }
+        return;
+    }
     for (int p = 0; p < 4; p++) {
         for (int col = left; col <= right; col++) {
             unsigned a = top * 80 + col, b = bottom * 80 + col;
@@ -129,13 +270,19 @@ void gfx_outline(int x, int y, int w, int h) {
         }
     }
 }
-static void pixel(int x, int y, int color) {
+void gfx_pixel(int x, int y, int color) {
     if (x < 0 || x >= 640 || y < 0 || y >= 400) return;
+    if (packed) { u32 at = y * 640u + x; select_bank(at >> 15); put(0xa800, at & 32767, color); return; }
     unsigned offset = y * 80 + x / 8, bit = 0x80 >> (x & 7);
     for (int p = 0; p < 4; p++) masked(segments[p], offset, bit, color & (1 << p));
 }
 void gfx_pointer_hide(void) {
     if (!cursor_visible) return;
+    if (packed) {
+        for (int row = 0; row < cursor_rows; row++) for (int col = 0; col < cursor_bytes; col++)
+            gfx_pixel(cursor_x + col, cursor_y + row, packed_under[row][col]);
+        cursor_visible = 0; return;
+    }
     for (int p = 0; p < 4; p++) for (int row = 0; row < cursor_rows; row++)
         for (int col = 0; col < cursor_bytes; col++)
             put(segments[p], (cursor_y + row) * 80 + cursor_x / 8 + col, underneath[p][row][col]);
@@ -149,12 +296,17 @@ void gfx_pointer_show(int x, int y) {
     gfx_pointer_hide();
     cursor_x = x; cursor_y = y; cursor_rows = y > 384 ? 400 - y : 16;
     int last = x + 15 < 640 ? x + 15 : 639;
-    cursor_bytes = last / 8 - x / 8 + 1;
+    cursor_bytes = packed ? last - x + 1 : last / 8 - x / 8 + 1;
+    if (packed) for (int row = 0; row < cursor_rows; row++) for (int col = 0; col < cursor_bytes; col++) {
+        u32 at = (y + row) * 640u + x + col; select_bank(at >> 15);
+        packed_under[row][col] = get(0xa800, at & 32767);
+    }
+    if (!packed)
     for (int p = 0; p < 4; p++) for (int row = 0; row < cursor_rows; row++)
         for (int col = 0; col < cursor_bytes; col++)
             underneath[p][row][col] = get(segments[p], (y + row) * 80 + x / 8 + col);
     for (int row = 0; row < cursor_rows; row++) for (int col = 0; col < 16 && x + col < 640; col++) {
-        if (edge[row] & (0x8000 >> col)) pixel(x + col, y + row, body[row] & (0x8000 >> col) ? WHITE : INK);
+        if (edge[row] & (0x8000 >> col)) gfx_pixel(x + col, y + row, body[row] & (0x8000 >> col) ? WHITE : INK);
     }
     cursor_visible = 1;
 }
@@ -208,6 +360,7 @@ static void mouse_pump(void) {
     if (event_count == 16) { event_head = (event_head + 1) & 15; event_count--; }
     events[(event_head + event_count) & 15] = current; event_count++;
 }
+void input_poll(void) { mouse_pump(); }
 Mouse mouse_read(void) {
     mouse_pump();
     if (event_count) {
@@ -244,14 +397,37 @@ void input_idle(void) {
         __asm__ volatile("nop");
 }
 void gfx_start(void) {
-    saved_mode = in(0x6a) & 1;
-    out(0x6a, 1); saved_index = in(0xa8);
+    origin_x = 0; origin_y = 0; packed = 0;
+    out(0x9a0, 11); int has_pegc = (in(0x9a0) & 0xfd) == 1;
+    saved_mode = has_pegc ? query(4) : in(0x6a) & 1;
+    saved_gate = has_pegc ? query(8) : 0; saved_256 = has_pegc ? query(10) : 0;
+    saved_index = in(0xa8);
+    int available = 0;
+    if (has_pegc) {
+        out(0x6a, 7); out(0x6a, 0x21); available = query(10);
+        if (available) {
+            for (int i = 0; i < 256; i++) {
+                out(0xa8, i); palette256[i][0] = in(0xaa); palette256[i][1] = in(0xac); palette256[i][2] = in(0xae);
+            }
+            for (int i = 0; i < 4; i++) saved_banks[i] = get(0xe000, 4 + i);
+            saved_pegc_mode = get(0xe000, 0x100); saved_pegc_enable = get(0xe000, 0x102);
+        }
+        out(0x6a, 0x20);
+    }
+    out(0x6a, 1);
     for (int i = 0; i < 16; i++) {
         out(0xa8, i); palette[i][0] = in(0xaa); palette[i][1] = in(0xac); palette[i][2] = in(0xae);
     }
     p_screen(); bios(0x4200, 0xc000); bios(0x4000, 0); out(0x6a, 1);
     for (int i = 0; i < 16; i++) {
         out(0xa8, i); out(0xaa, (theme[i] >> 4) & 15); out(0xac, (theme[i] >> 8) & 15); out(0xae, theme[i] & 15);
+    }
+    if (available) {
+        out(0x6a, 7); out(0x6a, 0x21); packed = 1;
+        put(0xe000, 0x100, 0); put(0xe000, 0x102, 1); bank = -1;
+        for (int i = 0; i < 256; i++) {
+            u32 c = gfx_rgb(i); out(0xa8, i); out(0xaa, (c >> 8) & 255); out(0xac, c >> 16); out(0xae, c & 255);
+        }
     }
     if (!fonts_ready) {
         out(0xa1, 0);
@@ -267,10 +443,20 @@ void gfx_start(void) {
 }
 void gfx_stop(void) {
     graphics_active = 0;
-    gfx_pointer_hide(); mouse_stop();
-    bios(0x4100, 0);
+    gfx_pointer_hide(); mouse_stop(); gfx_drag_end();
+    if (packed) {
+        for (int i = 0; i < 256; i++) {
+            out(0xa8, i); out(0xaa, palette256[i][0]); out(0xac, palette256[i][1]); out(0xae, palette256[i][2]);
+        }
+        for (int i = 0; i < 4; i++) put(0xe000, 4 + i, saved_banks[i]);
+        put(0xe000, 0x100, saved_pegc_mode); put(0xe000, 0x102, saved_pegc_enable);
+        out(0x6a, 7); out(0x6a, 0x20); packed = 0;
+    }
+    bios(0x4100, 0); out(0x6a, 1);
     for (int i = 0; i < 16; i++) {
         out(0xa8, i); out(0xaa, palette[i][0]); out(0xac, palette[i][1]); out(0xae, palette[i][2]);
     }
+    if (saved_256) { out(0x6a, 7); out(0x6a, 0x21); }
+    out(0x6a, saved_gate ? 7 : 6);
     out(0xa8, saved_index); out(0x6a, saved_mode ? 1 : 0); bios(0x0c00, 0);
 }
