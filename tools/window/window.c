@@ -367,7 +367,7 @@ static int handle_key(int key) {
         else if (key == 19) save();
         else if (key == 8 && select_all) { used = 0; dirty = 1; select_all = 0; }
         else if (key == 8 && used) { used--; dirty = 1; }
-        else if ((key == 13 || (key >= 32 && key <= 126)) && used < (int)sizeof memo - 1) {
+        else if ((key == 13 || (key >= 32 && key <= 126)) && (select_all || used < (int)sizeof memo - 1)) {
             if (select_all) { used = 0; select_all = 0; }
             memo[used++] = key == 13 ? '\n' : key; dirty = 1;
         } else if (used == (int)sizeof memo - 1) message("Memo full (1023 characters); use the Text editor for larger files");
