@@ -34,6 +34,10 @@ static void chrome(void) {
     label(50, 3, info, INK, SURFACE); gfx_rect(480, 48, 24, 16, color);
     gfx_rect(0, 384, 640, 16, BORDER); gfx_clear_text(0, 24, 80, 1); label(1, 24, status, WHITE, BORDER);
 }
+static void select_tool(int next) {
+    tool = next; has_selection = 0;
+    char info[40] = "Tool: "; fd_text(info + 6, tool_names[tool], sizeof info - 6); message(info);
+}
 static void draw_image(void) {
     zoom = image.width <= 236 && image.height <= 144 ? 2 : 1;
     for (int y = 0; y < image.height; y++) {
@@ -216,7 +220,7 @@ static int handle_key(int key) {
     else {
         if (key >= 'a' && key <= 'z') key -= 32;
         const char shortcuts[] = "PLRFIES";
-        for (int i = 0; i < 7; i++) if (key == shortcuts[i]) { tool = i; has_selection = 0; }
+        for (int i = 0; i < 7; i++) if (key == shortcuts[i]) { select_tool(i); }
     }
     return 0;
 }
@@ -252,7 +256,7 @@ static int mouse_event(Mouse now, int previous) {
         if (next < gfx_colors()) color = next;
         return 1;
     }
-    if (!VIEW_ONLY && now.y / 16 == 2 && now.x / 80 < 7) { tool = now.x / 80; has_selection = 0; return 1; }
+    if (!VIEW_ONLY && now.y / 16 == 2 && now.x / 80 < 7) { select_tool(now.x / 80); return 1; }
     if (!VIEW_ONLY && now.y / 16 == 3) {
         int cx = now.x / 8;
         if (cx >= 1 && cx < 9) return handle_key(3), 1;

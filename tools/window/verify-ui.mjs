@@ -274,14 +274,14 @@ export async function verifyMedia(page, { screenshot } = {}) {
   assert.equal(pixel(bmp,25,20),196,'Pencil interpolates the drag path');
   await key('CTRL+Z'); await wait('Undo / redo'); await key('F3'); await wait('Saved BMP');
   assert.equal(pixel(await guest('DRAW.BMP'),25,20),7,'Undo restores the original pixel');
-  await key('CTRL+Z'); await wait('Undo / redo'); await key('s');
+  await key('CTRL+Z'); await wait('Undo / redo'); await key('s'); await wait('Tool: Select');
   await drag({x:32,y:96},{x:100,y:144}); await wait('Selection ready'); await key('CTRL+C'); await wait('Copied image');
   const clip=await mailbox(4);assert.deepEqual([clip.width,clip.height],[35,25]);
   await move(136,160); await key('CTRL+V'); await wait('Pasted image');await key('F3');await wait('Saved BMP');
   assert.equal(pixel(await guest('DRAW.BMP'),77,52),196,'Image selection pastes at the cursor');
-  await key('F5');await wait('New image');await key('r');
+  await key('F5');await wait('New image');await key('r');await wait('Tool: Rect');
   await drag({x:26,y:90},{x:56,y:120});await wait('Image changed');
-  await click(550,104);await key('f');await click(30,94);await wait('Filled area');
+  await click(550,104);await key('f');await wait('Tool: Fill');await click(30,94);await wait('Filled area');
   await key('F3');await wait('Replace existing image?');await type('y');await wait('Saved BMP');
   bmp=await guest('DRAW.BMP');assert.equal(pixel(bmp,7,7),21);assert.equal(pixel(bmp,5,5),196);assert.equal(pixel(bmp,0,0),7);
   await key('F2');await wait('Open BMP:');await key('CTRL+U');await type('BAD.BMP\r');await wait('Cannot open BMP:');
