@@ -214,7 +214,7 @@ export async function verifyMedia(page, { screenshot } = {}) {
   await key('CTRL+X'); await wait('Cut memo'); await key('CTRL+V'); await wait('Pasted clipboard');
   await key('CTRL+S'); await wait('Saved NOTE.TXT');
   assert.equal((await guest('NOTE.TXT')).toString(),'WINDOW MEMO OK\r\nSECOND LINE');
-  await key('F2'); await wait('Click an app'); await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(300);
+  await key('F2'); await wait('Click an app'); await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(500);
   await move(100,52);
   await page.evaluate(() => {
     const np2 = window.np2debug.np2, original = np2.mouseMoveTo.bind(np2);
@@ -267,23 +267,26 @@ export async function verifyMedia(page, { screenshot } = {}) {
     assert.deepEqual(pixels,fixture.expected,`${fixture.name}: palette, row padding and orientation`);
     await key('F10');await wait('KVIEW exited.');
   }
-  await type('KPAINT\r'); await wait('Ready'); await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(300);
+  await type('KPAINT\r'); await wait('Ready'); await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(500);
   await drag({x:36,y:100},{x:96,y:140}); await wait('Image changed'); await key('F3'); await wait('Saved BMP');
   const pixel=(bmp,x,y)=>bmp[1078+(bmp.readInt32LE(22)-y-1)*((bmp.readInt32LE(18)+3)&~3)+x];
+  // Absolute bus-mouse coordinates are host estimates; allow a two-pixel
+  // delivery offset while checking several points along the interpolated stroke.
+  const near=(bmp,x,y,c)=>[-2,-1,0,1,2].some(dy=>[-2,-1,0,1,2].some(dx=>pixel(bmp,x+dx,y+dy)===c));
   let bmp=await guest('DRAW.BMP'); assert.equal(bmp.readUInt16LE(28),8);assert.equal(bmp.readInt32LE(18),224);assert.equal(bmp.length,33334);
-  assert.equal(pixel(bmp,25,20),196,'Pencil interpolates the drag path');
+  for(const [x,y] of [[20,17],[25,20],[30,23]]) assert.ok(near(bmp,x,y,196),'Pencil interpolates the drag path');
   await key('CTRL+Z'); await wait('Undo / redo'); await key('F3'); await wait('Saved BMP');
-  assert.equal(pixel(await guest('DRAW.BMP'),25,20),7,'Undo restores the original pixel');
+  assert.ok(!near(await guest('DRAW.BMP'),25,20,196),'Undo restores the original pixels');
   await key('CTRL+Z'); await wait('Undo / redo'); await key('s'); await wait('Tool: Select');
   await drag({x:32,y:96},{x:100,y:144}); await wait('Selection ready'); await key('CTRL+C'); await wait('Copied image');
   const clip=await mailbox(4);assert.deepEqual([clip.width,clip.height],[35,25]);
   await move(136,160); await key('CTRL+V'); await wait('Pasted image');await key('F3');await wait('Saved BMP');
-  assert.equal(pixel(await guest('DRAW.BMP'),77,52),196,'Image selection pastes at the cursor');
+  assert.ok(near(await guest('DRAW.BMP'),77,52,196),'Image selection pastes at the cursor');
   await key('F5');await wait('New image');await key('r');await wait('Tool: Rect');
   await drag({x:26,y:90},{x:56,y:120});await wait('Image changed');
   await click(550,104);await key('f');await wait('Tool: Fill');await click(30,94);await wait('Filled area');
   await key('F3');await wait('Replace existing image?');await type('y');await wait('Saved BMP');
-  bmp=await guest('DRAW.BMP');assert.equal(pixel(bmp,7,7),21);assert.equal(pixel(bmp,5,5),196);assert.equal(pixel(bmp,0,0),7);
+  bmp=await guest('DRAW.BMP');assert.equal(pixel(bmp,7,7),21);assert.ok(near(bmp,5,5,196),'Rectangle boundary remains after filling');assert.equal(pixel(bmp,0,0),7);
   await key('F2');await wait('Open BMP:');await key('CTRL+U');await type('BAD.BMP\r');await wait('Cannot open BMP:');
   assert.deepEqual(await guest('DRAW.BMP'),bmp,'Malformed input does not alter the saved image');
   if(screenshot) {await pause(150);await page.screenshot({path:screenshot});}
