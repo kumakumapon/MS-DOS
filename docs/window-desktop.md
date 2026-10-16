@@ -6,7 +6,7 @@ backend and CG-ROM glyphs. Four-plane 16-color rendering is available as a fallb
 It requires a 386-compatible CPU, like the
 existing DOS utilities.
 
-The desktop provides overlapping launcher, files, memo, help and about
+The desktop provides overlapping launcher, files, memo, help, about, calculator and clock
 windows. Mouse and keyboard controls manage focus, movement, resizing and minimization.
 A teal desktop, light window bodies, blue focused titles, bevelled buttons,
 shadows and a graphical pointer replace the original eight-color display.
@@ -32,7 +32,9 @@ snapshot in the second PEGC VRAM page and a DOS-allocated sprite. Resizing uses
 an outline; low-memory/16-color movement also falls back to an outline. The
 window stays within the desktop bounds. The title buttons
 minimize (`_`) and close (`x`); taskbar buttons restore and focus windows.
-Launcher rows start programs with one click. Files supports row selection,
+The launcher defaults to an icon grid: click to select, double-click or Open to
+launch. V or List/Icons switches to the list with one-click launch. Arrows select
+icons and the grid scrolls to keep the selection visible. Files supports row selection,
 double-click or Open, Parent, and up/down scroll buttons. Memo Save and the
 unsaved-changes Save/Discard/Cancel dialog are also clickable. In WebNP2,
 move/click directly on the emulated screen; use Mouse resync if misaligned.
@@ -69,6 +71,10 @@ after a failed save, child COM/CPANEL/editor launch and mouse/keyboard return,
 exit to DOS and
 memo persistence after browser reload. CI stores screenshots and results in
 the `msdos4-pc98` artifact under `tools/window/build/pc98-validation`.
+
+See [calculator, clock and launcher controls](kdesk-utilities.md). Both utility
+windows operate within the desktop; the clock keeps updating while other
+built-in windows are active.
 
 ## PC-98 hardware
 

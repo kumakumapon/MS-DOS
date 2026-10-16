@@ -1,4 +1,4 @@
-Kuma Desktop (KDESK) - Original PC-98 window desktop 1.2
+Kuma Desktop (KDESK) - Original PC-98 window desktop 1.3
 
 Run KDESK from the MS-DOS 4.0 PC-98 prompt. Requires a 386-compatible
 PC-98 with 640 x 400 graphics and a PC-98 bus mouse (WebNP2 works).
@@ -18,11 +18,31 @@ Mouse: click the top menus to open windows; click a window to focus it.
        Moving shows the window contents at pixel resolution. Resizing uses an
        outline. If sprite memory is unavailable, moving also uses an outline.
        Title buttons: _ minimizes, x closes. Taskbar buttons restore/focus.
-       Click a launcher row to start a program. In Files, click to select,
+       Click an icon to select; double-click or Open starts it. In Files,
+       click to select,
        double-click or use Open; Parent and ^/v navigate/scroll.
        Memo Save and the Save/Discard/Cancel dialog accept clicks.
 
-Launcher: Up/Down selects; Enter starts the selected DOS program.
+Launcher: icons are the default. V or List/Icons toggles the list view.
+          Arrows select icons (Up/Down moves a row); Home selects the first.
+          Enter or Open starts the selection; double-click also opens icons.
+          List view retains one-click launch. The view scrolls when resized.
+          Calculator and Clock run as built-in windows; other tools use DOS EXEC.
+
+Calculator: arithmetic + - * /, decimal point, = or Enter for the result.
+            Calculations follow entry order; repeated = repeats the last step.
+            Up to 8 integer and 4 fractional digits; multiply/divide round to
+            4 places, halves away from zero. Overflow/zero division is reported.
+            C clears (retains memory), CE clears the entry, BS removes a digit.
+            S or +/- changes sign; % divides the entry by 100.
+            MC clears memory, MR recalls, M+ adds, M- subtracts.
+            Ctrl+C / Copy copies a result; Ctrl+V / Paste accepts a decimal
+            number from the shared text clipboard. Invalid paste is ignored.
+
+Clock: reads DOS date/time (the emulator RTC), with digital and analog faces.
+       T or 12-hour/24-hour toggles AM/PM; Ctrl+C or Copy copies date and time.
+       Updates while other desktop windows are active. F8 minimizes; the
+       taskbar restores. Clock resumes the current time after DOS tools exit.
 Files: Up/Down selects; Enter opens directories, COM/EXE programs,
        TXT files in EDIT98, BAS files in the installed BASIC, and BMP in KVIEW.
        Backspace goes to the parent directory.

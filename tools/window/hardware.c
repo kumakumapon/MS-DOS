@@ -108,6 +108,7 @@ void gfx_read_span(int x, int y, unsigned segment, u32 offset, unsigned count) {
     }
 }
 void gfx_write_span(int x, int y, unsigned segment, u32 offset, unsigned count) {
+    x += origin_x; y += origin_y;
     u32 at = y * 640u + x;
     while (count) {
         unsigned n = 32768 - (at & 32767); if (n > count) n = count;

@@ -25,7 +25,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
     if (!screenshot) return;
     // Help text is mirrored before painting finishes. The final task button
     // marks the end of the scene; also allow the next emulator video frame.
-    await page.waitForFunction(() => window.np2debug.np2.getScreenText().lines[24]?.slice(65, 69) === 'Help',
+    await page.waitForFunction(() => window.np2debug.np2.getScreenText().lines[24]?.slice(49, 53) === 'Help',
       { timeout: 60000 });
     await new Promise(resolve => setTimeout(resolve, 100));
     await page.screenshot({ path: screenshot });
@@ -40,7 +40,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
   };
   await type('MD GUIWORK\r');
   await type('KDESK\r'); await wait('Kuma Desktop'); await title('Launcher', 3, 5);
-  await wait('Ready');
+  await wait('Ready'); await key('v'); await wait('Launcher list view');
   const point = (x, y) => page.evaluate(({ x, y }) => {
     const source = document.querySelector('#canvas'), canvas = document.createElement('canvas');
     canvas.width = source.width; canvas.height = source.height;
@@ -113,7 +113,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
     const ctx = canvas.getContext('2d'); ctx.drawImage(source, 0, 0);
     return Array.from(ctx.getImageData(592, 350, 48, 32).data);
   });
-  await type('KDESK\r'); await title('Launcher', 3, 5);
+  await type('KDESK\r'); await title('Launcher', 3, 5); await key('v'); await wait('Launcher list view');
   await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(250);
   const clean = await region();
   await move(605, 355);
@@ -126,7 +126,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
   await title('x', 5, 57); // 52 x 17 cells, moved to (9, 4).
   await cell(53, 5); await wait('Window minimized');
   assert.ok(!(await text()).includes('Launcher'));
-  await cell(42, 24); await title('Launcher', 5, 11);
+  await cell(26, 24); await title('Launcher', 5, 11);
   await cell(57, 5);
   assert.ok(!(await text()).includes('Launcher'), 'Close button removes the window');
   await cell(41, 0); await title('Memo', 5, 13);
@@ -176,6 +176,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
   const mediaResults = await verifyMedia(page, { screenshot: screenshot?.replace(/\.png$/, '-media.png') });
   return [
     ...mediaResults,
+    ...await verifyUtilities(page, { screenshot: screenshot?.replace(/\.png$/, '-utilities.png') }),
     'KDESK PEGC 256-color graphics, CG-ROM labels, keyboard window move and resize',
     'overlapping windows, focus, minimize/restore, close and help',
     'memo CRLF save, reopen, unsaved-change cancel/discard and failed-save preservation',
@@ -217,7 +218,7 @@ export async function verifyMedia(page, { screenshot } = {}) {
   await key('CTRL+X'); await wait('Cut memo'); await key('CTRL+V'); await wait('Pasted clipboard');
   await key('CTRL+S'); await wait('Saved NOTE.TXT');
   assert.equal((await guest('NOTE.TXT')).toString(),'WINDOW MEMO OK\r\nSECOND LINE');
-  await key('F2'); await wait('Click an app'); await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(500);
+  await key('F2'); await wait('Enter opens'); await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(500);
   await move(100,52);
   await page.evaluate(() => {
     const np2 = window.np2debug.np2, original = np2.mouseMoveTo.bind(np2);
@@ -322,4 +323,68 @@ export async function verifyMedia(page, { screenshot } = {}) {
     'live pixel-resolution window movement while held; PEGC palette displays over 200 simultaneous RGB colors',
     'KVIEW 1/4/8/24-bit BMP display/copy, row padding and top-down orientation; KPAINT pencil, undo/redo, selection clipboard, rectangle, flood fill and 8-bit BMP save',
     'malformed BMP rejection, safe image save failure, overwrite cancellation and unsaved-change protection'];
+}
+
+export async function verifyUtilities(page, { screenshot } = {}) {
+  const pause = ms => new Promise(resolve => setTimeout(resolve,ms));
+  const text = () => page.evaluate(()=>window.np2debug.np2.getScreenText().text);
+  const wait = needle => page.waitForFunction(needle=>window.np2debug.np2.getScreenText().text.includes(needle),{timeout:60000},needle)
+    .catch(async error=>{console.error(await text());throw error;});
+  const key = async value => {await page.evaluate(value=>window.np2debug.np2.sendKeys(value),value);await pause(150);};
+  const type = async value => {await page.evaluate(value=>window.np2debug.np2.typeText(value),value);await pause(150);};
+  const click = async(x,y,count=1)=>{await page.evaluate(({x,y})=>window.np2debug.np2.mouseMoveTo(x,y),{x,y});await pause(200);await page.evaluate(count=>window.np2debug.np2.mouseClick({count}),count);await pause(200);};
+  const selected = name => wait('Selected: '+name);
+  const value = expected => wait('Value: '+expected);
+  const clipboard = ()=>page.evaluate(()=>{
+    const s=atob(window.np2debug.np2.readMemoryBase64(0x1000,0x9f000).base64);let at=-1;
+    while((at=s.indexOf('KDESKCLP',at+1))>=0) {
+      const word=o=>s.charCodeAt(at+o)|(s.charCodeAt(at+o+1)<<8);
+      if(word(8)===1&&word(10)===1) return s.slice(at+30,at+30+word(12));
+    } return null;
+  });
+  const time = ()=>page.evaluate(()=>window.np2debug.np2.getScreenText().text.match(/\b\d{2}:\d{2}:\d{2}(?: [AP]M)?\b/)?.[0]);
+  const clockReady = ()=>page.waitForFunction(()=>/\b\d{2}:\d{2}:\d{2}\b/.test(window.np2debug.np2.getScreenText().text),{timeout:60000});
+  await type('KDESK\r');await wait('Ready');await selected('File manager');await wait('List');
+  await page.evaluate(()=>window.np2debug.np2.mouseHome());await pause(500);
+  await key('DOWN');await selected('BASIC');await key('DOWN');await selected('Image editor');await key('RIGHT');await selected('Calculator');
+  // The last row scrolls into view. Single click selects; double click opens.
+  await click(208,160);await selected('Calculator');assert.ok(!(await text()).includes('Value:'),'One icon click selects without launching');
+  await click(208,160,2);await value('0');
+  await type('12.5*4=');await value('50');await key('ENTER');await value('200');
+  await type('c0.1+0.2=');await value('0.3');await key('CTRL+C');await wait('Copied calculator result');assert.equal(await clipboard(),'0.3');
+  // Calculator and Memo share the existing desktop clipboard.
+  await key('F4');await wait('NOTE.TXT');await key('CTRL+A');await key('CTRL+V');await wait('Pasted clipboard');
+  assert.ok((await text()).split('\n').some(line=>line.trim()==='0.3_'));
+  await key('ESC');await wait('Unsaved memo:');await type('d');await wait('Memo closed');
+  await click(532,392);await value('0.3');
+  await type('c9/0=');await value('Divide by zero');await type('c99999999*99999999=');await value('Overflow');
+  await type('c7*6=');await value('42');
+  // Real mouse keys, including the memory row and Copy/Paste footer.
+  await click(284,136);await wait('Calculator ready'); // M+
+  await type('c');await value('0');await click(156,136);await value('42'); // MR
+  await click(100,328);await wait('Copied calculator result');assert.equal(await clipboard(),'42');
+  await type('c');await click(180,328);await value('42');await wait('Pasted calculator number');
+  await key('F7');for(let i=0;i<6;i++)await key('LEFT');for(let i=0;i<4;i++)await key('UP');await key('ENTER');await value('42');await wait('Copy');
+  await key('F2');await key('RIGHT');await selected('Clock');await key('ENTER');await clockReady();await wait('12-hour');
+  await key('F2');await key('ESC');await value('42'); // Close launcher; calculator has focus.
+  const before=await time();await page.waitForFunction(before=>{
+    const match=window.np2debug.np2.getScreenText().text.match(/\b\d{2}:\d{2}:\d{2}\b/);return match&&match[0]!==before;
+  },{timeout:10000},before);
+  await type('c6*7=');await value('42');await clockReady();
+  assert.ok((await text()).includes(String(new Date().getFullYear())+'-'),'Clock reads the DOS RTC date');
+  if(screenshot){await pause(300);await page.screenshot({path:screenshot});}
+  await click(596,392);await key('t');await wait('Clock 12-hour display');
+  await page.waitForFunction(()=>/\b\d{2}:\d{2}:\d{2} [AP]M\b/.test(window.np2debug.np2.getScreenText().text));
+  await key('CTRL+C');await wait('Copied clock date/time');assert.match(await clipboard(),/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [AP]M$/);
+  await key('t');await wait('Clock 24-hour display');assert.ok(!/\b\d{2}:\d{2}:\d{2} [AP]M\b/.test(await text()));
+  await key('F8');await wait('Window minimized');assert.equal(await time(),undefined);
+  await click(596,392);await clockReady();await key('ESC');
+  await key('F2');await key('v');await wait('Launcher list view');await key('v');await wait('Launcher icon view');
+  await key('F7');for(let i=0;i<20;i++)await key('LEFT');for(let i=0;i<10;i++)await key('UP');await key('ENTER');
+  await key('HOME');await selected('File manager');for(let i=0;i<8;i++)await key('DOWN');await selected('Clock');await key('ENTER');await clockReady();
+  await key('F10');await wait('KDESK exited.');
+  return ['native calculator decimal/chain/repeated arithmetic, errors, memory and mouse keypad',
+    'calculator/Memo clipboard and safe resize constraints; live clock while calculator is active',
+    'DOS RTC date, 12/24-hour display, copy, minimize/restore and close',
+    'default icon launcher, grid/list toggle, keyboard navigation, mouse select/double-click and narrow-window scrolling'];
 }
