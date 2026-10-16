@@ -28,6 +28,7 @@ jobs:
           python3 -m unittest discover -s tools/dos4 -p 'test_*.py'
           make -C tools/filer test
           make -C tools/editor test
+          make -C tools/window test
           python3 tools/filer/verify_ibm.py
         working-directory: dos
         env:
