@@ -27,16 +27,22 @@ passes after the memory-layout/ABI changes (888 sampled frames without flashes).
 
 The Playwright experimental-image suite passes mode/exception records, physical
 PTE/counter checks, independent background execution, window lifecycle,
-focused input, #PF/#GP fault/restart, read/seek/close broker use, denied writes
+focused input, #PF/#GP fault/restart, read/close broker use, denied writes
 and creation, and byte-identical full FD export after GUI/session shutdown.
 Normal web tests: 486 passed, 2 existing skips; production build succeeds.
 
 The architectural exception-vector expansion exposed a missing #PF trampoline
 branch during final source review; this is corrected and the full hardware
-fault suite is required again on the resulting image. The native DOS 4 CI also
+fault suite passes again on native runtime commit
+`40ee404ade6ec3758f2f721fa0b592176d0b5e91`, including DF/device-path regressions
+and the existing P98TEST.COM binary. The local image SHA-256 is
+`46b3283210b2e40e24b683363a428547fe6eaf33d6295249624e4cc24a54b78c`;
+Chromium 151.0.7922.173, Playwright. The native DOS 4 CI also
 builds all K386 tools with warnings as errors and uploads their binaries.
 
-CI on final commits is still being checked. General DOS-machine acceptance
+CI results are recorded in the draft PRs (MS-DOS #16 and webnp2 #16).
+The WebNP2 K386 CI job passes; normal-image/native regression jobs are tracked
+separately. General DOS-machine acceptance
 is not met: this remains a COM-service runtime, not a fully virtualized DOS OS.
 
 Compatibility boundary under development: per-session private RAM/TVRAM/zero
