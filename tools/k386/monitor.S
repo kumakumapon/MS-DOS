@@ -211,6 +211,43 @@ gp_gate:
     jmp exception
 pf_gate:
     push 14
+/* Cover every architectural exception, not just the bring-up cases. */
+.macro EXCEPTION_STUB number, has_error=0
+vector_\number:
+.if !\has_error
+    push 0
+.endif
+    push \number
+    jmp exception
+.endm
+EXCEPTION_STUB 0,0
+EXCEPTION_STUB 1,0
+EXCEPTION_STUB 2,0
+EXCEPTION_STUB 3,0
+EXCEPTION_STUB 4,0
+EXCEPTION_STUB 5,0
+EXCEPTION_STUB 7,0
+EXCEPTION_STUB 9,0
+EXCEPTION_STUB 10,1
+EXCEPTION_STUB 11,1
+EXCEPTION_STUB 12,1
+EXCEPTION_STUB 15,0
+EXCEPTION_STUB 16,0
+EXCEPTION_STUB 17,1
+EXCEPTION_STUB 18,0
+EXCEPTION_STUB 19,0
+EXCEPTION_STUB 20,0
+EXCEPTION_STUB 21,0
+EXCEPTION_STUB 22,0
+EXCEPTION_STUB 23,0
+EXCEPTION_STUB 24,0
+EXCEPTION_STUB 25,0
+EXCEPTION_STUB 26,0
+EXCEPTION_STUB 27,0
+EXCEPTION_STUB 28,0
+EXCEPTION_STUB 29,0
+EXCEPTION_STUB 30,0
+EXCEPTION_STUB 31,0
 exception:
     pushad
     mov ax,16
@@ -298,28 +335,102 @@ caller_esp: .long 0
 old_int: .word 0,0
 .align 8
 idt:
-.rept 6
-    .quad 0
-.endr
+    .word vector_0,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_1,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_2,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_3,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_4,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_5,8
+    .byte 0,0x8e
+    .word 0
     .word ud_gate,8
     .byte 0,0x8e
     .word 0
-    .quad 0
+    .word vector_7,8
+    .byte 0,0x8e
+    .word 0
     .word irq_or_double,8
     .byte 0,0x8e
     .word 0
-.rept 4
-    .quad 0
-.endr
+    .word vector_9,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_10,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_11,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_12,8
+    .byte 0,0x8e
+    .word 0
     .word gp_gate,8
     .byte 0,0x8e
     .word 0
     .word pf_gate,8
     .byte 0,0x8e
     .word 0
-.rept 17
-    .quad 0
-.endr
+    .word vector_15,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_16,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_17,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_18,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_19,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_20,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_21,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_22,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_23,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_24,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_25,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_26,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_27,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_28,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_29,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_30,8
+    .byte 0,0x8e
+    .word 0
+    .word vector_31,8
+    .byte 0,0x8e
+    .word 0
 pass_text: .asciz "K386 resident: experimental V86 COM sessions; read-only files\r\n$"
 busy_text: .asciz "K386 unavailable: protected-mode or timer owner present\r\n$"
 .section .bss
