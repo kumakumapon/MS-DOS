@@ -75,3 +75,8 @@ and DOS process state, MZ relocation/loading, BIOS memory/services and device
 state. Until those exist, booting COMMAND.COM in each window is unsupported and
 the request as a whole is not complete. Shared disk writes and direct GDC/PEGC
 applications also remain outside the working prototype.
+
+Final boundary review adds a zero-length AH=0Ah input regression at private
+RAM offset FFFEh and prevents x87 context sharing with CR0 EM/TS/MP. FPU state
+save/restore is unimplemented; FPU.COM must fault with #NM while the other VM
+continues. Results for these additional guards are recorded in the PR.

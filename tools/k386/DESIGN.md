@@ -41,6 +41,9 @@ in the 32-bit C engine; only explicit FS overrides access guest linear memory.
 The assembly boundary saves the real caller's registers, segments and stack.
 It clears DF before entering C, retaining the guest DF only in its saved frame.
 The ring-0 and real-mode stacks are distinct, with linker-enforced space.
+The saved context covers general/segment registers, flags and stack. x87/SIMD
+state virtualization is unfinished; CR0 EM/TS/MP prevents those instructions
+from sharing hardware state between sessions and #NM ends the offending VM.
 
 ## DOS and file access
 
@@ -52,6 +55,8 @@ a defined subset of INT 21h console, version, time and read/seek/close services.
 File creation, writes, deletion and rename are denied. Paths are limited to
 A: ASCII disk paths; console/serial/printer device names are rejected so host
 DOS reads cannot block the GUI on a real device. Port I/O is trapped.
+Zero-length buffered input returns without consuming a key or writing beyond
+the two-byte header, including at the end of private RAM.
 This prevents concurrent FAT12 writes; it does not establish general DOS/BIOS
 compatibility. MZ EXE, COMMAND.COM compatibility, arbitrary resident drivers,
 full BIOS/interrupt virtualization and graphics hardware virtualization are not

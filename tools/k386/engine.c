@@ -51,6 +51,7 @@ static int service(K386Frame *f,k8 number) {
     case 0x0a:
         ptr=address(f->ds,f->edx,2);if(!ptr){error(f,13);break;}
         n=read8(ptr);if(!address(f->ds,f->edx,n+2)){error(f,13);break;}
+        if(!n){write8(ptr+1,0);s->line_count=0;break;}
         while((c=input())>=0){if(c==13){write8(ptr+1,s->line_count);write8(ptr+2+s->line_count,13);s->line_count=0;output('\r');output('\n');return 0;}if(c==8){if(s->line_count){s->line_count--;output(8);output(' ');output(8);}}else if(c>=32&&(k32)s->line_count+1<n){write8(ptr+2+s->line_count++,c);output(c);}}
         v->state=K386_WAITING;return 2;
     case 0x0b:f->eax=(f->eax&0xff00)|(s->count?255:0);break;

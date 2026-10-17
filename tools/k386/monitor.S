@@ -132,7 +132,7 @@ pm_run:
     lgdt gdtr
     lidt idtr
     mov eax,cr0
-    or eax,1
+    or eax,15 /* PE, MP, EM, TS: x87/SIMD context is not yet virtualized. */
     mov cr0,eax
     .byte 0x66,0xea
     .long pm_start

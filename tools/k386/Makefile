@@ -61,3 +61,7 @@ all: $(BUILD)/DF.COM
 $(BUILD)/DF.COM: $(BUILD)/direction.sample.o com.ld
 	ld -m elf_i386 -T com.ld $< -o $(BUILD)/direction.elf
 	objcopy -O binary $(BUILD)/direction.elf $@
+all: $(BUILD)/FPU.COM
+$(BUILD)/FPU.COM: $(BUILD)/fpu.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/fpu.elf
+	objcopy -O binary $(BUILD)/fpu.elf $@
