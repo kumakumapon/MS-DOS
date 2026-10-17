@@ -57,3 +57,7 @@ all: $(BUILD)/PORT.COM
 $(BUILD)/PORT.COM: $(BUILD)/port.sample.o com.ld
 	ld -m elf_i386 -T com.ld $< -o $(BUILD)/port.elf
 	objcopy -O binary $(BUILD)/port.elf $@
+all: $(BUILD)/DF.COM
+$(BUILD)/DF.COM: $(BUILD)/direction.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/direction.elf
+	objcopy -O binary $(BUILD)/direction.elf $@

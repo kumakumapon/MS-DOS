@@ -39,6 +39,7 @@ virtualization. K386 does not allocate or advertise EMS/XMS memory.
 GCC's string operations assume ES=DS. Both stay based on the resident module
 in the 32-bit C engine; only explicit FS overrides access guest linear memory.
 The assembly boundary saves the real caller's registers, segments and stack.
+It clears DF before entering C, retaining the guest DF only in its saved frame.
 The ring-0 and real-mode stacks are distinct, with linker-enforced space.
 
 ## DOS and file access
@@ -48,7 +49,9 @@ calling the original DOS kernel recursively from ring 0 or another V86 task.
 The broker temporarily selects the resident PSP so file handles and memory
 blocks survive a GUI client exit. Host calls are serialized. Sessions support
 a defined subset of INT 21h console, version, time and read/seek/close services.
-File creation, writes, deletion and rename are denied. Port I/O is trapped.
+File creation, writes, deletion and rename are denied. Paths are limited to
+A: ASCII disk paths; console/serial/printer device names are rejected so host
+DOS reads cannot block the GUI on a real device. Port I/O is trapped.
 This prevents concurrent FAT12 writes; it does not establish general DOS/BIOS
 compatibility. MZ EXE, COMMAND.COM compatibility, arbitrary resident drivers,
 full BIOS/interrupt virtualization and graphics hardware virtualization are not

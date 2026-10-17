@@ -9,12 +9,33 @@ static k8 pages[20480];
 static k16 ds_segment,indos_segment,indos_offset;
 static void physical32(k32 at,k32 value) {for(int i=0;i<4;i++)mem_put(at>>4,(at&15)+i,value>>(i*8));}
 static void close_files(K386Session *s) {for(int i=0;i<8;i++)if(s->handles[i]){p_close(s->handles[i]-1);s->handles[i]=0;}}
+/* A read-only host broker must never block on a real CON/serial/printer device. */
+static int safe_path(const k8 *path) {
+    int start=0;
+    if(path[0]&&path[1]==':'){if(path[0]!='A'&&path[0]!='a')return 0;start=2;}
+    char base[9];int length=0,extension=0;
+    for(int i=start;i<128;i++) {
+        unsigned c=path[i];if(c>='a'&&c<='z')c-=32;
+        if(!c||c=='\\') {
+            base[length]=0;
+            int device=(length==3&&((base[0]=='C'&&base[1]=='O'&&base[2]=='N')||(base[0]=='P'&&base[1]=='R'&&base[2]=='N')||(base[0]=='A'&&base[1]=='U'&&base[2]=='X')||(base[0]=='N'&&base[1]=='U'&&base[2]=='L')))
+                ||(length==4&&((base[0]=='C'&&base[1]=='O'&&base[2]=='M')||(base[0]=='L'&&base[1]=='P'&&base[2]=='T'))&&base[3]>='0'&&base[3]<='9');
+            if(device)return 0;
+            if(!c)return i>start;
+            length=extension=0;continue;
+        }
+        if(c=='.'){extension=1;continue;}
+        if(!((c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_'||c=='-'||c=='~'))return 0;
+        if(!extension){if(length==8)return 0;base[length++]=c;}
+    }
+    return 0;
+}
 static int create(unsigned id) {
     K386Session *s=&sessions[id];K386View *v=&k386_mailbox.view[id];
     if(!k386_mailbox.path[0])return 2;
     /* Reject EXE and truncated/unbounded names; the loader is deliberately COM-only. */
     int len=0;while(len<128&&k386_mailbox.path[len])len++;
-    if(len>=128)return 3;
+    if(len>=128||!safe_path((k8 *)k386_mailbox.path))return 3;
     int h=p_open(k386_mailbox.path);if(h<0)return -h;
     v->state=K386_ENDED;
     if(!s->allocation)s->allocation=mem_alloc(0x16000);
@@ -50,6 +71,7 @@ static void broker(unsigned id) {
     if(s->request==0x3d) {
         int at;for(at=3;at<8&&s->handles[at];at++);
         if(at==8)result=-4;
+        else if(!safe_path(transfer))result=-5;
         else {result=p_open((char *)transfer);if(result>=0){s->handles[at]=result+1;result=at;}}
     } else if(s->request==0x2a||s->request==0x2c) {
         unsigned a=(unsigned)s->request<<8,c,d;

@@ -68,6 +68,7 @@ chain:
     .byte 0x2e,0xff,0x2e
     .word old_int
 dispatch:
+    cld
     pushad
     pushw ds
     pushw es
@@ -249,6 +250,7 @@ EXCEPTION_STUB 29,0
 EXCEPTION_STUB 30,0
 EXCEPTION_STUB 31,0
 exception:
+    cld /* VM may set DF; C/string copies always require a forward direction. */
     pushad
     mov ax,16
     mov ds,ax
