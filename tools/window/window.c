@@ -489,7 +489,7 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
         if (drag == 1) {
             int px = clamp(drag_x + now.x - drag_mx, 0, 640 - w->w * 8 - 5);
             int py = clamp(drag_y + now.y - drag_my, 16, 368 - w->h * 16);
-            if (live_drag) gfx_drag_move(px, py);
+            if (live_drag == 1) gfx_drag_move(px, py);
             x = px / 8; y = py / 16;
             if (!(now.buttons & 1)) { w->ox = gfx_colors() == 256 ? px & 7 : 0; w->oy = gfx_colors() == 256 ? py & 15 : 0; gfx_drag_end(); live_drag = 0; }
         } else {
@@ -502,7 +502,7 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
         if (!(now.buttons & 1)) {
             w->x = x; w->y = y; w->w = width; w->h = height;
             drag = 0; *redraw = 1;
-        } else if (!live_drag) {
+        } else if (live_drag != 1) {
             preview_x = x; preview_y = y; preview_w = width; preview_h = height;
             gfx_outline(x, y, width, height); preview_visible = 1;
         }
@@ -665,6 +665,10 @@ int main(void) {
                     damage(before.x*8+before.ox,before.y*16+before.oy,before.w*8+5,before.h*16+5);
                 invalidate(active);
                 if(previous_confirm||confirm)damage(136,144,373,133);
+                if(preview_visible) {
+                    damage(preview_x*8,preview_y*16,preview_w*8+8,preview_h*16+16);
+                    scene_dirty=1;
+                }
                 preview_visible=0;
                 if(partial&&active==previous_active&&active>=0&&!drag&&!mode&&!previous_mode&&!confirm&&!scene_dirty) {
                     gfx_target(1);draw_window(active);
@@ -675,7 +679,7 @@ int main(void) {
             if (drag == 1 && !live_drag) {
                 Window *w = &windows[drag_id];
                 if(gfx_colors()==256){compose(0);gfx_target(0);}
-                live_drag = gfx_drag_begin(w->x * 8 + w->ox, w->y * 16 + w->oy, w->w * 8 + 5, w->h * 16 + 5);
+                live_drag = gfx_drag_begin(w->x * 8 + w->ox, w->y * 16 + w->oy, w->w * 8 + 5, w->h * 16 + 5) ? 1 : 2;
             }
             gfx_pointer_show(now.x, now.y);
         }
