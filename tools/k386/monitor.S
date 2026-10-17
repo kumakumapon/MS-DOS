@@ -212,6 +212,7 @@ gp_gate:
     jmp exception
 pf_gate:
     push 14
+    jmp exception
 /* Cover every architectural exception, not just the bring-up cases. */
 .macro EXCEPTION_STUB number, has_error=0
 vector_\number:

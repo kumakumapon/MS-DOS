@@ -31,6 +31,11 @@ focused input, #PF/#GP fault/restart, read/seek/close broker use, denied writes
 and creation, and byte-identical full FD export after GUI/session shutdown.
 Normal web tests: 486 passed, 2 existing skips; production build succeeds.
 
+The architectural exception-vector expansion exposed a missing #PF trampoline
+branch during final source review; this is corrected and the full hardware
+fault suite is required again on the resulting image. The native DOS 4 CI also
+builds all K386 tools with warnings as errors and uploads their binaries.
+
 CI on final commits is still being checked. General DOS-machine acceptance
 is not met: this remains a COM-service runtime, not a fully virtualized DOS OS.
 
@@ -40,3 +45,27 @@ complete virtualized MS-DOS kernel/BIOS session. General COMMAND.COM/MZ EXE,
 resident drivers, shared writes and graphics hardware virtualization remain
 unimplemented. All required acceptance items must be individually reported;
 the overall feature is not complete while these execution gaps remain.
+
+## Requested acceptance boundary
+
+| Requirement | Current result |
+| --- | --- |
+| Traditional KDESK startup and existing GUI | Verified with K386 absent; full UI regression passes |
+| Multiple internal applications | Verified; cooperative queues, IDs and lifecycle controls |
+| Protected-mode transitions and exceptions | Verified by CPU-written PM/V86/#UD/#PF/#GP records |
+| Task memory isolation | Verified by separate CR3/PTE/physical counters and contained #PF |
+| Two independent DOS environments | **Incomplete**: two isolated COM runtimes, no per-VM DOS/BIOS kernel |
+| Programs in both sessions | Verified for supported COM programs, not general DOS compatibility |
+| State across switching and background execution | Verified for both V86 COM contexts |
+| DOS windows and existing GUI coexistence | Verified with Memo and native window controls |
+| End/restart without desktop failure | Verified for normal exits and contained memory/I/O faults |
+| Existing disk integrity | Verified read-only broker and byte-identical complete FD export |
+| Web tests and production build | 486 passed / 2 existing skips; build passes |
+| Real browser validation | Playwright on the shipped NP2kai wasm; CI results recorded in PR |
+
+Remaining engineering is a DOS/BIOS virtualization layer, not another CPU-mode
+switch: virtual interrupt delivery (including PUSHF/POPF/IRET), complete PSP/EXEC
+and DOS process state, MZ relocation/loading, BIOS memory/services and device
+state. Until those exist, booting COMMAND.COM in each window is unsupported and
+the request as a whole is not complete. Shared disk writes and direct GDC/PEGC
+applications also remain outside the working prototype.
