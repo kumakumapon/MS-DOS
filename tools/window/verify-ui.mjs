@@ -493,7 +493,7 @@ export async function verifyExplorer(page, { screenshot } = {}) {
   // Reflow at the minimum size must retain access to the final file and footer.
   await key('v');await key('F7');for(let i=0;i<18;i++)await key('LEFT');for(let i=0;i<6;i++)await key('UP');await key('ENTER');
   await key('HELP');await wait('F27.TXT');await wait('Parent');await key('HOME');await wait('F00.TXT');
-  if(screenshot){await pause(150);await page.screenshot({path:screenshot.replace(/\.png$/,'-narrow.png')});}
+  if(screenshot){await page.waitForFunction(()=>window.np2debug.np2.getScreenText().lines[11]?.slice(29,33)==='List');await pause(200);await page.screenshot({path:screenshot.replace(/\.png$/,'-narrow.png')});}
   await key('BS');await wait('A:\\');
   // FD98 remains available for copy/move/delete operations.
   await key('f');await wait('FD Filer 1.0');await key('F10');await wait('Press any key or click to return to KDESK');await key('SPACE');await wait('Program returned to desktop');
@@ -513,7 +513,7 @@ export async function verifyExplorer(page, { screenshot } = {}) {
   assert.ok(!(await page.evaluate(()=>window.np2debug.np2.getScreenText().lines[7])).includes('File manager'),'Launcher also supports independent scrolling');
   // Capture a normal-sized explorer, using fresh default window geometry.
   await key('F10');await wait('KDESK exited.');await type('KDESK\r');await wait('Ready');await key('ENTER');await wait('Parent');await key('HELP');await key('ENTER');await wait('A:\\SCROLL');await wait('F00.TXT');
-  if(screenshot){await pause(200);await page.screenshot({path:screenshot});}
+  if(screenshot){await page.waitForFunction(()=>window.np2debug.np2.getScreenText().lines[17]?.slice(29,33)==='List');await pause(200);await page.screenshot({path:screenshot});}
   await key('F10');await wait('KDESK exited.');
   return ['independent Launcher/Files/Memo/Help/About scroll positions, arrow and track paging, proportional thumb dragging, keyboard paging and resize clamping',
     'default icon file manager from Launcher, file-type icons, selection, directory/parent navigation, TXT double-click after mouse scrolling, list toggle and FD98 access',
