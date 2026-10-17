@@ -9,3 +9,4 @@ ports/pc98/*.obj
 ports/pc98/*.exe
 ports/pc98/*.map
 ports/pc98/*.bin
+tools/k386/build/

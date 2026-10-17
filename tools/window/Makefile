@@ -11,7 +11,9 @@ $(BUILD)/core.o: ../filer/core.c ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/dos98.o: ../filer/dos.c ../filer/filer.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -DPC98 -c $< -o $@
-$(BUILD)/window.o: window.c scroll.h hardware.h clipboard.h utilities.h ../filer/filer.h | $(BUILD)
+$(BUILD)/window.o: window.c tasks.h scroll.h hardware.h clipboard.h utilities.h ../filer/filer.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/tasks.o: tasks.c tasks.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/scroll.o: scroll.c scroll.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -23,7 +25,7 @@ $(BUILD)/memory.o: memory.c hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/hardware.o: hardware.c hardware.h ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/start.o $(BUILD)/core.o $(BUILD)/dos98.o ../filer/com.ld
+$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/start.o $(BUILD)/core.o $(BUILD)/dos98.o ../filer/com.ld
 	ld -m elf_i386 --gc-sections -T ../filer/com.ld $(filter %.o,$^) -o $@
 $(BUILD)/KDESK.COM: $(BUILD)/window.elf
 	objcopy -O binary $< $@
@@ -56,7 +58,10 @@ $(BUILD)/calculator-test: calculator_test.c utilities.c utilities.h ../filer/cor
 	$(CC) -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DCALCULATOR_TEST calculator_test.c utilities.c ../filer/core.c -Wl,--gc-sections -o $@
 $(BUILD)/scroll-test: scroll_test.c scroll.c scroll.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror scroll_test.c scroll.c -o $@
-test: $(BUILD)/calculator-test $(BUILD)/scroll-test
+$(BUILD)/tasks-test: tasks_test.c tasks.c tasks.h | $(BUILD)
+	$(CC) -O2 -Wall -Wextra -Werror tasks_test.c tasks.c -o $@
+test: $(BUILD)/calculator-test $(BUILD)/scroll-test $(BUILD)/tasks-test
 	$(BUILD)/calculator-test
 	$(BUILD)/scroll-test
+	$(BUILD)/tasks-test
 .PHONY: test
