@@ -403,21 +403,26 @@ export async function verifyRedraw(page) {
     g.drawImage(document.querySelector('#canvas'),0,0);return Array.from(g.getImageData(472,200,24,1).data);
   });
   await page.evaluate(()=>window.np2debug.np2.mouseHome());await pause(500);
-  const clean=await edge();
-  await page.evaluate(()=>{
-    const np2=window.np2debug.np2,original=np2.mouseMoveTo.bind(np2);window.resizeMove=original;
-    np2.mouseMoveTo=async(x,y)=>{const value=await original(x,y);if(x===483&&y===333)await new Promise(resolve=>window.resizeRelease=resolve);return value;};
-    window.resizeHeld=np2.mouseDrag({x:403,y:285},{x:483,y:333});
-  });
-  await page.waitForFunction(()=>!!window.resizeRelease);
-  await page.waitForFunction(clean=>{
-    const c=document.createElement('canvas');c.width=640;c.height=400;const g=c.getContext('2d');
-    g.drawImage(document.querySelector('#canvas'),0,0);return Array.from(g.getImageData(472,200,24,1).data).some((v,i)=>v!==clean[i]);
-  },{timeout:60000},clean);
-  await key('ESC');
-  await page.evaluate(async()=>{window.resizeRelease();await window.resizeHeld;window.np2debug.np2.mouseMoveTo=window.resizeMove;});
-  await pause(250);assert.deepEqual(await edge(),clean,'Closing during a held resize restores preview pixels beyond the old window');
-  await key('F2');await wait('Selected: File manager');
+  for(const [from,to,description] of [
+    [{x:403,y:285},{x:483,y:333},'resize preview'],
+    [{x:100,y:52},{x:300,y:120},'live window move'],
+  ]) {
+    const clean=await edge();
+    await page.evaluate(({from,to})=>{
+      const np2=window.np2debug.np2,original=np2.mouseMoveTo.bind(np2);window.resizeMove=original;window.resizeRelease=null;
+      np2.mouseMoveTo=async(x,y)=>{const value=await original(x,y);if(x===to.x&&y===to.y)await new Promise(resolve=>window.resizeRelease=resolve);return value;};
+      window.resizeHeld=np2.mouseDrag(from,to);
+    },{from,to});
+    await page.waitForFunction(()=>!!window.resizeRelease);
+    await page.waitForFunction(clean=>{
+      const c=document.createElement('canvas');c.width=640;c.height=400;const g=c.getContext('2d');
+      g.drawImage(document.querySelector('#canvas'),0,0);return Array.from(g.getImageData(472,200,24,1).data).some((v,i)=>v!==clean[i]);
+    },{timeout:60000},clean);
+    await key('ESC');
+    await page.evaluate(async()=>{window.resizeRelease();await window.resizeHeld;window.np2debug.np2.mouseMoveTo=window.resizeMove;});
+    await pause(250);assert.deepEqual(await edge(),clean,`Closing during a held ${description} restores pixels beyond the old window`);
+    await key('F2');await wait('Selected: File manager');
+  }
   await page.evaluate(()=>window.np2debug.np2.mouseMoveTo(600,350));await pause(300);
   await page.evaluate(()=>{
     const source=document.querySelector('#canvas'),c=document.createElement('canvas');c.width=640;c.height=400;

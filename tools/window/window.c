@@ -489,7 +489,7 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
         if (drag == 1) {
             int px = clamp(drag_x + now.x - drag_mx, 0, 640 - w->w * 8 - 5);
             int py = clamp(drag_y + now.y - drag_my, 16, 368 - w->h * 16);
-            if (live_drag == 1) gfx_drag_move(px, py);
+            if (live_drag == 1) { gfx_drag_move(px, py); damage(px,py,w->w*8+5,w->h*16+5); }
             x = px / 8; y = py / 16;
             if (!(now.buttons & 1)) { w->ox = gfx_colors() == 256 ? px & 7 : 0; w->oy = gfx_colors() == 256 ? py & 15 : 0; gfx_drag_end(); live_drag = 0; }
         } else {
