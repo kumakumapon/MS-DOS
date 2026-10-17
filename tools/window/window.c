@@ -1,15 +1,17 @@
 #include "clipboard.h"
 #include "utilities.h"
+#include "scroll.h"
 
 /* Window positions use 8 x 16 cells. Four graphics planes hold both the
  * 16-color scene and CG-ROM glyphs; hidden text VRAM mirrors the labels. */
 enum { LAUNCHER, FILES, MEMO, HELP, ABOUT, CALCULATOR, CLOCK, WINDOWS };
 enum { LAUNCH_APPS = 9 };
-typedef struct { int x, y, w, h, open, hidden, selected, ox, oy; } Window;
+typedef struct { int x, y, w, h, open, hidden, selected, ox, oy, top; } Window;
 static Window windows[WINDOWS];
 static Calculator calculator;
 static DeskClock desk_clock;
-static int icon_view = 1, twelve_hour, scene_dirty;
+static int icon_view = 1, file_icons = 1, twelve_hour, scene_dirty;
+static int scrolling = -1, scroll_grab;
 static u32 clock_tick;
 /* Union of window damage, kept separate from the status/taskbar rows. */
 static int damage_left=640, damage_top=400, damage_right, damage_bottom;
@@ -34,7 +36,7 @@ static void present(void) {
 }
 static int order[WINDOWS], active = -1, mode, dirty, confirm, exiting;
 static char home[FD_PATH], folder[FD_PATH], note_path[FD_PATH];
-static char memo[1024], io[2048], status[80] = "Ready";
+static char memo[1024], status[80] = "Ready";
 static int used, count, truncated, list_error, memo_blocked, select_all;
 static Entry entries[128];
 static const char *titles[] = {"Launcher", "Files", "Memo", "Help", "About", "Calculator", "Clock"};
@@ -86,7 +88,7 @@ static void next(void) {
     active = -1; mode = 0;
 }
 static int save(void) {
-    char temp[FD_PATH], backup[FD_PATH]; Entry existing;
+    char temp[FD_PATH], backup[FD_PATH], io[2048]; Entry existing;
     if (memo_blocked) { message("NOTE.TXT needs Text editor; original file retained"); return 0; }
     if (fd_path(temp, home, "KDTMP.TMP") || fd_path(backup, home, "KDOLD.TMP")) return 0;
     int present = p_stat(note_path, &existing), old = p_stat(backup, &existing);
@@ -118,6 +120,7 @@ static int save(void) {
     return 1;
 }
 static void load(void) {
+    char io[2048];
     used = 0; memo_blocked = 0; select_all = 0;
     int handle = p_open(note_path);
     if (handle < 0) {
@@ -159,6 +162,7 @@ static void launch(const char *program, const char *arguments) {
     enter_graphics(); refresh();
 }
 static void tool(int id, const char *arguments) {
+    if (id == 0) { refresh(); focus(FILES); return; }
     if (id == 7) { focus(CALCULATOR); return; }
     if (id == 8) { clock_read(&desk_clock); focus(CLOCK); return; }
     char path[FD_PATH];
@@ -172,7 +176,7 @@ static void file_open(void) {
     char path[FD_PATH];
     if (fd_path(path, folder, entry->name)) { message("File path is too long"); return; }
     if (entry->attr & FD_DIR) {
-        fd_text(folder, path, sizeof folder); w->selected = 0; refresh(); return;
+        fd_text(folder, path, sizeof folder); w->selected = w->top = 0; refresh(); return;
     }
     const char *extension = entry->name;
     for (int i = 0; entry->name[i]; i++) if (entry->name[i] == '.') extension = entry->name + i;
@@ -182,29 +186,100 @@ static void file_open(void) {
         for (int i = 0; path[i]; i++) if (path[i] == ' ') { message("Open paths without spaces using the DOS shell"); return; }
         tool(!fd_cmp(extension, ".BAS") ? 3 : 1, path);
     } else if (!fd_cmp(extension, ".BMP")) tool(5, path);
-    else message("Open COM/EXE, TXT, BAS or BMP; use File manager for other files");
+    else message("Open COM/EXE, TXT, BAS or BMP; use FD98 for other files");
 }
-static void draw_memo(Window *w) {
-    int cols = w->w - 4, rows = w->h - 6, row = 0, col = 0;
-    for (int i = 0; i < used; i++) {
-        if (memo[i] == '\n') { row++; col = 0; }
-        else if (++col == cols) { row++; col = 0; }
+/* Every pane owns its scroll row. Icons reflow and text wraps, so no content
+ * needs a horizontal scrollbar at the supported minimum window sizes. */
+typedef struct { int x,y,cols,rows,step,columns,total,height; } Pane;
+static const char help_text[] =
+    "F1 Help   F2 Launcher   F3 Files\nF4 Memo   F5 About      F9: Paint\n"
+    "Drag title: move / corner: resize\nF6 then arrows: move window\n"
+    "F7 then arrows: resize window\nF8: minimize  Tab/taskbar: restore\n"
+    "Esc: close    F10: exit to DOS\nMemo: ASCII text, Ctrl+S saves\n"
+    "V: icons/list; Calc + Clock\nScroll: arrows, track or drag thumb\n"
+    "PgUp/PgDn: page; Home/End: ends\nFiles: Enter opens, BS goes up\n"
+    "Files F: open FD98 file tools";
+static const char about_text[] =
+    "Kuma Desktop 1.5\n\nOriginal PC-98 window system\n"
+    "MS-DOS 4.0 / 640 x 400\n\nCopyright 2026 kumakumapon\n"
+    "MIT license - see KDLIC.TXT";
+static int document(Window *w, Pane *v, int id, int paint) {
+    const char *s=id==MEMO?memo:id==HELP?help_text:about_text;
+    int length=id==MEMO?used:fd_len(s), row=0,col=0;
+    for(int i=0;i<length;i++) {
+        if(s[i]=='\n') {row++;col=0;continue;}
+        if(paint&&row>=w->top&&row<w->top+v->rows)
+            gfx_cell(v->x+col,v->y+row-w->top,s[i],id==MEMO&&select_all?WHITE:INK,id==MEMO&&select_all?SELECTED:PAPER,id==MEMO&&select_all);
+        if(++col==v->cols){row++;col=0;}
     }
-    int top = row >= rows ? row - rows + 1 : 0;
-    row = 0; col = 0;
-    for (int i = 0; i < used; i++) {
-        if (memo[i] == '\n') { row++; col = 0; continue; }
-        if (row >= top) gfx_cell(w->x + 2 + col, w->y + 3 + row - top, memo[i], select_all ? WHITE : INK, select_all ? SELECTED : PAPER, select_all);
-        if (++col == cols) { row++; col = 0; }
-    }
-    if (active == MEMO) gfx_cell(w->x + 2 + col, w->y + 3 + row - top, '_', WHITE, SELECTED, 1);
+    if(paint&&id==MEMO&&active==MEMO&&row>=w->top&&row<w->top+v->rows)
+        gfx_cell(v->x+col,v->y+row-w->top,'_',WHITE,SELECTED,1);
+    return row+1;
 }
-static int launcher_columns(Window *w) { return (w->w - 4) / 14; }
-static int launcher_rows(Window *w) { return (w->h - 6) / (icon_view ? 4 : 2); }
-static int launcher_top(Window *w) {
-    int columns = icon_view ? launcher_columns(w) : 1, visible = launcher_rows(w);
-    int row = w->selected / columns;
-    return row >= visible ? (row - visible + 1) * columns : 0;
+static int icons(int id) { return id==LAUNCHER?icon_view:file_icons; }
+static void pane(int id, Pane *v) {
+    Window *w=&windows[id];
+    v->x=w->x+2;v->y=w->y+(id==FILES?5:3);v->cols=w->w-6;
+    v->columns=1;v->step=1;
+    int height=w->h-(id==FILES?7:id==HELP||id==ABOUT?5:6);
+    if(id==LAUNCHER||id==FILES) {
+        v->step=icons(id)?4:id==LAUNCHER?2:1;
+        v->columns=icons(id)?v->cols/14:1;
+        v->total=((id==LAUNCHER?LAUNCH_APPS:count)+v->columns-1)/v->columns;
+    } else v->total=document(w,v,id,0);
+    v->height=height;
+    v->rows=(height+(icons(id)&&(id==LAUNCHER||id==FILES)?1:0))/v->step;
+    if(v->rows<1)v->rows=1;
+    w->top=scroll_clamp(w->top,v->total,v->rows);
+}
+static void reveal(int id) {
+    Pane v;pane(id,&v);Window *w=&windows[id];
+    int row=id==MEMO?v.total-1:w->selected/v.columns;
+    if(row<w->top)w->top=row;
+    if(row>=w->top+v.rows)w->top=row-v.rows+1;
+}
+static void scrollbar(Window *w, Pane *v) {
+    if(v->total<=v->rows)return;
+    int x=w->x+w->w-3,y=v->y,h=v->height*16,track=h-32;
+    gfx_rect(x*8,y*16,16,h,SURFACE);
+    button(x,y,2,"",0);label(x,y,"^",1,INK,BUTTON,0);
+    button(x,y+h/16-1,2,"",0);label(x,y+h/16-1,"v",1,INK,BUTTON,0);
+    int top=scroll_pixel(w->top,v->total,v->rows,track),size=scroll_thumb(v->total,v->rows,track);
+    gfx_rect(x*8+1,y*16+16+top,14,size,BUTTON);
+    gfx_rect(x*8+2,y*16+17+top,12,1,WHITE);
+    gfx_rect(x*8+13,y*16+16+top,1,size,BORDER);
+    gfx_rect(x*8+2,y*16+15+top+size,12,1,BORDER);
+}
+static int file_icon(Entry *entry) {
+    if(entry->attr&FD_DIR)return 0;
+    const char *ext=entry->name;
+    for(int i=0;entry->name[i];i++)if(entry->name[i]=='.')ext=entry->name+i;
+    if(!fd_cmp(ext,".COM")||!fd_cmp(ext,".EXE"))return 4;
+    if(!fd_cmp(ext,".BAS"))return 3;
+    if(!fd_cmp(ext,".BMP"))return 5;
+    return 1;
+}
+static void draw_items(int id, Pane *v) {
+    Window *w=&windows[id];int limit=id==LAUNCHER?LAUNCH_APPS:count;
+    for(int row=0;row<v->rows;row++)for(int col=0;col<v->columns;col++) {
+        int i=(w->top+row)*v->columns+col;if(i>=limit)continue;
+        int x=v->x+col*14,y=v->y+row*v->step,selected=i==w->selected;
+        int bg=selected?SELECTED:icons(id)||id==LAUNCHER?BUTTON:PAPER;
+        const char *name=id==LAUNCHER?icon_labels[i]:entries[i].name;
+        if(icons(id)) {
+            gfx_rect(x*8,y*16,13*8,3*16,bg);
+            utility_icon(id==LAUNCHER?i:file_icon(&entries[i]),x*8+36,y*16);
+            label(x,y+2,name,13,selected?WHITE:INK,bg,selected);
+        } else {
+            char caption[32];
+            if(id==FILES) {
+                fd_text(caption,entries[i].attr&FD_DIR?"<DIR> ":"      ",sizeof caption);
+                fd_text(caption+6,name,sizeof caption-6);name=caption;
+            } else name=labels[i];
+            gfx_rect(x*8,y*16,v->cols*8,16,bg);
+            label(x+(id==LAUNCHER),y,name,v->cols-1,selected?WHITE:INK,bg,selected);
+        }
+    }
 }
 static const char *calc_buttons[6][4] = {
     {"MC","MR","M-","M+"},{"CE","C","BS","/"},{"7","8","9","*"},
@@ -265,46 +340,29 @@ static void draw_window(int id) {
     label(w->x + 2, w->y + 1, titles[id], w->w - 13, active == id ? WHITE : INK, title_color, 0);
     button(w->x + w->w - 9, w->y + 1, 3, "_", 0);
     button(w->x + w->w - 5, w->y + 1, 3, "x", 0);
-    if (id == LAUNCHER) {
-        int top=launcher_top(w), rows=launcher_rows(w), columns=icon_view?launcher_columns(w):1;
-        for(int row=0;row<rows;row++)for(int col=0;col<columns;col++) {
-            int i=top+row*columns+col;if(i>=LAUNCH_APPS)continue;
-            int x=w->x+2+col*14,y=w->y+3+row*(icon_view?4:2),selected=i==w->selected,bg=selected?SELECTED:BUTTON;
-            if(icon_view) {
-                gfx_rect(x*8,y*16,13*8,3*16,bg);utility_icon(i,x*8+36,y*16);
-                label(x,y+2,icon_labels[i],13,selected?WHITE:INK,bg,selected);
-            } else {
-                gfx_rect(x*8,y*16,(w->w-4)*8,16,bg);
-                label(x+1,y,labels[i],w->w-6,selected?WHITE:INK,bg,selected);
-            }
+    Pane v;
+    if(id<CALCULATOR)pane(id,&v);
+    if (id == LAUNCHER || id == FILES) {
+        draw_items(id,&v);
+        if(id==LAUNCHER) {
+            char selected[48]="Selected: ";fd_text(selected+10,icon_labels[w->selected],sizeof selected-10);
+            text(w->x+2,w->y+w->h-3,selected,w->w-4,0);
+            button(w->x+2,w->y+w->h-2,9,icon_view?"List":"Icons",0);
+            button(w->x+12,w->y+w->h-2,8,"Open",0);
+            text(w->x+22,w->y+w->h-2,"Enter opens",w->w-24,0);
+        } else {
+            line(w,0,folder,0);
+            if(list_error)line(w,2,"Directory read failed",0);
+            else if(!count)line(w,2,"Empty directory",0);
+            button(w->x+2,w->y+w->h-2,9,"Parent",0);
+            button(w->x+12,w->y+w->h-2,8,"Open",0);
+            button(w->x+21,w->y+w->h-2,8,file_icons?"List":"Icons",0);
+            if(w->w>=39)button(w->x+30,w->y+w->h-2,7,"FD98",0);
+            if(truncated)text(w->x+w->w-8,w->y+3,"128+",4,0);
         }
-        char selected[48]="Selected: ";fd_text(selected+10,icon_labels[w->selected],sizeof selected-10);
-        text(w->x+2,w->y+w->h-3,selected,w->w-4,0);
-        button(w->x+2,w->y+w->h-2,9,icon_view?"List":"Icons",0);
-        button(w->x+12,w->y+w->h-2,8,"Open",0);
-        text(w->x+22,w->y+w->h-2,"Enter opens",w->w-24,0);
-    } else if (id == FILES) {
-        line(w, 0, folder, 0);
-        int visible = w->h - 7, top = w->selected >= visible ? w->selected - visible + 1 : 0;
-        for (int i = 0; i < visible && i + top < count; i++) {
-            Entry *e = &entries[i + top]; int y = w->y + 5 + i, selected = i + top == w->selected;
-            char caption[32]; fd_text(caption, e->attr & FD_DIR ? "<DIR> " : "      ", sizeof caption);
-            fd_text(caption + 6, e->name, sizeof caption - 6);
-            gfx_rect((w->x + 2) * 8, y * 16, (w->w - 6) * 8, 16, selected ? SELECTED : PAPER);
-            text(w->x + 2, y, caption, w->w - 6, selected);
-        }
-        if (list_error) line(w, 2, "Directory read failed", 0);
-        else if (!count) line(w, 2, "Empty directory", 0);
-        button(w->x + w->w - 3, w->y + 4, 2, "", 0);
-        label(w->x + w->w - 3, w->y + 4, "^", 1, INK, BUTTON, 0);
-        button(w->x + w->w - 3, w->y + w->h - 4, 2, "", 0);
-        label(w->x + w->w - 3, w->y + w->h - 4, "v", 1, INK, BUTTON, 0);
-        button(w->x + 2, w->y + w->h - 2, 9, "Parent", 0);
-        button(w->x + 12, w->y + w->h - 2, 8, "Open", 0);
-        if (truncated) text(w->x + w->w - 8, w->y + 3, "128+", 4, 0);
     } else if (id == MEMO) {
         if (memo_blocked) line(w, 0, "Open NOTE.TXT in the Text editor", 0);
-        else draw_memo(w);
+        else document(w,&v,MEMO,1);
         button(w->x + 2, w->y + w->h - 2, 9, "Save", 0);
         text(w->x + 2, w->y + w->h - 3, dirty ? "NOTE.TXT *" : "NOTE.TXT", w->w - 4, 0);
         button(w->x + 12, w->y + w->h - 2, 7, "Copy", 0);
@@ -315,16 +373,8 @@ static void draw_window(int id) {
         draw_calculator(w);
     } else if (id == CLOCK) {
         clock_controls(w);
-    } else if (id == HELP) {
-        static const char *help[] = {"F1 Help   F2 Launcher   F3 Files", "F4 Memo   F5 About      F9: Paint", "Drag title: move / corner: resize", "F6 then arrows: move window", "F7 then arrows: resize window", "F8: minimize  Tab/taskbar: restore", "Esc: close    F10: exit to DOS", "Memo: ASCII text, Ctrl+S saves", "Apps V: icons/list; Calc + Clock"};
-        for (int i = 0; i < 9; i++) line(w, i, help[i], 0);
-    } else {
-        line(w, 0, "Kuma Desktop 1.4", 0);
-        line(w, 2, "Original PC-98 window system", 0);
-        line(w, 3, gfx_colors() == 256 ? "MS-DOS 4.0 / 640 x 400 / 256 colors" : "MS-DOS 4.0 / 640 x 400 / 16 colors", 0);
-        line(w, 5, "Copyright 2026 kumakumapon", 0);
-        line(w, 6, "MIT license - see KDLIC.TXT", 0);
-    }
+    } else document(w,&v,id,1);
+    if(id<CALCULATOR)scrollbar(w,&v);
     for (int i = 0; i < 3; i++)
         gfx_rect((w->x + w->w) * 8 - 7 + i * 2, (w->y + w->h) * 16 - 5 - i * 3, 1, 3 + i * 3, MUTED);
     gfx_origin(0, 0);
@@ -392,7 +442,7 @@ static int paste_memo(void) {
     if (start + length > 1023) { message("Clipboard exceeds memo capacity; text retained"); return 0; }
     for (int i = 0; i < length; i++) memo[start + i] = incoming[i];
     if (length || select_all) dirty = 1;
-    used = start + length; select_all = 0; message("Pasted clipboard"); return 1;
+    used = start + length; select_all = 0; reveal(MEMO); message("Pasted clipboard"); return 1;
 }
 static int handle_key(int key) {
     int decision = handle_confirm(key);
@@ -439,18 +489,38 @@ static int handle_key(int key) {
         else close_window();
         return 0;
     }
+    if(active==MEMO||active==HELP||active==ABOUT) {
+        Pane v;pane(active,&v);int top=w->top;
+        if(key==KEY_UP)top--;else if(key==KEY_DOWN)top++;
+        else if(key==KEY_PAGEUP)top-=v.rows;else if(key==KEY_PAGEDOWN)top+=v.rows;
+        else if(key==KEY_HOME)top=0;else if(key==KEY_END)top=v.total;
+        else top=w->top;
+        if(key>=KEY_UP&&key<=KEY_PAGEDOWN) {w->top=scroll_clamp(top,v.total,v.rows);return 0;}
+    }
     if (active == LAUNCHER || active == FILES) {
-        if(active==LAUNCHER&&(key=='v'||key=='V')) {icon_view=!icon_view;message(icon_view?"Launcher icon view":"Launcher list view");return 0;}
-        int limit = active == LAUNCHER ? LAUNCH_APPS : count;
-        int step=active==LAUNCHER&&icon_view?launcher_columns(w):1;
-        if (key == KEY_UP && w->selected > 0) w->selected = w->selected > step ? w->selected - step : 0;
-        if (key == KEY_DOWN && w->selected + 1 < limit) w->selected = w->selected + step < limit ? w->selected + step : limit-1;
-        if(active==LAUNCHER&&icon_view&&key==KEY_LEFT&&w->selected>0) w->selected--;
-        if(active==LAUNCHER&&icon_view&&key==KEY_RIGHT&&w->selected+1<limit) w->selected++;
-        if (key == KEY_HOME) w->selected = 0;
-        if (key == KEY_END && limit) w->selected = limit - 1;
-        if (key == 13) { if (active == LAUNCHER) tool(w->selected, ""); else file_open(); }
-        if (active == FILES && key == 8) { fd_parent(folder); w->selected = 0; refresh(); }
+        if(key=='v'||key=='V') {
+            if(active==LAUNCHER)icon_view=!icon_view;else file_icons=!file_icons;
+            w->top=0;reveal(active);
+            message(active==LAUNCHER?(icon_view?"Launcher icon view":"Launcher list view"):(file_icons?"Files icon view":"Files list view"));return 0;
+        }
+        if(active==FILES&&(key=='f'||key=='F')) {
+            char path[FD_PATH];
+            if(!fd_path(path,home,apps[0])&&p_chdir(folder)>=0) {launch(path,"");p_chdir(home);}
+            else message("Cannot open FD98 in this directory");
+            return 0;
+        }
+        Pane v;pane(active,&v);
+        int limit=active==LAUNCHER?LAUNCH_APPS:count,step=v.columns;
+        if(key==KEY_PAGEUP||key==KEY_PAGEDOWN)step*=v.rows;
+        if((key==KEY_UP||key==KEY_PAGEUP)&&w->selected>0)w->selected=w->selected>step?w->selected-step:0;
+        if((key==KEY_DOWN||key==KEY_PAGEDOWN)&&w->selected+1<limit)w->selected=w->selected+step<limit?w->selected+step:limit-1;
+        if(key==KEY_LEFT&&w->selected>0)w->selected--;
+        if(key==KEY_RIGHT&&w->selected+1<limit)w->selected++;
+        if(key==KEY_HOME)w->selected=0;
+        if(key==KEY_END&&limit)w->selected=limit-1;
+        if(key>=KEY_UP&&key<=KEY_PAGEDOWN)reveal(active);
+        if(key==13) {if(active==LAUNCHER)tool(w->selected,"");else file_open();}
+        if(active==FILES&&key==8) {fd_parent(folder);w->selected=w->top=0;refresh();}
     } else if (active == CALCULATOR) {
         calculator_key(key);
     } else if (active == CLOCK) {
@@ -470,6 +540,7 @@ static int handle_key(int key) {
             if (select_all) { used = 0; select_all = 0; }
             memo[used++] = key == 13 ? '\n' : key; dirty = 1;
         } else if (used == (int)sizeof memo - 1) message("Memo full (1023 characters); use the Text editor for larger files");
+        if(key==8||key==13||key==24||(key>=32&&key<=126))reveal(MEMO);
     }
     return 0;
 }
@@ -482,6 +553,13 @@ static u32 last_click;
 static int clamp(int n, int low, int high) { return n < low ? low : n > high ? high : n; }
 static int mouse_event(Mouse now, int previous, int *redraw) {
     int cx = now.x / 8, cy = now.y / 16;
+    if(scrolling>=0) {
+        Window *w=&windows[scrolling];Pane v;pane(scrolling,&v);
+        int top=scroll_row(now.y-w->oy-v.y*16-16-scroll_grab,v.total,v.rows,v.height*16-32);
+        if(top!=w->top){w->top=top;*redraw=1;}
+        if(!(now.buttons&1))scrolling=-1;
+        return 0;
+    }
     if (drag && (previous & 1)) {
         Window *w = &windows[drag_id];
         if (!w->open || w->hidden || confirm) { drag = 0; return 0; }
@@ -548,20 +626,40 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
             last_file = -1; drag_id = id; drag_mx = now.x; drag_my = now.y;
             drag_x = w->x * 8 + w->ox; drag_y = w->y * 16 + w->oy; drag_w = w->w; drag_h = w->h; return 0;
         }
-        if (id == LAUNCHER) {
-            if(cy==w->y+w->h-2) {
-                if(cx>=w->x+2&&cx<w->x+11)return 'v';
-                if(cx>=w->x+12&&cx<w->x+20)return 13;
+        Pane v;
+        if(id<CALCULATOR) {
+            pane(id,&v);
+            int py=now.y-w->oy-v.y*16,h=v.height*16,track=h-32;
+            if(cx>=w->x+w->w-3&&cx<w->x+w->w-1&&py>=0&&py<h&&v.total>v.rows) {
+                int top=scroll_pixel(w->top,v.total,v.rows,track),size=scroll_thumb(v.total,v.rows,track);
+                if(py<16)w->top--;
+                else if(py>=h-16)w->top++;
+                else if(py<16+top)w->top-=v.rows;
+                else if(py>=16+top+size)w->top+=v.rows;
+                else {scrolling=id;scroll_grab=py-16-top;}
+                w->top=scroll_clamp(w->top,v.total,v.rows);return 0;
             }
-            int row=cy-w->y-3,col=cx-w->x-2,columns=icon_view?launcher_columns(w):1;
-            if(row>=0&&row<launcher_rows(w)*(icon_view?4:2)&&col>=0&&col<w->w-4) {
-                if(icon_view&&(row%4==3||col%14==13||col/14>=columns))return 0;
-                if(!icon_view&&(row&1))return 0;
-                int selected=launcher_top(w)+row/(icon_view?4:2)*columns+(icon_view?col/14:0);
-                if(selected<LAUNCH_APPS) {
+        }
+        if (id == LAUNCHER || id == FILES) {
+            if(cy==w->y+w->h-2) {
+                if(cx>=w->x+2&&cx<w->x+11)return id==LAUNCHER?'v':8;
+                if(cx>=w->x+12&&cx<w->x+20)return 13;
+                if(id==FILES&&cx>=w->x+21&&cx<w->x+29)return 'v';
+                if(id==FILES&&w->w>=39&&cx>=w->x+30&&cx<w->x+37)return 'f';
+            }
+            int row=cy-v.y,col=cx-v.x;
+            if(row>=0&&row<v.rows*v.step&&col>=0&&col<v.cols) {
+                if(icons(id)&&(row%4==3||col%14==13||col/14>=v.columns))return 0;
+                if(!icons(id)&&row%v.step)return 0;
+                int selected=(w->top+row/v.step)*v.columns+(icons(id)?col/14:0);
+                if(selected<(id==LAUNCHER?LAUNCH_APPS:count)) {
                     w->selected=selected;
-                    if(!icon_view||(previous_app==selected&&((now.ticks-app_click)&0xffffff)<153600)) tool(selected,"");
-                    else {last_app=selected;app_click=now.ticks;}
+                    int previous_item=id==LAUNCHER?previous_app:previous_file;
+                    u32 tick=id==LAUNCHER?app_click:last_click;
+                    if((id==LAUNCHER&&!icon_view)||(previous_item==selected&&((now.ticks-tick)&0xffffff)<153600)) {
+                        if(id==LAUNCHER)tool(selected,"");else file_open();
+                    } else if(id==LAUNCHER){last_app=selected;app_click=now.ticks;}
+                    else {last_file=selected;last_click=now.ticks;}
                 }
             }
         } else if(id == CALCULATOR) {
@@ -577,23 +675,6 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
             int col=cx-w->x;
             if(col>=2&&col<12)return 't';
             if(col>=13&&col<21)return 3;
-        } else if (id == FILES) {
-            if (cx >= w->x + w->w - 3) {
-                if (cy == w->y + 4) return KEY_UP;
-                if (cy == w->y + w->h - 4) return KEY_DOWN;
-            }
-            if (cy == w->y + w->h - 2) {
-                if (cx >= w->x + 2 && cx < w->x + 11) return 8;
-                if (cx >= w->x + 12 && cx < w->x + 20) return 13;
-            }
-            int row = cy - w->y - 5, visible = w->h - 7;
-            int top = w->selected >= visible ? w->selected - visible + 1 : 0;
-            if (row >= 0 && row < visible && row + top < count && cx >= w->x + 2 && cx < w->x + w->w - 4) {
-                int selected = row + top; u32 tick = now.ticks;
-                if (previous_file == selected && ((tick - last_click) & 0xffffff) < 153600) {
-                    w->selected = selected; last_file = -1; file_open();
-                } else { w->selected = selected; last_file = selected; last_click = tick; }
-            }
         } else if (id == MEMO && cy == w->y + w->h - 2) {
             int col = cx - w->x;
             if (col >= 2 && col < 11) save();
@@ -626,15 +707,15 @@ int main(void) {
     fd_text(folder, home, sizeof folder);
     if (fd_path(note_path, home, "NOTE.TXT")) return 1;
     for (int i = 0; i < WINDOWS; i++) {
-        windows[i] = (Window){3 + i * 4, 2 + i, 48, 16, 0, 0, 0, 0, 0}; order[i] = i;
+        windows[i] = (Window){3 + i * 4, 2 + i, 48, 16, 0, 0, 0, 0, 0, 0}; order[i] = i;
     }
-    windows[CALCULATOR]=(Window){5,2,38,20,0,0,0,0,0};
-    windows[CLOCK]=(Window){39,3,38,17,0,0,0,0,0};
+    windows[CALCULATOR]=(Window){5,2,38,20,0,0,0,0,0,0};
+    windows[CLOCK]=(Window){39,3,38,17,0,0,0,0,0,0};
     calc_init(&calculator);clock_read(&desk_clock);clock_tick=input_ticks();
     load(); refresh(); focus(LAUNCHER); enter_graphics();
     damage(0,0,640,400);draw(); Mouse previous = mouse_read(); gfx_pointer_show(previous.x, previous.y);
     for (;;) {
-        Mouse now = mouse_read(); int ready = key_ready(), redraw = clock_update(drag), stop = 0;
+        Mouse now = mouse_read(); int ready = key_ready(), redraw = clock_update(drag||scrolling>=0), stop = 0;
         int previous_active=active,previous_mode=mode,previous_confirm=confirm;
         Window before=active<0?(Window){0}:windows[active];
         int partial=!drag&&!mode&&!confirm&&!redraw&&!scene_dirty;
@@ -655,7 +736,7 @@ int main(void) {
             }
             if (stop) break;
             if (ready) {
-                drag = 0; gfx_drag_end(); live_drag = 0; last_file = last_app = -1; redraw = 1;
+                drag = 0; scrolling=-1; gfx_drag_end(); live_drag = 0; last_file = last_app = -1; redraw = 1;
                 for (int i = 0; i < 16 && key_ready(); i++)
                     if (handle_key(key_read())) { stop = 1; break; }
                 if (stop) break;

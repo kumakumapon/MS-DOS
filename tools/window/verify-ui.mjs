@@ -72,7 +72,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
   await key('HOME'); await key('DOWN'); await key('DOWN'); await key('ENTER');
   await wait('PC-98 SYSTEM SETTINGS'); await type('q'); await wait('Press any key or click to return to KDESK');
   await key('SPACE'); await wait('Kuma Desktop'); await wait('Program returned to desktop');
-  await key('F3'); await wait('Parent');
+  await key('F3'); await wait('Parent'); await key('v'); await wait('Files list view');
   await selectFile('GUIWORK'); await key('ENTER'); await wait('A:\\GUIWORK'); await wait('Empty directory');
   await key('BS');
   await selectFile('P98TEST.COM'); await key('ENTER'); await wait('DOS4 EXEC OK');
@@ -148,15 +148,16 @@ export async function verifyWindow(page, { screenshot } = {}) {
   await cell(18, 11); await wait('PC-98 SYSTEM SETTINGS');
   await type('q'); await wait('Press any key or click to return to KDESK');
   await click(600, 350); await wait('Program returned to desktop');
-  await cell(32, 0); await title('Files', 4, 9); await wait('Parent');
+  await cell(32, 0); await title('Files', 4, 9); await wait('Parent'); await key('v'); await wait('Files list view');
   const names = await page.evaluate(async () =>
     (await window.np2debug.np2.diskListFiles('fd1')).entries.map(entry => entry.name));
   const mouseSelect = async name => {
     const index = names.indexOf(name);
     assert.ok(index >= 0, name + ' must be on disk');
-    // Scroll buttons change selection and keep its row visible.
+    // Keyboard navigation keeps the selected list row visible; the dedicated
+    // explorer suite below tests independent mouse scrolling.
     await key('HOME');
-    for (let i = 0; i < index; i++) await cell(52, 15);
+    for (let i = 0; i < index; i++) await key('DOWN');
     const row = 8 + Math.min(index, 8);
     await page.waitForFunction(({ name, row }) => window.np2debug.np2.getScreenText().lines[row]?.includes(name),
       { timeout: 60000 }, { name, row }).catch(async error => { console.error(await text()); throw error; });
@@ -173,8 +174,10 @@ export async function verifyWindow(page, { screenshot } = {}) {
   await cell(49, 0); await wait('Drag title: move');
   await capture();
   await cell(73, 0); await wait('KDESK exited.');
+  const explorerResults = await verifyExplorer(page, { screenshot: screenshot?.replace(/\.png$/, '-explorer.png') });
   const mediaResults = await verifyMedia(page, { screenshot: screenshot?.replace(/\.png$/, '-media.png') });
   return [
+    ...explorerResults,
     ...mediaResults,
     ...await verifyUtilities(page, { screenshot: screenshot?.replace(/\.png$/, '-utilities.png') }),
     ...await verifyRedraw(page),
@@ -451,4 +454,68 @@ export async function verifyRedraw(page) {
   assert.equal(probe.flashes,0,`The menu stays intact through selections, focus and clock updates (${probe.frames} video frames)`);
   await key('F10');await wait('KDESK exited.');
   return [`displayed-frame regression: no desktop/menu clear during icon/list selection, window switching or occluded clock updates (${probe.frames} frames)`];
+}
+
+export async function verifyExplorer(page, { screenshot } = {}) {
+  const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  const text=()=>page.evaluate(()=>window.np2debug.np2.getScreenText().text);
+  const wait=needle=>page.waitForFunction(needle=>window.np2debug.np2.getScreenText().text.includes(needle),{timeout:60000},needle)
+    .catch(async error=>{console.error(await text());throw error;});
+  const key=async value=>{await page.evaluate(v=>window.np2debug.np2.sendKeys(v),value);await pause(180);};
+  const type=async value=>{await page.evaluate(v=>window.np2debug.np2.typeText(v),value);await pause(180);};
+  const click=async(x,y,count=1)=>{await page.evaluate(({x,y})=>window.np2debug.np2.mouseMoveTo(x,y),{x,y});await pause(160);await page.evaluate(count=>window.np2debug.np2.mouseClick({count}),count);await pause(200);};
+  const drag=async(from,to)=>{await page.evaluate(({from,to})=>window.np2debug.np2.mouseDrag(from,to),{from,to});await pause(250);};
+  const read=name=>page.evaluate(async name=>Array.from(await window.np2debug.np2.diskReadFile('fd1',name)),name);
+  const original=await read('NOTE.TXT');
+  // A directory longer than both viewports tests scrolling independently of
+  // selection, including opening an item after the thumb has moved.
+  await type('MD SCROLL\r');
+  for(let i=0;i<28;i++)await page.evaluate(async i=>window.np2debug.np2.diskWriteFile('fd1',`SCROLL/F${String(i).padStart(2,'0')}.TXT`,new TextEncoder().encode(`EXPLORER FILE ${i}\r\n`)),i);
+  await type('KDESK\r');await wait('Ready');await key('ENTER');await wait('Parent');await wait('FD98');
+  await key('HELP');await key('ENTER');await wait('A:\\SCROLL');await wait('F00.TXT');
+  await page.evaluate(()=>window.np2debug.np2.mouseHome());await pause(500);
+  // File icons at (9,8); three columns, two rows. A click selects without EXEC.
+  await click(112,144);assert.ok(!(await text()).includes('EDIT98'),'Single file-icon click only selects');
+  await click(420,264);await wait('F03.TXT');assert.ok(!(await text()).includes('F00.TXT'),'Down arrow scrolls one icon row');
+  await click(420,136);await wait('F00.TXT');
+  await click(420,220);await wait('F06.TXT');assert.ok(!(await text()).includes('F00.TXT'),'Track click pages the viewport');
+  await key('HOME');await wait('F00.TXT');
+  await drag({x:420,y:148},{x:420,y:251});await wait('F27.TXT');
+  await key('F4');await wait('NOTE.TXT');await key('F3');await wait('F27.TXT');
+  assert.ok(!(await text()).includes('F00.TXT'),'Files retains its own scroll position across focus changes');
+  await key('HOME');await key('ROLLDOWN');await wait('F06.TXT');await key('ROLLUP');await wait('F00.TXT');
+  await click(112,144,2);await wait('EDIT98');await wait('EXPLORER FILE 0');
+  await key('F10');await wait('Press any key or click to return to KDESK');await key('SPACE');await wait('Program returned to desktop');
+  await click(420,264);await wait('F03.TXT');await click(112,144,2);await wait('EDIT98');await wait('EXPLORER FILE 3');
+  await key('F10');await wait('Press any key or click to return to KDESK');await key('SPACE');await wait('Program returned to desktop');
+  await key('v');await wait('Files list view');await key('HOME');await wait('F00.TXT');
+  await drag({x:420,y:152},{x:420,y:251});await wait('F27.TXT');
+  // Reflow at the minimum size must retain access to the final file and footer.
+  await key('v');await key('F7');for(let i=0;i<18;i++)await key('LEFT');for(let i=0;i<6;i++)await key('UP');await key('ENTER');
+  await key('HELP');await wait('F27.TXT');await wait('Parent');await key('HOME');await wait('F00.TXT');
+  if(screenshot){await page.waitForFunction(()=>window.np2debug.np2.getScreenText().lines[11]?.slice(29,33)==='List');await pause(200);await page.screenshot({path:screenshot.replace(/\.png$/,'-narrow.png')});}
+  await key('BS');await wait('A:\\');
+  // FD98 remains available for copy/move/delete operations.
+  await key('f');await wait('FD Filer 1.0');await key('F10');await wait('Press any key or click to return to KDESK');await key('SPACE');await wait('Program returned to desktop');
+  await key('F4');await key('CTRL+A');
+  const note=Array.from({length:25},(_,i)=>`ROW${String(i).padStart(2,'0')}`).join('\r');
+  await type(note);await wait('ROW24');await key('HOME');await wait('ROW00');
+  assert.ok(!(await text()).includes('ROW24'),'Memo Home displays the first page without changing text');
+  await click(452,264);await wait('ROW10');assert.ok(!(await text()).includes('ROW00'),'Memo arrow scrolls without moving the append position');
+  await key('HOME');await drag({x:452,y:136},{x:452,y:259});await wait('ROW24');
+  await key('ROLLUP');assert.ok(!(await text()).includes('ROW24'));await key('HELP');await wait('ROW24');
+  await type('X');await wait('ROW24X');assert.deepEqual(await read('NOTE.TXT'),original,'Scrolling and editing do not implicitly save');
+  await key('ESC');await wait('Unsaved memo:');await type('d');await wait('Memo closed');assert.deepEqual(await read('NOTE.TXT'),original);
+  await key('F1');await wait('F6 then arrows: move window');await key('HELP');await wait('Files F: open FD98 file tools');
+  await key('F7');for(let i=0;i<18;i++)await key('LEFT');for(let i=0;i<6;i++)await key('UP');await key('ENTER');await key('HOME');await wait('F1 Help');await key('HELP');await wait('tools');
+  await key('F5');await key('F7');for(let i=0;i<18;i++)await key('LEFT');for(let i=0;i<6;i++)await key('UP');await key('ENTER');await key('HELP');await wait('MIT license');
+  await key('F2');await key('HOME');await wait('Selected: File manager');await click(388,232);await wait('Calculator');
+  assert.ok(!(await page.evaluate(()=>window.np2debug.np2.getScreenText().lines[7])).includes('File manager'),'Launcher also supports independent scrolling');
+  // Capture a normal-sized explorer, using fresh default window geometry.
+  await key('F10');await wait('KDESK exited.');await type('KDESK\r');await wait('Ready');await key('ENTER');await wait('Parent');await key('HELP');await key('ENTER');await wait('A:\\SCROLL');await wait('F00.TXT');
+  if(screenshot){await page.waitForFunction(()=>window.np2debug.np2.getScreenText().lines[17]?.slice(29,33)==='List');await pause(200);await page.screenshot({path:screenshot});}
+  await key('F10');await wait('KDESK exited.');
+  return ['independent Launcher/Files/Memo/Help/About scroll positions, arrow and track paging, proportional thumb dragging, keyboard paging and resize clamping',
+    'default icon file manager from Launcher, file-type icons, selection, directory/parent navigation, TXT double-click after mouse scrolling, list toggle and FD98 access',
+    'memo scrollback, append follows the last line, and discard preserves the original disk file'];
 }

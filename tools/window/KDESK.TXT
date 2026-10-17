@@ -1,4 +1,4 @@
-Kuma Desktop (KDESK) - Original PC-98 window desktop 1.4
+Kuma Desktop (KDESK) - Original PC-98 window desktop 1.5
 
 Run KDESK from the MS-DOS 4.0 PC-98 prompt. Requires a 386-compatible
 PC-98 with 640 x 400 graphics and a PC-98 bus mouse (WebNP2 works).
@@ -22,15 +22,17 @@ Mouse: click the top menus to open windows; click a window to focus it.
        outline. If sprite memory is unavailable, moving also uses an outline.
        Title buttons: _ minimizes, x closes. Taskbar buttons restore/focus.
        Click an icon to select; double-click or Open starts it. In Files,
-       click to select,
-       double-click or use Open; Parent and ^/v navigate/scroll.
+       double-click or Open opens the selection; Parent goes up.
+       Scroll arrows move a row, track clicks page, and the thumb drags.
+       Scrollbars appear when content overflows; each window keeps its position.
        Memo Save and the Save/Discard/Cancel dialog accept clicks.
 
 Launcher: icons are the default. V or List/Icons toggles the list view.
           Arrows select icons (Up/Down moves a row); Home selects the first.
           Enter or Open starts the selection; double-click also opens icons.
           List view retains one-click launch. The view scrolls when resized.
-          Calculator and Clock run as built-in windows; other tools use DOS EXEC.
+          File manager, Calculator and Clock run as built-in windows.
+          Other tools use DOS EXEC.
 
 Calculator: arithmetic + - * /, decimal point, = or Enter for the result.
             Calculations follow entry order; repeated = repeats the last step.
@@ -46,10 +48,17 @@ Clock: reads DOS date/time (the emulator RTC), with digital and analog faces.
        T or 12-hour/24-hour toggles AM/PM; Ctrl+C or Copy copies date and time.
        Updates while other desktop windows are active. F8 minimizes; the
        taskbar restores. Clock resumes the current time after DOS tools exit.
-Files: Up/Down selects; Enter opens directories, COM/EXE programs,
+Files: icons are the default; V or List/Icons toggles a list view.
+       Click selects, double-click or Enter opens. Arrows select; Up/Down
+       moves a grid row and Left/Right one item. Page Up/Down moves a page;
+       Home/End selects an end and reveals the selection. Enter opens directories, COM/EXE programs,
        TXT files in EDIT98, BAS files in the installed BASIC, and BMP in KVIEW.
-       Backspace goes to the parent directory.
+       Backspace goes to the parent directory. F or FD98 opens the existing
+       two-pane filer in this directory for copy/move/rename/delete/mkdir.
+       The FD98 button is hidden at narrow sizes; F remains available.
+Memo/Help/About: arrows, Page Up/Down and Home/End scroll their wrapped text.
 Memo: type ASCII text, Enter adds a line, Backspace removes a character.
+      Editing reveals the final line; scrolling never changes or saves text.
       Ctrl+A selects all, Ctrl+C copies, Ctrl+X cuts, Ctrl+V pastes.
       Copy/Cut use the full memo; Paste replaces the selected text or appends.
       The clipboard holds up to 1023 ASCII characters. Invalid or oversized
