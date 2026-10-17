@@ -177,6 +177,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
   return [
     ...mediaResults,
     ...await verifyUtilities(page, { screenshot: screenshot?.replace(/\.png$/, '-utilities.png') }),
+    ...await verifyRedraw(page),
     'KDESK PEGC 256-color graphics, CG-ROM labels, keyboard window move and resize',
     'overlapping windows, focus, minimize/restore, close and help',
     'memo CRLF save, reopen, unsaved-change cancel/discard and failed-save preservation',
@@ -387,4 +388,42 @@ export async function verifyUtilities(page, { screenshot } = {}) {
     'calculator/Memo clipboard and safe resize constraints; live clock while calculator is active',
     'DOS RTC date, 12/24-hour display, copy, minimize/restore and close',
     'default icon launcher, grid/list toggle, keyboard navigation, mouse select/double-click and narrow-window scrolling'];
+}
+
+// Observe displayed frames, not just the final screen: a full clear can finish
+// correctly and still flash the background for several video frames per key.
+export async function verifyRedraw(page) {
+  const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  const key=async key=>{await page.evaluate(key=>window.np2debug.np2.sendKeys(key),key);await pause(180);};
+  const wait=needle=>page.waitForFunction(needle=>window.np2debug.np2.getScreenText().text.includes(needle),{timeout:60000},needle);
+  await page.evaluate(()=>window.np2debug.np2.typeText('KDESK\r'));await wait('Ready');
+  await page.waitForFunction(()=>window.np2debug.np2.getScreenText().lines[24]?.slice(25,29)==='Apps');await pause(150);
+  await page.evaluate(()=>window.np2debug.np2.mouseMoveTo(600,350));await pause(300);
+  await page.evaluate(()=>{
+    const source=document.querySelector('#canvas'),c=document.createElement('canvas');c.width=640;c.height=400;
+    const g=c.getContext('2d',{willReadFrequently:true});
+    window.redrawProbe={frames:0,flashes:0,run:true};
+    const frame=()=>{
+      const probe=window.redrawProbe;if(!probe.run)return;
+      g.drawImage(source,0,0);const p=g.getImageData(1,1,1,1).data;
+      probe.frames++;if(![34,51,68].every((v,i)=>Math.abs(v-p[i])<=4))probe.flashes++;
+      requestAnimationFrame(frame);
+    };requestAnimationFrame(frame);
+  });
+  try {
+    for(let i=0;i<4;i++)for(const direction of ['DOWN','RIGHT','UP','LEFT'])await key(direction);
+    await key('v');await wait('Launcher list view');
+    for(let i=0;i<4;i++){await key('DOWN');await key('UP');}
+    for(const window of ['F4','F2','F1','F8','TAB','ESC','F4','F2'])await key(window);
+    // A background clock partially covered by Memo used to force full clears.
+    await key('v');await key('HOME');await key('HELP');await wait('Selected: Clock');await key('ENTER');
+    await wait('12-hour');await key('F4');await wait('NOTE.TXT');await pause(2500);
+  } finally {
+    await page.evaluate(()=>{window.redrawProbe.run=false;});
+  }
+  const probe=await page.evaluate(()=>window.redrawProbe);
+  assert.ok(probe.frames>20,'Sample enough video frames during real guest operations');
+  assert.equal(probe.flashes,0,`The menu stays intact through selections, focus and clock updates (${probe.frames} video frames)`);
+  await key('F10');await wait('KDESK exited.');
+  return [`displayed-frame regression: no desktop/menu clear during icon/list selection, window switching or occluded clock updates (${probe.frames} frames)`];
 }

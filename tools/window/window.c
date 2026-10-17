@@ -11,6 +11,27 @@ static Calculator calculator;
 static DeskClock desk_clock;
 static int icon_view = 1, twelve_hour, scene_dirty;
 static u32 clock_tick;
+/* Union of window damage, kept separate from the status/taskbar rows. */
+static int damage_left=640, damage_top=400, damage_right, damage_bottom;
+static void damage(int x,int y,int w,int h) {
+    if(x<damage_left)damage_left=x;
+    if(y<damage_top)damage_top=y;
+    if(x+w>damage_right)damage_right=x+w;
+    if(y+h>damage_bottom)damage_bottom=y+h;
+}
+static void invalidate(int id) {
+    if(id<0)return;
+    Window *w=&windows[id];
+    if(w->open&&!w->hidden)damage(w->x*8+w->ox,w->y*16+w->oy,w->w*8+5,w->h*16+5);
+}
+static void present(void) {
+    if(damage_right>640)damage_right=640;
+    if(damage_bottom>400)damage_bottom=400;
+    if(damage_right>damage_left&&damage_bottom>damage_top)
+        gfx_present(damage_left,damage_top,damage_right-damage_left,damage_bottom-damage_top);
+    gfx_present(0,368,640,32);
+    damage_left=640;damage_top=400;damage_right=damage_bottom=0;
+}
 static int order[WINDOWS], active = -1, mode, dirty, confirm, exiting;
 static char home[FD_PATH], folder[FD_PATH], note_path[FD_PATH];
 static char memo[1024], io[2048], status[80] = "Ready";
@@ -48,12 +69,13 @@ static void refresh(void) {
 }
 static void focus(int id) {
     if(active!=id || !windows[id].open || windows[id].hidden)scene_dirty=1;
+    invalidate(active);
     int at = 0;
     while (order[at] != id) at++;
     for (; at < WINDOWS - 1; at++) order[at] = order[at + 1];
     order[WINDOWS - 1] = id;
     windows[id].open = 1; windows[id].hidden = 0;
-    active = id; mode = 0;
+    active = id; mode = 0; invalidate(id);
 }
 static void next(void) {
     int start = active;
@@ -117,7 +139,7 @@ static void load(void) {
 }
 static void enter_graphics(void) { gfx_start(); clip_state(1); }
 static void launch(const char *program, const char *arguments) {
-    scene_dirty=1;
+    scene_dirty=1; damage(0,0,640,400);
     clip_mouse_save(); clip_state(2); gfx_stop(); p_finish();
     int result = p_exec(program, arguments);
     clip_mouse_resume();
@@ -297,7 +319,7 @@ static void draw_window(int id) {
         static const char *help[] = {"F1 Help   F2 Launcher   F3 Files", "F4 Memo   F5 About      F9: Paint", "Drag title: move / corner: resize", "F6 then arrows: move window", "F7 then arrows: resize window", "F8: minimize  Tab/taskbar: restore", "Esc: close    F10: exit to DOS", "Memo: ASCII text, Ctrl+S saves", "Apps V: icons/list; Calc + Clock"};
         for (int i = 0; i < 9; i++) line(w, i, help[i], 0);
     } else {
-        line(w, 0, "Kuma Desktop 1.3", 0);
+        line(w, 0, "Kuma Desktop 1.4", 0);
         line(w, 2, "Original PC-98 window system", 0);
         line(w, 3, gfx_colors() == 256 ? "MS-DOS 4.0 / 640 x 400 / 256 colors" : "MS-DOS 4.0 / 640 x 400 / 16 colors", 0);
         line(w, 5, "Copyright 2026 kumakumapon", 0);
@@ -307,8 +329,8 @@ static void draw_window(int id) {
         gfx_rect((w->x + w->w) * 8 - 7 + i * 2, (w->y + w->h) * 16 - 5 - i * 3, 1, 3 + i * 3, MUTED);
     gfx_origin(0, 0);
 }
-static void draw(void) {
-    scene_dirty=0;
+static void compose(int foreground) {
+    gfx_target(1);
     gfx_rect(0, 0, 640, 400, DESKTOP); gfx_clear_text(0, 0, 80, 25);
     if (gfx_colors() == 256) for (int y = 16; y < 368; y++)
         gfx_rect(0, y, 640, 1, 232 + (y - 16) * 23 / 351);
@@ -323,17 +345,11 @@ static void draw(void) {
         int id = order[i];
         if (id != active && windows[id].open && !windows[id].hidden) draw_window(id);
     }
+    if(foreground && active>=0 && !windows[active].hidden)draw_window(active);
     gfx_rect(0, 368, 640, 16, BORDER); gfx_rect(0, 384, 640, 16, SURFACE);
     label(1, 24, "F1 Help / Tab switch", 22, INK, SURFACE, 0);
     static const char *tasks[] = {"Apps", "Files", "Memo", "Help", "About", "Calc", "Clock"};
     for (int i = 0; i < WINDOWS; i++) if (windows[i].open) button(24 + i * 8, 24, 8, tasks[i], active == i);
-    if (!confirm) {
-        gfx_background();
-        if (active >= 0 && !windows[active].hidden) draw_window(active);
-        gfx_rect(0, 368, 640, 16, BORDER); gfx_rect(0, 384, 640, 16, SURFACE);
-        label(1, 24, "F1 Help / Tab switch", 22, INK, SURFACE, 0);
-        for (int i = 0; i < WINDOWS; i++) if (windows[i].open) button(24 + i * 8, 24, 8, tasks[i], active == i);
-    } else if (active >= 0 && !windows[active].hidden) draw_window(active);
     if (confirm) {
         label(1, 23, "Unsaved memo: Enter saves / D discards / Esc cancels", 78, WHITE, BORDER, 0);
         frame(17, 9, 46, 8);
@@ -344,7 +360,11 @@ static void draw(void) {
     } else if (mode) label(1, 23, mode == 1 ? "MOVE: arrows change position; Enter finishes" : "RESIZE: arrows change size; Enter finishes", 78, WHITE, BORDER, 0);
     else label(1, 23, status, 78, WHITE, BORDER, 0);
 }
+static void draw(void) {
+    compose(1);present();scene_dirty=0;
+}
 static void close_window(void) {
+    invalidate(active);scene_dirty=1;
     windows[active].open = 0; next();
 }
 static int handle_confirm(int key) {
@@ -410,7 +430,7 @@ static int handle_key(int key) {
         }
         return 0;
     }
-    if (key == KEY_F1 + 7) { w->hidden = 1; active = -1;
+    if (key == KEY_F1 + 7) { invalidate(active);scene_dirty=1;w->hidden = 1; active = -1;
         for (int i = WINDOWS - 1; i >= 0; i--) if (windows[order[i]].open && !windows[order[i]].hidden) { active = order[i]; break; }
         message("Window minimized; Tab restores"); return 0;
     }
@@ -595,9 +615,9 @@ static int clock_update(int moving) {
     Window *w=&windows[CLOCK];int x=w->x*8+w->ox+w->w*4-100,y=w->y*16+w->oy+48,above=0;
     for(int i=0;i<WINDOWS;i++) {
         int id=order[i];if(id==CLOCK){above=1;continue;}Window *other=&windows[id];
-        if(above&&other->open&&!other->hidden&&x<other->x*8+other->ox+other->w*8+5&&x+200>other->x*8+other->ox&&y<other->y*16+other->oy+other->h*16+5&&y+136>other->y*16+other->oy)return 1;
+        if(above&&other->open&&!other->hidden&&x<other->x*8+other->ox+other->w*8+5&&x+200>other->x*8+other->ox&&y<other->y*16+other->oy+other->h*16+5&&y+136>other->y*16+other->oy){invalidate(CLOCK);scene_dirty=1;return 1;}
     }
-    gfx_pointer_hide();gfx_origin(w->ox,w->oy);clock_draw(&desk_clock,twelve_hour,w->x*8,w->y*16,w->w*8);gfx_origin(0,0);
+    gfx_pointer_hide();gfx_target(1);gfx_origin(w->ox,w->oy);clock_draw(&desk_clock,twelve_hour,w->x*8,w->y*16,w->w*8);gfx_origin(0,0);gfx_present(x,y,200,136);
     Mouse now=mouse_position();gfx_pointer_show(now.x,now.y);return 0;
 }
 int main(void) {
@@ -612,10 +632,12 @@ int main(void) {
     windows[CLOCK]=(Window){39,3,38,17,0,0,0,0,0};
     calc_init(&calculator);clock_read(&desk_clock);clock_tick=input_ticks();
     load(); refresh(); focus(LAUNCHER); enter_graphics();
-    draw(); Mouse previous = mouse_read(); gfx_pointer_show(previous.x, previous.y);
+    damage(0,0,640,400);draw(); Mouse previous = mouse_read(); gfx_pointer_show(previous.x, previous.y);
     for (;;) {
         Mouse now = mouse_read(); int ready = key_ready(), redraw = clock_update(drag), stop = 0;
-        int partial=active==CALCULATOR&&!drag&&!mode&&!confirm&&!redraw&&!scene_dirty;
+        int previous_active=active,previous_mode=mode,previous_confirm=confirm;
+        Window before=active<0?(Window){0}:windows[active];
+        int partial=!drag&&!mode&&!confirm&&!redraw&&!scene_dirty;
         if (clipboard.command) {
             int request = clipboard.command; clipboard.result = 0;
             if (request != 1 || confirm || mode || memo_blocked) clipboard.result = 1;
@@ -639,14 +661,20 @@ int main(void) {
                 if (stop) break;
             }
             if (redraw) {
+                if(previous_active>=0&&before.open&&!before.hidden)
+                    damage(before.x*8+before.ox,before.y*16+before.oy,before.w*8+5,before.h*16+5);
+                invalidate(active);
+                if(previous_confirm||confirm)damage(136,144,373,133);
                 preview_visible=0;
-                if(partial&&active==CALCULATOR&&!drag&&!mode&&!confirm&&!scene_dirty) {
-                    Window *w=&windows[CALCULATOR];gfx_origin(w->ox,w->oy);calculator_value(w);gfx_origin(0,0);
+                if(partial&&active==previous_active&&active>=0&&!drag&&!mode&&!previous_mode&&!confirm&&!scene_dirty) {
+                    gfx_target(1);draw_window(active);
                     gfx_rect(0,368,640,16,BORDER);gfx_clear_text(0,23,80,1);label(1,23,status,78,WHITE,BORDER,0);
+                    present();
                 } else draw();
             }
             if (drag == 1 && !live_drag) {
                 Window *w = &windows[drag_id];
+                if(gfx_colors()==256){compose(0);gfx_target(0);}
                 live_drag = gfx_drag_begin(w->x * 8 + w->ox, w->y * 16 + w->oy, w->w * 8 + 5, w->h * 16 + 5);
             }
             gfx_pointer_show(now.x, now.y);
