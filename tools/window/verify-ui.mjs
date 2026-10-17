@@ -177,6 +177,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
   return [
     ...mediaResults,
     ...await verifyUtilities(page, { screenshot: screenshot?.replace(/\.png$/, '-utilities.png') }),
+    ...await verifyRedraw(page),
     'KDESK PEGC 256-color graphics, CG-ROM labels, keyboard window move and resize',
     'overlapping windows, focus, minimize/restore, close and help',
     'memo CRLF save, reopen, unsaved-change cancel/discard and failed-save preservation',
@@ -387,4 +388,67 @@ export async function verifyUtilities(page, { screenshot } = {}) {
     'calculator/Memo clipboard and safe resize constraints; live clock while calculator is active',
     'DOS RTC date, 12/24-hour display, copy, minimize/restore and close',
     'default icon launcher, grid/list toggle, keyboard navigation, mouse select/double-click and narrow-window scrolling'];
+}
+
+// Observe displayed frames, not just the final screen: a full clear can finish
+// correctly and still flash the background for several video frames per key.
+export async function verifyRedraw(page) {
+  const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  const key=async key=>{await page.evaluate(key=>window.np2debug.np2.sendKeys(key),key);await pause(180);};
+  const wait=needle=>page.waitForFunction(needle=>window.np2debug.np2.getScreenText().text.includes(needle),{timeout:60000},needle);
+  await page.evaluate(()=>window.np2debug.np2.typeText('KDESK\r'));await wait('Ready');
+  await page.waitForFunction(()=>window.np2debug.np2.getScreenText().lines[24]?.slice(25,29)==='Apps');await pause(150);
+  const edge=()=>page.evaluate(()=>{
+    const c=document.createElement('canvas');c.width=640;c.height=400;const g=c.getContext('2d');
+    g.drawImage(document.querySelector('#canvas'),0,0);return Array.from(g.getImageData(472,200,24,1).data);
+  });
+  await page.evaluate(()=>window.np2debug.np2.mouseHome());await pause(500);
+  for(const [from,to,description] of [
+    [{x:403,y:285},{x:483,y:333},'resize preview'],
+    [{x:100,y:52},{x:300,y:120},'live window move'],
+  ]) {
+    const clean=await edge();
+    await page.evaluate(({from,to})=>{
+      const np2=window.np2debug.np2,original=np2.mouseMoveTo.bind(np2);window.resizeMove=original;window.resizeRelease=null;
+      np2.mouseMoveTo=async(x,y)=>{const value=await original(x,y);if(x===to.x&&y===to.y)await new Promise(resolve=>window.resizeRelease=resolve);return value;};
+      window.resizeHeld=np2.mouseDrag(from,to);
+    },{from,to});
+    await page.waitForFunction(()=>!!window.resizeRelease);
+    await page.waitForFunction(clean=>{
+      const c=document.createElement('canvas');c.width=640;c.height=400;const g=c.getContext('2d');
+      g.drawImage(document.querySelector('#canvas'),0,0);return Array.from(g.getImageData(472,200,24,1).data).some((v,i)=>v!==clean[i]);
+    },{timeout:60000},clean);
+    await key('ESC');
+    await page.evaluate(async()=>{window.resizeRelease();await window.resizeHeld;window.np2debug.np2.mouseMoveTo=window.resizeMove;});
+    await pause(250);assert.deepEqual(await edge(),clean,`Closing during a held ${description} restores pixels beyond the old window`);
+    await key('F2');await wait('Selected: File manager');
+  }
+  await page.evaluate(()=>window.np2debug.np2.mouseMoveTo(600,350));await pause(300);
+  await page.evaluate(()=>{
+    const source=document.querySelector('#canvas'),c=document.createElement('canvas');c.width=640;c.height=400;
+    const g=c.getContext('2d',{willReadFrequently:true});
+    window.redrawProbe={frames:0,flashes:0,run:true};
+    const frame=()=>{
+      const probe=window.redrawProbe;if(!probe.run)return;
+      g.drawImage(source,0,0);const p=g.getImageData(1,1,1,1).data;
+      probe.frames++;if(![34,51,68].every((v,i)=>Math.abs(v-p[i])<=4))probe.flashes++;
+      requestAnimationFrame(frame);
+    };requestAnimationFrame(frame);
+  });
+  try {
+    for(let i=0;i<4;i++)for(const direction of ['DOWN','RIGHT','UP','LEFT'])await key(direction);
+    await key('v');await wait('Launcher list view');
+    for(let i=0;i<4;i++){await key('DOWN');await key('UP');}
+    for(const window of ['F4','F2','F1','F8','TAB','ESC','F4','F2'])await key(window);
+    // A background clock partially covered by Memo used to force full clears.
+    await key('v');await key('HOME');await key('HELP');await wait('Selected: Clock');await key('ENTER');
+    await wait('12-hour');await key('F4');await wait('NOTE.TXT');await pause(2500);
+  } finally {
+    await page.evaluate(()=>{window.redrawProbe.run=false;});
+  }
+  const probe=await page.evaluate(()=>window.redrawProbe);
+  assert.ok(probe.frames>20,'Sample enough video frames during real guest operations');
+  assert.equal(probe.flashes,0,`The menu stays intact through selections, focus and clock updates (${probe.frames} video frames)`);
+  await key('F10');await wait('KDESK exited.');
+  return [`displayed-frame regression: no desktop/menu clear during icon/list selection, window switching or occluded clock updates (${probe.frames} frames)`];
 }

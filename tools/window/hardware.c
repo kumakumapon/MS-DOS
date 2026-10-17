@@ -6,8 +6,8 @@ static const u16 theme[] = {
     0x234, 0x256, 0xeff, 0xcde, 0x27b, 0x259, 0xfc6, 0xfff,
     0x123, 0xbcd, 0x678, 0x467, 0x367, 0x7ab, 0xeef, 0xacd,
 };
-static u8 fonts[256][16], palette[16][3], palette256[256][3], saved_mode, saved_index;
-static int packed, bank = -1, origin_x, origin_y;
+static u8 fonts[95][16], palette[16][3], palette256[256][3], saved_mode, saved_index;
+static int packed, bank = -1, origin_x, origin_y, offscreen;
 static u8 saved_gate, saved_256, saved_banks[4], saved_pegc_mode, saved_pegc_enable;
 static u8 packed_under[16][16];
 static unsigned drag_sprite;
@@ -63,6 +63,7 @@ static void masked(unsigned segment, unsigned offset, u8 mask, int set) {
 }
 static int query(u8 selector) { out(0x9a0, selector); return in(0x9a0) & 1; }
 static void select_bank(int n) {
+    n += offscreen ? 8 : 0;
     if (bank != n) { put(0xe000, 4, n); put(0xe000, 5, 0); bank = n; }
 }
 int gfx_colors(void) { return packed ? 256 : 16; }
@@ -116,13 +117,13 @@ void gfx_write_span(int x, int y, unsigned segment, u32 offset, unsigned count) 
         at += n; offset += n; count -= n;
     }
 }
-void gfx_background(void) {
-    if (!packed) return;
-    for (unsigned page = 0; page < 8; page++) {
-        select_bank(page); put(0xe000, 6, page + 8); put(0xe000, 7, 0);
-        unsigned n = page == 7 ? 26624 : 32768;
-        mem_copy(0xb000, 0, 0xa800, 0, n); mouse_pump();
-    }
+/* Page 1 is the composition target; page 0 remains visible throughout paint.
+ * With offscreen disabled, the same transfer restores the live-drag backdrop. */
+static void restore_background(int x, int y, int w, int h);
+void gfx_target(int buffered) { offscreen = packed && buffered; }
+void gfx_present(int x, int y, int w, int h) {
+    offscreen = 0;
+    if (packed) restore_background(x, y, w, h);
 }
 static void restore_background(int x, int y, int w, int h) {
     for (int row = 0; row < h; row++) {
@@ -207,6 +208,15 @@ void gfx_rect(int x, int y, int w, int h, int color) {
 }
 void gfx_cell(int x, int y, char ch, int foreground, int background, int selected) {
     static unsigned cells;
+    if ((u8)ch < 32) ch = '?';
+    u8 extra[16]; const u8 *glyph;
+    if ((u8)ch > 126) {
+        /* Keep half-width kana/extended file names without reserving a full
+         * 4 KiB font table in the COM's code/data/stack segment. */
+        out(0xa1,0);out(0xa3,(u8)ch);
+        for(int row=0;row<16;row++){out(0xa5,row);extra[row]=in(0xa9);}
+        out(0xa3,0);out(0xa5,0);glyph=extra;
+    } else glyph=fonts[(u8)ch-32];
     if (x < 0 || x >= 80 || y < 0 || y >= 25) return;
     /* Mirror labels in text VRAM for accessibility/debugging; the visible
      * glyphs are rendered into graphics so the pointer can cover them cleanly. */
@@ -216,14 +226,14 @@ void gfx_cell(int x, int y, char ch, int foreground, int background, int selecte
             u32 at = (y * 16 + origin_y + row) * 640u + x * 8 + origin_x;
             for (int col = 0; col < 8; col++) {
                 select_bank(at >> 15);
-                put(0xa800, at & 32767, fonts[(u8)ch][row] & (0x80 >> col) ? foreground : background); at++;
+                put(0xa800, at & 32767, glyph[row] & (0x80 >> col) ? foreground : background); at++;
             }
         }
         if (!(++cells & 7)) mouse_pump();
         return;
     }
     for (int p = 0; p < 4; p++) for (int row = 0; row < 16; row++) {
-        u8 bits = fonts[(u8)ch][row];
+        u8 bits = glyph[row];
         u8 value = (foreground & (1 << p) ? bits : 0) |
                    (background & (1 << p) ? (u8)~bits : 0);
         put(segments[p], (y * 16 + row) * 80 + x, value);
@@ -403,7 +413,7 @@ void input_idle(void) {
         __asm__ volatile("nop");
 }
 void gfx_start(void) {
-    origin_x = 0; origin_y = 0; packed = 0;
+    origin_x = 0; origin_y = 0; packed = 0; offscreen = 0;
     out(0x9a0, 11); int has_pegc = (in(0x9a0) & 0xfd) == 1;
     saved_mode = has_pegc ? query(4) : in(0x6a) & 1;
     saved_gate = has_pegc ? query(8) : 0; saved_256 = has_pegc ? query(10) : 0;
@@ -437,9 +447,9 @@ void gfx_start(void) {
     }
     if (!fonts_ready) {
         out(0xa1, 0);
-        for (int ch = 32; ch < 256; ch++) {
+        for (int ch = 32; ch < 127; ch++) {
             out(0xa3, ch);
-            for (int row = 0; row < 16; row++) { out(0xa5, row); fonts[ch][row] = in(0xa9); }
+            for (int row = 0; row < 16; row++) { out(0xa5, row); fonts[ch - 32][row] = in(0xa9); }
         }
         out(0xa1, 0); out(0xa3, 0); out(0xa5, 0); fonts_ready = 1;
     }
@@ -448,7 +458,7 @@ void gfx_start(void) {
     mouse_start();
 }
 void gfx_stop(void) {
-    graphics_active = 0;
+    graphics_active = 0; offscreen = 0;
     gfx_pointer_hide(); mouse_stop(); gfx_drag_end();
     if (packed) {
         for (int i = 0; i < 256; i++) {

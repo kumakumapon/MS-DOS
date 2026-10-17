@@ -1,8 +1,11 @@
-Kuma Desktop (KDESK) - Original PC-98 window desktop 1.3
+Kuma Desktop (KDESK) - Original PC-98 window desktop 1.4
 
 Run KDESK from the MS-DOS 4.0 PC-98 prompt. Requires a 386-compatible
 PC-98 with 640 x 400 graphics and a PC-98 bus mouse (WebNP2 works).
 WebNP2 uses PC-9821 PEGC 256 colors; other supported machines retain 16 colors.
+On PEGC, drawing is composed offscreen before changed areas are presented.
+Selections/editing update the active window; switching restores damaged areas.
+The WebNP2 bundled disk starts KDESK automatically. F10 returns to DOS.
 
 F1 Help       F2 Launcher   F3 Files   F4 Memo   F5 About
 Tab           Switch to the next open/minimized window

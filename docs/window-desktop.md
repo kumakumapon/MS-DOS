@@ -19,6 +19,12 @@ Build with `make -C tools/window all`, or use `ports/pc98/dos4.py` to include
 `KDLIC.TXT` in the boot image. Start with `KDESK`
 at the DOS prompt. Launch it from the directory containing the bundled utilities.
 
+On PEGC, KDESK composes changes in the second VRAM page, then copies completed
+window regions to the visible page. Selection/editing refreshes the active
+window, and focus/geometry changes restore damaged regions. The menu and
+unaffected desktop remain visible throughout painting. See
+[rendering and startup](kdesk-rendering.md).
+
 F1 opens help, F2 the launcher, F3 files, F4 memo, and F5 about. Tab switches
 windows, F6 followed by arrows moves the active window, F7 followed by arrows
 resizes it, and Enter finishes either operation. F8 minimizes; Tab restores.
@@ -28,7 +34,9 @@ discarding unsaved changes. A PC-98 bus mouse works without installing a mouse d
 
 Click the top menus to open windows and click a window to focus it. Drag its
 title bar to move, or its lower-right grip to resize. Moves show the full window bitmap at pixel resolution using a background
-snapshot in the second PEGC VRAM page and a DOS-allocated sprite. Resizing uses
+backdrop in the second PEGC VRAM page and a DOS-allocated sprite.
+The backdrop is recomposed without the active window when a drag starts;
+normal offscreen composition and live dragging share that page. Resizing uses
 an outline; low-memory/16-color movement also falls back to an outline. The
 window stays within the desktop bounds. The title buttons
 minimize (`_`) and close (`x`); taskbar buttons restore and focus windows.
