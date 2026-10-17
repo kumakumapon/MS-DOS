@@ -1,4 +1,4 @@
-Kuma Desktop (KDESK) - Original PC-98 window desktop 1.5
+Kuma Desktop (KDESK) - Original PC-98 window desktop 1.6
 
 Run KDESK from the MS-DOS 4.0 PC-98 prompt. Requires a 386-compatible
 PC-98 with 640 x 400 graphics and a PC-98 bus mouse (WebNP2 works).
@@ -93,3 +93,13 @@ buttons exchange text and images with the host clipboard, export PNG, and
 import PNG/JPEG/etc. or a host clipboard image as BMP on FDD1 (max 320x200).
 Open the imported file with Files/KVIEW, or F2 in KPAINT. No host clipboard
 access occurs automatically. Browser permission may be required.
+
+Task manager: Ctrl+T or Tasks shows IDs/states; Switch, Stop, Start, End.
+Internal apps use per-task queues and bounded cooperative scheduling.
+K386 is optional. On its separate experimental disk, Ctrl+N / Ctrl+O open
+DOS 1 / DOS 2. Ctrl+L/Run loads a COM path; Ctrl+P pauses, Ctrl+R resumes,
+Ctrl+E ends. Scroll the saved text screen with its scrollbar/page keys and
+< / > buttons. ASCII input goes to the active guest; Escape goes to its
+program, while title x closes the session. See K386.TXT for limits.
+This is experimental V86 COM execution with read-only DOS file services,
+not a complete virtual DOS machine. Normal DOS EXEC tools stay foreground-only.

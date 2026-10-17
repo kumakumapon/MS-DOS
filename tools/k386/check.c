@@ -15,7 +15,7 @@ static int command(unsigned cmd,unsigned id) {
 static void path(const char *s) {unsigned i=0;do{mem_put(segment,offset+OFF(path)+i,s[i]);}while(s[i++]);}
 int main(void) {
     unsigned a=0xd386,b=0,di;u16 seg;
-    __asm__ volatile("int $0x2f; movw %%es,%1":"+a"(a),"=c"(seg),"=D"(di):"b"(b):"cc","memory");
+    __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=D"(di):"b"(b):"cc","memory");
     if((a&0xffff)!=0x386d){p_output("K386 CHECK: monitor unavailable\r\n");return 1;}
     segment=seg;offset=di&0xffff;
     stage=1;path("COUNTER.COM");if(command(K386_CREATE,0)||command(K386_CREATE,1))goto fail;

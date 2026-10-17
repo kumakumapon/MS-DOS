@@ -13,11 +13,20 @@ Verified in shipped NP2kai wasm using Playwright and the PC-98 guest:
 - Existing complete desktop/media/utility/clipboard/persistence suite passes;
   frame sampling observed zero menu flashes in 889 displayed frames.
 
-In progress, not yet accepted:
+Additional verified execution tests:
 
-- Resident K386 timer-preempted V86 COM sessions. The test driver currently
-  detects a supervisor exception; diagnose rather than advertise success.
-- Guest DOS session windows, file-service broker and independent execution E2E.
+- Resident K386 test driver now passes dual V86 COM execution, IRQ0
+  preemption, separate CR3/RAM, stop/resume, #PF isolation and keyboard input.
+  The supervisor IRETD fault was traced to inherited NT flags and corrected.
+
+Verified guest GUI: two DOS windows run V86 programs with distinct CR3 and RAM;
+Memo can be edited while both counters advance. Echo input is routed to its
+window, pause/resume preserves counters, #PF leaves the other VM running,
+and a faulted VM can load a new program. Existing full UI/media regression
+passes after the memory-layout/ABI changes (888 sampled frames without flashes).
+
+In progress: extended lifecycle/file/whole-disk-integrity E2E and CI.
+General DOS-machine acceptance is not met.
 
 Compatibility boundary under development: per-session private RAM/TVRAM/zero
 page; deny port I/O; read-only serialized DOS file services. This is not yet a

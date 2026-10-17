@@ -34,7 +34,7 @@ static int create(unsigned id) {
     physical32(s->physical,0x900020cd); /* INT 20h PSP and end segment. */
     mem_put(s->physical>>4,0x80,0);mem_put(s->physical>>4,0x81,13);
     for(k32 i=0;i<2000;i++){mem_put(s->physical>>4,0x10000+i*2,' ');mem_put(s->physical>>4,0x12000+i*2,0xe1);}
-    *v=(K386View){0};v->state=K386_RUNNING;v->physical=s->physical;
+    *v=(K386View){0};for(int i=0;i<2000;i++)v->screen[i]=' ';v->state=K386_RUNNING;v->physical=s->physical;
     /* Two page directories with private conventional RAM, zero page and TVRAM. */
     k32 pd=page_directory[id];s->pd=pd;v->cr3=pd;
     mem_fill(pd>>4,0,8192,0);physical32(pd,pd+4096+7);

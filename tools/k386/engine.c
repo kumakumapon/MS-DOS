@@ -63,6 +63,7 @@ static int service(K386Frame *f,k8 number) {
         ptr=address(f->ds,f->edx,n);if(!ptr){error(f,13);break;}
         for(k32 i=0;i<n;i++)output(read8(ptr+i));
         f->eax=n;break;
+    case 0x39:case 0x3a:case 0x3c:case 0x41:case 0x43:case 0x56:case 0x5b:error(f,5);break;
     case 0x4a:if((f->es&0xffff)!=K386_SEGMENT||(f->ebx&0xffff)>0x1000)error(f,8);break;
     case 0x3d:case 0x3f:case 0x3e:case 0x42:case 0x2a:case 0x2c:
         s->request=ah;
@@ -76,7 +77,7 @@ static int service(K386Frame *f,k8 number) {
 int kernel_trap(K386Frame *f) {
     K386Session *s=&sessions[selected];K386View *v=&k386_mailbox.view[selected];
     if(!(f->eflags&0x20000)){v->state=K386_FAULTED;v->fault=0x8000|f->vector;v->eip=f->eip;v->eflags=f->eflags;v->exit_code=f->error;return 1;}
-    v->eflags=f->eflags;v->eip=f->eip;v->cr3=s->pd;
+    v->eflags=f->eflags;v->eip=f->eip;__asm__ volatile("movl %%cr3,%0":"=r"(v->cr3));
     if(f->vector==32){v->ticks++;s->frame=*f;return 1;}
     if(f->vector==13) {
         k32 pc=address(f->cs,f->eip,2);k8 op=pc?read8(pc):0;
@@ -90,7 +91,9 @@ int kernel_trap(K386Frame *f) {
 }
 void kernel_finish(void) {
     K386View *v=&k386_mailbox.view[selected];
-    for(k32 i=0;i<2000;i++)v->screen[i]=read8(0xa0000+i*2);
+    int changed=0;
+    for(k32 i=0;i<2000;i++){k8 c=read8(0xa0000+i*2);if((k8)v->screen[i]!=c)changed=1;v->screen[i]=c;}
+    if(changed)v->flags++;
     v->counter=(k32)read8(0x80800)|(k32)read8(0x80801)<<8|(k32)read8(0x80802)<<16|(k32)read8(0x80803)<<24;
     v->keys=sessions[selected].count;
 }

@@ -138,6 +138,8 @@ pm_run:
     .word 8
 .code32
 pm_start:
+    push 2
+    popfd /* Real-mode BIOS flags may contain NT/IOPL; never inherit them. */
     mov ax,16
     mov ds,ax
     mov ss,ax

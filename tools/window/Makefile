@@ -1,6 +1,6 @@
 CC ?= gcc
 BUILD ?= build
-CFLAGS = -m16 -march=i386 -Os -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -ffunction-sections -fdata-sections -Wall -Wextra -Werror -DDOS
+CFLAGS = -m16 -march=i386 -mregparm=3 -mpreferred-stack-boundary=2 -Os -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -ffunction-sections -fdata-sections -Wall -Wextra -Werror -DDOS
 
 all: $(BUILD)/KVIEW.COM $(BUILD)/KPAINT.COM $(BUILD)/COLORS.BMP $(BUILD)/KIMAGE.TXT $(BUILD)/KDESK.COM $(BUILD)/KDESK.TXT $(BUILD)/KDLIC.TXT
 $(BUILD):
@@ -11,7 +11,9 @@ $(BUILD)/core.o: ../filer/core.c ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/dos98.o: ../filer/dos.c ../filer/filer.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -DPC98 -c $< -o $@
-$(BUILD)/window.o: window.c tasks.h scroll.h hardware.h clipboard.h utilities.h ../filer/filer.h | $(BUILD)
+$(BUILD)/window.o: window.c k386_client.h ../k386/abi.h tasks.h scroll.h hardware.h clipboard.h utilities.h ../filer/filer.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/k386_client.o: k386_client.c k386_client.h ../k386/abi.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/tasks.o: tasks.c tasks.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -25,7 +27,7 @@ $(BUILD)/memory.o: memory.c hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/hardware.o: hardware.c hardware.h ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/start.o $(BUILD)/core.o $(BUILD)/dos98.o ../filer/com.ld
+$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/start.o $(BUILD)/core.o $(BUILD)/dos98.o ../filer/com.ld
 	ld -m elf_i386 --gc-sections -T ../filer/com.ld $(filter %.o,$^) -o $@
 $(BUILD)/KDESK.COM: $(BUILD)/window.elf
 	objcopy -O binary $< $@
@@ -65,3 +67,6 @@ test: $(BUILD)/calculator-test $(BUILD)/scroll-test $(BUILD)/tasks-test
 	$(BUILD)/scroll-test
 	$(BUILD)/tasks-test
 .PHONY: test
+
+# Rebuild every native object if the internal C calling convention changes.
+$(BUILD)/window.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/core.o $(BUILD)/dos98.o $(BUILD)/paint.o $(BUILD)/view.o $(BUILD)/bitmap.o: Makefile

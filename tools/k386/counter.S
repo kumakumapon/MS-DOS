@@ -7,5 +7,17 @@ _start:
     int 0x21
 counter:
     inc DWORD PTR [0x800]
-    jmp counter
+    test BYTE PTR [0x800],255
+    jnz counter
+    mov ah,6
+    mov dl,255
+    int 0x21
+    jz counter
+    cmp al,27
+    je quit
+    cmp al,'q'
+    jne counter
+quit:
+    mov ax,0x4c00
+    int 0x21
 title: .ascii "V86 COUNTER: independent background CPU loop\r\n$"

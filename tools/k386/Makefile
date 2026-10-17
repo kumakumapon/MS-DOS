@@ -49,3 +49,11 @@ $(BUILD)/K386TEST.COM: $(BUILD)/check.elf
 
 $(BUILD)/core.o: ../filer/core.c | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+all: $(BUILD)/KFILE.COM
+$(BUILD)/KFILE.COM: $(BUILD)/filecheck.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/filecheck.elf
+	objcopy -O binary $(BUILD)/filecheck.elf $@
+all: $(BUILD)/PORT.COM
+$(BUILD)/PORT.COM: $(BUILD)/port.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/port.elf
+	objcopy -O binary $(BUILD)/port.elf $@
