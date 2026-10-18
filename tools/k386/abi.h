@@ -3,7 +3,7 @@
 typedef unsigned char k8;
 typedef unsigned short k16;
 typedef unsigned int k32;
-enum { K386_SESSIONS=2, K386_SCREEN=2000, K386_SEGMENT=0x8000 };
+enum { K386_SESSIONS=2, K386_SCREEN=2000, K386_SEGMENT=0x8000, K386_KEY_CAPACITY=128 };
 enum { K386_ENDED, K386_RUNNING, K386_WAITING, K386_STOPPED, K386_FAULTED };
 enum { K386_CREATE=1,K386_STEP,K386_KEY,K386_STOP,K386_RESUME,K386_END };
 typedef struct {
@@ -24,12 +24,21 @@ typedef struct {
     K386Frame frame;
     k32 physical,pd;
     k16 allocation,request,handles[8],line_count;
-    k8 keys[32];k16 head,count;
+    k8 keys[K386_KEY_CAPACITY];k16 head,count;
 } K386Session;
 extern K386Mailbox k386_mailbox;
 extern K386Session sessions[2];
 extern k32 monitor_base,page_directory[2],selected,saved_cr0,saved_cr3;
 extern k8 transfer[4096];
+typedef struct {
+    K386Frame parent;
+    k32 dta,parent_dta;
+    k16 saved,last_exit,vif,parent_vif;
+    char cwd[128];
+    k8 search[21],parent_search[21];
+    k16 search_valid,parent_search_valid;
+} K386Runtime;
+extern K386Runtime runtime[2];
 void pm_run(void);
 int kernel_trap(K386Frame *frame);
 void kernel_finish(void);

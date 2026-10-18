@@ -12,7 +12,7 @@ a browser window manager. An INT 2Fh D386h query returns the versioned, bounded
 `K386ABI1` mailbox. Commands create/end, run a quantum, enqueue keys and stop or
 resume a session. KDESK polls and presents guest-owned text buffers.
 
-The current execution boundary is **experimental V86 COM sessions**, not a
+The current execution boundary is **experimental V86 COM/MZ sessions**, not a
 complete virtualized DOS machine. Each has its own 64 KiB COM address space,
 private zero page, 16 KiB PC-98 TVRAM, CPU registers/stack and page directory.
 The same 8000h:0100h address maps to different DOS-allocated physical pages.
@@ -51,14 +51,15 @@ DOS services run after returning to real mode, with an InDOS guard, never by
 calling the original DOS kernel recursively from ring 0 or another V86 task.
 The broker temporarily selects the resident PSP so file handles and memory
 blocks survive a GUI client exit. Host calls are serialized. Sessions support
-a defined subset of INT 21h console, version, time and read/seek/close services.
+a defined subset of INT 21h console, version, time, read/seek/close,
+per-session DTA/FindFirst/FindNext, attributes and virtual current-directory services.
 File creation, writes, deletion and rename are denied. Paths are limited to
 A: ASCII disk paths; console/serial/printer device names are rejected so host
 DOS reads cannot block the GUI on a real device. Port I/O is trapped.
 Zero-length buffered input returns without consuming a key or writing beyond
 the two-byte header, including at the end of private RAM.
 This prevents concurrent FAT12 writes; it does not establish general DOS/BIOS
-compatibility. MZ EXE, COMMAND.COM compatibility, arbitrary resident drivers,
+compatibility. General COMMAND.COM compatibility, arbitrary resident drivers,
 full BIOS/interrupt virtualization and graphics hardware virtualization are not
 implemented and must not be described as complete DOS sessions.
 
@@ -91,3 +92,44 @@ Inspected upstream: `uraraworks/NP2kai-wasm`, wasm branch,
 `i386c/ia32/ctrlxfer.c`, `exception.c`, `paging.c`, `task.c`, `cpu_io.c`;
 PC-98 PIT/PIC: `io/pit.c`, `io/pic.c`, `bios/bios.c`.
 No upstream source changes or Windows resources are included.
+
+## Guest shell, images and process return
+
+Fresh views contain spaces, not NUL glyphs; the client also renders control
+bytes as blank cells. Opening DOS 1/2 starts the original `KSH.COM` inside that
+V86 context. It implements HELP, VER, DIR, TYPE, CD, ECHO, CLS, TIME and EXIT
+using DOS calls. Other command names use the monitor's EXEC service. This is
+not COMMAND.COM or a host/browser command interpreter.
+
+`loader.c` validates COM and small MZ headers. MZ files are at most 64 KiB,
+have no overlay, and their module plus minimum allocation must fit the private
+64 KiB PSP block. Relocations, CS:IP and SS:SP are checked before execution.
+The MZ module is loaded at 8010h:0000h, with DS/ES pointing to PSP 8000h.
+Command tails use the standard PSP 80h layout. Extra DOS heap allocations,
+environment blocks, FCB and DOS internal structures are not implemented.
+
+One child EXEC level is supported. The parent CPU frame, 64 KiB of program/stack,
+private 4 KiB low page, DTA and virtual IF are saved. Its additional 68 KiB DOS
+allocation is freed when the child returns; this uses conventional memory and
+can fail with error 8. Open file inheritance is not implemented: EXEC with open
+nonstandard handles returns error 4. The child starts with a clear private IVT.
+Normal exit or a contained user fault restores the parent and leaves console
+output visible; AH=4Dh reports the child result. GUI Run replaces the root process.
+
+PUSHF/PUSHFD, POPF/POPFD, IRET/IRETD and user software interrupt vectors are
+virtualized. CLI/STI change a per-session virtual IF; the real V86 IF stays set
+so the monitor timer can preempt an infinite CLI loop. Status flags are restored
+without granting IOPL/NT or hardware ownership. INT 18h/20h/21h/29h are reserved
+monitor services. Full BIOS and asynchronous virtual IRQ delivery remain unfinished.
+
+Read-only directory search uses a private 43-byte DTA in each VM. Every host
+FindFirst/FindNext temporarily selects a resident DTA and restores the original
+DOS DTA before returning. Current directories are virtual, and host paths are
+canonical absolute A: paths. One active search per process is supported; its
+reserved 21-byte continuation must match the broker-issued state. Modified
+drive/network/cluster bytes are rejected before any host DOS search call.
+Parent EXEC snapshots preserve this trusted continuation as well as the DTA.
+Host paths are
+canonical absolute A: paths; changing one VM's directory does not change host
+DOS or another VM. Hardware scan keys, full DOS/BIOS compatibility and general
+COMMAND.COM execution remain outside this implementation.

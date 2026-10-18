@@ -9,28 +9,40 @@ static void write8(k32 address,k8 b) {
 }
 static k32 address(k32 seg,k32 off,k32 size) {
     k32 at=(seg&0xffff)*16+(off&0xffff);
-    return at>=0x80000&&at<=0x90000&&size<=0x90000-at?at:0;
+    return size<=0x10000-(off&0xffff)&&at>=0x80000&&at<=0x90000&&size<=0x90000-at?at:0;
 }
+static k32 readn(k32 at,int n){k32 v=0;for(int i=0;i<n;i++)v|=(k32)read8(at+i)<<(i*8);return v;}
+static void writen(k32 at,k32 v,int n){for(int i=0;i<n;i++)write8(at+i,v>>(i*8));}
+static int name(k32 seg,k32 off){for(k32 i=0;i<128;i++){if(i>0xffff-(off&0xffff))return 0;k32 at=address(seg,off+i,1);if(!at)return 0;transfer[i]=read8(at);if(!transfer[i])return 1;}return 0;}
+static k32 dta_address(K386Runtime *r){return address(r->dta>>16,r->dta&65535,43);}
+static k32 flags(K386Frame *f){return (f->eflags&0xcd5)|2|(runtime[selected].vif?0x200:0);}
+static void set_flags(K386Frame *f,k32 value){runtime[selected].vif=(value&0x200)!=0;f->eflags=(value&0xcd5)|0x20202;}
 static void error(K386Frame *f,k16 code) {f->eax=code;f->eflags|=1;}
 static void output(k8 c) {
     K386View *v=&k386_mailbox.view[selected];
     if(c=='\r')v->column=0;
     else if(c=='\n')v->row++;
-    else if(c==8){if(v->column)v->column--;}
+    else if(c==8){if(v->column)v->column--;else if(v->row){v->row--;v->column=79;}}
+    else if(c==9){int n=8-(v->column&7);while(n--)output(' ');}
     else if(c>=32){write8(0xa0000+(v->row*80+v->column)*2,c);write8(0xa0001+(v->row*80+v->column)*2,0);if(++v->column==80){v->column=0;v->row++;}}
     if(v->row>=25){for(k32 i=0;i<1920;i++)write8(0xa0000+i*2,read8(0xa0000+(i+80)*2));for(k32 i=1920;i<2000;i++)write8(0xa0000+i*2,' ');v->row=24;}
 }
 static int input(void) {
     K386Session *s=&sessions[selected];if(!s->count)return -1;
-    k8 c=s->keys[s->head];s->head=(s->head+1)%32;s->count--;return c;
+    k8 c=s->keys[s->head];s->head=(s->head+1)%K386_KEY_CAPACITY;s->count--;return c;
 }
 static int service(K386Frame *f,k8 number) {
-    K386Session *s=&sessions[selected];K386View *v=&k386_mailbox.view[selected];
+    K386Session *s=&sessions[selected];K386View *v=&k386_mailbox.view[selected];K386Runtime *r=&runtime[selected];
     k32 ptr,n;int c;unsigned ah=(f->eax>>8)&255;
     if(number==0x20||(number==0x21&&ah==0x4c)){v->state=K386_ENDED;v->exit_code=f->eax&255;return 1;}
     if(number==0x29){output(f->eax);return 0;}
     if(number==0x18) {
-        if(ah==0||ah==1){c=input();if(c<0){if(ah==1){f->eflags|=0x40;return 0;}v->state=K386_WAITING;return 2;}f->eax=c;f->eflags&=~0x40;return 0;}
+        if(ah==1){
+            f->ebx=(f->ebx&~0xff00u)|(s->count?0xff00:0);
+            if(s->count){f->eax=s->keys[s->head];f->eflags&=~0x40u;}else f->eflags|=0x40;
+            return 0;
+        }
+        if(ah==0){c=input();if(c<0){v->state=K386_WAITING;return 2;}f->eax=c;f->eflags&=~0x40u;return 0;}
         if(ah==0x0c){for(k32 i=0;i<2000;i++)write8(0xa0000+i*2,' ');v->row=v->column=0;return 0;}
         error(f,1);return 0;
     }
@@ -57,23 +69,76 @@ static int service(K386Frame *f,k8 number) {
     case 0x0b:f->eax=(f->eax&0xff00)|(s->count?255:0);break;
     case 0x0e:if((f->edx&255)!=0)error(f,15);else f->eax=1;break;
     case 0x19:f->eax&=0xff00;break;
+    case 0x1a:
+        if(!address(f->ds,f->edx,43))error(f,13);else r->dta=(f->ds<<16)|(f->edx&65535);break;
+    case 0x2f:f->es=r->dta>>16;f->ebx=r->dta&65535;break;
+    case 0x25:
+        c=f->eax&255;
+        if(c==0x18||c==0x20||c==0x21||c==0x29||!address(f->ds,f->edx,1))error(f,5);
+        else {writen(c*4,f->edx,2);writen(c*4+2,f->ds,2);}break;
+    case 0x35:ptr=(f->eax&255)*4;f->ebx=readn(ptr,2);f->es=readn(ptr+2,2);break;
     case 0x30:f->eax=4;f->ebx=0;f->ecx=0;break;
+    case 0x44:
+        if((f->eax&255)==0){if((f->ebx&65535)<3)f->edx=0x80d3;else if((f->ebx&65535)<8&&s->handles[f->ebx&65535])f->edx=0;else error(f,6);}
+        else error(f,1);
+        break;
+    case 0x47:
+        if((f->edx&255)>1){error(f,15);break;}
+        n=0;while(r->cwd[0]&&r->cwd[n+3]&&n<124)n++;
+        ptr=address(f->ds,f->esi,n+1);if(!ptr){error(f,13);break;}
+        for(k32 i=0;i<=n;i++)write8(ptr+i,r->cwd[0]?r->cwd[i+3]:0);
+        break;
+    case 0x4d:f->eax=r->last_exit;r->last_exit=0;break;
+    case 0x50:if((f->ebx&65535)!=K386_SEGMENT)error(f,5);break;
+    case 0x51:case 0x62:f->ebx=K386_SEGMENT;break;
     case 0x40:
         if((f->ebx&0xffff)!=1&&(f->ebx&0xffff)!=2){error(f,5);break;}
         n=f->ecx&0xffff;if(n>4096)n=4096;
         ptr=address(f->ds,f->edx,n);if(!ptr){error(f,13);break;}
         for(k32 i=0;i<n;i++)output(read8(ptr+i));
         f->eax=n;break;
-    case 0x39:case 0x3a:case 0x3c:case 0x41:case 0x43:case 0x56:case 0x5b:error(f,5);break;
+    case 0x39:case 0x3a:case 0x3c:case 0x41:case 0x56:case 0x5b:error(f,5);break;
     case 0x4a:if((f->es&0xffff)!=K386_SEGMENT||(f->ebx&0xffff)>0x1000)error(f,8);break;
-    case 0x3d:case 0x3f:case 0x3e:case 0x42:case 0x2a:case 0x2c:
+    case 0x3d:case 0x3f:case 0x3e:case 0x42:case 0x2a:case 0x2c:case 0x3b:case 0x43:case 0x4e:case 0x4f:case 0x4b:
         s->request=ah;
-        if(ah==0x3d){if(f->eax&3){error(f,5);s->request=0;break;}ptr=address(f->ds,f->edx,128);if(!ptr){error(f,13);s->request=0;break;}for(n=0;n<128;n++){transfer[n]=read8(ptr+n);if(!transfer[n])break;}if(n==128){error(f,3);s->request=0;break;}}
+        if((ah==0x3d&&(f->eax&3))||(ah==0x43&&(f->eax&255))){error(f,5);s->request=0;break;}
+        if(ah==0x3d||ah==0x3b||ah==0x43||ah==0x4e||ah==0x4b){if(!name(f->ds,f->edx)){error(f,3);s->request=0;break;}}
+        if((ah==0x4e||ah==0x4f)&&!dta_address(r)){error(f,13);s->request=0;break;}
+        if(ah==0x4b){
+            ptr=address(f->es,f->ebx,14);
+            if((f->eax&255)||!ptr||readn(ptr,2)){error(f,10);s->request=0;break;}
+            k32 tail=address(readn(ptr+4,2),readn(ptr+2,2),1);n=tail?read8(tail):127;
+            if(n>126||!address(readn(ptr+4,2),readn(ptr+2,2),n+2)){error(f,13);s->request=0;break;}
+            for(k32 i=0;i<n+2;i++)transfer[128+i]=read8(tail+i);
+            transfer[128+n+1]=13;
+        }
         if(ah==0x3f&&!address(f->ds,f->edx,f->ecx&0xffff)){error(f,13);s->request=0;break;}
         return 1;
     default:error(f,1);break;
     }
     return 0;
+}
+static int stack_flags(K386Frame *f,k8 op,int wide,k32 length) {
+    int size=wide?4:2;k32 sp=f->esp&65535,at;
+    if(op==0x9c){sp=(sp-size)&65535;at=address(f->ss,sp,size);if(!at)return 0;writen(at,flags(f),size);}
+    else {
+        at=address(f->ss,sp,op==0xcf?size*3:size);if(!at)return 0;
+        if(op==0xcf){
+            k32 ip=readn(at,size),cs=readn(at+size,size);
+            if(ip>65535||cs>65535||!address(cs,ip,1))return 0;
+            set_flags(f,readn(at+size*2,size));f->eip=ip;f->cs=cs;sp=(sp+size*3)&65535;
+        }else{set_flags(f,readn(at,size));sp=(sp+size)&65535;}
+    }
+    f->esp=(f->esp&0xffff0000)|sp;if(op!=0xcf)f->eip+=length;return 1;
+}
+static int user_interrupt(K386Frame *f,k8 number,k32 length,int wide) {
+    k32 ip=readn(number*4,2),cs=readn(number*4+2,2);
+    if(!cs&&!ip)return 0;
+    if(!address(cs,ip,1))return -1;
+    int size=wide?4:2;k32 sp=((f->esp&65535)-size*3)&65535,at=address(f->ss,sp,size*3);
+    if(!at)return -1;
+    writen(at,f->eip+length,size);writen(at+size,f->cs,size);writen(at+size*2,flags(f),size);
+    f->esp=(f->esp&0xffff0000)|sp;f->cs=cs;f->eip=ip;runtime[selected].vif=0;return 1;
 }
 int kernel_trap(K386Frame *f) {
     K386Session *s=&sessions[selected];K386View *v=&k386_mailbox.view[selected];
@@ -81,11 +146,18 @@ int kernel_trap(K386Frame *f) {
     v->eflags=f->eflags;v->eip=f->eip;__asm__ volatile("movl %%cr3,%0":"=r"(v->cr3));
     if(f->vector==32){v->ticks++;s->frame=*f;return 1;}
     if(f->vector==13) {
-        k32 pc=address(f->cs,f->eip,2);k8 op=pc?read8(pc):0;
-        if(op==0xcd){int r=service(f,read8(pc+1));if(r!=2)f->eip+=2;s->frame=*f;return r!=0;}
-        if(op==0xfa||op==0xfb){f->eip++;s->frame=*f;return 0;}
-        if(op==0xf4){f->eip++;s->frame=*f;return 1;}
+        k32 pc=address(f->cs,f->eip,1),length=1;int wide=0;k8 op=pc?read8(pc):0;
+        if(op==0x66&&address(f->cs,f->eip,2)){wide=1;length++;op=read8(++pc);}
+        if(op==0xcd&&address(f->cs,f->eip,length+1)){
+            k8 number=read8(pc+1);length++;
+            if(number!=0x18&&number!=0x20&&number!=0x21&&number!=0x29){int u=user_interrupt(f,number,length,wide);if(u>0){s->frame=*f;return 0;}if(u<0)goto fault;}
+            int r=service(f,number);if(r!=2)f->eip+=length;s->frame=*f;return r!=0;
+        }
+        if(op==0x9c||op==0x9d||op==0xcf){if(!stack_flags(f,op,wide,length))goto fault;s->frame=*f;return 0;}
+        if(op==0xfa||op==0xfb){runtime[selected].vif=op==0xfb;f->eip+=length;s->frame=*f;return 0;}
+        if(op==0xf4){f->eip+=length;s->frame=*f;return 1;}
     }
+fault:
     v->state=K386_FAULTED;v->fault=f->vector;v->eip=f->eip;
     if(f->vector==14)__asm__ volatile("movl %%cr2,%0":"=r"(v->cr2));
     s->frame=*f;return 1;

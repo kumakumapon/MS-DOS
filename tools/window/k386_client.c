@@ -22,7 +22,7 @@ int k386_command(unsigned command,unsigned id,unsigned key,const char *path) {
 }
 unsigned k386_word(unsigned id,unsigned at) {return word(OFF(view)+id*sizeof(K386View)+at);}
 unsigned k386_counter(unsigned id) {return k386_word(id,__builtin_offsetof(K386View,counter))|k386_word(id,__builtin_offsetof(K386View,counter)+2)<<16;}
-char k386_character(unsigned id,unsigned cell) {return mem_get(segment,offset+OFF(view)+id*sizeof(K386View)+__builtin_offsetof(K386View,screen)+cell);}
+char k386_character(unsigned id,unsigned cell) {unsigned c=mem_get(segment,offset+OFF(view)+id*sizeof(K386View)+__builtin_offsetof(K386View,screen)+cell);return c<32?' ':c;}
 unsigned k386_tick(void) {
     if(!segment)return 0;
     unsigned id=turn++&1;

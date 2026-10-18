@@ -1,4 +1,4 @@
-Kuma Desktop (KDESK) - Original PC-98 window desktop 1.6
+Kuma Desktop (KDESK) - Original PC-98 window desktop 1.7
 
 Run KDESK from the MS-DOS 4.0 PC-98 prompt. Requires a 386-compatible
 PC-98 with 640 x 400 graphics and a PC-98 bus mouse (WebNP2 works).
@@ -97,9 +97,15 @@ access occurs automatically. Browser permission may be required.
 Task manager: Ctrl+T or Tasks shows IDs/states; Switch, Stop, Start, End.
 Internal apps use per-task queues and bounded cooperative scheduling.
 K386 is optional. On its separate experimental disk, Ctrl+N / Ctrl+O open
-DOS 1 / DOS 2. Ctrl+L/Run loads a COM path; Ctrl+P pauses, Ctrl+R resumes,
+DOS 1 / DOS 2 with a guest KSH command prompt. HELP lists read-only commands;
+type a COM/EXE name to execute it, then return to the same shell.
+Ctrl+L/Run replaces the session with a COM/MZ command; Ctrl+P pauses, Ctrl+R resumes,
 Ctrl+E ends. Scroll the saved text screen with its scrollbar/page keys and
 < / > buttons. ASCII input goes to the active guest; Escape goes to its
 program, while title x closes the session. See K386.TXT for limits.
-This is experimental V86 COM execution with read-only DOS file services,
-not a complete virtual DOS machine. Normal DOS EXEC tools stay foreground-only.
+The viewport follows console output; scroll up to inspect earlier rows and type
+to follow output again. MZ programs must fit the private 64 KiB address space.
+One child EXEC level is supported; parent RAM/CPU/DTA are restored on return.
+This remains experimental: general COMMAND.COM/BIOS, large/overlaid EXEs,
+virtual hardware IRQs and TSRs are incomplete. Files are read-only and FPU
+instructions are contained as exceptions. Normal DOS EXEC tools stay foreground-only.

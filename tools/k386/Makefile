@@ -11,7 +11,7 @@ $(BUILD)/K386CPU.COM: $(BUILD)/probe.elf
 .PHONY: all
 CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -ffunction-sections -fdata-sections -Wall -Wextra -Werror
 all: $(BUILD)/K386.COM
-$(BUILD)/monitor.o: monitor.c abi.h | $(BUILD)
+$(BUILD)/monitor.o: monitor.c abi.h runtime.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/engine.o: engine.c abi.h | $(BUILD)
 	$(CC) -m32 $(CFLAGS) -c $< -o $@
@@ -21,7 +21,11 @@ $(BUILD)/memory.o: ../window/memory.c | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/dos.o: ../filer/dos.c | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DDOS -DPC98 -c $< -o $@
-$(BUILD)/monitor.elf: $(BUILD)/transition.o $(BUILD)/monitor.o $(BUILD)/engine.o $(BUILD)/memory.o $(BUILD)/dos.o monitor.ld
+$(BUILD)/runtime.o: runtime.c abi.h runtime.h loader.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/loader.o: loader.c loader.h abi.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -c $< -o $@
+$(BUILD)/monitor.elf: $(BUILD)/transition.o $(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/loader.o $(BUILD)/engine.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o monitor.ld
 	ld -m elf_i386 --gc-sections -T monitor.ld $(filter %.o,$^) -o $@
 $(BUILD)/K386.COM: $(BUILD)/monitor.elf
 	objcopy -O binary $< $@
@@ -65,3 +69,31 @@ all: $(BUILD)/FPU.COM
 $(BUILD)/FPU.COM: $(BUILD)/fpu.sample.o com.ld
 	ld -m elf_i386 -T com.ld $< -o $(BUILD)/fpu.elf
 	objcopy -O binary $(BUILD)/fpu.elf $@
+
+$(BUILD)/loader-test: loader_test.c loader.c loader.h abi.h | $(BUILD)
+	$(CC) -O2 -Wall -Wextra -Werror loader_test.c loader.c -o $@
+test: $(BUILD)/loader-test
+	$(BUILD)/loader-test
+.PHONY: test
+all: $(BUILD)/KSH.COM
+$(BUILD)/shell.o: shell.c ../filer/filer.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/shell.elf: $(BUILD)/shell.o $(BUILD)/start.o $(BUILD)/dos.o $(BUILD)/core.o ../filer/com.ld
+	ld -m elf_i386 --gc-sections -T ../filer/com.ld $(filter %.o,$^) -o $@
+$(BUILD)/KSH.COM: $(BUILD)/shell.elf
+	objcopy -O binary $(BUILD)/shell.elf $@
+all: $(BUILD)/MZTEST.EXE $(BUILD)/FLAGS.COM
+$(BUILD)/MZTEST.EXE: $(BUILD)/mz.sample.o mz.ld
+	ld -m elf_i386 -T mz.ld $< -o $(BUILD)/mz.elf
+	objcopy -O binary $(BUILD)/mz.elf $@
+$(BUILD)/FLAGS.COM: $(BUILD)/flags.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/flags.elf
+	objcopy -O binary $(BUILD)/flags.elf $@
+all: $(BUILD)/DTA.COM
+$(BUILD)/DTA.COM: $(BUILD)/dta.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/dta.elf
+	objcopy -O binary $(BUILD)/dta.elf $@
+all: $(BUILD)/KEYCHK.COM
+$(BUILD)/KEYCHK.COM: $(BUILD)/keycheck.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/keycheck.elf
+	objcopy -O binary $(BUILD)/keycheck.elf $@
