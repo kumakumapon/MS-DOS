@@ -72,7 +72,8 @@ static int service(K386Frame *f,k8 number) {
             writen(0x1c,f->ebx,2);writen(0x1e,f->es,2);writen(0x58a,f->ecx,2);
         }else if(ah!=3){error(f,5);return 0;}
         clock->timer_count=readn(0x58a,2);if(!clock->timer_count)clock->timer_count=65536;
-        clock->timer_armed=1;clock->timer_pending=0;clock->timer_owner=r->psp;
+        clock->timer_armed=1;clock->timer_pending=0;
+        if(ah==2||!clock->timer_owner)clock->timer_owner=r->psp;
         clock->clock=clock->accumulator=0;return 0;
     }
     if(number==0x2f) {

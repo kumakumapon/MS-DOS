@@ -134,7 +134,7 @@ int k386_start(unsigned id,const char *command){
     K386Image plan;int h,error=prepare(id,name,&h,&plan,path);if(error)return error;
     K386Runtime *r=&runtime[id];K386Session *s=&sessions[id];K386View *v=&k386_mailbox.view[id];
     if(!r->backing.handle&&!backing_new(&r->backing)){p_close(h);return 8;}
-    discard(id);r->process=(K386Process){0};arena_init(&r->arena);r->timer_armed=r->timer_pending=0;r->clock=r->accumulator=0;s->head=s->count=0;
+    discard(id);r->process=(K386Process){0};arena_init(&r->arena);r->timer_armed=r->timer_pending=r->timer_owner=0;r->clock=r->accumulator=0;s->head=s->count=0;
     *v=(K386View){0};v->state=K386_ENDED;
     if(!backing_zero(&r->backing,0,K386_BACKING)){p_close(h);return 8;}
     k8 bios[256];mem_copy(resident(),(unsigned)bios,0,0x400,256);put(id,0x400,bios,256);

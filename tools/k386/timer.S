@@ -21,13 +21,30 @@ busy:
     cmp DWORD PTR [0x800],0
     jne fail
     sti
+    cmp BYTE PTR [0x80],0
+    je waiting_for_key
+    mov ax,cs
+    mov WORD PTR [parameters+4],ax
+    mov WORD PTR [parameters+8],ax
+    mov WORD PTR [parameters+12],ax
+    mov bx,OFFSET parameters
+    mov dx,OFFSET child
+    mov ax,0x4b00
+    int 0x21
+    jc fail
+waiting_for_key:
     mov dx,OFFSET waiting
     mov ah,9
     int 0x21
     mov ah,8
     int 0x21
     cmp DWORD PTR [0x800],3
+    jb fail
+    cmp BYTE PTR [0x80],0
+    jne success_result
+    cmp DWORD PTR [0x800],3
     jne fail
+success_result:
     mov dx,OFFSET success
     mov ah,9
     int 0x21
@@ -42,8 +59,11 @@ callback:
     mov ax,cs
     mov ds,ax
     inc DWORD PTR [0x800]
+    cmp BYTE PTR [0x80],0
+    jne rearm
     cmp DWORD PTR [0x800],3
     jae done
+rearm:
     xor ax,ax
     mov es,ax
     mov WORD PTR es:[0x58a],2
@@ -65,3 +85,7 @@ fail:
 waiting: .ascii "V86 TIMER WAIT: callbacks continue without input\r\n$"
 success: .ascii "V86 PC98 TIMER PASS\r\n$"
 failure: .ascii "V86 TIMER FAIL\r\n$"
+child: .asciz "COUNTER.COM"
+tail: .byte 0,13
+fcb: .space 37
+parameters: .word 0,tail,0,fcb,0,fcb,0
