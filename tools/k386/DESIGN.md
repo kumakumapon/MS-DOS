@@ -1,135 +1,188 @@
 # KDESK/386 Enhanced architecture (experimental)
 
-## Ownership and boundaries
+## Ownership and scope
 
-The existing PC-98 MS-DOS kernel and ROMs remain unchanged. KDESK remains the
-real-mode GUI. Internal applications use bounded per-task FIFO queues and a
-round-robin cooperative dispatcher. Window focus is resolved between input
-events, so switching windows within a keyboard batch preserves the recipient.
+KDESK is the real-mode PC-98 GUI. Its internal applications retain their
+cooperative event queues, task IDs, focus, task manager, graphics and mouse.
+K386 is an independent original TSR, not Windows code or a browser window
+manager. NP2kai supplies the CPU, memory and PC-98 hardware; the guest supplies
+all scheduling, DOS services, processes, input routing and window contents.
+Neither the historical DOS kernel/COMMAND source nor the emulator is modified.
 
-K386 is a separately loaded, original TSR (`K386.COM`), not Windows code and not
-a browser window manager. An INT 2Fh D386h query returns the versioned, bounded
-`K386ABI1` mailbox. Commands create/end, run a quantum, enqueue keys and stop or
-resume a session. KDESK polls and presents guest-owned text buffers.
+Two V86 sessions execute background CPU quanta regardless of GUI focus. They
+have independent conventional RAM, CPU/stack, IVT, text VRAM, directories and
+search state. The supported environment is still a **read-only DOS subset**,
+not arbitrary DOS/BIOS/TSR or external graphics compatibility. KSH remains the
+default shell. The bundled original COMMAND.COM is also tested explicitly;
+success of a command does not establish general COMMAND compatibility.
 
-The current execution boundary is **experimental V86 COM/MZ sessions**, not a
-complete virtualized DOS machine. Each has its own 64 KiB COM address space,
-private zero page, 16 KiB PC-98 TVRAM, CPU registers/stack and page directory.
-The same 8000h:0100h address maps to different DOS-allocated physical pages.
-The monitor's GDT/IDT/TSS/code/data and the host DOS kernel are supervisor-only.
-A missing/protected page or unauthorized port access ends the offending VM.
+## Modules and interfaces
 
-## CPU entry and preemption
+- `monitor.S`: caller preservation, GDT/IDT/TSS, protected/V86 entry, traps and
+  real-mode return. Real and protected stacks are distinct and linker-checked.
+- `engine.c` (32-bit): guest instruction traps, private console, DOS/BIOS
+  dispatch, virtual IF, interrupt delivery, text/context/RAM snapshots.
+- `monitor.c` (16-bit): INT 2Fh D386h mailbox, InDOS/ownership guards, XMS A20
+  ownership, CPU quantum and serialized real-mode broker dispatch.
+- `backing.c`: allocate/lock/free XMS and bounded moves, with alignment and
+  physical-address checks. A20 is locally enabled only around each quantum.
+- `arena.c`: trusted first-fit paragraph allocator, owners, resize and release.
+  Guest-writable DOS MCBs are a mirror, never authority for host operations.
+- `loader.c`: bounded COM/MZ header, entry/stack/allocation and relocation checks.
+- `runtime.c`: private RAM, PSP/environment, EXEC process stack, inherited file
+  handles, private search state and serialized read-only host DOS services.
+- `tools/window/k386_client.c`: mailbox client and alternating GUI polling;
+  the GUI never becomes a host-side process manager.
 
-A standalone K386CPU first verifies PM entry, #UD, paging/#PF, two V86
-executions, #GP INT/CLI interception and real-mode return on the shipped wasm.
-The resident monitor uses software context switching and a ring-0 TSS stack.
-It resets NT/IOPL/IF on PM entry; real-mode BIOS flags can have NT set and must
-not cause IRETD to take a nested task return. All original host flags and
-GDTR/IDTR/CR0/CR3 are restored before returning to KDESK.
+`K386ABI1` version 1 remains 4240 bytes. Commands create, step, input, stop,
+resume and end either session. Each 2044-byte view contains state, last CPU
+status, CR3, physical active-PSP address, screen and active PSP (offset 42,
+formerly reserved). Mailbox word 22 is nonzero while an API mutates views;
+debuggers wait for zero before taking a coherent snapshot. Only the foreground
+window receives keyboard input.
 
-The monitor requires real mode and an unowned (masked) PC-98 IRQ0. It uses PIT
-ports 71h/77h for a bounded one-shot quantum, traps the V86 timer at IDT 08h,
-sends a specific EOI, and restores the PIC mask. PIC vectors are not remapped,
-so pending keyboard/slave interrupts are retained. It refuses an existing
-protected-mode/EMM386 owner or unmasked timer rather than taking its resources.
-This timer ownership restriction is a compatibility limit, not full PIC/PIT
-virtualization. K386 does not allocate or advertise EMS/XMS memory.
+`K386DOS1` diagnostics version 2 is 2348 bytes: last 16 DOS/BIOS calls per VM,
+actual 76-byte saved CPU frames and 512 bytes read through each active CPU
+mapping beginning at its PSP. These bounded snapshots are debugger evidence,
+not an execution interface. NP2's existing 2MiB main-RAM debug buffer contains
+font/graphics storage above 1MiB, not the separate extended RAM allocation;
+browser tests must not mistake that storage for XMS. Page tables in conventional
+RAM are inspected directly; PSP/module snapshots come from the active mapping.
 
-GCC's string operations assume ES=DS. Both stay based on the resident module
-in the 32-bit C engine; only explicit FS overrides access guest linear memory.
-The assembly boundary saves the real caller's registers, segments and stack.
-It clears DF before entering C, retaining the guest DF only in its saved frame.
-The ring-0 and real-mode stacks are distinct, with linker-enforced space.
-The saved context covers general/segment registers, flags and stack. x87/SIMD
-state virtualization is unfinished; CR0 EM/TS/MP prevents those instructions
-from sharing hardware state between sessions and #NM ends the offending VM.
+## CPU, paging and isolation
 
-## DOS and file access
+Each session owns a locked, aligned XMS backing for 640KiB conventional RAM,
+16KiB TVRAM and private EXEC metadata. Mapped guest conventional addresses are
+00000h..9FFFFh; A0000h..A3FFFh is private PC-98 text storage. Free paragraphs
+remain mapped, as DOS programs such as COMMAND retain a transient area after
+shrinking their allocation. Different sessions never share these physical pages.
 
-DOS services run after returning to real mode, with an InDOS guard, never by
-calling the original DOS kernel recursively from ring 0 or another V86 task.
-The broker temporarily selects the resident PSP so file handles and memory
-blocks survive a GUI client exit. Host calls are serialized. Sessions support
-a defined subset of INT 21h console, version, time, read/seek/close,
-per-session DTA/FindFirst/FindNext, attributes and virtual current-directory services.
-File creation, writes, deletion and rename are denied. Paths are limited to
-A: ASCII disk paths; console/serial/printer device names are rejected so host
-DOS reads cannot block the GUI on a real device. Port I/O is trapped.
-Zero-length buffered input returns without consuming a key or writing beyond
-the two-byte header, including at the end of private RAM.
-This prevents concurrent FAT12 writes; it does not establish general DOS/BIOS
-compatibility. General COMMAND.COM compatibility, arbitrary resident drivers,
-full BIOS/interrupt virtualization and graphics hardware virtualization are not
-implemented and must not be described as complete DOS sessions.
+The low page table starts as supervisor identity mappings. A second supervisor
+identity table provides linear aliases at 00400000h..007FFFFFh. The monitor's
+32-bit CS/DS/SS, GDT/IDT/TSS and stack use these aliases while all low conventional
+pages are replaced by user mappings to the selected XMS backing. PD/PT storage,
+the real DOS kernel and the other VM remain inaccessible to V86 code.
 
-## GUI
+Actual PC-98 firmware F0000h..FFFFFh is mapped read-only. This allows the
+original COMMAND's model-byte probe without exposing host DOS RAM. Other
+hardware apertures stay supervisor-only. Port I/O is trapped; outside accesses
+or ROM writes fault the offending VM. No IBM hardware emulation is introduced.
 
-Ctrl+T/Tasks opens the task manager. Ctrl+N and Ctrl+O open DOS 1/DOS 2. Ctrl+L
-or Run edits the COM path; Enter starts it. Ctrl+P/Pause, Ctrl+R/Resume and
-Ctrl+E/End control the selected VM. Input goes to the active guest window;
-execution quanta alternate independently of focus. Scrollbars/page keys and
-horizontal buttons expose the saved 80x25 text screen. Existing external DOS
-EXEC tools remain foreground-only; their execution pauses GUI-driven quanta.
+Exit restores low monitor mappings, jumps to a low CS, reloads GDTR/IDTR with
+low linear addresses, then disables paging. Forgetting the descriptor-table
+addresses here caused a real triple-fault/reboot during development; the
+corrected sequence is exercised by every tested quantum and fault return.
+Original CR0/CR3, GDTR/IDTR and host flags are restored. NT/IOPL/IF are sanitized
+on entry so IRETD cannot accidentally perform a nested task return.
 
-K386 absence preserves the ordinary desktop. A separate, explicitly selected
-experimental image will be provided, rather than replacing the normal XMS/EMS
-configuration. Shared baseline disk images remain immutable build inputs.
+The monitor requires real mode and an unowned, masked PC-98 IRQ0. It owns a
+bounded PIT one-shot (71h/77h), handles IDT 08h as IRQ0 or #DF, acknowledges it
+and restores the PIC mask without remapping vectors. The CPU can therefore
+preempt even an infinite guest CLI loop. Existing EMM386/protected-mode or
+unmasked-timer ownership is rejected. The real-mode FDXMS286 driver coexists;
+K386 consumes XMS but does not offer an XMS/EMS API inside its VMs.
 
-## Build and dependencies
+GCC's engine uses ES=DS at the high monitor base. Only explicit FS accesses
+read/write guest linear RAM. DF is cleared before C/string code while the saved
+guest flags retain it. x87/SIMD are not virtualized: CR0 EM/TS/MP causes an
+isolated #NM rather than sharing that hardware state.
 
-`make -C tools/k386 all` builds the probe, TSR, test driver and original COM
-fixtures with GNU binutils/GCC; no proprietary assembler is needed. KDESK's
-internal C ABI uses register parameters consistently across its objects to fit
-the COM segment. Directory data, CG-ROM cache and saved PEGC palette use DOS
-memory blocks; the 12 KiB stack assertion remains in force. Object dependencies
-must rebuild on C ABI changes. The source pin and copied verifier in webnp2
-must match the tested native commit; CPU behavior is tested in the shipped wasm
-rather than inferred from the external NP2kai source snapshot alone.
+## DOS memory and processes
 
-Inspected upstream: `uraraworks/NP2kai-wasm`, wasm branch,
-`714f0bef3a24aa419d4cdb0dac9ad02d30855280`. Relevant implementation:
-`i386c/ia32/ctrlxfer.c`, `exception.c`, `paging.c`, `task.c`, `cpu_io.c`;
-PC-98 PIT/PIC: `io/pit.c`, `io/pic.c`, `bios/bios.c`.
-No upstream source changes or Windows resources are included.
+The first guest arena is data segment 1000h through the end of conventional RAM
+A000h (initial MCB at 0FFFh). Up to 32 trusted MCB records support AH=48h/49h/4Ah,
+first-fit allocation, ownership checks, contiguous resize and free coalescing.
+A forged guest MCB does not change allocation authority. MCB exhaustion or lack
+of space returns DOS error 8, with the largest available block where applicable.
 
-## Guest shell, images and process return
+Root COM normally starts at PSP 8000h with 64KiB; the allocator chooses another
+address for large MZ or child programs. COM is at most FF00h bytes. MZ module,
+minimum allocation and stack must fit the private arena (at most 90000h bytes),
+with valid relative entry and relocations and no overlay. MZ is loaded at
+PSP+10h with DS/ES=PSP; the initial block covers its required minimum/stack.
+The header's larger maximum allocation is validated, not eagerly allocated.
 
-Fresh views contain spaces, not NUL glyphs; the client also renders control
-bytes as blank cells. Opening DOS 1/2 starts the original `KSH.COM` inside that
-V86 context. It implements HELP, VER, DIR, TYPE, CD, ECHO, CLS, TIME and EXIT
-using DOS calls. Other command names use the monitor's EXEC service. This is
-not COMMAND.COM or a host/browser command interpreter.
+Each PSP has parent, end segment, environment, JFT, INT 21h/RETF stub, blank FCBs
+and standard command tail. Environments are copied and owned by the child,
+bounded to 2KiB input plus the DOS program-name trailer. Default variables
+include COMSPEC=A:\COMMAND.COM, PATH and PROMPT. AH=29h FCB parsing uses the
+original real-mode DOS parser with copied buffers, never guest/host pointers.
+The initial FCB contents are not a full EXEC parameter-block implementation.
 
-`loader.c` validates COM and small MZ headers. MZ files are at most 64 KiB,
-have no overlay, and their module plus minimum allocation must fit the private
-64 KiB PSP block. Relocations, CS:IP and SS:SP are checked before execution.
-The MZ module is loaded at 8010h:0000h, with DS/ES pointing to PSP 8000h.
-Command tails use the standard PSP 80h layout. Extra DOS heap allocations,
-environment blocks, FCB and DOS internal structures are not implemented.
+Up to four simultaneous process levels (root plus three child EXECs) live in
+one VM's DOS arena. The parent retains its allocated memory. CPU/stack, PSP,
+DTA/search continuation and virtual IF are saved; the IVT is copied to hidden
+XMS metadata. A child inherits a copy of its parent's read-only handles via
+real DOS duplicates, sharing the file cursor as DOS does. On normal exit or a
+contained fault, child-owned blocks/handles are released and parent metadata,
+IVT and registers are restored. AH=4Dh returns the child result. An over-depth
+EXEC returns error 8 without destroying the parent. GUI Run replaces the root.
 
-One child EXEC level is supported. The parent CPU frame, 64 KiB of program/stack,
-private 4 KiB low page, DTA and virtual IF are saved. Its additional 68 KiB DOS
-allocation is freed when the child returns; this uses conventional memory and
-can fail with error 8. Open file inheritance is not implemented: EXEC with open
-nonstandard handles returns error 4. The child starts with a clear private IVT.
-Normal exit or a contained user fault restores the parent and leaves console
-output visible; AH=4Dh reports the child result. GUI Run replaces the root process.
+There are 16 virtual handles, including private standard CON handles and NUL.
+AH=45h/46h duplicate handles; all disk handles are read-only. CON/NUL open/read/
+write/IOCTL are emulated without passing real console devices to host DOS.
+Disk reads honor the entire requested 16-bit length in bounded broker chunks;
+the former 4096-byte truncation prevented COMMAND loading its transient area.
 
-PUSHF/PUSHFD, POPF/POPFD, IRET/IRETD and user software interrupt vectors are
-virtualized. CLI/STI change a per-session virtual IF; the real V86 IF stays set
-so the monitor timer can preempt an infinite CLI loop. Status flags are restored
-without granting IOPL/NT or hardware ownership. INT 18h/20h/21h/29h are reserved
-monitor services. Full BIOS and asynchronous virtual IRQ delivery remain unfinished.
+## DOS, interrupts and files
 
-Read-only directory search uses a private 43-byte DTA in each VM. Every host
-FindFirst/FindNext temporarily selects a resident DTA and restores the original
-DOS DTA before returning. Current directories are virtual, and host paths are
-canonical absolute A: paths. One active search per process is supported; its
-reserved 21-byte continuation must match the broker-issued state. Modified
-drive/network/cluster bytes are rejected before any host DOS search call.
-Parent EXEC snapshots preserve this trusted continuation as well as the DTA.
-Host paths are
-canonical absolute A: paths; changing one VM's directory does not change host
-DOS or another VM. Hardware scan keys, full DOS/BIOS compatibility and general
-COMMAND.COM execution remain outside this implementation.
+Real DOS is entered only after leaving protected mode, with an InDOS guard and
+the resident PSP selected. Host calls are serialized. Read/seek/close, private
+cwd, attributes, date/time, FCB parsing and directory search use copied data.
+Host paths are canonical ASCII A: disk paths. Other drives, host devices,
+file creation/write/delete/rename and attribute changes remain denied. This
+explicit restriction prevents concurrent FAT12 writes, not general DOS/BIOS
+compatibility. DTA reserved continuation bytes must match the broker-issued
+state before a host FindNext; each process saves its own trusted continuation.
+
+PUSHF/POPF/IRET (16/32-bit), CLI/STI and private software vectors virtualize the
+CPU's logical IF. Real IF remains enabled in V86 for monitor preemption.
+INT 18h/1Ch/20h/21h/29h/2Fh are reserved services. Partial NLS/country and DOS
+message-pointer services return private guest tables/pointers, never host ones.
+They do not establish full Japanese DOS/BIOS compatibility.
+
+PC-98 INT 1Ch AH=02h/03h provides a private one-shot 100Hz interval timer using
+private vector 07h and BDA 058Ah. Clock samples use the actual PC-98 ARTIC
+counter. Expiry waits while virtual IF is clear, wakes an input-waiting VM when
+IF permits, and pushes an IRET-compatible frame on its private stack. A callback
+can rearm itself. Invalid callbacks are contained faults. Pause freezes virtual
+timer progress; killing a process clears its owned timer. AH=00h calendar reads
+use copied real BIOS data. Setting the host calendar is denied. This is not full
+PIC/PIT/IRQ/BIOS virtualization, and callbacks must respect DOS non-reentrancy.
+
+## GUI and boot
+
+Ctrl+N / Ctrl+O open DOS 1 / DOS 2 and start KSH. Ctrl+L/Run replaces the root
+program. Ctrl+P/Pause, Ctrl+R/Resume and Ctrl+E/End control it. Ctrl+T opens the
+task manager. Text windows retain move/resize/minimize/restore and scrollbars.
+Waiting VMs are polled for timer events without marking unchanged views dirty.
+Foreground external tools run through ordinary real DOS EXEC and pause GUI
+quanta while they own the desktop. Direct GDC/PEGC applications are not yet
+virtualized into concurrent DOS windows.
+
+Normal KDESK works without K386. The separate experimental boot profile loads
+FDXMS286 (no EMM386), installs K386, and starts KDESK automatically. WebNP2's
+experimental link selects 16MiB extended memory; the ordinary profile is kept.
+Existing saved images are not rewritten by the importer or by read-only VMs.
+
+## Build, validation and provenance
+
+`make -C tools/k386 all test` builds the monitor, loader/arena tests and original
+fixtures with GNU GCC/binutils. `make -C tools/window all test` builds KDESK and
+its existing app tests. KDESK's register-parameter ABI and COM stack linker
+limits remain enforced. The monitor's own stack space is separately asserted.
+
+webnp2 pins the tested full native SHA in `scripts/prepare-msdos4-cpanel-ci.sh`.
+That importer builds the ordinary DOS image, then a separate K386 image from the
+same source. Manifest source SHA and image hashes travel with CI artifacts.
+`verify-k386.mjs`, `verify-k386-shell.mjs` and `verify-k386-processes.mjs` inspect
+actual contexts, page tables, PSP/modules, private RAM fixtures, directory/file
+results, background execution and exported disk hashes in Chromium/Playwright.
+The ordinary GUI verifier is retained. No synthetic browser DOS processes exist.
+
+Inspected upstream: uraraworks/NP2kai-wasm wasm branch,
+714f0bef3a24aa419d4cdb0dac9ad02d30855280; CPU `ctrlxfer.c`, `segments.c`,
+`exception.c`, `paging.c`, `task.c`, `cpu_io.c`; PC-98 `bios/bios1c.c`,
+`romimage/BIOS/VECT08.X86`, `io/pit.c`, `io/pic.c`. The shipped wasm is tested
+rather than assuming every upstream capability works. Original licenses and
+source provenance are retained; no Windows code, binaries or resources are used.
