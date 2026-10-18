@@ -126,7 +126,8 @@ static int service(K386Frame *f,k8 number) {
             ptr=address(f->ds,f->esi+n,1);if(!ptr)break;
             transfer[n]=read8(ptr);if(!transfer[n]||transfer[n]==13)break;
         }
-        transfer[n]=0;s->request=0x29;return 1;
+        for(k32 i=n;i<128;i++)transfer[i]=0;
+        s->request=0x29;return 1;
     case 0x25:
         c=f->eax&255;
         if(c==0x18||c==0x1c||c==0x20||c==0x21||c==0x29||c==0x2f||!address(f->ds,f->edx,1))error(f,5);

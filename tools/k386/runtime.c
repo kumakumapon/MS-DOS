@@ -200,7 +200,7 @@ void k386_broker(unsigned id){
         }
         if(!result){s->request=0;return;}
     }else if(s->request==0x29){
-        char input[128];k8 fcb[37];for(int i=0;i<128;i++)input[i]=transfer[i];
+        char input[130]={0};k8 fcb[37];for(int i=0;i<128;i++)input[i]=transfer[i];
         k32 at=(f->es&65535)*16+(f->edi&65535);
         if(!get(id,at,fcb,sizeof fcb))result=-13;
         else{
