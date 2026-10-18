@@ -13,7 +13,7 @@ CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-stack-protector -fno-async
 all: $(BUILD)/K386.COM
 $(BUILD)/monitor.o: monitor.c abi.h runtime.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
-$(BUILD)/engine.o: engine.c abi.h | $(BUILD)
+$(BUILD)/engine.o: engine.c abi.h runtime.h backing.h arena.h | $(BUILD)
 	$(CC) -m32 $(CFLAGS) -c $< -o $@
 $(BUILD)/transition.o: monitor.S | $(BUILD)
 	as --32 $< -o $@
@@ -21,11 +21,11 @@ $(BUILD)/memory.o: ../window/memory.c | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/dos.o: ../filer/dos.c | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DDOS -DPC98 -c $< -o $@
-$(BUILD)/runtime.o: runtime.c abi.h runtime.h loader.h | $(BUILD)
+$(BUILD)/runtime.o: runtime.c abi.h runtime.h loader.h arena.h backing.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/loader.o: loader.c loader.h abi.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -c $< -o $@
-$(BUILD)/monitor.elf: $(BUILD)/transition.o $(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/loader.o $(BUILD)/engine.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o monitor.ld
+$(BUILD)/monitor.elf: $(BUILD)/transition.o $(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/loader.o $(BUILD)/backing.o $(BUILD)/arena.o $(BUILD)/engine.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o monitor.ld
 	ld -m elf_i386 --gc-sections -T monitor.ld $(filter %.o,$^) -o $@
 $(BUILD)/K386.COM: $(BUILD)/monitor.elf
 	objcopy -O binary $< $@
@@ -72,8 +72,9 @@ $(BUILD)/FPU.COM: $(BUILD)/fpu.sample.o com.ld
 
 $(BUILD)/loader-test: loader_test.c loader.c loader.h abi.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror loader_test.c loader.c -o $@
-test: $(BUILD)/loader-test
+test: $(BUILD)/loader-test $(BUILD)/arena-test
 	$(BUILD)/loader-test
+	$(BUILD)/arena-test
 .PHONY: test
 all: $(BUILD)/KSH.COM
 $(BUILD)/shell.o: shell.c ../filer/filer.h | $(BUILD)
@@ -97,3 +98,30 @@ all: $(BUILD)/KEYCHK.COM
 $(BUILD)/KEYCHK.COM: $(BUILD)/keycheck.sample.o com.ld
 	ld -m elf_i386 -T com.ld $< -o $(BUILD)/keycheck.elf
 	objcopy -O binary $(BUILD)/keycheck.elf $@
+
+$(BUILD)/backing.o: backing.c backing.h abi.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -c $< -o $@
+$(BUILD)/arena.o: arena.c arena.h abi.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -c $< -o $@
+$(BUILD)/arena-test: arena.c arena_test.c arena.h abi.h | $(BUILD)
+	$(CC) -O2 -Wall -Wextra -Werror arena.c arena_test.c -o $@
+
+all: $(BUILD)/TIMER.COM $(BUILD)/MEMORY.COM
+$(BUILD)/TIMER.COM: $(BUILD)/timer.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/timer.elf
+	objcopy -O binary $(BUILD)/timer.elf $@
+$(BUILD)/MEMORY.COM: $(BUILD)/memorycheck.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/memorycheck.elf
+	objcopy -O binary $(BUILD)/memorycheck.elf $@
+all: $(BUILD)/PROCESS.COM
+$(BUILD)/PROCESS.COM: $(BUILD)/processcheck.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/processcheck.elf
+	objcopy -O binary $(BUILD)/processcheck.elf $@
+all: $(BUILD)/BADTIMER.COM
+$(BUILD)/BADTIMER.COM: $(BUILD)/badtimer.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/badtimer.elf
+	objcopy -O binary $(BUILD)/badtimer.elf $@
+all: $(BUILD)/ROMWRITE.COM
+$(BUILD)/ROMWRITE.COM: $(BUILD)/romwrite.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/romwrite.elf
+	objcopy -O binary $(BUILD)/romwrite.elf $@

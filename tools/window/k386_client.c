@@ -26,8 +26,9 @@ char k386_character(unsigned id,unsigned cell) {unsigned c=mem_get(segment,offse
 unsigned k386_tick(void) {
     if(!segment)return 0;
     unsigned id=turn++&1;
-    if(k386_word(id,0)!=K386_RUNNING)return 0;
+    unsigned state=k386_word(id,0);
+    if(state!=K386_RUNNING&&state!=K386_WAITING)return 0;
     unsigned before=k386_word(id,6);
     if(k386_command(K386_STEP,id,0,0))return 0;
-    return k386_word(id,6)!=before||k386_word(id,0)!=K386_RUNNING?1u<<id:0;
+    return k386_word(id,6)!=before||k386_word(id,0)!=state?1u<<id:0;
 }

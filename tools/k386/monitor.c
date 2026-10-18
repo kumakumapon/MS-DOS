@@ -5,7 +5,7 @@ K386Mailbox k386_mailbox={{'K','3','8','6','A','B','I','1'},1,sizeof(K386Mailbox
 K386Session sessions[2];
 k32 monitor_base,page_directory[2],selected,saved_cr0,saved_cr3;
 k8 transfer[4096];
-static k8 pages[20480];
+static k16 tables;
 static k16 ds_segment,indos_segment,indos_offset;
 void api_dispatch(void) {
     unsigned id=k386_mailbox.session;k386_mailbox.error=0;
@@ -22,16 +22,18 @@ void api_dispatch(void) {
     switch(k386_mailbox.command) {
     case K386_CREATE:k386_mailbox.error=k386_start(id,k386_mailbox.path);break;
     case K386_STEP:
+        if(v->state==K386_RUNNING||v->state==K386_WAITING)k386_clock(id);
         if(v->state!=K386_RUNNING)break;
-        pm_run();if(s->request)k386_broker(id);k386_reap(id);
+        if(!backing_a20(1)){v->state=K386_FAULTED;v->fault=0x8001;break;}
+        pm_run();backing_a20(0);if(s->request)k386_broker(id);k386_reap(id);
         break;
     case K386_KEY:
         if(s->count==K386_KEY_CAPACITY){k386_mailbox.error=8;break;}
         s->keys[(s->head+s->count++)%K386_KEY_CAPACITY]=k386_mailbox.key;
         if(v->state==K386_WAITING)v->state=K386_RUNNING;
         break;
-    case K386_STOP:if(v->state==K386_RUNNING||v->state==K386_WAITING)v->state=K386_STOPPED;break;
-    case K386_RESUME:if(v->state==K386_STOPPED)v->state=K386_RUNNING;break;
+    case K386_STOP:if(v->state==K386_RUNNING||v->state==K386_WAITING){v->state=K386_STOPPED;runtime[id].clock=0;}break;
+    case K386_RESUME:if(v->state==K386_STOPPED){v->state=K386_RUNNING;runtime[id].clock=0;}break;
     case K386_END:k386_release(id);v->state=K386_ENDED;break;
     default:k386_mailbox.error=1;
     }
@@ -43,10 +45,12 @@ int monitor_init(void) {
     unsigned a=0x3400,b; k16 seg;
     __asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(b)::"cc","memory");
     indos_segment=seg;indos_offset=b;
-    k32 at=(monitor_base+(unsigned)pages+4095)&~4095u;
-    page_directory[0]=at;page_directory[1]=at+8192;
-    for(int id=0;id<2;id++){runtime[id].vif=1;runtime[id].dta=0x80000080;for(int i=0;i<2000;i++)k386_mailbox.view[id].screen[i]=' ';}
+    if(!backing_init())return 0;
+    tables=mem_alloc(28672);if(!tables)return 0;
+    k32 at=((k32)tables*16+4095)&~4095u;
+    page_directory[0]=at;page_directory[1]=at+12288;
+    for(int id=0;id<2;id++){runtime[id].process.vif=1;runtime[id].process.dta=0x80000080;for(int i=0;i<2000;i++)k386_mailbox.view[id].screen[i]=' ';}
     return 1;
 }
 _Static_assert(sizeof(K386Frame)==76,"interrupt frame ABI");
-_Static_assert(sizeof(K386Session)==240,"assembly session stride");
+_Static_assert(sizeof(K386Session)==256,"assembly session stride");

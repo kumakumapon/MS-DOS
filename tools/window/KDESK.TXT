@@ -104,7 +104,11 @@ Ctrl+E ends. Scroll the saved text screen with its scrollbar/page keys and
 < / > buttons. ASCII input goes to the active guest; Escape goes to its
 program, while title x closes the session. See K386.TXT for limits.
 The viewport follows console output; scroll up to inspect earlier rows and type
-to follow output again. MZ programs must fit the private 64 KiB address space.
+to follow output again. COM/MZ programs use private XMS RAM and a bounded DOS memory arena.
+The experimental profile needs FDXMS286 and 16 MiB extended memory; no EMM386.
+Nested EXEC is limited to four process levels. Files stay read-only.
+PC-98 BIOS interval timers can wake a waiting DOS window. General DOS/BIOS
+and direct graphics compatibility remain incomplete. See K386.TXT for details.
 One child EXEC level is supported; parent RAM/CPU/DTA are restored on return.
 This remains experimental: general COMMAND.COM/BIOS, large/overlaid EXEs,
 virtual hardware IRQs and TSRs are incomplete. Files are read-only and FPU

@@ -17,7 +17,9 @@ entry:
 relocated:
     .word 0
     mov ds,ax
-    cmp ax,0x8010
+    mov dx,es
+    add dx,16
+    cmp ax,dx
     jne fail
     push 0x5aa5
     pop ax

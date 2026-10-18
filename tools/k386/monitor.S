@@ -108,12 +108,16 @@ pm_run:
     mov WORD PTR gdt+16+2,ax
     mov WORD PTR gdt+32+2,ax
     mov WORD PTR gdt+40+2,ax
+    mov WORD PTR gdt+56+2,ax
     shr eax,16
     mov BYTE PTR gdt+8+4,al
     mov BYTE PTR gdt+16+4,al
     mov BYTE PTR gdt+32+4,al
     mov BYTE PTR gdt+40+4,al
-    add edx,OFFSET tss
+    mov BYTE PTR gdt+56+4,al
+    add BYTE PTR gdt+8+4,0x40
+    add BYTE PTR gdt+16+4,0x40
+    add edx,OFFSET tss+0x400000
     mov WORD PTR gdt+48+2,dx
     shr edx,16
     mov BYTE PTR gdt+48+4,dl
@@ -136,30 +140,43 @@ pm_run:
     mov cr0,eax
     .byte 0x66,0xea
     .long pm_start
-    .word 8
+    .word 56
 .code32
 pm_start:
     push 2
     popfd /* Real-mode BIOS flags may contain NT/IOPL; never inherit them. */
-    mov ax,16
+    mov ax,40 /* Low transition data, before paging. */
     mov ds,ax
     mov ss,ax
     mov es,ax
     mov ax,24
     mov fs,ax
     mov esp,0xeff0
-    mov DWORD PTR tss+4,0xeff0
-    mov WORD PTR tss+8,16
-    mov WORD PTR tss+102,104
-    mov BYTE PTR gdt+53,0x89
-    mov ax,48
-    ltr ax
     mov ebx,DWORD PTR selected
     mov eax,DWORD PTR page_directory[ebx*4]
     mov cr3,eax
     mov eax,cr0
     or eax,0x80000000
     mov cr0,eax
+    .byte 0xea
+    .long high_start
+    .word 8
+high_start:
+    mov ax,16
+    mov ds,ax
+    mov ss,ax
+    mov es,ax
+    add DWORD PTR gdtr+2,0x400000
+    add DWORD PTR idtr+2,0x400000
+    lgdt gdtr
+    lidt idtr
+    mov DWORD PTR tss+4,0xeff0
+    mov WORD PTR tss+8,16
+    mov WORD PTR tss+102,104
+    mov BYTE PTR gdt+53,0x89
+    mov ax,48
+    ltr ax
+    call kernel_map /* Guest conventional RAM replaces the low aliases. */
     /* Existing host IRQ0 must be masked. Own a bounded one-shot quantum. */
     in al,2
     mov BYTE PTR old_mask,al
@@ -171,8 +188,11 @@ pm_start:
     out 0x71,al
     mov al,0x10
     out 0x71,al
+    call kernel_deliver
+    test eax,eax
+    jnz leave_pm
     mov eax,DWORD PTR selected
-    imul eax,240
+    imul eax,256
     add eax,OFFSET sessions
     /* All 19 saved words share the architectural interrupt-frame layout. */
     push DWORD PTR [eax+72]
@@ -270,10 +290,25 @@ leave_pm:
     cli
     mov esp,0xeff0
     call kernel_finish
+    call kernel_unmap /* Restore the low transition identity mapping. */
     mov al,BYTE PTR old_mask
     out 2,al
     mov al,0x60
     out 0,al
+    .byte 0xea
+    .long low_leave
+    .word 56
+low_leave:
+    mov ax,40
+    mov ds,ax
+    mov es,ax
+    mov ss,ax
+    /* Descriptor-table registers contain linear addresses too. Restore the
+       physical aliases before disabling paging and loading the 16-bit CS. */
+    sub DWORD PTR gdtr+2,0x400000
+    sub DWORD PTR idtr+2,0x400000
+    lgdt gdtr
+    lidt idtr
     mov eax,cr0
     and eax,0x7fffffff
     mov cr0,eax
@@ -322,7 +357,9 @@ gdt:
     .byte 0,0x92,0,0
     .word 103,0
     .byte 0,0x89,0,0
-gdtr: .word 55
+    .word 0xffff,0
+    .byte 0,0x9a,0x40,0
+gdtr: .word 63
     .long 0
 idtr: .word 32*8-1
     .long 0
@@ -435,7 +472,7 @@ idt:
     .byte 0,0x8e
     .word 0
 pass_text: .asciz "K386 resident: experimental V86 COM sessions; read-only files\r\n$"
-busy_text: .asciz "K386 unavailable: protected-mode or timer owner present\r\n$"
+busy_text: .asciz "K386 unavailable: XMS required; protected-mode/timer owner must be absent\r\n$"
 .section .bss
 .align 16
 tss: .space 104
