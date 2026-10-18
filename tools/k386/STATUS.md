@@ -1,82 +1,51 @@
-# Development acceptance record
+# K386 compatibility and verification record
 
-This branch is experimental and remains a draft.
+The merged #16 introduced the experimental PM/V86 runtime. Development continues
+in MS-DOS #17 and webnp2 #17; final source pins and CI results are recorded there.
+The requested general DOS/BIOS environment is still incomplete, so these PRs
+remain drafts until that acceptance boundary is met.
 
-Verified in shipped NP2kai wasm using Playwright and the PC-98 guest:
+## Implemented in this continuation
 
-- Standalone K386CPU: protected-mode enter/leave; #UD and #PF recovery; paging;
-  two V86 executions at the same virtual address using separate physical pages;
-  #GP interception of INT/CLI; return to DOS.
-- Cooperative task queues: fairness, bounds, stop/resume, exit and fault/restart
-  host tests pass. GUI integration preserves input target ordering in a batch.
-- Task manager: real guest stop/resume/end/restart of Calculator with Clock.
-- Existing complete desktop/media/utility/clipboard/persistence suite passes;
-  frame sampling observed zero menu flashes in 889 displayed frames.
+- Fresh views contain spaces; control bytes are rendered blank rather than `?`.
+- Each DOS window opens the guest KSH command shell. HELP/VER/DIR/TYPE/CD/ECHO/CLS/
+  TIME/EXIT use guest DOS services. Console output follows the viewport.
+- COM and bounded small MZ loading, relocation/header/entry/stack checks and PSP
+  command tails. The historical DOS kernel and NP2kai core are unchanged.
+- One child EXEC level with private saved parent RAM, low page, CPU, DTA and
+  virtual IF; normal exits and contained faults return to that parent.
+- Per-session read-only directory searches and current directory, serialized
+  real-mode DOS calls, restored host DTA and strict A: paths/device rejection.
+- PUSHF/PUSHFD, POPF/POPFD, IRET/IRETD, user software interrupts and virtual IF.
+  PC-98 BIOS keyboard peek uses BH and does not consume input.
 
-Additional verified execution tests:
+## Verification
 
-- Resident K386 test driver now passes dual V86 COM execution, IRQ0
-  preemption, separate CR3/RAM, stop/resume, #PF isolation and keyboard input.
-  The supervisor IRETD fault was traced to inherited NT flags and corrected.
+The initial question-mark display was reproduced in the real wasm desktop.
+Host loader tests cover malformed/truncated headers, relocations, memory size,
+CS:IP and SS:SP. Initial browser bring-up passes KSH, VER/ECHO/DIR, real MZ
+relocation and arguments, virtual flags/IRET, existing P98TEST.COM, and recovery
+to KSH after a child page fault. Expanded E2E and final regression/CI results are
+recorded in the PRs rather than inferred from unit tests.
 
-Verified guest GUI: two DOS windows run V86 programs with distinct CR3 and RAM;
-Memo can be edited while both counters advance. Echo input is routed to its
-window, pause/resume preserves counters, #PF leaves the other VM running,
-and a faulted VM can load a new program. Existing full UI/media regression
-passes after the memory-layout/ABI changes (888 sampled frames without flashes).
+The required browser suites inspect actual CPU-generated records, private RAM,
+PTE/CR3, independent input/screens and continued background execution. They also
+check interleaved DTA searches, parent/child return, bad images, denied writes,
+GUI coexistence and the whole exported disk hash. Fixtures written by native
+DOS in an isolated browser are compared against their prepared baseline; the
+separate core suite still requires the original full image hash unchanged.
 
-The Playwright experimental-image suite passes mode/exception records, physical
-PTE/counter checks, independent background execution, window lifecycle,
-focused input, #PF/#GP fault/restart, read/close broker use, denied writes
-and creation, and byte-identical full FD export after GUI/session shutdown.
-Normal web tests: 486 passed, 2 existing skips; production build succeeds.
+## Incomplete compatibility
 
-The architectural exception-vector expansion exposed a missing #PF trampoline
-branch during final source review; this is corrected and the full hardware
-fault suite passes again on native runtime commit
-`40ee404ade6ec3758f2f721fa0b592176d0b5e91`, including DF/device-path regressions
-and the existing P98TEST.COM binary. The local image SHA-256 is
-`46b3283210b2e40e24b683363a428547fe6eaf33d6295249624e4cc24a54b78c`;
-Chromium 151.0.7922.173, Playwright. The native DOS 4 CI also
-builds all K386 tools with warnings as errors and uploads their binaries.
+This remains a DOS-service runtime, not two independently booted DOS kernels.
+General COMMAND.COM, full BIOS, asynchronous virtual IRQs, large/overlaid EXEs,
+additional DOS heap allocations, environment/FCB/internal DOS structures,
+nonstandard open-handle inheritance and nested EXEC beyond one level are
+unimplemented. Parent snapshots use conventional memory and may return DOS
+error 8. Input is ASCII; KDESK function keys and Tab remain GUI controls.
 
-CI results are recorded in the draft PRs (MS-DOS #16 and webnp2 #16).
-The WebNP2 K386 CI job passes; normal-image/native regression jobs are tracked
-separately. General DOS-machine acceptance
-is not met: this remains a COM-service runtime, not a fully virtualized DOS OS.
-
-Compatibility boundary under development: per-session private RAM/TVRAM/zero
-page; deny port I/O; read-only serialized DOS file services. This is not yet a
-complete virtualized MS-DOS kernel/BIOS session. General COMMAND.COM/MZ EXE,
-resident drivers, shared writes and graphics hardware virtualization remain
-unimplemented. All required acceptance items must be individually reported;
-the overall feature is not complete while these execution gaps remain.
-
-## Requested acceptance boundary
-
-| Requirement | Current result |
-| --- | --- |
-| Traditional KDESK startup and existing GUI | Verified with K386 absent; full UI regression passes |
-| Multiple internal applications | Verified; cooperative queues, IDs and lifecycle controls |
-| Protected-mode transitions and exceptions | Verified by CPU-written PM/V86/#UD/#PF/#GP records |
-| Task memory isolation | Verified by separate CR3/PTE/physical counters and contained #PF |
-| Two independent DOS environments | **Incomplete**: two isolated COM runtimes, no per-VM DOS/BIOS kernel |
-| Programs in both sessions | Verified for supported COM programs, not general DOS compatibility |
-| State across switching and background execution | Verified for both V86 COM contexts |
-| DOS windows and existing GUI coexistence | Verified with Memo and native window controls |
-| End/restart without desktop failure | Verified for normal exits and contained memory/I/O faults |
-| Existing disk integrity | Verified read-only broker and byte-identical complete FD export |
-| Web tests and production build | 486 passed / 2 existing skips; build passes |
-| Real browser validation | Playwright on the shipped NP2kai wasm; CI results recorded in PR |
-
-Remaining engineering is a DOS/BIOS virtualization layer, not another CPU-mode
-switch: virtual interrupt delivery (including PUSHF/POPF/IRET), complete PSP/EXEC
-and DOS process state, MZ relocation/loading, BIOS memory/services and device
-state. Until those exist, booting COMMAND.COM in each window is unsupported and
-the request as a whole is not complete. Shared disk writes and direct GDC/PEGC
-applications also remain outside the working prototype.
-
-Final boundary review adds a zero-length AH=0Ah input regression at private
-RAM offset FFFEh and prevents x87 context sharing with CR0 EM/TS/MP. FPU state
-save/restore is unimplemented; FPU.COM must fault with #NM while the other VM
-continues. Results for these additional guards are recorded in the PR.
+Shared disk writes and direct GDC/PEGC graphics virtualization are unavailable.
+x87/SIMD save/restore is not implemented: FPU use faults within its VM instead
+of sharing state. K386 requires real mode and an unowned masked IRQ0; its separate
+boot profile omits EMM386/XMS loaders. Normal KDESK remains available unchanged
+when the monitor is absent. Existing foreground EXECs pause GUI-driven VM quanta.

@@ -30,6 +30,13 @@ extern K386Mailbox k386_mailbox;
 extern K386Session sessions[2];
 extern k32 monitor_base,page_directory[2],selected,saved_cr0,saved_cr3;
 extern k8 transfer[4096];
+typedef struct {
+    K386Frame parent;
+    k32 dta,parent_dta;
+    k16 saved,last_exit,vif,parent_vif;
+    char cwd[128];
+} K386Runtime;
+extern K386Runtime runtime[2];
 void pm_run(void);
 int kernel_trap(K386Frame *frame);
 void kernel_finish(void);

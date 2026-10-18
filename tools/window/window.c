@@ -15,6 +15,7 @@ static DeskClock desk_clock;
 static int icon_view = 1, file_icons = 1, twelve_hour, scene_dirty, enhanced;
 static char dos_path[2][128];
 static unsigned dos_edit[2];
+static int dos_follow[2]={1,1};
 static int dos_horizontal[2];
 static u32 dos_tick;
 static int scrolling = -1, scroll_grab;
@@ -87,7 +88,13 @@ static void focus(int id) {
     while (order[at] != id) at++;
     for (; at < WINDOWS - 1; at++) order[at] = order[at + 1];
     order[WINDOWS - 1] = id;
-    if(!windows[id].open)task_start(id);
+    if(!windows[id].open){
+        task_start(id);
+        if(id>=DOS1&&enhanced){
+            dos_follow[id-DOS1]=1;
+            if(k386_command(K386_CREATE,id-DOS1,0,"KSH.COM"))message("Cannot start KSH.COM; use Run to choose a program");
+        }
+    }
     windows[id].open = 1; windows[id].hidden = 0;
     active = id; mode = 0; invalidate(id);
 }
@@ -212,7 +219,7 @@ static const char help_text[] =
     "PgUp/PgDn: page; Home/End: ends\nFiles: Enter opens, BS goes up\n"
     "Files F: open FD98 file tools";
 static const char about_text[] =
-    "Kuma Desktop 1.6\n\nOriginal PC-98 window system\n"
+    "Kuma Desktop 1.7\n\nOriginal PC-98 window system\n"
     "MS-DOS 4.0 / 640 x 400\n\nCopyright 2026 kumakumapon\n"
     "MIT license - see KDLIC.TXT";
 static int document(Window *w, Pane *v, int id, int paint) {
@@ -404,7 +411,7 @@ static void draw_window(int id) {
         if(w->w>=36)button(w->x+28,w->y+w->h-2,6,"End",0);
     } else if(id>=DOS1) {
         unsigned session=id-DOS1;
-        if(!enhanced)line(w,0,"Start K386 before KDESK to enable",0);
+        if(!enhanced){line(w,0,"Use the KDESK/386 experimental disk",0);line(w,1,"DOS windows need K386 without EMM386",0);}
         else {
             if(dos_horizontal[session]>80-(w->w-6))dos_horizontal[session]=80-(w->w-6);
             for(int row=0;row<w->h-6;row++)for(int col=0;col<w->w-6;col++) {
@@ -551,7 +558,7 @@ static int app_key(int id,int key) {
         if(selected>=DOS1&&enhanced) {
             invalidate(selected);scene_dirty=1;
             if(key=='s'||key=='S')k386_command(K386_STOP,selected-DOS1,0,0);
-            if(key=='r'||key=='R'){k386_command(K386_RESUME,selected-DOS1,0,0);focus(selected);}
+            if(key=='r'||key=='R'){if(k386_word(selected-DOS1,0)>=K386_FAULTED||k386_word(selected-DOS1,0)==K386_ENDED)k386_command(K386_CREATE,selected-DOS1,0,"KSH.COM");else k386_command(K386_RESUME,selected-DOS1,0,0);focus(selected);}
             if(key=='k'||key=='K')k386_command(K386_END,selected-DOS1,0,0);
             return 0;
         }
@@ -564,7 +571,7 @@ static int app_key(int id,int key) {
         unsigned session=id-DOS1;
         if(key==1001){if(dos_horizontal[session])dos_horizontal[session]--;return 0;}
         if(key==1002){if(dos_horizontal[session]<80-(w->w-6))dos_horizontal[session]++;return 0;}
-        if(key==12){dos_edit[session]=1;dos_path[session][0]=0;message("COM path: type a name, Enter runs (read-only DOS services)");return 0;}
+        if(key==12){dos_edit[session]=1;dos_path[session][0]=0;message("COM/EXE command: type a name, Enter runs (files read-only)");return 0;}
         if(key==16){k386_command(K386_STOP,session,0,0);return 0;}
         if(key==18){k386_command(K386_RESUME,session,0,0);return 0;}
         if(key==5){k386_command(K386_END,session,0,0);return 0;}
@@ -572,10 +579,10 @@ static int app_key(int id,int key) {
             int n=fd_len(dos_path[session]);
             if(key==8&&n)dos_path[session][--n]=0;
             else if(key>=32&&key<=126&&n<127){dos_path[session][n]=key;dos_path[session][n+1]=0;}
-            else if(key==13){if(k386_command(K386_CREATE,session,0,dos_path[session]))message("Cannot load COM (path, memory, mode or unsupported EXE)");else{dos_edit[session]=0;message("V86 COM running; files read-only");}}
-        } else if(key==KEY_PAGEUP){if(w->top)w->top--;}
-        else if(key==KEY_PAGEDOWN){if(w->top<25-(w->h-6))w->top++;}
-        else if(key>=0&&key<=127)k386_command(K386_KEY,session,key,0);
+            else if(key==13){if(k386_command(K386_CREATE,session,0,dos_path[session]))message("Cannot load program (path, memory or unsupported image)");else{dos_edit[session]=0;dos_follow[session]=1;w->top=0;message("V86 program running; files read-only");}}
+        } else if(key==KEY_PAGEUP){dos_follow[session]=0;if(w->top)w->top--;}
+        else if(key==KEY_PAGEDOWN){if(w->top<25-(w->h-6))w->top++;dos_follow[session]=w->top>=25-(w->h-6);}
+        else if(key>=0&&key<=127){dos_follow[session]=1;k386_command(K386_KEY,session,key,0);}
         return 0;
     }
     if(id==MEMO||id==HELP||id==ABOUT) {
@@ -646,6 +653,7 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
         Window *w=&windows[scrolling];Pane v;pane(scrolling,&v);
         int top=scroll_row(now.y-w->oy-v.y*16-16-scroll_grab,v.total,v.rows,v.height*16-32);
         if(top!=w->top){w->top=top;*redraw=1;}
+        if(scrolling>=DOS1)dos_follow[scrolling-DOS1]=top>=v.total-v.rows;
         if(!(now.buttons&1))scrolling=-1;
         return 0;
     }
@@ -727,7 +735,7 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
                 else if(py<16+top)w->top-=v.rows;
                 else if(py>=16+top+size)w->top+=v.rows;
                 else {scrolling=id;scroll_grab=py-16-top;}
-                w->top=scroll_clamp(w->top,v.total,v.rows);return 0;
+                w->top=scroll_clamp(w->top,v.total,v.rows);if(id>=DOS1)dos_follow[id-DOS1]=w->top>=v.total-v.rows;return 0;
             }
         }
         if(id>=DOS1&&cy==w->y+w->h-3) {if(cx>=w->x+w->w-9&&cx<w->x+w->w-6)return 1001;if(cx>=w->x+w->w-5&&cx<w->x+w->w-2)return 1002;}
@@ -844,7 +852,9 @@ int main(void) {
         redraw|=dispatch_events();
         if(enhanced&&((input_ticks()-dos_tick)&0xffffff)>=3072) {
             dos_tick=input_ticks();unsigned changed=k386_tick();
-            if(changed){for(int id=DOS1;id<=DOS2;id++)if((changed&(1u<<(id-DOS1)))&&windows[id].open&&!windows[id].hidden){invalidate(id);scene_dirty=1;redraw=1;}}
+            if(changed){for(int id=DOS1;id<=DOS2;id++)if((changed&(1u<<(id-DOS1)))&&windows[id].open&&!windows[id].hidden){
+                if(dos_follow[id-DOS1]){int top=k386_word(id-DOS1,__builtin_offsetof(K386View,row))-(windows[id].h-7);windows[id].top=scroll_clamp(top,25,windows[id].h-6);}
+                invalidate(id);scene_dirty=1;redraw=1;}}
         }
         int previous_active=active,previous_mode=mode,previous_confirm=confirm;
         Window before=active<0?(Window){0}:windows[active];
