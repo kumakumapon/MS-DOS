@@ -35,6 +35,12 @@ int main(void) {
     if(word(VOFF(1,state))!=K386_WAITING)goto fail;
     set(OFF(key),'Z');command(K386_KEY,1);command(K386_STEP,1);
     if(word(VOFF(1,state))!=K386_WAITING)goto fail;
+    stage=8;command(K386_STOP,1);
+    for(int i=0;i<K386_KEY_CAPACITY;i++){set(OFF(key),'A'+i%26);if(command(K386_KEY,1))goto fail;}
+    if(command(K386_KEY,1)!=8)goto fail;
+    command(K386_RESUME,1);
+    for(int i=0;i<64&&word(VOFF(1,state))!=K386_WAITING;i++)command(K386_STEP,1);
+    if(word(VOFF(1,state))!=K386_WAITING||word(VOFF(1,keys)))goto fail;
     command(K386_END,0);command(K386_END,1);
     p_output("K386 CHECK PASS: V86 x2, IRQ0 preemption, private CR3/RAM, stop/resume, #PF isolation, keyboard\r\n");return 0;
 fail:

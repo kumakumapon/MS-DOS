@@ -26,8 +26,8 @@ void api_dispatch(void) {
         pm_run();if(s->request)k386_broker(id);k386_reap(id);
         break;
     case K386_KEY:
-        if(s->count==32){k386_mailbox.error=8;break;}
-        s->keys[(s->head+s->count++)%32]=k386_mailbox.key;
+        if(s->count==K386_KEY_CAPACITY){k386_mailbox.error=8;break;}
+        s->keys[(s->head+s->count++)%K386_KEY_CAPACITY]=k386_mailbox.key;
         if(v->state==K386_WAITING)v->state=K386_RUNNING;
         break;
     case K386_STOP:if(v->state==K386_RUNNING||v->state==K386_WAITING)v->state=K386_STOPPED;break;
@@ -49,4 +49,4 @@ int monitor_init(void) {
     return 1;
 }
 _Static_assert(sizeof(K386Frame)==76,"interrupt frame ABI");
-_Static_assert(sizeof(K386Session)==144,"assembly session stride");
+_Static_assert(sizeof(K386Session)==240,"assembly session stride");

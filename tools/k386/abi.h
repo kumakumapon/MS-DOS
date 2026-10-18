@@ -3,7 +3,7 @@
 typedef unsigned char k8;
 typedef unsigned short k16;
 typedef unsigned int k32;
-enum { K386_SESSIONS=2, K386_SCREEN=2000, K386_SEGMENT=0x8000 };
+enum { K386_SESSIONS=2, K386_SCREEN=2000, K386_SEGMENT=0x8000, K386_KEY_CAPACITY=128 };
 enum { K386_ENDED, K386_RUNNING, K386_WAITING, K386_STOPPED, K386_FAULTED };
 enum { K386_CREATE=1,K386_STEP,K386_KEY,K386_STOP,K386_RESUME,K386_END };
 typedef struct {
@@ -24,7 +24,7 @@ typedef struct {
     K386Frame frame;
     k32 physical,pd;
     k16 allocation,request,handles[8],line_count;
-    k8 keys[32];k16 head,count;
+    k8 keys[K386_KEY_CAPACITY];k16 head,count;
 } K386Session;
 extern K386Mailbox k386_mailbox;
 extern K386Session sessions[2];

@@ -548,6 +548,12 @@ static int handle_key(int key) {
     if(!task_post(active,TASK_KEY,key))message("Task stopped or input queue full");
     return 0;
 }
+/* Guest ASCII keys only enqueue input. Paint after the VM produces output,
+ * rather than repainting the desktop twice for every input batch. */
+static int guest_input(int id,unsigned key) {
+    return enhanced&&id>=DOS1&&!dos_edit[id-DOS1]&&!mode&&!confirm&&key<128
+        &&key!=9&&key!=12&&key!=14&&key!=15&&key!=20&&key!=16&&key!=18&&key!=5;
+}
 static int app_key(int id,int key) {
     Window *w=&windows[id];
     if(id==TASKS) {
@@ -582,7 +588,7 @@ static int app_key(int id,int key) {
             else if(key==13){if(k386_command(K386_CREATE,session,0,dos_path[session]))message("Cannot load program (path, memory or unsupported image)");else{dos_edit[session]=0;dos_follow[session]=1;w->top=0;message("V86 program running; files read-only");}}
         } else if(key==KEY_PAGEUP){dos_follow[session]=0;if(w->top)w->top--;}
         else if(key==KEY_PAGEDOWN){if(w->top<25-(w->h-6))w->top++;dos_follow[session]=w->top>=25-(w->h-6);}
-        else if(key>=0&&key<=127){dos_follow[session]=1;k386_command(K386_KEY,session,key,0);}
+        else if(key>=0&&key<=127){dos_follow[session]=1;if(k386_command(K386_KEY,session,key,0)){message("Input queue full; resume the session and retry");scene_dirty=1;}}
         return 0;
     }
     if(id==MEMO||id==HELP||id==ABOUT) {
@@ -821,7 +827,7 @@ static int dispatch_events(void) {
     for(int budget=0;budget<32&&task_next(&slot,&event);budget++) {
         int error=event.kind!=TASK_KEY&&event.kind!=TASK_TICK;
         if(!error&&event.kind==TASK_TICK)redraw|=clock_update(drag||scrolling>=0);
-        else if(!error){app_key(slot,event.value);redraw=1;}
+        else if(!error){int input=guest_input(slot,event.value);app_key(slot,event.value);redraw|=!input;}
         task_complete(slot,error);
     }
     return redraw;
@@ -876,8 +882,10 @@ int main(void) {
             }
             if (stop) break;
             if (ready) {
-                drag = 0; scrolling=-1; gfx_drag_end(); live_drag = 0; last_file = last_app = -1; redraw = 1;
-                for(int i=0;i<16&&key_ready();i++){stop=handle_key(key_read());redraw|=dispatch_events();if(stop)break;}
+                redraw|=drag||scrolling>=0;
+                drag = 0; scrolling=-1; gfx_drag_end(); live_drag = 0; last_file = last_app = -1;
+                for(int i=0;i<16&&key_ready();i++){int key=key_read();redraw|=!guest_input(active,key);stop=handle_key(key);redraw|=dispatch_events();if(stop)break;}
+                redraw|=scene_dirty;
                 if (stop) break;
             }
             redraw|=dispatch_events();

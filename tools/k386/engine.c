@@ -29,7 +29,7 @@ static void output(k8 c) {
 }
 static int input(void) {
     K386Session *s=&sessions[selected];if(!s->count)return -1;
-    k8 c=s->keys[s->head];s->head=(s->head+1)%32;s->count--;return c;
+    k8 c=s->keys[s->head];s->head=(s->head+1)%K386_KEY_CAPACITY;s->count--;return c;
 }
 static int service(K386Frame *f,k8 number) {
     K386Session *s=&sessions[selected];K386View *v=&k386_mailbox.view[selected];K386Runtime *r=&runtime[selected];

@@ -172,7 +172,7 @@ pm_start:
     mov al,0x10
     out 0x71,al
     mov eax,DWORD PTR selected
-    imul eax,144
+    imul eax,240
     add eax,OFFSET sessions
     /* All 19 saved words share the architectural interrupt-frame layout. */
     push DWORD PTR [eax+72]
