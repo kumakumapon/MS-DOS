@@ -6,7 +6,8 @@ static const u16 theme[] = {
     0x234, 0x256, 0xeff, 0xcde, 0x27b, 0x259, 0xfc6, 0xfff,
     0x123, 0xbcd, 0x678, 0x467, 0x367, 0x7ab, 0xeef, 0xacd,
 };
-static u8 fonts[95][16], palette[16][3], palette256[256][3], saved_mode, saved_index;
+static unsigned font_segment,palette_segment;
+static u8 palette[16][3], saved_mode, saved_index;
 static int packed, bank = -1, origin_x, origin_y, offscreen;
 static u8 saved_gate, saved_256, saved_banks[4], saved_pegc_mode, saved_pegc_enable;
 static u8 packed_under[16][16];
@@ -19,7 +20,7 @@ static int mouse_active;
 static Mouse mouse = {320, 200, 0, 0};
 static Mouse events[16];
 static unsigned event_head, event_count;
-static int graphics_active, keys[128];
+static int graphics_active;static u16 keys[128];
 static unsigned key_head, key_count;
 static void mouse_pump(void);
 static Mouse read_raw(void);
@@ -210,13 +211,13 @@ void gfx_cell(int x, int y, char ch, int foreground, int background, int selecte
     static unsigned cells;
     if ((u8)ch < 32) ch = '?';
     u8 extra[16]; const u8 *glyph;
-    if ((u8)ch > 126) {
+    if ((u8)ch > 126 || !font_segment) {
         /* Keep half-width kana/extended file names without reserving a full
          * 4 KiB font table in the COM's code/data/stack segment. */
         out(0xa1,0);out(0xa3,(u8)ch);
         for(int row=0;row<16;row++){out(0xa5,row);extra[row]=in(0xa9);}
         out(0xa3,0);out(0xa5,0);glyph=extra;
-    } else glyph=fonts[(u8)ch-32];
+    } else {u16 ds;__asm__ volatile("movw %%ds,%0":"=r"(ds));mem_copy(ds,(unsigned)extra,font_segment,((u8)ch-32)*16,16);glyph=extra;}
     if (x < 0 || x >= 80 || y < 0 || y >= 25) return;
     /* Mirror labels in text VRAM for accessibility/debugging; the visible
      * glyphs are rendered into graphics so the pointer can cover them cleanly. */
@@ -421,9 +422,11 @@ void gfx_start(void) {
     int available = 0;
     if (has_pegc) {
         out(0x6a, 7); out(0x6a, 0x21); available = query(10);
+        if(available&&!palette_segment)palette_segment=mem_alloc(256*3);
+        if(!palette_segment)available=0;
         if (available) {
             for (int i = 0; i < 256; i++) {
-                out(0xa8, i); palette256[i][0] = in(0xaa); palette256[i][1] = in(0xac); palette256[i][2] = in(0xae);
+                out(0xa8,i);mem_put(palette_segment,i*3,in(0xaa));mem_put(palette_segment,i*3+1,in(0xac));mem_put(palette_segment,i*3+2,in(0xae));
             }
             for (int i = 0; i < 4; i++) saved_banks[i] = get(0xe000, 4 + i);
             saved_pegc_mode = get(0xe000, 0x100); saved_pegc_enable = get(0xe000, 0x102);
@@ -445,11 +448,12 @@ void gfx_start(void) {
             u32 c = gfx_rgb(i); out(0xa8, i); out(0xaa, (c >> 8) & 255); out(0xac, c >> 16); out(0xae, c & 255);
         }
     }
-    if (!fonts_ready) {
+    if(!font_segment)font_segment=mem_alloc(95*16);
+    if (!fonts_ready && font_segment) {
         out(0xa1, 0);
         for (int ch = 32; ch < 127; ch++) {
             out(0xa3, ch);
-            for (int row = 0; row < 16; row++) { out(0xa5, row); fonts[ch - 32][row] = in(0xa9); }
+            for (int row = 0; row < 16; row++) { out(0xa5, row); mem_put(font_segment,(ch-32)*16+row,in(0xa9)); }
         }
         out(0xa1, 0); out(0xa3, 0); out(0xa5, 0); fonts_ready = 1;
     }
@@ -462,7 +466,7 @@ void gfx_stop(void) {
     gfx_pointer_hide(); mouse_stop(); gfx_drag_end();
     if (packed) {
         for (int i = 0; i < 256; i++) {
-            out(0xa8, i); out(0xaa, palette256[i][0]); out(0xac, palette256[i][1]); out(0xae, palette256[i][2]);
+            out(0xa8, i); out(0xaa,mem_get(palette_segment,i*3));out(0xac,mem_get(palette_segment,i*3+1));out(0xae,mem_get(palette_segment,i*3+2));
         }
         for (int i = 0; i < 4; i++) put(0xe000, 4 + i, saved_banks[i]);
         put(0xe000, 0x100, saved_pegc_mode); put(0xe000, 0x102, saved_pegc_enable);
