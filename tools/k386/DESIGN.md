@@ -125,6 +125,11 @@ monitor services. Full BIOS and asynchronous virtual IRQ delivery remain unfinis
 Read-only directory search uses a private 43-byte DTA in each VM. Every host
 FindFirst/FindNext temporarily selects a resident DTA and restores the original
 DOS DTA before returning. Current directories are virtual, and host paths are
+canonical absolute A: paths. One active search per process is supported; its
+reserved 21-byte continuation must match the broker-issued state. Modified
+drive/network/cluster bytes are rejected before any host DOS search call.
+Parent EXEC snapshots preserve this trusted continuation as well as the DTA.
+Host paths are
 canonical absolute A: paths; changing one VM's directory does not change host
 DOS or another VM. Hardware scan keys, full DOS/BIOS compatibility and general
 COMMAND.COM execution remain outside this implementation.

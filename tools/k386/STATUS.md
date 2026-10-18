@@ -16,6 +16,8 @@ remain drafts until that acceptance boundary is met.
   virtual IF; normal exits and contained faults return to that parent.
 - Per-session read-only directory searches and current directory, serialized
   real-mode DOS calls, restored host DTA and strict A: paths/device rejection.
+  Reserved DTA drive/network/cluster state must match a broker-issued search;
+  modified or unissued continuations are rejected before reaching host DOS.
 - PUSHF/PUSHFD, POPF/POPFD, IRET/IRETD, user software interrupts and virtual IF.
   PC-98 BIOS keyboard peek uses BH and does not consume input.
 

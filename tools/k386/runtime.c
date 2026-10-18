@@ -78,7 +78,7 @@ static int load_bytes(unsigned id,int h,const K386Image *p,const k8 *tail,int ch
     mem_copy(s->physical>>4,0x80,resident(),(unsigned)tail,tail[0]+2);
     s->frame=(K386Frame){0};s->frame.cs=p->cs;s->frame.eip=p->ip;s->frame.ss=p->ss;s->frame.esp=p->sp;
     s->frame.ds=s->frame.es=K386_SEGMENT;s->frame.eflags=0x20202;s->request=s->line_count=0;
-    r->dta=0x80000080;r->vif=1;
+    r->dta=0x80000080;r->vif=1;r->search_valid=0;
     if(!child){
         r->last_exit=0;
         s->head=s->count=0;mem_fill(s->physical>>4,0x10000,0x5000,0);
@@ -114,6 +114,8 @@ static void restore_parent(unsigned id,int error) {
     mem_copy(s->physical>>4,0x14000,r->saved,0x10000,4096);mem_free(r->saved);r->saved=0;
     s->frame=r->parent;s->frame.eax=error;s->frame.eflags=(s->frame.eflags&~1u)|(error?1:0);
     s->line_count=s->request=0;r->dta=r->parent_dta;r->vif=r->parent_vif;v->state=K386_RUNNING;v->fault=0;
+    for(int i=0;i<21;i++)r->search[i]=r->parent_search[i];
+    r->search_valid=r->parent_search_valid;
     v->eip=s->frame.eip;v->eflags=s->frame.eflags;v->cr2=0;v->counter=0;
 }
 void k386_reap(unsigned id) {
@@ -135,12 +137,20 @@ static int attributes(const char *path,k16 *attrs) {
 }
 static int directory(unsigned id,int next,const char *path) {
     K386Runtime *r=&runtime[id];K386Session *s=&sessions[id];unsigned a=0x2f00,b; k16 seg;
-    __asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(b)::"cc","memory");
     mem_copy(resident(),(unsigned)host_dta,s->physical>>4,((r->dta>>16)*16+(r->dta&65535))-0x80000,43);
+    /* DOS consumes opaque drive/cluster state from the first 21 bytes. Only
+     * replay an issued continuation; guest edits must never reach host DOS. */
+    if(next){
+        if(!r->search_valid)return -18;
+        for(int i=0;i<21;i++)if(host_dta[i]!=r->search[i])return -18;
+    }
+    __asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(b)::"cc","memory");
     unsigned set=0x1a00,d=(unsigned)host_dta;__asm__ volatile("int $0x21":"+a"(set):"d"(d):"cc","memory");
     a=next?0x4f00:0x4e00;unsigned c=s->frame.ecx&0x37;d=(unsigned)path;
     __asm__ volatile("int $0x21; jc 1f; xor %%eax,%%eax; jmp 2f; 1: neg %%eax; 2:":"+a"(a):"c"(c),"d"(d):"cc","memory");
     int result=(int)a;
+    r->search_valid=!result;
+    if(!result)for(int i=0;i<21;i++)r->search[i]=host_dta[i];
     mem_copy(s->physical>>4,((r->dta>>16)*16+(r->dta&65535))-0x80000,resident(),(unsigned)host_dta,43);
     set=0x1a00;d=b&65535;
     __asm__ volatile("pushw %%ds; movw %w2,%%ds; int $0x21; popw %%ds":"+a"(set):"d"(d),"r"(seg):"cc","memory");
@@ -159,6 +169,8 @@ void k386_broker(unsigned id) {
             else {r->saved=mem_alloc(0x11000);if(!r->saved)result=-8;
                 else {mem_copy(r->saved,0,s->physical>>4,0,0x10000);mem_copy(r->saved,0x10000,s->physical>>4,0x14000,4096);
                     r->parent=s->frame;r->parent_dta=r->dta;r->parent_vif=r->vif;
+                    for(int i=0;i<21;i++)r->parent_search[i]=r->search[i];
+                    r->parent_search_valid=r->search_valid;
                     error=load_bytes(id,h,&plan,tail,1);if(error){restore_parent(id,error);result=-error;}}
                 p_close(h);}
         }

@@ -35,6 +35,8 @@ typedef struct {
     k32 dta,parent_dta;
     k16 saved,last_exit,vif,parent_vif;
     char cwd[128];
+    k8 search[21],parent_search[21];
+    k16 search_valid,parent_search_valid;
 } K386Runtime;
 extern K386Runtime runtime[2];
 void pm_run(void);
