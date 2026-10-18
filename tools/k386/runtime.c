@@ -14,6 +14,13 @@ static int get(unsigned id,k32 at,void *b,unsigned n){return backing_read(&runti
 static int put(unsigned id,k32 at,const void *b,unsigned n){return backing_write(&runtime[id].backing,at,b,n);}
 static k16 getword(unsigned id,k32 at){k8 b[2]={0};get(id,at,b,2);return word(b);}
 static void putword(unsigned id,k32 at,k16 w){k8 b[2]={w,w>>8};put(id,at,b,2);}
+static void snapshot(unsigned id){
+    k386_diagnostics.frame[id]=sessions[id].frame;
+    k32 base=(k32)runtime[id].process.psp*16,n=K386_RAM-base;
+    if(n>512)n=512;
+    for(unsigned i=0;i<512;i++)k386_diagnostics.memory[id][i]=0;
+    get(id,base,k386_diagnostics.memory[id],n);
+}
 static k8 port(k16 p){k8 v;__asm__ volatile("inb %w1,%0":"=a"(v):"d"(p));return v;}
 static k32 ticks(void){k8 hi,mid,lo;do{hi=port(0x5f);mid=port(0x5d);lo=port(0x5c);}while(mid!=port(0x5d)||hi!=port(0x5f));return (k32)hi<<16|(k32)mid<<8|lo;}
 void k386_clock(unsigned id){
@@ -122,7 +129,7 @@ static int load_program(unsigned id,int h,const K386Image *p,const k8 *tail,cons
     s->frame.ds=s->frame.es=psp;s->frame.edx=psp;s->frame.eflags=0x20202;s->request=s->line_count=0;
     v->state=K386_RUNNING;v->physical=r->backing.physical+base;v->psp=psp;v->fault=v->exit_code=0;v->counter=v->ticks=v->cr2=0;
     v->eip=p->ip;v->eflags=s->frame.eflags;v->keys=s->count;v->flags++;
-    arenas(id);jft(id);return 0;
+    arenas(id);jft(id);snapshot(id);return 0;
 }
 static void discard(unsigned id){K386Runtime *r=&runtime[id];close_files(id);for(unsigned d=0;d<r->depth;d++)for(int i=0;i<K386_HANDLES;i++)close_token(r->parent[d].handles[i]);r->depth=0;}
 int k386_start(unsigned id,const char *command){
@@ -156,7 +163,7 @@ static void restore_parent(unsigned id,int status){
     s->frame=r->process.frame;s->frame.eax=0;s->frame.eflags&=~1u;r->process.last_exit=status;s->line_count=s->request=0;
     if(r->timer_owner==ended)r->timer_armed=r->timer_pending=0;
     v->state=K386_RUNNING;v->fault=0;v->psp=r->process.psp;v->physical=r->backing.physical+(k32)r->process.psp*16;v->eip=s->frame.eip;v->eflags=s->frame.eflags;v->cr2=v->counter=0;v->flags++;
-    arenas(id);jft(id);
+    arenas(id);jft(id);snapshot(id);
 }
 void k386_reap(unsigned id){K386Runtime *r=&runtime[id];K386View *v=&k386_mailbox.view[id];if(v->state!=K386_ENDED&&v->state!=K386_FAULTED)return;if(r->depth)restore_parent(id,v->state==K386_FAULTED?0x200|(v->fault&255):v->exit_code);else close_files(id);}
 void k386_release(unsigned id){discard(id);backing_free(&runtime[id].backing);runtime[id]=(K386Runtime){0};sessions[id]=(K386Session){0};}

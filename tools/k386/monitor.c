@@ -9,12 +9,13 @@ static k16 tables;
 static k16 ds_segment,indos_segment,indos_offset;
 void api_dispatch(void) {
     unsigned id=k386_mailbox.session;k386_mailbox.error=0;
-    if(mem_get(indos_segment,indos_offset)){k386_mailbox.error=5;return;}
+    if(k386_mailbox.reserved||mem_get(indos_segment,indos_offset)){k386_mailbox.error=5;return;}
     k16 msw;unsigned char mask;
     __asm__ volatile("smsw %0; inb $2,%1":"=r"(msw),"=a"(mask));
     if((msw&1)||!(mask&1)){k386_mailbox.error=5;return;}
 
     if(id>=2){k386_mailbox.error=87;return;}
+    k386_mailbox.reserved=1; /* Publish views only after the whole API returns. */
     unsigned caller,service=0x6200;
     __asm__ volatile("int $0x21":"+a"(service),"=b"(caller)::"cc","memory");
     service=0x5000;__asm__ volatile("int $0x21":"+a"(service):"b"((unsigned)ds_segment):"cc","memory");
@@ -38,6 +39,7 @@ void api_dispatch(void) {
     default:k386_mailbox.error=1;
     }
     service=0x5000;__asm__ volatile("int $0x21":"+a"(service):"b"(caller):"cc","memory");
+    k386_mailbox.reserved=0;
 }
 int monitor_init(void) {
     __asm__ volatile("movw %%ds,%0":"=r"(ds_segment));monitor_base=(k32)ds_segment*16;

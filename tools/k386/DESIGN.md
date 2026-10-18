@@ -37,7 +37,9 @@ success of a command does not establish general COMMAND compatibility.
 `K386ABI1` version 1 remains 4240 bytes. Commands create, step, input, stop,
 resume and end either session. Each 2044-byte view contains state, last CPU
 status, CR3, physical active-PSP address, screen and active PSP (offset 42,
-formerly reserved). Only the foreground window receives keyboard input.
+formerly reserved). Mailbox word 22 is nonzero while an API mutates views;
+debuggers wait for zero before taking a coherent snapshot. Only the foreground
+window receives keyboard input.
 
 `K386DOS1` diagnostics version 2 is 2348 bytes: last 16 DOS/BIOS calls per VM,
 actual 76-byte saved CPU frames and 512 bytes read through each active CPU
