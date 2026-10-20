@@ -849,6 +849,16 @@ static int clock_update(int moving) {
     gfx_pointer_hide();gfx_target(1);gfx_origin(w->ox,w->oy);clock_draw(&desk_clock,twelve_hour,w->x*8,w->y*16,w->w*8);gfx_origin(0,0);gfx_present(x,y,200,136);
     Mouse now=mouse_position();gfx_pointer_show(now.x,now.y);return 0;
 }
+static void resources_update(int moving){
+    if(active!=TASKS||!k386_resources_available()||moving||mode||confirm||
+       windows[TASKS].selected<DOS1||((input_ticks()-resource_tick)&0xffffff)<307200)return;
+    Window *w=&windows[TASKS];int rows=w->h-15;if(rows<=0)return;if(rows>6)rows=6;
+    resource_tick=input_ticks();gfx_pointer_hide();gfx_target(1);gfx_origin(w->ox,w->oy);
+    gfx_rect((w->x+2)*8,(w->y+13)*16,(w->w-4)*8,rows*16,PAPER);
+    gfx_clear_text(w->x+2,w->y+13,w->w-4,rows);draw_resources(w);gfx_origin(0,0);
+    gfx_present((w->x+2)*8+w->ox,(w->y+13)*16+w->oy,(w->w-4)*8,rows*16);
+    Mouse now=mouse_position();gfx_pointer_show(now.x,now.y);
+}
 static int dispatch_events(void) {
     unsigned slot;TaskEvent event;int redraw=0;
     for(int budget=0;budget<32&&task_next(&slot,&event);budget++) {
@@ -889,10 +899,6 @@ int main(void) {
             if(changed){for(int id=DOS1;id<=DOS2;id++)if((changed&(1u<<(id-DOS1)))&&windows[id].open&&!windows[id].hidden){
                 if(dos_follow[id-DOS1]){int top=k386_word(id-DOS1,__builtin_offsetof(K386View,row))-(windows[id].h-7);windows[id].top=scroll_clamp(top,25,windows[id].h-6);}
                 invalidate(id);scene_dirty=1;redraw=1;}}
-        }
-        if(k386_resources_available()&&active==TASKS&&
-           ((input_ticks()-resource_tick)&0xffffff)>=153600){
-            resource_tick=input_ticks();invalidate(TASKS);scene_dirty=1;redraw=1;
         }
         int previous_active=active,previous_mode=mode,previous_confirm=confirm;
         Window before=active<0?(Window){0}:windows[active];
@@ -944,6 +950,7 @@ int main(void) {
             }
             gfx_pointer_show(now.x, now.y);
         }
+        resources_update(drag||scrolling>=0);
         previous = now; input_idle();
     }
     if(enhanced){k386_command(K386_END,0,0,0);k386_command(K386_END,1,0,0);}
