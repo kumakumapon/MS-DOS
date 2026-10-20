@@ -890,7 +890,7 @@ int main(void) {
                 if(dos_follow[id-DOS1]){int top=k386_word(id-DOS1,__builtin_offsetof(K386View,row))-(windows[id].h-7);windows[id].top=scroll_clamp(top,25,windows[id].h-6);}
                 invalidate(id);scene_dirty=1;redraw=1;}}
         }
-        if(k386_resources_available()&&windows[TASKS].open&&!windows[TASKS].hidden&&
+        if(k386_resources_available()&&active==TASKS&&
            ((input_ticks()-resource_tick)&0xffffff)>=153600){
             resource_tick=input_ticks();invalidate(TASKS);scene_dirty=1;redraw=1;
         }
