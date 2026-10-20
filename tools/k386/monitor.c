@@ -19,7 +19,8 @@ static void usage(unsigned id){
 }
 static void event(unsigned id,unsigned type,unsigned reason){
     K386View *v=&k386_mailbox.view[id];usage(id);
-    resource_event(id,type,reason,&sessions[id].frame,v->cr2,v->fault);
+    resource_event(id,type,reason,&sessions[id].frame,
+        type==K386_EVENT_FAULT?v->cr2:0,type==K386_EVENT_FAULT?v->fault:0);
 }
 static void limit(unsigned id){
     K386View *v=&k386_mailbox.view[id];
