@@ -11,7 +11,7 @@ $(BUILD)/K386CPU.COM: $(BUILD)/probe.elf
 .PHONY: all
 CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -ffunction-sections -fdata-sections -Wall -Wextra -Werror
 all: $(BUILD)/K386.COM
-$(BUILD)/monitor.o: monitor.c abi.h runtime.h | $(BUILD)
+$(BUILD)/monitor.o: monitor.c abi.h runtime.h resources.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/engine.o: engine.c abi.h runtime.h backing.h arena.h | $(BUILD)
 	$(CC) -m32 $(CFLAGS) -c $< -o $@
@@ -25,7 +25,11 @@ $(BUILD)/runtime.o: runtime.c abi.h runtime.h loader.h arena.h backing.h | $(BUI
 	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/loader.o: loader.c loader.h abi.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -c $< -o $@
-$(BUILD)/monitor.elf: $(BUILD)/transition.o $(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/loader.o $(BUILD)/backing.o $(BUILD)/arena.o $(BUILD)/engine.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o monitor.ld
+$(BUILD)/resources.o: resources.c resources.h abi.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -c $< -o $@
+$(BUILD)/report.o: report.c resources.h abi.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -c $< -o $@
+$(BUILD)/monitor.elf: $(BUILD)/transition.o $(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/loader.o $(BUILD)/backing.o $(BUILD)/arena.o $(BUILD)/engine.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/resources.o $(BUILD)/report.o monitor.ld
 	ld -m elf_i386 --gc-sections -T monitor.ld $(filter %.o,$^) -o $@
 $(BUILD)/K386.COM: $(BUILD)/monitor.elf
 	objcopy -O binary $< $@
@@ -72,10 +76,26 @@ $(BUILD)/FPU.COM: $(BUILD)/fpu.sample.o com.ld
 
 $(BUILD)/loader-test: loader_test.c loader.c loader.h abi.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror loader_test.c loader.c -o $@
-test: $(BUILD)/loader-test $(BUILD)/arena-test
+$(BUILD)/resources-test: resources_test.c resources.c resources.h abi.h | $(BUILD)
+	$(CC) -O2 -Wall -Wextra -Werror resources_test.c resources.c -o $@
+test: $(BUILD)/loader-test $(BUILD)/arena-test $(BUILD)/resources-test
 	$(BUILD)/loader-test
 	$(BUILD)/arena-test
+	$(BUILD)/resources-test
 .PHONY: test
+
+all: $(BUILD)/INTWAIT.COM $(BUILD)/KRESCHK.COM
+$(BUILD)/INTWAIT.COM: $(BUILD)/interrupt.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/interrupt.elf
+	objcopy -O binary $(BUILD)/interrupt.elf $@
+$(BUILD)/resourcecheck.o: resourcecheck.c resources.h abi.h ../window/k386_client.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/resource-client.o: ../window/k386_client.c ../window/k386_client.h resources.h abi.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/resourcecheck.elf: $(BUILD)/resourcecheck.o $(BUILD)/resource-client.o $(BUILD)/start.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o ../filer/com.ld
+	ld -m elf_i386 --gc-sections -T ../filer/com.ld $(filter %.o,$^) -o $@
+$(BUILD)/KRESCHK.COM: $(BUILD)/resourcecheck.elf
+	objcopy -O binary $< $@
 all: $(BUILD)/KSH.COM
 $(BUILD)/shell.o: shell.c ../filer/filer.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@

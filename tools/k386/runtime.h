@@ -8,6 +8,7 @@ typedef struct {
     k32 dta;
     k16 psp,vif,last_exit,search_valid,handles[K386_HANDLES];
     k8 search[21];
+    char program[16];
 } K386Process;
 typedef struct {
     K386Backing backing;
@@ -32,5 +33,6 @@ void k386_broker(unsigned id);
 void k386_reap(unsigned id);
 void k386_release(unsigned id);
 void k386_clock(unsigned id);
+k32 k386_clock_ticks(void);
 int kernel_interrupt(K386Frame *f,k16 cs,k16 ip);
 #endif

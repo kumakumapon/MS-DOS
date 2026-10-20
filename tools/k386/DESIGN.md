@@ -31,8 +31,13 @@ success of a command does not establish general COMMAND compatibility.
 - `loader.c`: bounded COM/MZ header, entry/stack/allocation and relocation checks.
 - `runtime.c`: private RAM, PSP/environment, EXEC process stack, inherited file
   handles, private search state and serialized read-only host DOS services.
-- `tools/window/k386_client.c`: mailbox client and alternating GUI polling;
+- `resources.c` / `report.c`: guest weighted scheduler, execution budgets,
+  typed resource records, bounded lifecycle journal and compact diagnostic text.
+- `tools/window/k386_client.c`: mailbox client and monitor-scheduled GUI polling;
   the GUI never becomes a host-side process manager.
+
+See [RESOURCES.md](RESOURCES.md) for resource-control usage, API, timing units,
+interruption semantics and limits. Older monitors retain alternating polling.
 
 `K386ABI1` version 1 remains 4240 bytes. Commands create, step, input, stop,
 resume and end either session. Each 2044-byte view contains state, last CPU

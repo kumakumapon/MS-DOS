@@ -22,9 +22,9 @@ static void snapshot(unsigned id){
     get(id,base,k386_diagnostics.memory[id],n);
 }
 static k8 port(k16 p){k8 v;__asm__ volatile("inb %w1,%0":"=a"(v):"d"(p));return v;}
-static k32 ticks(void){k8 hi,mid,lo;do{hi=port(0x5f);mid=port(0x5d);lo=port(0x5c);}while(mid!=port(0x5d)||hi!=port(0x5f));return (k32)hi<<16|(k32)mid<<8|lo;}
+k32 k386_clock_ticks(void){k8 hi,mid,lo;do{hi=port(0x5f);mid=port(0x5d);lo=port(0x5c);}while(mid!=port(0x5d)||hi!=port(0x5f));return (k32)hi<<16|(k32)mid<<8|lo;}
 void k386_clock(unsigned id){
-    K386Runtime *r=&runtime[id];K386View *v=&k386_mailbox.view[id];k32 now=ticks();
+    K386Runtime *r=&runtime[id];K386View *v=&k386_mailbox.view[id];k32 now=k386_clock_ticks();
     if(!r->clock){r->clock=now;return;}
     k32 elapsed=(now-r->clock)&0xffffff;r->clock=now;
     if(r->timer_armed){
@@ -125,6 +125,8 @@ static int load_program(unsigned id,int h,const K386Image *p,const k8 *tail,cons
     for(unsigned i=0;i<(unsigned)tail[0]+2;i++)header[0x80+i]=tail[i];
     put(id,base,header,256);if(!p->header)putword(id,base+0xfffc,0);
     r->process=(K386Process){0};r->process.psp=psp;r->process.vif=1;r->process.dta=(k32)psp<<16|0x80;
+    const char *basename=path;for(unsigned i=0;path[i];i++)if(path[i]=='\\')basename=path+i+1;
+    fd_text(r->process.program,basename,sizeof r->process.program);
     s->frame=(K386Frame){0};s->frame.cs=(p->cs+psp-0x8000)&65535;s->frame.eip=p->ip;s->frame.ss=(p->ss+psp-0x8000)&65535;s->frame.esp=p->sp;
     s->frame.ds=s->frame.es=psp;s->frame.edx=psp;s->frame.eflags=0x20202;s->request=s->line_count=0;
     v->state=K386_RUNNING;v->physical=r->backing.physical+base;v->psp=psp;v->fault=v->exit_code=0;v->counter=v->ticks=v->cr2=0;

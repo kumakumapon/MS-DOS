@@ -18,6 +18,8 @@ static unsigned dos_edit[2];
 static int dos_follow[2]={1,1};
 static int dos_horizontal[2];
 static u32 dos_tick;
+static u32 resource_tick;
+static unsigned event_age;
 static int scrolling = -1, scroll_grab;
 static u32 clock_tick;
 /* Union of window damage, kept separate from the status/taskbar rows. */
@@ -59,6 +61,12 @@ static void text(int x, int y, const char *s, int width, int selected) {
 }
 static void line(Window *w, int row, const char *s, int selected) {
     if (row < w->h - 5) text(w->x + 2, w->y + 3 + row, s, w->w - 4, selected);
+}
+static void draw_resources(Window *w){
+    if(!k386_resources_available())return;
+    if(w->selected<DOS1){line(w,10,"Select DOS 1 or DOS 2 for resource controls",0);return;}
+    if(k386_command(K386_DESCRIBE,w->selected-DOS1,event_age,0))return;
+    char row[72];for(unsigned i=0;i<6;i++){k386_report_line(i,row);line(w,10+i,row,0);}
 }
 static void button(int x, int y, int width, const char *caption, int pressed) {
     int bg = pressed ? SELECTED : BUTTON;
@@ -405,10 +413,15 @@ static void draw_window(int id) {
             fd_text(row+at,i>=DOS1&&enhanced?dos_states[state<=4?state:4]:task_state(i),sizeof row-at);
             line(w,i,row,w->selected==i);
         }
+        draw_resources(w);
         button(w->x+2,w->y+w->h-2,8,"Switch",0);
         button(w->x+11,w->y+w->h-2,7,"Stop",0);
         button(w->x+19,w->y+w->h-2,8,"Start",0);
         if(w->w>=36)button(w->x+28,w->y+w->h-2,6,"End",0);
+        if(k386_resources_available()&&w->w>=66){
+            static const char *controls[]={"Prio","Limit","Break"};
+            for(int i=0;i<3;i++)button(w->x+38+i*8,w->y+w->h-2,7,controls[i],0);
+        }
     } else if(id>=DOS1) {
         unsigned session=id-DOS1;
         if(!enhanced){line(w,0,"Use the KDESK/386 experimental disk",0);line(w,1,"DOS windows need K386 without EMM386",0);}
@@ -552,7 +565,8 @@ static int handle_key(int key) {
  * rather than repainting the desktop twice for every input batch. */
 static int guest_input(int id,unsigned key) {
     return enhanced&&id>=DOS1&&!dos_edit[id-DOS1]&&!mode&&!confirm&&key<128
-        &&key!=9&&key!=12&&key!=14&&key!=15&&key!=20&&key!=16&&key!=18&&key!=5;
+        &&key!=9&&key!=12&&key!=14&&key!=15&&key!=20&&key!=16&&key!=18&&key!=5
+        &&(key!=3||!k386_resources_available());
 }
 static int app_key(int id,int key) {
     Window *w=&windows[id];
@@ -563,8 +577,16 @@ static int app_key(int id,int key) {
         if(key==13)focus(selected);
         if(selected>=DOS1&&enhanced) {
             invalidate(selected);scene_dirty=1;
+            unsigned session=selected-DOS1;
+            if(k386_resources_available()){
+                if(key=='p'||key=='P')k386_command(K386_PRIORITY,session,0xffff,0);
+                if(key=='l'||key=='L')k386_command(K386_BUDGET,session,0xffff,0);
+                if(key=='b'||key=='B')if(k386_command(K386_INTERRUPT,session,0,0))message("No running DOS program to interrupt");
+                if(key=='['&&event_age+1<K386_EVENTS&&!k386_command(K386_DESCRIBE,session,event_age+1,0))event_age++;
+                if(key==']'&&event_age)event_age--;
+            }
             if(key=='s'||key=='S')k386_command(K386_STOP,selected-DOS1,0,0);
-            if(key=='r'||key=='R'){if(k386_word(selected-DOS1,0)>=K386_FAULTED||k386_word(selected-DOS1,0)==K386_ENDED)k386_command(K386_CREATE,selected-DOS1,0,"KSH.COM");else k386_command(K386_RESUME,selected-DOS1,0,0);focus(selected);}
+            if(key=='r'||key=='R'){if(k386_word(selected-DOS1,0)>=K386_FAULTED||k386_word(selected-DOS1,0)==K386_ENDED)k386_command(K386_CREATE,selected-DOS1,0,"KSH.COM");else if(k386_command(K386_RESUME,selected-DOS1,0,0))message("Cannot resume; raise or disable the CPU limit in Tasks");focus(selected);}
             if(key=='k'||key=='K')k386_command(K386_END,selected-DOS1,0,0);
             return 0;
         }
@@ -579,13 +601,15 @@ static int app_key(int id,int key) {
         if(key==1002){if(dos_horizontal[session]<80-(w->w-6))dos_horizontal[session]++;return 0;}
         if(key==12){dos_edit[session]=1;dos_path[session][0]=0;message("COM/EXE command: type a name, Enter runs (files read-only)");return 0;}
         if(key==16){k386_command(K386_STOP,session,0,0);return 0;}
-        if(key==18){k386_command(K386_RESUME,session,0,0);return 0;}
+        if(key==18){if(k386_command(K386_RESUME,session,0,0))message("Cannot resume; raise or disable the CPU limit in Tasks");return 0;}
         if(key==5){k386_command(K386_END,session,0,0);return 0;}
         if(dos_edit[session]) {
             int n=fd_len(dos_path[session]);
             if(key==8&&n)dos_path[session][--n]=0;
             else if(key>=32&&key<=126&&n<127){dos_path[session][n]=key;dos_path[session][n+1]=0;}
             else if(key==13){if(k386_command(K386_CREATE,session,0,dos_path[session]))message("Cannot load program (path, memory or unsupported image)");else{dos_edit[session]=0;dos_follow[session]=1;w->top=0;message("V86 program running; files read-only");}}
+        } else if(key==3&&k386_resources_available()){
+            if(k386_command(K386_INTERRUPT,session,0,0))message("No running DOS program to interrupt");else message("DOS program interrupted");
         } else if(key==KEY_PAGEUP){dos_follow[session]=0;if(w->top)w->top--;}
         else if(key==KEY_PAGEDOWN){if(w->top<25-(w->h-6))w->top++;dos_follow[session]=w->top>=25-(w->h-6);}
         else if(key>=0&&key<=127){dos_follow[session]=1;if(k386_command(K386_KEY,session,key,0)){message("Input queue full; resume the session and retry");scene_dirty=1;}}
@@ -760,6 +784,9 @@ static int mouse_event(Mouse now, int previous, int *redraw) {
                 if(col>=11&&col<18)return 's';
                 if(col>=19&&col<27)return 'r';
                 if(w->w>=36&&col>=28&&col<34)return 'k';
+                if(k386_resources_available()&&w->w>=66){
+                    if(col>=38&&col<62&&(col-38)%8<7)return "plb"[(col-38)/8];
+                }
             }
         } else if (id == LAUNCHER || id == FILES) {
             if(cy==w->y+w->h-2) {
@@ -848,6 +875,7 @@ int main(void) {
     windows[TASKS]=(Window){8,2,48,18,0,0,0,0,0,0};
     windows[DOS1]=(Window){2,2,46,17,0,0,0,0,0,0};windows[DOS2]=(Window){32,5,46,17,0,0,0,0,0,0};
     enhanced=k386_probe();
+    if(k386_resources_available())windows[TASKS]=(Window){3,1,74,22,0,0,0,0,0,0};
     calc_init(&calculator);clock_read(&desk_clock);clock_tick=input_ticks();
     load(); refresh(); focus(LAUNCHER); enter_graphics();
     damage(0,0,640,400);draw(); Mouse previous = mouse_read(); gfx_pointer_show(previous.x, previous.y);
@@ -861,6 +889,10 @@ int main(void) {
             if(changed){for(int id=DOS1;id<=DOS2;id++)if((changed&(1u<<(id-DOS1)))&&windows[id].open&&!windows[id].hidden){
                 if(dos_follow[id-DOS1]){int top=k386_word(id-DOS1,__builtin_offsetof(K386View,row))-(windows[id].h-7);windows[id].top=scroll_clamp(top,25,windows[id].h-6);}
                 invalidate(id);scene_dirty=1;redraw=1;}}
+        }
+        if(k386_resources_available()&&windows[TASKS].open&&!windows[TASKS].hidden&&
+           ((input_ticks()-resource_tick)&0xffffff)>=153600){
+            resource_tick=input_ticks();invalidate(TASKS);scene_dirty=1;redraw=1;
         }
         int previous_active=active,previous_mode=mode,previous_confirm=confirm;
         Window before=active<0?(Window){0}:windows[active];

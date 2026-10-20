@@ -1,53 +1,50 @@
 # K386 compatibility and verification record
 
-The merged #16 introduced the experimental PM/V86 runtime. Development continues
-in MS-DOS #17 and webnp2 #17; final source pins and CI results are recorded there.
-The requested general DOS/BIOS environment is still incomplete, so these PRs
-remain drafts until that acceptance boundary is met.
+Merged PRs #16-18 provide the experimental guest PM/V86 runtime and DOS process
+support. The resource-control continuation follows in MS-DOS #19 and webnp2 #19.
+These PRs record the exact source pins, CI/browser results and remaining work.
 
-## Implemented in this continuation
+## Implemented
 
-- Fresh views contain spaces; control bytes are rendered blank rather than `?`.
-- Each DOS window opens the guest KSH command shell. HELP/VER/DIR/TYPE/CD/ECHO/CLS/
-  TIME/EXIT use guest DOS services. Console output follows the viewport.
-- COM and bounded small MZ loading, relocation/header/entry/stack checks and PSP
-  command tails. The historical DOS kernel and NP2kai core are unchanged.
-- One child EXEC level with private saved parent RAM, low page, CPU, DTA and
-  virtual IF; normal exits and contained faults return to that parent.
-- Per-session read-only directory searches and current directory, serialized
-  real-mode DOS calls, restored host DTA and strict A: paths/device rejection.
-  Reserved DTA drive/network/cluster state must match a broker-issued search;
-  modified or unissued continuations are rejected before reaching host DOS.
-- PUSHF/PUSHFD, POPF/POPFD, IRET/IRETD, user software interrupts and virtual IF.
-  PC-98 BIOS keyboard peek uses BH and does not consume input.
+- Two isolated V86 contexts, locked XMS-backed conventional RAM, private IVT,
+  TVRAM, text windows, directories/search state and input queues.
+- CPU-generated PM/paging/#UD/#PF/V86 records, PIT preemption, virtual IF,
+  bounded exception containment and safe real-mode return.
+- KSH plus bounded COM/MZ execution, private PSP/environment/trusted DOS arenas,
+  four EXEC levels, inherited read-only handles and shared file cursors.
+- Bounded operation of the bundled original COMMAND.COM, exercised explicitly
+  by the process suite; this is not general DOS/BIOS compatibility.
+- Private PC-98 BIOS one-shot timers with waiting wakeups and ownership across
+  EXEC. FDXMS286 supplies the monitor's private XMS backing; EMM386 is omitted.
+- Sanitized DOS text cells, existing window/mouse/scroll/clipboard/GUI apps and
+  normal KDESK fallback.
+- The #19 continuation adds monitor-owned weighted scheduling, CPU time budgets,
+  resource/generation records, a bounded event journal and current-program
+  interruption. See RESOURCES.md for controls, ABI, accounting and boundaries.
 
 ## Verification
 
-The initial question-mark display was reproduced in the real wasm desktop.
-Host loader tests cover malformed/truncated headers, relocations, memory size,
-CS:IP and SS:SP. Initial browser bring-up passes KSH, VER/ECHO/DIR, real MZ
-relocation and arguments, virtual flags/IRET, existing P98TEST.COM, and recovery
-to KSH after a child page fault. Expanded E2E and final regression/CI results are
-recorded in the PRs rather than inferred from unit tests.
+Native loader/arena/resource-policy tests run with the guest builds. Existing
+Playwright suites inspect actual CPU frames, page tables, CR3, PSP/module RAM,
+independent input/screens, continued background work, timers, handles and file
+contents. The resource suite runs KRESCHK.COM inside real DOS, then exercises
+GUI controls and monitor-owned records. Tests check the full exported disk hash;
+no synthetic browser DOS processes or fabricated CPU snapshots are used.
 
-The required browser suites inspect actual CPU-generated records, private RAM,
-PTE/CR3, independent input/screens and continued background execution. They also
-check interleaved DTA searches, parent/child return, bad images, denied writes,
-GUI coexistence and the whole exported disk hash. Fixtures written by native
-DOS in an isolated browser are compared against their prepared baseline; the
-separate core suite still requires the original full image hash unchanged.
+Verification status belongs to the PR/CI for the exact source revision, not to
+an assumption that all implemented paths already pass. Normal GUI, core, shell,
+process and resource suites remain separate regression gates.
 
 ## Incomplete compatibility
 
-This remains a DOS-service runtime, not two independently booted DOS kernels.
-General COMMAND.COM, full BIOS, asynchronous virtual IRQs, large/overlaid EXEs,
-additional DOS heap allocations, environment/FCB/internal DOS structures,
-nonstandard open-handle inheritance and nested EXEC beyond one level are
-unimplemented. Parent snapshots use conventional memory and may return DOS
-error 8. Input is ASCII; KDESK function keys and Tab remain GUI controls.
+This is a DOS-service runtime, not two independently booted DOS kernels. Full
+BIOS/IRQ/TSR behavior, arbitrary COMMAND programs, large/overlaid EXEs, full NLS
+and Japanese DOS input, complete FCB/internal DOS structures and guest XMS/EMS
+APIs remain incomplete. Maximum EXEC depth is four; arenas and handles are bounded.
 
-Shared disk writes and direct GDC/PEGC graphics virtualization are unavailable.
-x87/SIMD save/restore is not implemented: FPU use faults within its VM instead
-of sharing state. K386 requires real mode and an unowned masked IRQ0; its separate
-boot profile omits EMM386/XMS loaders. Normal KDESK remains available unchanged
-when the monitor is absent. Existing foreground EXECs pause GUI-driven VM quanta.
+Shared disk writes and direct GDC/PEGC virtualization remain unavailable. Host
+DOS broker operations serialize read-only disk access. x87/SIMD is not saved:
+use faults inside its VM. Existing foreground real-DOS EXEC pauses GUI-driven
+scheduling. The monitor requires real mode and masked/unowned host IRQ0.
+CPU budgets measure emulated execution/service time, with bounded-quantum
+overshoot, rather than a hard wall deadline or browser CPU percentage.
