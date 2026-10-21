@@ -113,3 +113,12 @@ One child EXEC level is supported; parent RAM/CPU/DTA are restored on return.
 This remains experimental: general COMMAND.COM/BIOS, large/overlaid EXEs,
 virtual hardware IRQs and TSRs are incomplete. Files are read-only and FPU
 instructions are contained as exceptions. Normal DOS EXEC tools stay foreground-only.
+
+K386 resource controls (experimental image only)
+Ctrl+T, then select DOS 1 / DOS 2. P/Prio cycles priority. L/Limit cycles
+CPU time limits off / 1000 / 5000 / 10000 ms since root launch. An exhausted
+session stops with RAM retained: raise/disable Limit, then R/Start to resume.
+B/Break, or Ctrl+C in a DOS window, interrupts the current program and returns
+to its EXEC parent when present. K/End terminates all levels and frees XMS.
+[ and ] browse the bounded event journal. The panel shows execution time,
+XMS/heap/handles, process depth, current program and stop/fault reasons.
