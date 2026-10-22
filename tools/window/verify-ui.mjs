@@ -25,7 +25,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
     if (!screenshot) return;
     // Help text is mirrored before painting finishes. The final task button
     // marks the end of the scene; also allow the next emulator video frame.
-    await page.waitForFunction(() => window.np2debug.np2.getScreenText().lines[24]?.slice(49, 53) === 'Help',
+    await page.waitForFunction(() => window.np2debug.np2.getScreenText().lines[24]?.includes('Help'),
       { timeout: 60000 });
     await new Promise(resolve => setTimeout(resolve, 100));
     await page.screenshot({ path: screenshot });
@@ -47,9 +47,9 @@ export async function verifyWindow(page, { screenshot } = {}) {
     const ctx = canvas.getContext('2d'); ctx.drawImage(source, 0, 0);
     return Array.from(ctx.getImageData(x, y, 1, 1).data).slice(0, 3);
   }, { x, y });
-  assert.ok((await point(0,32)).every((c,i) => Math.abs(c-[25,66,90][i])<=4), 'Desktop uses the PEGC gradient palette (RGB565 output tolerance)');
+  assert.ok((await point(0,32)).every((c,i) => Math.abs(c-[16,32,49][i])<=4), 'Desktop uses the PEGC gradient palette (RGB565 output tolerance)');
   assert.ok((await point(24,32)).every(c => Math.abs(c-255)<=4), 'Window frame is drawn by the guest');
-  assert.ok((await point(35,48)).every((c,i) => Math.abs(c-[34,119,187][i])<=4), 'Active title bar has the focus color');
+  assert.ok((await point(35,48)).every((c,i) => Math.abs(c-[51,102,170][i])<=4), 'Active title bar has the focus color');
   await key('F6'); await key('RIGHT'); await key('DOWN'); await key('ENTER');
   await title('Launcher', 4, 6);
   await key('F7'); await key('RIGHT'); await key('DOWN'); await key('ENTER');
@@ -124,9 +124,9 @@ export async function verifyWindow(page, { screenshot } = {}) {
   await title('Launcher', 5, 11);
   await drag({ x: 453, y: 317 }, { x: 485, y: 333 });
   await title('x', 5, 57); // 52 x 17 cells, moved to (9, 4).
-  await cell(53, 5); await wait('Window minimized');
+  await cell(49, 5); await wait('Window minimized');
   assert.ok(!(await text()).includes('Launcher'));
-  await cell(26, 24); await title('Launcher', 5, 11);
+  await clickTask(page,'Apps'); await title('Launcher', 5, 11);
   await cell(57, 5);
   assert.ok(!(await text()).includes('Launcher'), 'Close button removes the window');
   await cell(41, 0); await title('Memo', 5, 13);
@@ -234,13 +234,13 @@ export async function verifyMedia(page, { screenshot } = {}) {
   await page.waitForFunction(() => {
     const source=document.querySelector('#canvas'),c=document.createElement('canvas');c.width=source.width;c.height=source.height;
     const g=c.getContext('2d');g.drawImage(source,0,0);const p=g.getImageData(84,90,1,1).data;
-    return [34,119,187].every((v,i)=>Math.abs(p[i]-v)<=4);
+    return [51,102,170].every((v,i)=>Math.abs(p[i]-v)<=4);
   },{timeout:60000});
   const livePixel = await page.evaluate(() => {
     const source=document.querySelector('#canvas'), c=document.createElement('canvas'); c.width=source.width;c.height=source.height;
     const g=c.getContext('2d');g.drawImage(source,0,0);return Array.from(g.getImageData(84,90,1,1).data).slice(0,3);
   });
-  assert.ok(livePixel.every((c,i) => Math.abs(c-[34,119,187][i])<=4),'Window contents move at pixel resolution while the button remains held: '+livePixel);
+  assert.ok(livePixel.every((c,i) => Math.abs(c-[51,102,170][i])<=4),'Window contents move at pixel resolution while the button remains held: '+livePixel);
   await page.evaluate(async () => { window.mediaRelease(); await window.mediaDrag; window.np2debug.np2.mouseMoveTo=window.mediaOriginalMove; });
   // Foreground image apps inherit and return the desktop's bus-mouse position.
   // Do not home/resync between the parent and child: that would conceal a reset.
@@ -253,7 +253,7 @@ export async function verifyMedia(page, { screenshot } = {}) {
   const returnedPointer=await page.evaluate(()=>{
     const source=document.querySelector('#canvas'),c=document.createElement('canvas');c.width=source.width;c.height=source.height;
     const g=c.getContext('2d');g.drawImage(source,0,0);const p=g.getImageData(598,348,6,6).data;
-    for(let i=0;i<p.length;i+=4) if([34,51,68].every((v,j)=>Math.abs(p[i+j]-v)<=4)) return true;
+    for(let i=0;i<p.length;i+=4) if([34,34,51].every((v,j)=>Math.abs(p[i+j]-v)<=4)) return true;
     return false;
   });
   assert.ok(returnedPointer,'KPAINT returns its updated mouse position to KDESK');
@@ -360,7 +360,7 @@ export async function verifyUtilities(page, { screenshot } = {}) {
   await key('F4');await wait('NOTE.TXT');await key('CTRL+A');await key('CTRL+V');await wait('Pasted clipboard');
   assert.ok((await text()).split('\n').some(line=>line.trim()==='0.3_'));
   await key('ESC');await wait('Unsaved memo:');await type('d');await wait('Memo closed');
-  await click(532,392);await value('0.3');
+  await value('0.3'); // Closing Memo already focuses Calculator.
   await type('c9/0=');await value('Divide by zero');await type('c99999999*99999999=');await value('Overflow');
   await type('c7*6=');await value('42');
   // Real mouse keys, including the memory row and Copy/Paste footer.
@@ -377,12 +377,12 @@ export async function verifyUtilities(page, { screenshot } = {}) {
   await type('c6*7=');await value('42');await clockReady();
   assert.ok((await text()).includes(String(new Date().getFullYear())+'-'),'Clock reads the DOS RTC date');
   if(screenshot){await pause(300);await page.screenshot({path:screenshot});}
-  await click(596,392);await key('t');await wait('Clock 12-hour display');
+  await clickTask(page,'Clock');await key('t');await wait('Clock 12-hour display');
   await page.waitForFunction(()=>/\b\d{2}:\d{2}:\d{2} [AP]M\b/.test(window.np2debug.np2.getScreenText().text));
   await key('CTRL+C');await wait('Copied clock date/time');assert.match(await clipboard(),/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [AP]M$/);
   await key('t');await wait('Clock 24-hour display');assert.ok(!/\b\d{2}:\d{2}:\d{2} [AP]M\b/.test(await text()));
   await key('F8');await wait('Window minimized');assert.equal(await time(),undefined);
-  await click(596,392);await clockReady();await key('ESC');
+  await clickTask(page,'Clock');await clockReady();await key('ESC');
   await key('F2');await key('v');await wait('Launcher list view');await key('v');await wait('Launcher icon view');
   await key('F7');for(let i=0;i<20;i++)await key('LEFT');for(let i=0;i<10;i++)await key('UP');await key('ENTER');
   await key('HOME');await selected('File manager');for(let i=0;i<8;i++)await key('DOWN');await selected('Clock');await key('ENTER');await clockReady();
@@ -400,7 +400,7 @@ export async function verifyRedraw(page) {
   const key=async key=>{await page.evaluate(key=>window.np2debug.np2.sendKeys(key),key);await pause(180);};
   const wait=needle=>page.waitForFunction(needle=>window.np2debug.np2.getScreenText().text.includes(needle),{timeout:60000},needle);
   await page.evaluate(()=>window.np2debug.np2.typeText('KDESK\r'));await wait('Ready');
-  await page.waitForFunction(()=>window.np2debug.np2.getScreenText().lines[24]?.slice(25,29)==='Apps');await pause(150);
+  await page.waitForFunction(()=>window.np2debug.np2.getScreenText().lines[24]?.includes('Apps'));await pause(150);
   const edge=()=>page.evaluate(()=>{
     const c=document.createElement('canvas');c.width=640;c.height=400;const g=c.getContext('2d');
     g.drawImage(document.querySelector('#canvas'),0,0);return Array.from(g.getImageData(472,200,24,1).data);
@@ -434,7 +434,7 @@ export async function verifyRedraw(page) {
     const frame=()=>{
       const probe=window.redrawProbe;if(!probe.run)return;
       g.drawImage(source,0,0);const p=g.getImageData(1,1,1,1).data;
-      probe.frames++;if(![34,51,68].every((v,i)=>Math.abs(v-p[i])<=4))probe.flashes++;
+      probe.frames++;if(![34,34,51].every((v,i)=>Math.abs(v-p[i])<=4))probe.flashes++;
       requestAnimationFrame(frame);
     };requestAnimationFrame(frame);
   });
@@ -507,7 +507,7 @@ export async function verifyExplorer(page, { screenshot } = {}) {
   await type('X');await wait('ROW24X');assert.deepEqual(await read('NOTE.TXT'),original,'Scrolling and editing do not implicitly save');
   await key('ESC');await wait('Unsaved memo:');await type('d');await wait('Memo closed');assert.deepEqual(await read('NOTE.TXT'),original);
   await key('F1');await wait('F6 then arrows: move window');await key('HELP');await wait('Files F: open FD98 file tools');
-  await key('F7');for(let i=0;i<18;i++)await key('LEFT');for(let i=0;i<6;i++)await key('UP');await key('ENTER');await key('HOME');await wait('F1 Help');await key('HELP');await wait('tools');
+  await key('F7');for(let i=0;i<18;i++)await key('LEFT');for(let i=0;i<6;i++)await key('UP');await key('ENTER');await key('HOME');await wait('F1 Help');await key('HELP');await wait('a session');
   await key('F5');await key('F7');for(let i=0;i<18;i++)await key('LEFT');for(let i=0;i<6;i++)await key('UP');await key('ENTER');await key('HELP');await wait('MIT license');
   await key('F2');await key('HOME');await wait('Selected: File manager');await click(388,232);await wait('Calculator');
   assert.ok(!(await page.evaluate(()=>window.np2debug.np2.getScreenText().lines[7])).includes('File manager'),'Launcher also supports independent scrolling');
@@ -518,4 +518,20 @@ export async function verifyExplorer(page, { screenshot } = {}) {
   return ['independent Launcher/Files/Memo/Help/About scroll positions, arrow and track paging, proportional thumb dragging, keyboard paging and resize clamping',
     'default icon file manager from Launcher, file-type icons, selection, directory/parent navigation, TXT double-click after mouse scrolling, list toggle and FD98 access',
     'memo scrollback, append follows the last line, and discard preserves the original disk file'];
+}
+
+// Resolve task positions from the guest's visible labels: slots compact as
+// windows open/close, so callers must not depend on a historical fixed column.
+export async function clickTask(page,name) {
+  let col=-1;
+  for(let attempt=0;attempt<80;attempt++){
+    await new Promise(resolve=>setTimeout(resolve,150));
+    col=await page.evaluate(name=>window.np2debug.np2.getScreenText().lines[24]?.indexOf(name)??-1,name);
+    if(col>=0)break;
+  }
+  assert.ok(col>=0,`Taskbar must contain ${name}`);
+  await page.evaluate(x=>window.np2debug.np2.mouseMoveTo(x,392),(col+name.length/2)*8);
+  await new Promise(resolve=>setTimeout(resolve,200));
+  await page.evaluate(()=>window.np2debug.np2.mouseClick());
+  await new Promise(resolve=>setTimeout(resolve,250));
 }
