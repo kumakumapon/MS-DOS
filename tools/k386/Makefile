@@ -10,7 +10,7 @@ $(BUILD)/K386CPU.COM: $(BUILD)/probe.elf
 	objcopy -O binary $< $@
 .PHONY: all
 CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -ffunction-sections -fdata-sections -Wall -Wextra -Werror
-all: $(BUILD)/K386.COM
+all: $(BUILD)/K386.EXE
 $(BUILD)/monitor.o: monitor.c abi.h runtime.h resources.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/engine.o: engine.c abi.h runtime.h backing.h arena.h | $(BUILD)
@@ -31,8 +31,8 @@ $(BUILD)/report.o: report.c resources.h abi.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -c $< -o $@
 $(BUILD)/monitor.elf: $(BUILD)/transition.o $(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/loader.o $(BUILD)/backing.o $(BUILD)/arena.o $(BUILD)/engine.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/resources.o $(BUILD)/report.o monitor.ld
 	ld -m elf_i386 --gc-sections -T monitor.ld $(filter %.o,$^) -o $@
-$(BUILD)/K386.COM: $(BUILD)/monitor.elf
-	objcopy -O binary $< $@
+$(BUILD)/K386.EXE: $(BUILD)/monitor.elf ../mz/build.py
+	python3 ../mz/build.py $< $@
 all: $(BUILD)/COUNTER.COM $(BUILD)/ECHO.COM $(BUILD)/FAULT.COM
 $(BUILD)/%.sample.o: %.S | $(BUILD)
 	as --32 $< -o $@

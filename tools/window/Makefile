@@ -1,17 +1,21 @@
 CC ?= gcc
 BUILD ?= build
-# GCC 12+ size optimization/LTO preserves the existing 12KiB COM stack guard.
+# MZ desktop code/data are separate; COM image tools retain their stack guard.
 CFLAGS = -m16 -march=i386 -mregparm=3 -mpreferred-stack-boundary=2 -Oz -flto -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -ffunction-sections -fdata-sections -Wall -Wextra -Werror -DDOS
 
-all: $(BUILD)/KVIEW.COM $(BUILD)/KPAINT.COM $(BUILD)/COLORS.BMP $(BUILD)/KIMAGE.TXT $(BUILD)/KDESK.COM $(BUILD)/KDESK.TXT $(BUILD)/KDLIC.TXT
+all: $(BUILD)/KVIEW.COM $(BUILD)/KPAINT.COM $(BUILD)/COLORS.BMP $(BUILD)/KIMAGE.TXT $(BUILD)/KDESK.EXE $(BUILD)/KDESK.TXT $(BUILD)/KDLIC.TXT
 $(BUILD):
 	mkdir -p $@
 $(BUILD)/start.o: ../filer/start.s | $(BUILD)
+	as --32 $< -o $@
+$(BUILD)/exe-start.o: exe-start.s | $(BUILD)
 	as --32 $< -o $@
 $(BUILD)/core.o: ../filer/core.c ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/dos98.o: ../filer/dos.c ../filer/filer.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -DPC98 -c $< -o $@
+$(BUILD)/exe-dos98.o: ../filer/dos.c ../filer/filer.h ../filer/sjis.h | $(BUILD)
+	$(CC) $(CFLAGS) -DPC98 -DDOS_MZ -c $< -o $@
 $(BUILD)/window.o: window.c k386_client.h ../k386/abi.h ../k386/resources.h tasks.h scroll.h hardware.h clipboard.h utilities.h ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/k386_client.o: k386_client.c k386_client.h ../k386/abi.h ../k386/resources.h | $(BUILD)
@@ -28,10 +32,10 @@ $(BUILD)/memory.o: memory.c hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/hardware.o: hardware.c hardware.h ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/start.o $(BUILD)/core.o $(BUILD)/dos98.o ../filer/com.ld
-	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,-T,../filer/com.ld $(filter %.o,$^) -o $@
-$(BUILD)/KDESK.COM: $(BUILD)/window.elf
-	objcopy -O binary $< $@
+$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
+	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,--no-check-sections,-T,exe.ld $(filter %.o,$^) -o $@
+$(BUILD)/KDESK.EXE: $(BUILD)/window.elf ../mz/build.py
+	python3 ../mz/build.py $< $@
 $(BUILD)/KDESK.TXT: KDESK.TXT | $(BUILD)
 	python3 -c "from pathlib import Path; Path('$@').write_bytes(Path('$<').read_text().replace('\n', '\r\n').encode('ascii'))"
 $(BUILD)/KDLIC.TXT: LICENSE | $(BUILD)
@@ -67,7 +71,8 @@ test: $(BUILD)/calculator-test $(BUILD)/scroll-test $(BUILD)/tasks-test
 	$(BUILD)/calculator-test
 	$(BUILD)/scroll-test
 	$(BUILD)/tasks-test
+	python3 -m unittest discover -s ../mz -p 'test_*.py'
 .PHONY: test
 
 # Rebuild every native object if the internal C calling convention changes.
-$(BUILD)/window.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/core.o $(BUILD)/dos98.o $(BUILD)/paint.o $(BUILD)/view.o $(BUILD)/bitmap.o: Makefile
+$(BUILD)/window.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/core.o $(BUILD)/dos98.o $(BUILD)/exe-dos98.o $(BUILD)/paint.o $(BUILD)/view.o $(BUILD)/bitmap.o: Makefile

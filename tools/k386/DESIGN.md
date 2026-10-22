@@ -174,8 +174,22 @@ Existing saved images are not rewritten by the importer or by read-only VMs.
 
 `make -C tools/k386 all test` builds the monitor, loader/arena tests and original
 fixtures with GNU GCC/binutils. `make -C tools/window all test` builds KDESK and
-its existing app tests. KDESK's register-parameter ABI and COM stack linker
-limits remain enforced. The monitor's own stack space is separately asserted.
+its existing app tests. KDESK.EXE uses independent code and data/stack segments,
+an MZ data-segment relocation and a 12 KiB stack reservation. Both near-address
+segments are limited to 64 KiB. The monitor's own stack space is separately asserted.
+
+K386.EXE keeps its real/protected-mode code and data in one 64 KiB module to
+preserve the existing descriptor/mapping contract. DOS allocates a separate PSP
+before that module; resize and TSR paragraph counts include that PSP. Broker
+calls switch DOS ownership to the PSP returned by INT 21h/62h, not to the monitor
+segment. The MZ header requests an exact bounded allocation instead of all free
+memory. The resident monitor remains loaded after KDESK exits.
+
+`tools/mz/build.py` packages linker-defined load/memory bounds and relocations.
+KDESK's child EXEC uses its actual PSP for default FCBs and its data segment for
+the command tail and parameter block. COM image tools discover their suspended
+parent's clipboard within the parent-owned MCB, including the separate data
+segment. The original COM startup/linker remains available to those tools.
 
 webnp2 pins the tested full native SHA in `scripts/prepare-msdos4-cpanel-ci.sh`.
 That importer builds the ordinary DOS image, then a separate K386 image from the

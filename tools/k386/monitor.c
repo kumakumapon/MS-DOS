@@ -7,7 +7,7 @@ K386Session sessions[2];
 k32 monitor_base,page_directory[2],selected,saved_cr0,saved_cr3;
 k8 transfer[4096];
 static k16 tables;
-static k16 ds_segment,indos_segment,indos_offset;
+static k16 ds_segment,owner_psp,indos_segment,indos_offset;
 static void usage(unsigned id){
     K386Runtime *r=&runtime[id];K386Usage *u=&k386_resources.usage[id];
     unsigned heap=0,handles=0;
@@ -56,7 +56,7 @@ void api_dispatch(void) {
     k386_mailbox.reserved=1; /* Publish views only after the whole API returns. */
     unsigned caller,service=0x6200;
     __asm__ volatile("int $0x21":"+a"(service),"=b"(caller)::"cc","memory");
-    service=0x5000;__asm__ volatile("int $0x21":"+a"(service):"b"((unsigned)ds_segment):"cc","memory");
+    service=0x5000;__asm__ volatile("int $0x21":"+a"(service):"b"((unsigned)owner_psp):"cc","memory");
     selected=id;K386Session *s=&sessions[id];K386View *v=&k386_mailbox.view[id];
     switch(k386_mailbox.command) {
     case K386_CREATE:
@@ -110,6 +110,8 @@ void api_dispatch(void) {
 }
 int monitor_init(void) {
     __asm__ volatile("movw %%ds,%0":"=r"(ds_segment));monitor_base=(k32)ds_segment*16;
+    unsigned service=0x6200,psp;
+    __asm__ volatile("int $0x21":"+a"(service),"=b"(psp)::"cc","memory");owner_psp=psp;
     if(monitor_base+0x10000>=0x80000)return 0;
     unsigned a=0x3400,b; k16 seg;
     __asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(b)::"cc","memory");

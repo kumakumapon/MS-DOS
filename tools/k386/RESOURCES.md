@@ -76,8 +76,8 @@ zero, like the CPU diagnostics. Typed records remain authoritative. V86 guests
 cannot invoke this monitor resource API through their virtual INT 2Fh.
 
 Diagnostic formatting lives in a separate resident module. The GUI uses GCC
-12+ -Oz and LTO through the GCC linker driver. The existing d000h end-of-BSS /
-12KiB minimum COM stack assertion is retained.
+12+ -Oz and LTO through the GCC linker driver. KDESK.EXE separates code and data;
+the linker reserves at least 12 KiB for the stack within its 64 KiB data segment.
 
 ## Validation and remaining scope
 

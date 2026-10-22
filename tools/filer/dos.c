@@ -147,7 +147,14 @@ int p_exec(const char *program, const char *arguments) {
     if (length) { tail[1] = ' '; for (int i = 0; i < length; i++) tail[i + 2] = arguments[i]; }
     tail[(u8)tail[0] + 1] = '\r';
     parameters.env = 0; parameters.tail = (u16)(unsigned)tail; parameters.tail_segment = segment;
-    parameters.fcb1 = 0x5c; parameters.seg1 = segment; parameters.fcb2 = 0x6c; parameters.seg2 = segment;
+    u16 psp = segment;
+#ifdef DOS_MZ
+    /* MZ data/stack are not the PSP containing the default FCBs. */
+    unsigned service = 0x6200, owner;
+    __asm__ volatile("int $0x21" : "+a"(service), "=b"(owner) :: "cc", "memory");
+    psp = owner;
+#endif
+    parameters.fcb1 = 0x5c; parameters.seg1 = psp; parameters.fcb2 = 0x6c; parameters.seg2 = psp;
     unsigned a = 0x4b00, b = (unsigned)&parameters, d = (unsigned)program;
     __asm__ volatile("pushw %%ds; pushw %%es; pushw %%ds; popw %%es; int $0x21;"
                      "popw %%es; popw %%ds; jc 1f; xor %%eax,%%eax; jmp 2f; 1: neg %%eax; 2:"
