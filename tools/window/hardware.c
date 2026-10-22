@@ -3,18 +3,20 @@
 /* PC-98 planar / PC-9821 PEGC VRAM and CG-ROM; no external font or TSR. */
 static const unsigned segments[] = {0xa800, 0xb000, 0xb800, 0xe000};
 static const u16 theme[] = {
-    0x234, 0x256, 0xeff, 0xcde, 0x27b, 0x259, 0xfc6, 0xfff,
-    0x123, 0xbcd, 0x678, 0x467, 0x367, 0x7ab, 0xeef, 0xacd,
+    0x223, 0x123, 0xfff, 0xdef, 0x36a, 0x246, 0xfb6, 0xfff,
+    0x112, 0xabc, 0x678, 0x456, 0x234, 0x7bc, 0xeee, 0xbcd,
 };
 static unsigned font_segment,palette_segment;
 static u8 palette[16][3], saved_mode, saved_index;
 static int packed, bank = -1, origin_x, origin_y, offscreen;
 static u8 saved_gate, saved_256, saved_banks[4], saved_pegc_mode, saved_pegc_enable;
-static u8 packed_under[16][16];
+/* The cursor uses only one video format at a time. */
+static union { u8 packed[16][16];u8 planar[4][16][3]; } cursor_under;
+#define packed_under cursor_under.packed
+#define underneath cursor_under.planar
 static unsigned drag_sprite;
 static int sprite_x, sprite_y, sprite_w, sprite_h;
 static int fonts_ready, cursor_visible, cursor_x, cursor_y, cursor_rows, cursor_bytes;
-static u8 underneath[4][16][3];
 static u8 saved_mouse_c;
 static int mouse_active;
 static Mouse mouse = {320, 200, 0, 0};
@@ -79,7 +81,7 @@ u32 gfx_rgb(int index) {
         return (index / 36 * 51u << 16) | (index / 6 % 6 * 51u << 8) | (index % 6 * 51u);
     }
     unsigned t = index - 232;
-    return ((24 + t) << 16) | ((64 + t * 2) << 8) | (88 + t * 2);
+    return ((22 + t) << 16) | ((32 + t * 2) << 8) | (52 + t * 3);
 }
 int gfx_nearest(int r, int g, int b) {
     int found = packed ? 16 + (r + 25) / 51 * 36 + (g + 25) / 51 * 6 + (b + 25) / 51 : 0;
@@ -218,6 +220,8 @@ void gfx_cell(int x, int y, char ch, int foreground, int background, int selecte
         for(int row=0;row<16;row++){out(0xa5,row);extra[row]=in(0xa9);}
         out(0xa3,0);out(0xa5,0);glyph=extra;
     } else {u16 ds;__asm__ volatile("movw %%ds,%0":"=r"(ds));mem_copy(ds,(unsigned)extra,font_segment,((u8)ch-32)*16,16);glyph=extra;}
+    /* A heavier title/active-button face from the original CG-ROM bitmap. */
+    if(background==ACCENT)for(int row=0;row<16;row++)extra[row]|=extra[row]>>1;
     if (x < 0 || x >= 80 || y < 0 || y >= 25) return;
     /* Mirror labels in text VRAM for accessibility/debugging; the visible
      * glyphs are rendered into graphics so the pointer can cover them cleanly. */

@@ -1,4 +1,4 @@
-Kuma Desktop (KDESK) - Original PC-98 window desktop 1.7
+Kuma Desktop (KDESK) - Original PC-98 window desktop 1.8
 
 Run KDESK from the MS-DOS 4.0 PC-98 prompt. Requires a 386-compatible
 PC-98 with 640 x 400 graphics and a PC-98 bus mouse (WebNP2 works).
@@ -13,6 +13,7 @@ F6, arrows    Move the active window; F6 or Enter finishes moving
 F7, arrows    Resize the active window; F7 or Enter finishes resizing
 F9            Open the KPAINT image editor
 F8            Minimize the active window (Tab restores it)
+Ctrl+G        Maximize / restore the active window, including DOS sessions
 Escape        Close the active window
 F10           Exit to DOS (confirm if the memo has unsaved changes)
 
@@ -20,7 +21,14 @@ Mouse: click the top menus to open windows; click a window to focus it.
        Drag the title bar to move, or the lower-right grip to resize.
        Moving shows the window contents at pixel resolution. Resizing uses an
        outline. If sprite memory is unavailable, moving also uses an outline.
-       Title buttons: _ minimizes, x closes. Taskbar buttons restore/focus.
+       Title buttons: _ minimizes, + maximizes, = restores, x closes.
+       Double-click the title to maximize/restore. Restoring keeps the exact
+       previous pixel position and size. Restore before dragging a maximized
+       window; F6/F7 also restore before keyboard move/resize.
+       All open windows share one taskbar, including Tasks and DOS 1 / DOS 2.
+       Click a task to focus/restore; click the active task to minimize it.
+       Buttons compact as windows close. A muted underline marks minimized
+       windows; the active button has a blue face and gold underline.
        Click an icon to select; double-click or Open starts it. In Files,
        double-click or Open opens the selection; Parent goes up.
        Scroll arrows move a row, track clicks page, and the thumb drags.
@@ -97,7 +105,8 @@ access occurs automatically. Browser permission may be required.
 Task manager: Ctrl+T or Tasks shows IDs/states; Switch, Stop, Start, End.
 Internal apps use per-task queues and bounded cooperative scheduling.
 K386 is optional. On its separate experimental disk, Ctrl+N / Ctrl+O open
-DOS 1 / DOS 2 with a guest KSH command prompt. HELP lists read-only commands;
+DOS 1 / DOS 2 with a guest KSH command prompt. The two desktop DOS icons
+also open these windows by mouse. HELP lists read-only commands;
 type a COM/EXE name to execute it, then return to the same shell.
 Ctrl+L/Run replaces the session with a COM/MZ command; Ctrl+P pauses, Ctrl+R resumes,
 Ctrl+E ends. Scroll the saved text screen with its scrollbar/page keys and
@@ -109,7 +118,7 @@ The experimental profile needs FDXMS286 and 16 MiB extended memory; no EMM386.
 Nested EXEC is limited to four process levels. Files stay read-only.
 PC-98 BIOS interval timers can wake a waiting DOS window. General DOS/BIOS
 and direct graphics compatibility remain incomplete. See K386.TXT for details.
-One child EXEC level is supported; parent RAM/CPU/DTA are restored on return.
+Parent RAM/CPU/DTA are restored on return from a nested EXEC.
 This remains experimental: general COMMAND.COM/BIOS, large/overlaid EXEs,
 virtual hardware IRQs and TSRs are incomplete. Files are read-only and FPU
 instructions are contained as exceptions. Normal DOS EXEC tools stay foreground-only.
