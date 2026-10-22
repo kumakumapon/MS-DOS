@@ -4,15 +4,19 @@
 .global _start,pm_run
 _start:
     cld
+    cli
     mov ax,cs
     mov ds,ax
-    mov es,ax
     mov ss,ax
     mov esp,0xfff0
-    mov bx,0x1000
+    sti
+    /* MZ entry ES is the PSP. The allocation includes PSP + monitor segment. */
+    mov bx,0x1010
     mov ah,0x4a
     int 0x21
     jc unavailable
+    mov ax,ds
+    mov es,ax
     xor eax,eax
     mov edi,OFFSET __bss_start
     mov ecx,OFFSET __bss_end
@@ -42,7 +46,7 @@ _start:
     mov dx,OFFSET pass_text
     mov ah,9
     int 0x21
-    mov dx,0x1000
+    mov dx,0x1010
     mov ax,0x3100
     int 0x21
 already:

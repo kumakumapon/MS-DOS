@@ -1,11 +1,18 @@
 Kuma Desktop (KDESK) - Original PC-98 window desktop 1.8
 
-Run KDESK from the MS-DOS 4.0 PC-98 prompt. Requires a 386-compatible
+Run KDESK.EXE (or KDESK) from the MS-DOS 4.0 PC-98 prompt. Requires a 386-compatible
 PC-98 with 640 x 400 graphics and a PC-98 bus mouse (WebNP2 works).
 WebNP2 uses PC-9821 PEGC 256 colors; other supported machines retain 16 colors.
 On PEGC, drawing is composed offscreen before changed areas are presented.
 Selections/editing update the active window; switching restores damaged areas.
 The WebNP2 bundled disk starts KDESK automatically. F10 returns to DOS.
+
+KDESK.EXE is a DOS MZ executable with separate code and data/stack segments.
+Each near-address segment remains limited to 64 KiB; 12 KiB is reserved for the
+stack. This is not a Windows PE executable or an unrestricted flat address space.
+For enhanced sessions, install K386.EXE first, then run KDESK.EXE. K386 remains
+resident until reboot. Its existing XMS/EMM386 and DOS service limits still apply.
+New images omit KDESK.COM/K386.COM so DOS command search cannot select old copies.
 
 F1 Help       F2 Launcher   F3 Files   F4 Memo   F5 About
 Tab           Switch to the next open/minimized window

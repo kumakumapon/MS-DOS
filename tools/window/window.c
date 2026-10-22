@@ -54,7 +54,7 @@ static char status[80] = "Ready";
 static int used, count, truncated, list_error, memo_blocked, select_all;
 static unsigned entries_segment, data_segment;
 /* Keep editable text in the existing DOS-owned data allocation, outside the
- * COM code/stack segment. Directory refreshes never touch this tail. */
+ * near data/stack segment. Directory refreshes never touch this tail. */
 static char memo_get(int at){return mem_get(entries_segment,MEMO_OFFSET+at);}
 static void memo_put(int at,char ch){mem_put(entries_segment,MEMO_OFFSET+at,ch);}
 static const char *titles[] = {"Launcher", "Files", "Memo", "Help", "About", "Calculator", "Clock", "Tasks", "DOS 1", "DOS 2"};

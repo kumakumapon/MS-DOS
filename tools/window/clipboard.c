@@ -30,8 +30,10 @@ void clip_mouse_inherit(void) {
     unsigned kind = mem_get(parent - 1, 0);
     if ((kind != 'M' && kind != 'Z') || read_word(parent - 1, 1) != parent) return;
     u32 limit = read_word(parent - 1, 3) * 16u;
-    if (limit > 0x10000) limit = 0x10000;
-    /* DOS identifies our parent PSP. Search only that program's 64 KiB block,
+    if ((u32)parent * 16 + limit > 0xa0000) return;
+    if (limit > 0x20100) limit = 0x20100;
+    /* A parent MZ can have separate 64 KiB code and data segments plus its PSP.
+     * DOS identifies our parent. Search only that program's owned MCB block,
      * never reserve BIOS RAM or trust pointers from an unrelated old program. */
     for (unsigned at = 0x100; at + sizeof(Clipboard) <= limit; at++) {
         if (mem_get(parent, at) != 'K') continue;
