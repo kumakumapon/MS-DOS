@@ -507,7 +507,7 @@ export async function verifyExplorer(page, { screenshot } = {}) {
   await type('X');await wait('ROW24X');assert.deepEqual(await read('NOTE.TXT'),original,'Scrolling and editing do not implicitly save');
   await key('ESC');await wait('Unsaved memo:');await type('d');await wait('Memo closed');assert.deepEqual(await read('NOTE.TXT'),original);
   await key('F1');await wait('F6 then arrows: move window');await key('HELP');await wait('Files F: open FD98 file tools');
-  await key('F7');for(let i=0;i<18;i++)await key('LEFT');for(let i=0;i<6;i++)await key('UP');await key('ENTER');await key('HOME');await wait('F1 Help');await key('HELP');await wait('tools');
+  await key('F7');for(let i=0;i<18;i++)await key('LEFT');for(let i=0;i<6;i++)await key('UP');await key('ENTER');await key('HOME');await wait('F1 Help');await key('HELP');await wait('a session');
   await key('F5');await key('F7');for(let i=0;i<18;i++)await key('LEFT');for(let i=0;i<6;i++)await key('UP');await key('ENTER');await key('HELP');await wait('MIT license');
   await key('F2');await key('HOME');await wait('Selected: File manager');await click(388,232);await wait('Calculator');
   assert.ok(!(await page.evaluate(()=>window.np2debug.np2.getScreenText().lines[7])).includes('File manager'),'Launcher also supports independent scrolling');
