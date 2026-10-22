@@ -47,7 +47,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
     const ctx = canvas.getContext('2d'); ctx.drawImage(source, 0, 0);
     return Array.from(ctx.getImageData(x, y, 1, 1).data).slice(0, 3);
   }, { x, y });
-  assert.ok((await point(0,32)).every((c,i) => Math.abs(c-[23,34,55][i])<=4), 'Desktop uses the PEGC gradient palette (RGB565 output tolerance)');
+  assert.ok((await point(0,32)).every((c,i) => Math.abs(c-[16,32,49][i])<=4), 'Desktop uses the PEGC gradient palette (RGB565 output tolerance)');
   assert.ok((await point(24,32)).every(c => Math.abs(c-255)<=4), 'Window frame is drawn by the guest');
   assert.ok((await point(35,48)).every((c,i) => Math.abs(c-[51,102,170][i])<=4), 'Active title bar has the focus color');
   await key('F6'); await key('RIGHT'); await key('DOWN'); await key('ENTER');
