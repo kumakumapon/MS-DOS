@@ -320,7 +320,7 @@ static void panel_key(int key) {
         if(panel_selected<panel_top)panel_top=panel_selected;
         if(panel_selected>=panel_top+5)panel_top=panel_selected-4;
     }
-    damage(96,32,453,325);scene_dirty=1;
+    damage(96,32,453,325);
 }
 static void file_open(void) {
     Window *w = &windows[FILES];
@@ -1123,6 +1123,7 @@ int main(void) {
         int previous_active=active,previous_mode=mode,previous_confirm=confirm;
         Window before=active<0?(Window){0}:windows[active];
         int partial=!drag&&!mode&&!confirm&&!panel_open&&!redraw&&!scene_dirty;
+        int panel_partial=panel_open&&!drag&&!mode&&!confirm&&!redraw&&!scene_dirty;
         if (clipboard.command) {
             int request = clipboard.command; clipboard.result = 0;
             if (request != 1 || confirm || mode || panel_open || memo_blocked) clipboard.result = 1;
@@ -1157,7 +1158,9 @@ int main(void) {
                     scene_dirty=1;
                 }
                 preview_visible=0;
-                if(partial&&active==previous_active&&active>=0&&!drag&&!mode&&!previous_mode&&!confirm&&!scene_dirty) {
+                if(panel_partial&&panel_open&&!confirm&&!scene_dirty) {
+                    gfx_target(1);draw_panel();taskbar();present();
+                } else if(partial&&active==previous_active&&active>=0&&!drag&&!mode&&!previous_mode&&!confirm&&!scene_dirty) {
                     gfx_target(1);draw_window(active);
                     taskbar();
                     present();
