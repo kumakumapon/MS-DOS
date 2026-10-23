@@ -1,4 +1,4 @@
-Kuma Desktop (KDESK) - Original PC-98 window desktop 1.8
+Kuma Desktop (KDESK) - Original PC-98 window desktop 1.9
 
 Run KDESK.EXE (or KDESK) from the MS-DOS 4.0 PC-98 prompt. Requires a 386-compatible
 PC-98 with 640 x 400 graphics and a PC-98 bus mouse (WebNP2 works).
@@ -21,6 +21,8 @@ F7, arrows    Resize the active window; F7 or Enter finishes resizing
 F9            Open the KPAINT image editor
 F8            Minimize the active window (Tab restores it)
 Ctrl+G        Maximize / restore the active window, including DOS sessions
+Ctrl+K        Find apps and window commands (also Kuma Desktop / Find buttons)
+Ctrl+D        Show the desktop / restore the previously visible windows
 Escape        Close the active window
 F10           Exit to DOS (confirm if the memo has unsaved changes)
 
@@ -34,6 +36,7 @@ Mouse: click the top menus to open windows; click a window to focus it.
        window; F6/F7 also restore before keyboard move/resize.
        All open windows share one taskbar, including Tasks and DOS 1 / DOS 2.
        Click a task to focus/restore; click the active task to minimize it.
+       Desk toggles the desktop; already minimized windows remain minimized.
        Buttons compact as windows close. A muted underline marks minimized
        windows; the active button has a blue face and gold underline.
        Click an icon to select; double-click or Open starts it. In Files,
@@ -48,6 +51,22 @@ Launcher: icons are the default. V or List/Icons toggles the list view.
           List view retains one-click launch. The view scrolls when resized.
           File manager, Calculator and Clock run as built-in windows.
           Other tools use DOS EXEC.
+
+Find apps: type one or more ASCII words, in any order. Matching ignores case.
+           Up/Down, Home/End and PgUp/PgDn choose; Enter opens; Escape closes.
+           Click a result to open it; footer arrows page the results.
+           Ctrl+A selects the query; typing replaces it. Ctrl+U clears it.
+           Clicking outside closes the panel without passing the click through.
+           Search input never goes to a DOS window or the Memo underneath.
+           Ctrl+K and Ctrl+D are reserved by KDESK, including in DOS windows.
+
+Window layouts: find Tile left / Tile right to arrange the active window in a
+                half of the desktop. Restore window returns the original size
+                and pixel position, even after changing sides or maximizing.
+                F6/F7 restore first, then move/resize in whole cells. Restore
+                before dragging a tiled/maximized window with the mouse.
+                Desk hides windows without pausing their DOS programs. Restore
+                returns the previously visible windows and their input focus.
 
 Calculator: arithmetic + - * /, decimal point, = or Enter for the result.
             Calculations follow entry order; repeated = repeats the last step.

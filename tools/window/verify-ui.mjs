@@ -222,7 +222,7 @@ export async function verifyMedia(page, { screenshot } = {}) {
   await key('CTRL+X'); await wait('Cut memo'); await key('CTRL+V'); await wait('Pasted clipboard');
   await key('CTRL+S'); await wait('Saved NOTE.TXT');
   assert.equal((await guest('NOTE.TXT')).toString(),'WINDOW MEMO OK\r\nSECOND LINE');
-  await key('F2'); await wait('Enter opens'); await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(500);
+  await key('F2'); await wait('Selected:'); await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(500);
   await move(100,52);
   await page.evaluate(() => {
     const np2 = window.np2debug.np2, original = np2.mouseMoveTo.bind(np2);
@@ -430,11 +430,15 @@ export async function verifyRedraw(page) {
   await page.evaluate(()=>{
     const source=document.querySelector('#canvas'),c=document.createElement('canvas');c.width=640;c.height=400;
     const g=c.getContext('2d',{willReadFrequently:true});
-    window.redrawProbe={frames:0,flashes:0,run:true};
+    // Compare with the composed menu's own color, so changing native chrome
+    // does not turn the flicker test into an assertion about a theme shade.
+    g.drawImage(source,0,0);
+    const reference=Array.from(g.getImageData(1,1,1,1).data).slice(0,3);
+    window.redrawProbe={frames:0,flashes:0,run:true,reference};
     const frame=()=>{
       const probe=window.redrawProbe;if(!probe.run)return;
       g.drawImage(source,0,0);const p=g.getImageData(1,1,1,1).data;
-      probe.frames++;if(![34,34,51].every((v,i)=>Math.abs(v-p[i])<=4))probe.flashes++;
+      probe.frames++;if(!probe.reference.every((v,i)=>Math.abs(v-p[i])<=4))probe.flashes++;
       requestAnimationFrame(frame);
     };requestAnimationFrame(frame);
   });
