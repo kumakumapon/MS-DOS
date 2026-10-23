@@ -16,19 +16,36 @@ export async function verifyFiler(page, { screenshot, basic = false } = {}) {
     async name => btoa(String.fromCharCode(...await window.np2debug.np2.diskReadFile('fd1', name))), name,
   ), 'base64');
   const select = async name => {
-    await key('HOME');
-    for (let i = 0; i < 256; i++) {
-      const selected = (await screen()).split('\n')[22]?.match(/Selected: (.*)/)?.[1]?.trim();
-      if (selected === name) return;
-      await key('DOWN');
-    }
-    throw new Error('Cannot select ' + name);
+    const lines = (await screen()).split('\n');
+    const right = lines[22]?.startsWith('Active: RIGHT');
+    const path = lines[1].slice(right ? 40 : 0, right ? 79 : 39).trim().replace(/^[A-Z]:/i, '').replace(/\\/g, '/');
+    const entries = await page.evaluate(async path => (await window.np2debug.np2.diskListFiles('fd1', path)).entries, path);
+    entries.sort((a,b) => Number(b.isDir)-Number(a.isDir) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    const names = entries.map(entry => entry.name);
+    if (path !== '/') names.unshift('..');
+    const target = names.indexOf(name); assert.ok(target >= 0, name + ' must be on disk');
+    const selected = expected => page.waitForFunction(expected => {
+      const line = window.np2debug.np2.getScreenText().lines[22] ?? '';
+      return line.match(/Selected: (.*)/)?.[1]?.trim() === expected;
+    }, { timeout: 30000 }, expected);
+    await key('HOME'); await selected(names[0]);
+    // Wait for the guest to apply each arrow before sending the next one.
+    // A longer directory takes enough time to repaint to overrun a blind loop.
+    for (let i = 1; i <= target; i++) { await key('DOWN'); await selected(names[i]); }
   };
   const prompt = async (label, value) => {
     await wait(label); await key('CTRL+U'); await type(value + '\r');
   };
   await type('ECHO FILER-GUEST-DATA>SOURCE.TXT\r');
   await wait('A>');
+  // An earlier prompt can still be visible while DOS has only created the
+  // empty directory entry. Wait for the redirected write and close to finish.
+  await page.waitForFunction(async () => {
+    try {
+      const bytes = await window.np2debug.np2.diskReadFile('fd1', 'SOURCE.TXT');
+      return new TextDecoder().decode(bytes) === 'FILER-GUEST-DATA\r\n';
+    } catch { return false; }
+  }, { timeout: 30000 });
   assert.equal((await guest('SOURCE.TXT')).toString(), 'FILER-GUEST-DATA\r\n');
   await type('FD98\r');
   await wait('FD Filer 1.0');
@@ -47,17 +64,19 @@ export async function verifyFiler(page, { screenshot, basic = false } = {}) {
   await key('F7'); await prompt('Create directory:', 'WORK'); await wait('Directory created');
 
   // The destination defaults to the other pane's directory.
-  await key('TAB'); await select('WORK'); await key('ENTER'); await wait('A:\\WORK');
-  await key('TAB'); await select('RENAMED.TXT');
+  await key('TAB'); await wait('Active: RIGHT'); await select('WORK'); await key('ENTER'); await wait('A:\\WORK');
+  await key('TAB'); await wait('Active: LEFT'); await select('RENAMED.TXT');
   await key('F6'); await wait('Move to:');
   assert.ok((await screen()).includes('A:\\WORK\\RENAMED.TXT'));
   await key('ENTER'); await wait('Moved');
   assert.deepEqual(await guest('WORK/RENAMED.TXT'), await guest('SOURCE.TXT'));
-  await key('TAB'); await select('RENAMED.TXT');
+  await key('TAB'); await wait('Active: RIGHT'); await select('RENAMED.TXT');
   await key('F8'); await wait('Delete selected'); await key('N'); await wait('Cancelled');
   assert.deepEqual(await guest('WORK/RENAMED.TXT'), await guest('SOURCE.TXT'));
   await key('F8'); await wait('Delete selected'); await key('Y'); await wait('Deleted');
-  await key('BS'); await key('TAB'); await select('WORK');
+  await key('BS');
+  await page.waitForFunction(() => window.np2debug.np2.getScreenText().lines[1]?.slice(40).trim() === 'A:\\', { timeout: 30000 });
+  await key('TAB'); await wait('Active: LEFT'); await select('WORK');
   await key('F8'); await wait('Delete selected'); await key('Y'); await wait('Deleted');
 
   await select('P98TEST.COM'); await key('F9');
