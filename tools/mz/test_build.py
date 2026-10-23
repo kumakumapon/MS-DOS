@@ -33,6 +33,18 @@ class MZTests(unittest.TestCase):
             self.assertEqual(struct.unpack_from('<H', loaded, 7)[0], base + h[7])
             self.assertNotEqual(base + h[11], base + h[7])
 
+    def test_application_descriptor_preserves_real_relocation_table(self):
+        exe = package(bytes(64), self.symbols(__mz_reloc_ds=2), 'Hello KDESK')
+        h = struct.unpack_from('<14H', exe)
+        self.assertEqual(exe[28:36], b'K386APP1')
+        self.assertEqual(h[12], 72)
+        self.assertEqual(h[4] * 16, 80)
+        self.assertEqual(struct.unpack_from('<HH', exe, h[12]), (2, 0))
+        self.assertEqual(exe[h[4]*16:], bytes(64))
+        for title in ('', 'A'*32, 'Bad\nTitle', '日本語'):
+            with self.assertRaises((ValueError, UnicodeError)):
+                package(bytes(64), self.symbols(), title)
+
     def test_exact_page_size_and_flat_resident_module(self):
         exe = package(bytes(480), self.symbols(480))
         h = struct.unpack_from('<14H', exe)

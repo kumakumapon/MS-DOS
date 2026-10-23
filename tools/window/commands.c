@@ -22,6 +22,9 @@ const DeskCommand desk_commands[DESK_COMMANDS] = {
     {"Launcher", "apps applications icons", "Browse app icons", 0},
     {"About", "version information", "Version and credits", 2},
     {"Maximize window", "layout full screen", "", 4},
+    {"Hello KDESK/386", "hello khello exe example", "Open an EXE app in a DOS window", 4},
+    {"Background counter", "counter exe", "Run a background EXE application", 4},
+    {"Keyboard echo", "echo keys exe", "Type in an independent DOS window", 4},
 };
 static char lower(char c) { return c >= 'A' && c <= 'Z' ? c + 'a' - 'A' : c; }
 static int contains(const char *text, const char *word, unsigned length) {
@@ -35,7 +38,7 @@ static int contains(const char *text, const char *word, unsigned length) {
 unsigned command_find(const char *query, int enhanced, unsigned *matches) {
     unsigned count = 0;
     for (unsigned id = 0; id < DESK_COMMANDS; id++) {
-        if (!enhanced && (id == 11 || id == 12)) continue;
+        if (!enhanced && (id == 11 || id == 12 || id >= 21)) continue;
         const char *word = query; int match = 1;
         while (*word) {
             while (*word == ' ') word++;

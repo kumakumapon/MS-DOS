@@ -2,11 +2,15 @@
 .code16
 .global _start
 _start:
+.ifndef K386_APP
+    push ds
+    pop fs
+.endif
     mov dx,OFFSET area
     mov ah,0x1a
     int 0x21
     mov dx,OFFSET com_mask
-    cmp BYTE PTR [0x82],'E'
+    cmp BYTE PTR fs:[0x82],'E'
     jne first
     mov dx,OFFSET exe_mask
 first:

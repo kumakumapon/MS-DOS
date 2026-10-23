@@ -6,7 +6,7 @@
 typedef struct {
     K386Frame frame;
     k32 dta;
-    k16 psp,vif,last_exit,search_valid,handles[K386_HANDLES];
+    k16 probe,psp,vif,last_exit,search_valid,handles[K386_HANDLES];
     k8 search[21];
     char program[16];
 } K386Process;

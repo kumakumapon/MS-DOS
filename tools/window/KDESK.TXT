@@ -157,3 +157,11 @@ B/Break, or Ctrl+C in a DOS window, interrupts the current program and returns
 to its EXEC parent when present. K/End terminates all levels and frees XMS.
 [ and ] browse the bounded event journal. The panel shows execution time,
 XMS/heap/handles, process depth, current program and stop/fault reasons.
+
+KDESK/386 EXE APPLICATIONS
+Ctrl+K: find Hello KDESK/386, Background counter or Keyboard echo.
+Tagged EXE files opened in Files start in a free DOS window. When both windows
+are occupied, end a session in Tasks first. DOS shell opens KSH.EXE in enhanced
+mode. Ctrl+N / Ctrl+O open or focus the two independent sessions.
+These applications require the enhanced image. Full-screen DOS applications
+remain available, and COM compatibility is retained in the DOS sessions.

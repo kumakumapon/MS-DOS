@@ -84,8 +84,8 @@ the linker reserves at least 12 KiB for the stack within its 64 KiB data segment
 make -C tools/k386 all test covers fairness/no starvation, blocked credits,
 quota boundaries, saturation, IDs and journal wrap. KRESCHK.COM executes inside
 actual DOS to check weighted V86 counters, ARTIC budgets, retained RAM, child
-interruption, isolated page faults and cleanup. INTWAIT.COM checks AH=4Dh after
-its COUNTER.COM child is interrupted. WebNP2's resource Playwright suite checks
+interruption, isolated page faults and cleanup. INTWAIT.EXE checks AH=4Dh after
+its COUNTER.EXE child is interrupted. WebNP2's resource Playwright suite checks
 GUI/mouse controls, real CPU/resource records and whole-disk integrity. Existing
 GUI, shell, process and timer suites remain required.
 

@@ -77,6 +77,11 @@ static int service(K386Frame *f,k8 number) {
         clock->clock=clock->accumulator=0;return 0;
     }
     if(number==0x2f) {
+        if((f->eax&65535)==0xd388&&(f->ebx&65535)<=1){
+            int yield=(f->ebx&65535)==1;
+            f->eax=0x388d;f->ebx=0x0100;f->ecx=1;f->edx=selected+1;
+            f->eflags&=~1u;return yield;
+        }
         if((f->eax&65535)==0x122e&&(f->edx&255)<6){
             ptr=0x8400+(f->edx&254)*2;
             if(f->edx&1){writen(ptr,f->edi,2);writen(ptr+2,f->es,2);}
@@ -265,7 +270,7 @@ void kernel_finish(void) {
     int changed=0;
     for(k32 i=0;i<2000;i++){k8 c=read8(0xa0000+i*2);if((k8)v->screen[i]!=c)changed=1;v->screen[i]=c;}
     if(changed)v->flags++;
-    v->counter=readn((k32)runtime[selected].process.psp*16+0x800,4);
+    v->counter=readn((k32)runtime[selected].process.psp*16+runtime[selected].process.probe,4);
     v->keys=sessions[selected].count;
     k386_diagnostics.frame[selected]=sessions[selected].frame;
     k32 base=(k32)runtime[selected].process.psp*16;

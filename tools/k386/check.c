@@ -18,7 +18,7 @@ int main(void) {
     __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=D"(di):"b"(b):"cc","memory");
     if((a&0xffff)!=0x386d){p_output("K386 CHECK: monitor unavailable\r\n");return 1;}
     segment=seg;offset=di&0xffff;
-    stage=1;path("COUNTER.COM");if(command(K386_CREATE,0)||command(K386_CREATE,1))goto fail;
+    stage=1;path("COUNTER.EXE");if(command(K386_CREATE,0)||command(K386_CREATE,1))goto fail;
     stage=2;for(int i=0;i<8;i++){if(command(K386_STEP,0)||command(K386_STEP,1))goto fail;}
     stage=3;unsigned c0=value(VOFF(0,counter)),c1=value(VOFF(1,counter));
     if(!c0||!c1||value(VOFF(0,physical))==value(VOFF(1,physical))||value(VOFF(0,cr3))==value(VOFF(1,cr3)))goto fail;
@@ -28,10 +28,10 @@ int main(void) {
     if(value(VOFF(0,counter))!=c0||value(VOFF(1,counter))<=c1)goto fail;
     stage=5;command(K386_RESUME,0);command(K386_STEP,0);
     if(value(VOFF(0,counter))<=c0)goto fail;
-    stage=6;path("FAULT.COM");if(command(K386_CREATE,1))goto fail;
+    stage=6;path("FAULT.EXE");if(command(K386_CREATE,1))goto fail;
     command(K386_STEP,1);if(word(VOFF(1,state))!=K386_FAULTED||word(VOFF(1,fault))!=14)goto fail;
     c0=value(VOFF(0,counter));command(K386_STEP,0);if(value(VOFF(0,counter))<=c0)goto fail;
-    stage=7;path("ECHO.COM");if(command(K386_CREATE,1))goto fail;command(K386_STEP,1);
+    stage=7;path("ECHO.EXE");if(command(K386_CREATE,1))goto fail;command(K386_STEP,1);
     if(word(VOFF(1,state))!=K386_WAITING)goto fail;
     set(OFF(key),'Z');command(K386_KEY,1);command(K386_STEP,1);
     if(word(VOFF(1,state))!=K386_WAITING)goto fail;

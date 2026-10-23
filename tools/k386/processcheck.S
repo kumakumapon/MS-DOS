@@ -3,8 +3,12 @@
 .code16
 .global _start
 _start:
+.ifndef K386_APP
+    push ds
+    pop fs
+.endif
     mov sp,0x8000
-    mov ax,cs
+    mov ax,fs
     mov es,ax
     mov bx,0x900
     mov ah,0x4a
@@ -14,21 +18,21 @@ _start:
     int 0x21
     mov WORD PTR [psp],bx
     mov BYTE PTR [level],0
-    cmp BYTE PTR [0x80],0
+    cmp BYTE PTR fs:[0x80],0
     je root
-    mov al,BYTE PTR [0x82]
+    mov al,BYTE PTR fs:[0x82]
     sub al,'0'
     cmp al,3
     ja fail
     mov BYTE PTR [level],al
-    mov ax,WORD PTR [0x2c]
+    mov ax,WORD PTR fs:[0x2c]
     mov dx,ax
     mov es,ax
     cmp DWORD PTR es:[0],0x424f5250 /* PROB */
     jne fail
     cmp DWORD PTR es:[4],0x52503d45 /* E=PR */
     jne fail
-    mov ax,WORD PTR [0x16]
+    mov ax,WORD PTR fs:[0x16]
     cmp ax,WORD PTR [psp]
     je fail
     mov es,ax
@@ -132,7 +136,8 @@ restored:
     cmp bx,OFFSET dta
     jne fail
     mov ax,es
-    cmp ax,WORD PTR [psp]
+    mov dx,cs
+    cmp ax,dx
     jne fail
     cmp BYTE PTR [level],0
     jne exit
@@ -169,7 +174,12 @@ level: .byte 0
 byte: .byte 0
 letters: .ascii "READ"
 datafile: .asciz "KDATA.TXT"
-program: .asciz "PROCESS.COM"
+program:
+.ifdef K386_APP
+    .asciz "PROCESS.EXE"
+.else
+    .asciz "PROCESS.COM"
+.endif
 tail: .byte 2,' ','1',13
 parameters: .word 0,tail,0,dta,0,dta,0
 dta: .space 43

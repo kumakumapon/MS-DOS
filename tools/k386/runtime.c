@@ -2,6 +2,7 @@
 #define K386_MONITOR
 #include "runtime.h"
 #include "loader.h"
+#include "app.h"
 #include "../window/hardware.h"
 #include "../filer/filer.h"
 K386Runtime runtime[2];
@@ -77,8 +78,9 @@ static int file_length(int h,k32 *length) {
 static int prepare(unsigned id,const char *name,int *handle,K386Image *plan,char *path) {
     int error=disk_path(id,name,path,0);if(error)return error;
     int h=p_open(path);if(h<0)return -h;
-    k32 size;k8 header[32]={0};error=file_length(h,&size);
-    if(!error){int n=p_read(h,header,32);error=n<0?-n:k386_image(header,size,plan);}
+    k32 size;k8 header[96]={0};error=file_length(h,&size);
+    if(!error){int n=p_read(h,header,sizeof header);error=n<0?-n:k386_image(header,size,plan);
+        if(!error&&kapp_header(header,n)<0)error=11;}
     if(!error&&plan->relocations){
         if(p_seek(h,plan->table)<0)error=11;
         for(unsigned i=0;!error&&i<plan->relocations;i++){
@@ -124,7 +126,7 @@ static int load_program(unsigned id,int h,const K386Image *p,const k8 *tail,cons
     for(int i=1;i<12;i++)header[0x5c+i]=header[0x6c+i]=' ';
     for(unsigned i=0;i<(unsigned)tail[0]+2;i++)header[0x80+i]=tail[i];
     put(id,base,header,256);if(!p->header)putword(id,base+0xfffc,0);
-    r->process=(K386Process){0};r->process.psp=psp;r->process.vif=1;r->process.dta=(k32)psp<<16|0x80;
+    r->process=(K386Process){0};r->process.psp=psp;r->process.probe=p->header?0x900:0x800;r->process.vif=1;r->process.dta=(k32)psp<<16|0x80;
     const char *basename=path;for(unsigned i=0;path[i];i++)if(path[i]=='\\')basename=path+i+1;
     fd_text(r->process.program,basename,sizeof r->process.program);
     s->frame=(K386Frame){0};s->frame.cs=(p->cs+psp-0x8000)&65535;s->frame.eip=p->ip;s->frame.ss=(p->ss+psp-0x8000)&65535;s->frame.esp=p->sp;

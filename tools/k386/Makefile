@@ -145,3 +145,60 @@ all: $(BUILD)/ROMWRITE.COM
 $(BUILD)/ROMWRITE.COM: $(BUILD)/romwrite.sample.o com.ld
 	ld -m elf_i386 -T com.ld $< -o $(BUILD)/romwrite.elf
 	objcopy -O binary $(BUILD)/romwrite.elf $@
+
+# KDESK/386 application SDK: real MZ modules, separate PSP and explicit stack.
+# COM outputs above remain build-only compatibility fixtures.
+APP_SAMPLES = COUNTER ECHO FAULT KFILE PORT DF FPU FLAGS DTA KEYCHK TIMER MEMORY PROCESS BADTIMER ROMWRITE INTWAIT
+all: $(addprefix $(BUILD)/,$(addsuffix .EXE,$(APP_SAMPLES))) $(BUILD)/KSH.EXE $(BUILD)/KHELLO.EXE
+$(BUILD)/app-start.o: app-start.S | $(BUILD)
+	$(CC) -m16 -c -x assembler-with-cpp $< -o $@
+$(BUILD)/app-c-start.o: app-start.S | $(BUILD)
+	$(CC) -m16 -DKAPP_C -c -x assembler-with-cpp $< -o $@
+$(BUILD)/app-dos.o: ../filer/dos.c | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -DPC98 -DDOS_MZ -c $< -o $@
+$(BUILD)/app.o: app.c app.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -c $< -o $@
+$(BUILD)/monitor.elf: $(BUILD)/app.o
+$(BUILD)/%.app.o: %.S | $(BUILD)
+	as --32 --defsym K386_APP=1 $< -o $@
+	objcopy --redefine-sym _start=app_main $@
+define app_rule
+$(BUILD)/$(1).app.elf: $(BUILD)/$(2).app.o $(BUILD)/app-start.o app.ld
+	ld -m elf_i386 --defsym __kapp_sample=1 -T app.ld $$(filter %.o,$$^) -o $$@
+$(BUILD)/$(1).EXE: $(BUILD)/$(1).app.elf ../mz/build.py
+	python3 ../mz/build.py --k386-app '$(3)' $$< $$@
+endef
+$(eval $(call app_rule,COUNTER,counter,Background counter))
+$(eval $(call app_rule,ECHO,echo,Keyboard echo))
+$(eval $(call app_rule,FAULT,fault,Memory protection check))
+$(eval $(call app_rule,KFILE,filecheck,Read-only file check))
+$(eval $(call app_rule,PORT,port,Port protection check))
+$(eval $(call app_rule,DF,direction,Direction flag check))
+$(eval $(call app_rule,FPU,fpu,FPU protection check))
+$(eval $(call app_rule,FLAGS,flags,Virtual flags check))
+$(eval $(call app_rule,DTA,dta,Directory search check))
+$(eval $(call app_rule,KEYCHK,keycheck,Keyboard BIOS check))
+$(eval $(call app_rule,TIMER,timer,PC-98 timer check))
+$(eval $(call app_rule,MEMORY,memorycheck,Private memory check))
+$(eval $(call app_rule,PROCESS,processcheck,Nested process check))
+$(eval $(call app_rule,BADTIMER,badtimer,Timer protection check))
+$(eval $(call app_rule,ROMWRITE,romwrite,ROM protection check))
+$(eval $(call app_rule,INTWAIT,interrupt,Process interruption check))
+$(BUILD)/shell.app.elf: $(BUILD)/shell.o $(BUILD)/app-c-start.o $(BUILD)/app-dos.o $(BUILD)/core.o app.ld
+	ld -m elf_i386 --gc-sections -T app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KSH.EXE: $(BUILD)/shell.app.elf ../mz/build.py
+	python3 ../mz/build.py --k386-app 'KDESK/386 shell' $< $@
+$(BUILD)/hello.o: hello.c sdk.h ../filer/filer.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/hello.app.elf: $(BUILD)/hello.o $(BUILD)/app-c-start.o $(BUILD)/app-dos.o $(BUILD)/core.o app.ld
+	ld -m elf_i386 --gc-sections -T app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KHELLO.EXE: $(BUILD)/hello.app.elf ../mz/build.py
+	python3 ../mz/build.py --k386-app 'Hello KDESK/386' $< $@
+$(BUILD)/app-test: app_test.c app.c app.h | $(BUILD)
+	$(CC) -O2 -Wall -Wextra -Werror app_test.c app.c -o $@
+test: app-test
+app-test: $(BUILD)/app-test
+	$(BUILD)/app-test
+	python3 -m unittest discover -s ../mz -p 'test_*.py'
+.PHONY: app-test
+$(BUILD)/runtime.o: app.h
