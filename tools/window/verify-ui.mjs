@@ -430,11 +430,14 @@ export async function verifyRedraw(page) {
   await page.evaluate(()=>{
     const source=document.querySelector('#canvas'),c=document.createElement('canvas');c.width=640;c.height=400;
     const g=c.getContext('2d',{willReadFrequently:true});
-    window.redrawProbe={frames:0,flashes:0,run:true};
+    // Compare with the composed menu's own color, so changing native chrome
+    // does not turn the flicker test into an assertion about a theme shade.
+    const reference=Array.from(g.getImageData(1,1,1,1).data).slice(0,3);
+    window.redrawProbe={frames:0,flashes:0,run:true,reference};
     const frame=()=>{
       const probe=window.redrawProbe;if(!probe.run)return;
       g.drawImage(source,0,0);const p=g.getImageData(1,1,1,1).data;
-      probe.frames++;if(![34,34,51].every((v,i)=>Math.abs(v-p[i])<=4))probe.flashes++;
+      probe.frames++;if(!probe.reference.every((v,i)=>Math.abs(v-p[i])<=4))probe.flashes++;
       requestAnimationFrame(frame);
     };requestAnimationFrame(frame);
   });

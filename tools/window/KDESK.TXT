@@ -21,7 +21,7 @@ F7, arrows    Resize the active window; F7 or Enter finishes resizing
 F9            Open the KPAINT image editor
 F8            Minimize the active window (Tab restores it)
 Ctrl+G        Maximize / restore the active window, including DOS sessions
-Ctrl+K        Find apps and window commands (also the title menu or Find button)
+Ctrl+K        Find apps and window commands (also Kuma Desktop / Find buttons)
 Ctrl+D        Show the desktop / restore the previously visible windows
 Escape        Close the active window
 F10           Exit to DOS (confirm if the memo has unsaved changes)
