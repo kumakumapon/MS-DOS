@@ -19,7 +19,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: sudo apt-get update && sudo apt-get install -y dosbox qemu-system-x86
+      - name: Use HTTPS for Ubuntu sources and actual mirror lists
+        run: sudo python3 dos/.github/scripts/apt-https.py
+      - name: Install PC-98 build and validation dependencies
+        run: sudo apt-get update && sudo apt-get install -y dosbox qemu-system-x86
       - run: python3 ports/pc98/toolchain.py
         working-directory: dos
       - run: |
