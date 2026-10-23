@@ -222,7 +222,7 @@ export async function verifyMedia(page, { screenshot } = {}) {
   await key('CTRL+X'); await wait('Cut memo'); await key('CTRL+V'); await wait('Pasted clipboard');
   await key('CTRL+S'); await wait('Saved NOTE.TXT');
   assert.equal((await guest('NOTE.TXT')).toString(),'WINDOW MEMO OK\r\nSECOND LINE');
-  await key('F2'); await wait('Enter opens'); await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(500);
+  await key('F2'); await wait('Selected:'); await page.evaluate(() => window.np2debug.np2.mouseHome()); await pause(500);
   await move(100,52);
   await page.evaluate(() => {
     const np2 = window.np2debug.np2, original = np2.mouseMoveTo.bind(np2);

@@ -16,7 +16,7 @@ $(BUILD)/dos98.o: ../filer/dos.c ../filer/filer.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -DPC98 -c $< -o $@
 $(BUILD)/exe-dos98.o: ../filer/dos.c ../filer/filer.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -DPC98 -DDOS_MZ -c $< -o $@
-$(BUILD)/window.o: window.c k386_client.h ../k386/abi.h ../k386/resources.h tasks.h scroll.h hardware.h clipboard.h utilities.h ../filer/filer.h | $(BUILD)
+$(BUILD)/window.o: window.c commands.h k386_client.h ../k386/abi.h ../k386/resources.h tasks.h scroll.h hardware.h clipboard.h utilities.h ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/k386_client.o: k386_client.c k386_client.h ../k386/abi.h ../k386/resources.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -26,13 +26,17 @@ $(BUILD)/scroll.o: scroll.c scroll.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/utilities.o: utilities.c utilities.h hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/art.o: art.c utilities.h hardware.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/commands.o: commands.c commands.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/clipboard.o: clipboard.c clipboard.h hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/memory.o: memory.c hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/hardware.o: hardware.c hardware.h ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
+$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
 	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,--no-check-sections,-T,exe.ld $(filter %.o,$^) -o $@
 $(BUILD)/KDESK.EXE: $(BUILD)/window.elf ../mz/build.py
 	python3 ../mz/build.py $< $@
@@ -67,12 +71,15 @@ $(BUILD)/scroll-test: scroll_test.c scroll.c scroll.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror scroll_test.c scroll.c -o $@
 $(BUILD)/tasks-test: tasks_test.c tasks.c tasks.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror tasks_test.c tasks.c -o $@
-test: $(BUILD)/calculator-test $(BUILD)/scroll-test $(BUILD)/tasks-test
+$(BUILD)/commands-test: commands_test.c commands.c commands.h | $(BUILD)
+	$(CC) -O2 -Wall -Wextra -Werror commands_test.c commands.c -o $@
+test: $(BUILD)/calculator-test $(BUILD)/scroll-test $(BUILD)/tasks-test $(BUILD)/commands-test
 	$(BUILD)/calculator-test
 	$(BUILD)/scroll-test
 	$(BUILD)/tasks-test
+	$(BUILD)/commands-test
 	python3 -m unittest discover -s ../mz -p 'test_*.py'
 .PHONY: test
 
 # Rebuild every native object if the internal C calling convention changes.
-$(BUILD)/window.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/core.o $(BUILD)/dos98.o $(BUILD)/exe-dos98.o $(BUILD)/paint.o $(BUILD)/view.o $(BUILD)/bitmap.o: Makefile
+$(BUILD)/window.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/core.o $(BUILD)/dos98.o $(BUILD)/exe-dos98.o $(BUILD)/paint.o $(BUILD)/view.o $(BUILD)/bitmap.o: Makefile
