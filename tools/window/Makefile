@@ -36,7 +36,7 @@ $(BUILD)/memory.o: memory.c hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/hardware.o: hardware.c hardware.h ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
+$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/app.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
 	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,--no-check-sections,-T,exe.ld $(filter %.o,$^) -o $@
 $(BUILD)/KDESK.EXE: $(BUILD)/window.elf ../mz/build.py
 	python3 ../mz/build.py $< $@
@@ -82,4 +82,8 @@ test: $(BUILD)/calculator-test $(BUILD)/scroll-test $(BUILD)/tasks-test $(BUILD)
 .PHONY: test
 
 # Rebuild every native object if the internal C calling convention changes.
-$(BUILD)/window.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/core.o $(BUILD)/dos98.o $(BUILD)/exe-dos98.o $(BUILD)/paint.o $(BUILD)/view.o $(BUILD)/bitmap.o: Makefile
+$(BUILD)/window.o $(BUILD)/app.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/core.o $(BUILD)/dos98.o $(BUILD)/exe-dos98.o $(BUILD)/paint.o $(BUILD)/view.o $(BUILD)/bitmap.o: Makefile
+
+$(BUILD)/app.o: ../k386/app.c ../k386/app.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/window.o: ../k386/app.h

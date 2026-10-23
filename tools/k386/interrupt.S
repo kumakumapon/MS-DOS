@@ -29,7 +29,12 @@ fail:
     int 0x21
     mov ax,0x4c01
     int 0x21
-child: .asciz "COUNTER.COM"
+child:
+.ifdef K386_APP
+    .asciz "COUNTER.EXE"
+.else
+    .asciz "COUNTER.COM"
+.endif
 tail: .byte 0,13
 block: .word 0,tail,0,0,0,0,0
 passed: .ascii "INTERRUPT PARENT PASS\r\n$"

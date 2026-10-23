@@ -3,10 +3,15 @@
 .code16
 .global _start
 _start:
+    mov DWORD PTR [0x800],0
+.ifndef K386_APP
+    push ds
+    pop fs
+.endif
     mov ah,0x62
     int 0x21
     mov WORD PTR [psp],bx
-    cmp WORD PTR [0x2c],0
+    cmp WORD PTR fs:[0x2c],0
     je fail
     mov ah,0x48
     mov bx,0xffff
@@ -70,7 +75,7 @@ _start:
     jc fail
     mov WORD PTR [block],ax
     /* Per-instance cookie comes from the command tail (A/B). */
-    mov al,BYTE PTR [0x82]
+    mov al,BYTE PTR fs:[0x82]
     xor ah,ah
     mov WORD PTR [cookie],ax
     mov bx,WORD PTR [block]

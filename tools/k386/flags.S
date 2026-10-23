@@ -2,6 +2,7 @@
 .code16
 .global _start
 _start:
+    mov DWORD PTR [0x800],0
     cli
     pushf
     pop ax

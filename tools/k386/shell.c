@@ -43,9 +43,9 @@ static void execute(const char *name,const char *args) {
     char path[128];fd_text(path,name,sizeof path);int n=fd_len(path),extension=0;
     for(int i=n-1;i>=0&&path[i]!='\\'&&path[i]!='/';i--)if(path[i]=='.')extension=1;
     if(!extension&&n+4>=128){output("Program name too long\r\n");return;}
-    if(!extension)fd_text(path+n,".COM",128-n);
+    if(!extension)fd_text(path+n,".EXE",128-n);
     int status=p_exec(path,args);
-    if(!extension&&status==-2){fd_text(path+n,".EXE",128-n);status=p_exec(path,args);}
+    if(!extension&&status==-2){fd_text(path+n,".COM",128-n);status=p_exec(path,args);}
     if(status<0){output("Cannot execute program: ");number(-status);output("\r\n");}
     else if(status){output("Program returned: ");number(status);output("\r\n");}
 }
@@ -58,7 +58,7 @@ int main(void) {
         while(*args==' ')args++;
         if(!command[0])continue;
         if(same(command,"EXIT"))return 0;
-        if(same(command,"HELP"))output("VER DIR TYPE CD ECHO CLS TIME EXIT\r\nCOM/EXE programs: NAME [arguments]\r\nFiles are read-only; one child level\r\n");
+        if(same(command,"HELP"))output("VER DIR TYPE CD ECHO CLS TIME EXIT\r\nKDESK/386 EXE apps: NAME [arguments]\r\nFiles are read-only; four process levels\r\n");
         else if(same(command,"VER"))output("MS-DOS 4.00 / K386 guest shell\r\n");
         else if(same(command,"ECHO")){output(args);output("\r\n");}
         else if(same(command,"DIR"))list(args);

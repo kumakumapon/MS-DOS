@@ -4,6 +4,7 @@
 #include "tasks.h"
 #include "k386_client.h"
 #include "commands.h"
+#include "../k386/app.h"
 
 /* Window positions use 8 x 16 cells. Four graphics planes hold both the
  * 16-color scene and CG-ROM glyphs; hidden text VRAM mirrors the labels. */
@@ -114,9 +115,9 @@ static void focus(int id) {
     order[WINDOWS - 1] = id;
     if(!windows[id].open){
         task_start(id);
-        if(id>=DOS1&&enhanced){
+        if(id>=DOS1&&enhanced&&(k386_word(id-DOS1,0)==K386_ENDED||k386_word(id-DOS1,0)>=K386_FAULTED)){
             dos_follow[id-DOS1]=1;
-            if(k386_command(K386_CREATE,id-DOS1,0,"KSH.COM"))message("Cannot start KSH.COM; use Run to choose a program");
+            if(k386_command(K386_CREATE,id-DOS1,0,"KSH.EXE"))message("Cannot start KSH.EXE; use Run to choose a program");
         }
     }
     windows[id].open = 1; windows[id].hidden = 0;
@@ -240,7 +241,29 @@ static void load(void) {
     if (memo_blocked) { used = 0; message("NOTE.TXT needs Text editor; original file retained"); }
 }
 static void enter_graphics(void) { gfx_start(); clip_state(1); }
+/* Tagged applications run in independent guest sessions. Never replace a live
+ * session as a side effect of opening a file or search result. */
+static int launch_app(const char *program,const char *arguments) {
+    unsigned char header[96];int h=p_open(program);
+    if(h<0)return 0;
+    int n=p_read(h,header,sizeof header);p_close(h);
+    int kind=n<0?0:kapp_header(header,n);
+    if(!kind)return 0;
+    if(kind<0){message("Unsupported KDESK/386 application version or header");return 1;}
+    if(!enhanced){message("This application needs KDESK/386; boot the enhanced image");return 1;}
+    int slot;
+    for(slot=0;slot<2;slot++)if(k386_word(slot,0)==K386_ENDED||k386_word(slot,0)>=K386_FAULTED)break;
+    if(slot==2){message("Both DOS windows are in use; end one in Tasks, then open the app");return 1;}
+    char command[128];int length=fd_len(program),args=fd_len(arguments);
+    if(length+args+1>=128){message("Application command is too long");return 1;}
+    fd_text(command,program,sizeof command);
+    if(args){command[length++]=' ';fd_text(command+length,arguments,sizeof command-length);}
+    if(k386_command(K386_CREATE,slot,0,command)){message("Cannot load KDESK/386 application");return 1;}
+    dos_edit[slot]=0;dos_follow[slot]=1;windows[DOS1+slot].top=0;
+    focus(DOS1+slot);message((const char *)header+40);return 1;
+}
 static void launch(const char *program, const char *arguments) {
+    if(launch_app(program,arguments))return;
     scene_dirty=1; damage(0,0,640,400);
     clip_mouse_save(); clip_state(2); gfx_stop(); p_finish();
     int result = p_exec(program, arguments);
@@ -265,7 +288,7 @@ static void tool(int id, const char *arguments) {
     if (id == 7) { focus(CALCULATOR); return; }
     if (id == 8) { clock_read(&desk_clock); focus(CLOCK); return; }
     char path[FD_PATH];
-    if (fd_path(path, home, apps[id])) { message("Application path is too long"); return; }
+    if (fd_path(path, home, enhanced&&id==4?"KSH.EXE":apps[id])) { message("Application path is too long"); return; }
     launch(path, arguments);
 }
 static void panel_close(void) {
@@ -294,6 +317,12 @@ static void panel_run(void) {
     case 18:focus(LAUNCHER);break;
     case 19:focus(ABOUT);break;
     case 20:place_window(1);break;
+    case 21:case 22:case 23:{
+        static const char *programs[]={"KHELLO.EXE","COUNTER.EXE","ECHO.EXE"};
+        char path[FD_PATH];
+        if(!fd_path(path,home,programs[id-21]))launch(path,"");
+        break;
+    }
     }
 }
 static void panel_key(int key) {
@@ -777,7 +806,7 @@ static __attribute__((noinline)) int app_key(int id,int key) {
                 if(key==']'&&event_age)event_age--;
             }
             if(key=='s'||key=='S')k386_command(K386_STOP,selected-DOS1,0,0);
-            if(key=='r'||key=='R'){if(k386_word(selected-DOS1,0)>=K386_FAULTED||k386_word(selected-DOS1,0)==K386_ENDED)k386_command(K386_CREATE,selected-DOS1,0,"KSH.COM");else if(k386_command(K386_RESUME,selected-DOS1,0,0))message("Cannot resume; raise or disable the CPU limit in Tasks");focus(selected);}
+            if(key=='r'||key=='R'){if(k386_word(selected-DOS1,0)>=K386_FAULTED||k386_word(selected-DOS1,0)==K386_ENDED)k386_command(K386_CREATE,selected-DOS1,0,"KSH.EXE");else if(k386_command(K386_RESUME,selected-DOS1,0,0))message("Cannot resume; raise or disable the CPU limit in Tasks");focus(selected);}
             if(key=='k'||key=='K')k386_command(K386_END,selected-DOS1,0,0);
             return 0;
         }

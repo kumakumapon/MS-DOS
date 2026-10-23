@@ -3,6 +3,11 @@
 .code16
 .global _start
 _start:
+    mov DWORD PTR [0x800],0
+.ifndef K386_APP
+    push ds
+    pop fs
+.endif
     mov ax,cs
     mov es,ax
     mov bx,OFFSET callback
@@ -21,7 +26,7 @@ busy:
     cmp DWORD PTR [0x800],0
     jne fail
     sti
-    cmp BYTE PTR [0x80],0
+    cmp BYTE PTR fs:[0x80],0
     je waiting_for_key
     mov ax,cs
     mov WORD PTR [parameters+4],ax
@@ -40,7 +45,7 @@ waiting_for_key:
     int 0x21
     cmp DWORD PTR [0x800],3
     jb fail
-    cmp BYTE PTR [0x80],0
+    cmp BYTE PTR fs:[0x80],0
     jne success_result
     cmp DWORD PTR [0x800],3
     jne fail
@@ -59,7 +64,7 @@ callback:
     mov ax,cs
     mov ds,ax
     inc DWORD PTR [0x800]
-    cmp BYTE PTR [0x80],0
+    cmp BYTE PTR fs:[0x80],0
     jne rearm
     cmp DWORD PTR [0x800],3
     jae done
@@ -85,7 +90,12 @@ fail:
 waiting: .ascii "V86 TIMER WAIT: callbacks continue without input\r\n$"
 success: .ascii "V86 PC98 TIMER PASS\r\n$"
 failure: .ascii "V86 TIMER FAIL\r\n$"
-child: .asciz "COUNTER.COM"
+child:
+.ifdef K386_APP
+    .asciz "COUNTER.EXE"
+.else
+    .asciz "COUNTER.COM"
+.endif
 tail: .byte 0,13
 fcb: .space 37
 parameters: .word 0,tail,0,fcb,0,fcb,0
