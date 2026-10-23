@@ -432,6 +432,7 @@ export async function verifyRedraw(page) {
     const g=c.getContext('2d',{willReadFrequently:true});
     // Compare with the composed menu's own color, so changing native chrome
     // does not turn the flicker test into an assertion about a theme shade.
+    g.drawImage(source,0,0);
     const reference=Array.from(g.getImageData(1,1,1,1).data).slice(0,3);
     window.redrawProbe={frames:0,flashes:0,run:true,reference};
     const frame=()=>{
