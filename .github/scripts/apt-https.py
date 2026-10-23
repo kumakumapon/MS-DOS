@@ -34,6 +34,11 @@ def configure(root: Path) -> None:
                 mirror = root / mirror.relative_to("/etc/apt")
             pending.append(mirror)
         updated = original.replace(b"http://", b"https://")
+        # The Azure archive's HTTPS endpoint fails on some runners. Use the
+        # official Ubuntu HTTPS archive for the same suites and signing keys.
+        updated = updated.replace(
+            b"https://azure.archive.ubuntu.com/", b"https://archive.ubuntu.com/"
+        )
         if updated != original:
             source.write_bytes(updated)
             print(f"Enabled HTTPS: {source}")
