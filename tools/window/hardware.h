@@ -43,4 +43,8 @@ int key_read(void);
 void input_poll(void);
 void input_idle(void);
 u32 input_ticks(void);
+
+void gfx_highcolor(int enabled);
+int gfx_width(void);
+int gfx_height(void);
 #endif

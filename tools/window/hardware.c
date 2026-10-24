@@ -1,4 +1,5 @@
 #include "hardware.h"
+#include "../display/cirrus.h"
 
 /* PC-98 planar / PC-9821 PEGC VRAM and CG-ROM; no external font or TSR. */
 static const unsigned segments[] = {0xa800, 0xb000, 0xb800, 0xe000};
@@ -7,11 +8,22 @@ static const u16 theme[] = {
     0x112, 0xabc, 0x678, 0x456, 0x234, 0x7bc, 0xeee, 0xbcd,
 };
 static unsigned font_segment,palette_segment;
+static int high_requested,high;
+int gfx_width(void){return high?800:640;}
+int gfx_height(void){return high?600:400;}
+void gfx_highcolor(int enabled){high_requested=enabled;}
+
+
 static u8 palette[16][3], saved_mode, saved_index;
 static int packed, bank = -1, origin_x, origin_y, offscreen;
+static u32 high_base(void){return offscreen?0x100000ul:0;}
+static u16 pixel16(int color){
+    if(color&0x10000)return (u16)color;
+    u32 rgb=gfx_rgb(color);return ((rgb>>19)<<11)|(((rgb>>10)&63)<<5)|((rgb>>3)&31);
+}
 static u8 saved_gate, saved_256, saved_banks[4], saved_pegc_mode, saved_pegc_enable;
 /* The cursor uses only one video format at a time. */
-static union { u8 packed[16][16];u8 planar[4][16][3]; } cursor_under;
+static union { u16 packed[16][16];u8 planar[4][16][3]; } cursor_under;
 #define packed_under cursor_under.packed
 #define underneath cursor_under.planar
 static unsigned drag_sprite;
@@ -69,7 +81,7 @@ static void select_bank(int n) {
     n += offscreen ? 8 : 0;
     if (bank != n) { put(0xe000, 4, n); put(0xe000, 5, 0); bank = n; }
 }
-int gfx_colors(void) { return packed ? 256 : 16; }
+int gfx_colors(void) { return high?65536:packed?256:16; }
 void gfx_origin(int x, int y) { origin_x = x; origin_y = y; }
 u32 gfx_rgb(int index) {
     if (index < 16) {
@@ -104,6 +116,7 @@ static void packed_fill(u32 at, unsigned count, u8 color) {
     }
 }
 void gfx_read_span(int x, int y, unsigned segment, u32 offset, unsigned count) {
+    if(high){cirrus_read(((u32)y*gfx_width()+x)*2+high_base(),segment+offset/16,offset&15,count*2);return;}
     u32 at = y * 640u + x;
     while (count) {
         unsigned n = 32768 - (at & 32767); if (n > count) n = count;
@@ -113,6 +126,7 @@ void gfx_read_span(int x, int y, unsigned segment, u32 offset, unsigned count) {
 }
 void gfx_write_span(int x, int y, unsigned segment, u32 offset, unsigned count) {
     x += origin_x; y += origin_y;
+    if(high){cirrus_write(((u32)y*gfx_width()+x)*2+high_base(),segment+offset/16,offset&15,count*2);return;}
     u32 at = y * 640u + x;
     while (count) {
         unsigned n = 32768 - (at & 32767); if (n > count) n = count;
@@ -129,6 +143,12 @@ void gfx_present(int x, int y, int w, int h) {
     if (packed) restore_background(x, y, w, h);
 }
 static void restore_background(int x, int y, int w, int h) {
+    if(high){
+        u16 rowbuf[800];unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
+        for(int row=0;row<h;row++){u32 at=((u32)(y+row)*gfx_width()+x)*2;
+            cirrus_read(at+0x100000ul,ds,(unsigned)rowbuf,w*2);cirrus_write(at,ds,(unsigned)rowbuf,w*2);
+            if(!(row&15))mouse_pump();}return;
+    }
     for (int row = 0; row < h; row++) {
         u32 at = (y + row) * 640u + x; unsigned count = w;
         while (count) {
@@ -146,10 +166,10 @@ int gfx_drag_begin(int x, int y, int w, int h) {
     if (!packed) return 0;
     sprite_x = x; sprite_y = y; sprite_w = w - 5; sprite_h = h - 5;
     w = sprite_w; h = sprite_h;
-    drag_sprite = mem_alloc(w * (u32)h);
+    drag_sprite = mem_alloc(w * (u32)h * (high?2:1));
     if (!drag_sprite) return 0;
     for (int row = 0; row < h; row++) {
-        gfx_read_span(x, y + row, drag_sprite, row * (u32)w, w);
+        gfx_read_span(x, y + row, drag_sprite, row * (u32)w*(high?2:1), w);
         if (!(row & 15)) mouse_pump();
     }
     return 1;
@@ -157,15 +177,15 @@ int gfx_drag_begin(int x, int y, int w, int h) {
 void gfx_drag_move(int x, int y) {
     if (!drag_sprite || (x == sprite_x && y == sprite_y)) return;
     int old_h = sprite_h + 5;
-    if (sprite_y + old_h > 368) old_h = 368 - sprite_y;
+    if (sprite_y + old_h > gfx_height()-32) old_h = gfx_height()-32 - sprite_y;
     restore_background(sprite_x, sprite_y, sprite_w + 5, old_h);
     int side_h = sprite_h;
-    if (y + 5 + side_h > 368) side_h = 368 - y - 5;
-    int bottom_h = 368 - y - sprite_h; if (bottom_h > 5) bottom_h = 5;
+    if (y + 5 + side_h > gfx_height()-32) side_h = gfx_height()-32 - y - 5;
+    int bottom_h = gfx_height()-32 - y - sprite_h; if (bottom_h > 5) bottom_h = 5;
     gfx_rect(x + sprite_w, y + 5, 5, side_h, SHADOW);
     gfx_rect(x + 5, y + sprite_h, sprite_w, bottom_h, SHADOW);
     for (int row = 0; row < sprite_h; row++) {
-        gfx_write_span(x, y + row, drag_sprite, row * (u32)sprite_w, sprite_w);
+        gfx_write_span(x, y + row, drag_sprite, row * (u32)sprite_w*(high?2:1), sprite_w);
         if (!(row & 15)) mouse_pump();
     }
     sprite_x = x; sprite_y = y;
@@ -174,9 +194,10 @@ void gfx_rect(int x, int y, int w, int h, int color) {
     x += origin_x; y += origin_y;
     if (x < 0) { w += x; x = 0; }
     if (y < 0) { h += y; y = 0; }
-    if (x + w > 640) w = 640 - x;
-    if (y + h > 400) h = 400 - y;
+    if (x + w > gfx_width()) w = gfx_width() - x;
+    if (y + h > gfx_height()) h = gfx_height() - y;
     if (w <= 0 || h <= 0) return;
+    if(high){for(int row=y;row<y+h;row++){cirrus_fill(((u32)row*gfx_width()+x)*2+high_base(),w,pixel16(color));if(!(row&7))mouse_pump();}return;}
     if (packed) {
         for (int row = y; row < y + h; row++) {
             packed_fill(row * 640u + x, w, color);
@@ -222,10 +243,20 @@ void gfx_cell(int x, int y, char ch, int foreground, int background, int selecte
     } else {u16 ds;__asm__ volatile("movw %%ds,%0":"=r"(ds));mem_copy(ds,(unsigned)extra,font_segment,((u8)ch-32)*16,16);glyph=extra;}
     /* A heavier title/active-button face from the original CG-ROM bitmap. */
     if(background==ACCENT)for(int row=0;row<16;row++)extra[row]|=extra[row]>>1;
-    if (x < 0 || x >= 80 || y < 0 || y >= 25) return;
+    if (x < 0 || x >= gfx_width()/8 || y < 0 || y >= gfx_height()/16) return;
     /* Mirror labels in text VRAM for accessibility/debugging; the visible
      * glyphs are rendered into graphics so the pointer can cover them cleanly. */
-    p_cell(x, y, ch, selected);
+    int mirror=y;
+    if(high&&y>=gfx_height()/16-2)mirror=y-(gfx_height()/16-25);
+    if(x<80&&mirror<25)p_cell(x,mirror,ch,selected);
+    if(high){
+        u16 pixels[8];unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
+        u16 fg=pixel16(foreground),bg=pixel16(background);
+        for(int row=0;row<16;row++){for(int col=0;col<8;col++)pixels[col]=glyph[row]&(0x80>>col)?fg:bg;
+            cirrus_write(((u32)(y*16+origin_y+row)*gfx_width()+x*8+origin_x)*2+high_base(),ds,(unsigned)pixels,16);}
+        if(!(++cells&7))mouse_pump();
+        return;
+    }
     if (packed) {
         for (int row = 0; row < 16; row++) {
             u32 at = (y * 16 + origin_y + row) * 640u + x * 8 + origin_x;
@@ -259,6 +290,12 @@ void gfx_clear_text(int x, int y, int w, int h) {
 void gfx_outline(int x, int y, int w, int h) {
     /* XOR the preview frame twice to remove it without repainting the scene. */
     int top = y * 16, bottom = (y + h) * 16 - 1, left = x, right = x + w - 1;
+    if(high){
+        top+=origin_y;bottom+=origin_y;left=left*8+origin_x;right=(right+1)*8-1+origin_x;
+        for(int row=top;row<=bottom;row++){int step=row==top||row==bottom?1:right-left;
+            for(int col=left;col<=right;col+=step){u32 at=((u32)row*gfx_width()+col)*2+high_base();cirrus_fill(at,1,cirrus_pixel(at)^65535);}}
+        return;
+    }
     if (packed) {
         top += origin_y; bottom += origin_y;
         left = left * 8 + origin_x; right = (right + 1) * 8 - 1 + origin_x;
@@ -288,7 +325,8 @@ void gfx_outline(int x, int y, int w, int h) {
     }
 }
 void gfx_pixel(int x, int y, int color) {
-    if (x < 0 || x >= 640 || y < 0 || y >= 400) return;
+    if (x < 0 || x >= gfx_width() || y < 0 || y >= gfx_height()) return;
+    if(high){cirrus_fill(((u32)y*gfx_width()+x)*2+high_base(),1,pixel16(color));return;}
     if (packed) { u32 at = y * 640u + x; select_bank(at >> 15); put(0xa800, at & 32767, color); return; }
     unsigned offset = y * 80 + x / 8, bit = 0x80 >> (x & 7);
     for (int p = 0; p < 4; p++) masked(segments[p], offset, bit, color & (1 << p));
@@ -297,7 +335,7 @@ void gfx_pointer_hide(void) {
     if (!cursor_visible) return;
     if (packed) {
         for (int row = 0; row < cursor_rows; row++) for (int col = 0; col < cursor_bytes; col++)
-            gfx_pixel(cursor_x + col, cursor_y + row, packed_under[row][col]);
+            gfx_pixel(cursor_x + col, cursor_y + row, high?0x10000|packed_under[row][col]:packed_under[row][col]);
         cursor_visible = 0; return;
     }
     for (int p = 0; p < 4; p++) for (int row = 0; row < cursor_rows; row++)
@@ -311,18 +349,18 @@ void gfx_pointer_show(int x, int y) {
     static const u16 body[16] = {0,0,0x4000,0x6000,0x7000,0x7800,0x7c00,0x7e00,
         0x7f00,0x7c00,0x5800,0x0800,0x0400,0x0200,0x0200,0};
     gfx_pointer_hide();
-    cursor_x = x; cursor_y = y; cursor_rows = y > 384 ? 400 - y : 16;
-    int last = x + 15 < 640 ? x + 15 : 639;
+    cursor_x = x; cursor_y = y; cursor_rows = y > gfx_height()-16 ? gfx_height() - y : 16;
+    int last = x + 15 < gfx_width() ? x + 15 : gfx_width()-1;
     cursor_bytes = packed ? last - x + 1 : last / 8 - x / 8 + 1;
     if (packed) for (int row = 0; row < cursor_rows; row++) for (int col = 0; col < cursor_bytes; col++) {
-        u32 at = (y + row) * 640u + x + col; select_bank(at >> 15);
-        packed_under[row][col] = get(0xa800, at & 32767);
+        u32 at = (y + row) * 640u + x + col; if(!high)select_bank(at >> 15);
+        packed_under[row][col] = high?cirrus_pixel(((u32)(y+row)*gfx_width()+x+col)*2):get(0xa800, at & 32767);
     }
     if (!packed)
     for (int p = 0; p < 4; p++) for (int row = 0; row < cursor_rows; row++)
         for (int col = 0; col < cursor_bytes; col++)
             underneath[p][row][col] = get(segments[p], (y + row) * 80 + x / 8 + col);
-    for (int row = 0; row < cursor_rows; row++) for (int col = 0; col < 16 && x + col < 640; col++) {
+    for (int row = 0; row < cursor_rows; row++) for (int col = 0; col < 16 && x + col < gfx_width(); col++) {
         if (edge[row] & (0x8000 >> col)) gfx_pixel(x + col, y + row, body[row] & (0x8000 >> col) ? WHITE : INK);
     }
     cursor_visible = 1;
@@ -355,9 +393,9 @@ static Mouse read_raw(void) {
     out(0x7fdd, 0x10);
     mouse.x += (signed char)x; mouse.y += (signed char)y;
     if (mouse.x < 0) mouse.x = 0;
-    if (mouse.x > 639) mouse.x = 639;
+    if (mouse.x >= gfx_width()) mouse.x = gfx_width()-1;
     if (mouse.y < 0) mouse.y = 0;
-    if (mouse.y > 399) mouse.y = 399;
+    if (mouse.y >= gfx_height()) mouse.y = gfx_height()-1;
     mouse.buttons = (first & 0x80 ? 0 : 1) | (first & 0x20 ? 0 : 2);
     return mouse;
 }
@@ -389,7 +427,7 @@ Mouse mouse_read(void) {
 int mouse_queued(void) { return event_count != 0; }
 Mouse mouse_position(void) { return mouse; }
 void mouse_position_set(int x, int y) {
-    if (x >= 0 && x < 640 && y >= 0 && y < 400) { mouse.x = x; mouse.y = y; }
+    if (x >= 0 && x < gfx_width() && y >= 0 && y < gfx_height()) { mouse.x = x; mouse.y = y; }
 }
 static int bios_key_ready(void) {
     unsigned a = 0x0100, b = 0;
@@ -462,12 +500,14 @@ void gfx_start(void) {
         out(0xa1, 0); out(0xa3, 0); out(0xa5, 0); fonts_ready = 1;
     }
     bios(0x0d00, 0); /* Graphics glyphs replace the visible text layer. */
+    if(high_requested&&cirrus_open(800,600)){high=1;packed=1;}
     graphics_active = 1;
     mouse_start();
 }
 void gfx_stop(void) {
     graphics_active = 0; offscreen = 0;
     gfx_pointer_hide(); mouse_stop(); gfx_drag_end();
+    if(high){cirrus_close();high=0;}
     if (packed) {
         for (int i = 0; i < 256; i++) {
             out(0xa8, i); out(0xaa,mem_get(palette_segment,i*3));out(0xac,mem_get(palette_segment,i*3+1));out(0xae,mem_get(palette_segment,i*3+2));
