@@ -196,12 +196,15 @@ int gfx_drag_begin(int x, int y, int w, int h) {
 }
 void gfx_drag_move(int x, int y) {
     if (!drag_sprite || (x == sprite_x && y == sprite_y)) return;
+    /* The 600-line mode has eight pixels below its 37 complete text rows.
+     * Keep drag shadows above the status/taskbar rows, just like the layout. */
+    int bottom = (gfx_height()/16-2)*16;
     int old_h = sprite_h + 5;
-    if (sprite_y + old_h > gfx_height()-32) old_h = gfx_height()-32 - sprite_y;
+    if (sprite_y + old_h > bottom) old_h = bottom - sprite_y;
     restore_background(sprite_x, sprite_y, sprite_w + 5, old_h);
     int side_h = sprite_h;
-    if (y + 5 + side_h > gfx_height()-32) side_h = gfx_height()-32 - y - 5;
-    int bottom_h = gfx_height()-32 - y - sprite_h; if (bottom_h > 5) bottom_h = 5;
+    if (y + 5 + side_h > bottom) side_h = bottom - y - 5;
+    int bottom_h = bottom - y - sprite_h; if (bottom_h > 5) bottom_h = 5;
     gfx_rect(x + sprite_w, y + 5, 5, side_h, SHADOW);
     gfx_rect(x + 5, y + sprite_h, sprite_w, bottom_h, SHADOW);
     for (int row = 0; row < sprite_h; row++) {
