@@ -187,7 +187,7 @@ static void taskbar(void) {
     int x=6,width=task_width();
     for(int id=0;id<WINDOWS;id++)if(windows[id].open) {
         button(x,ROWS-1,width,task_labels[id],active==id);
-        gfx_rect(x*8+3,397,width*8-6,2,windows[id].hidden?MUTED:active==id?GOLD:ACCENT);
+        gfx_rect(x*8+3,(ROWS-1)*16+13,width*8-6,2,windows[id].hidden?MUTED:active==id?GOLD:ACCENT);
         x+=width;
     }
 }
