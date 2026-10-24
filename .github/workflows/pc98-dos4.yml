@@ -33,6 +33,7 @@ jobs:
           make -C tools/editor test
           make -C tools/window test
           make -C tools/k386 all test
+          make -C tools/display all
           python3 tools/filer/verify_ibm.py
         working-directory: dos
         env:

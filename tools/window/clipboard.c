@@ -42,8 +42,9 @@ void clip_mouse_inherit(void) {
         if (!match || read_word(parent, at + 8) != 1 || read_word(parent, at + 10) != 2 ||
             read_word(parent, at + 28) != 0x4352) continue;
         unsigned x = read_word(parent, at + 30 + CLIP_CAPACITY), y = read_word(parent, at + 32 + CLIP_CAPACITY);
-        if (x >= 640 || y >= 400) continue;
-        parent_segment = parent; parent_offset = at; mouse_position_set(x, y); return;
+        if (x >= 4096 || y >= 4096) continue;
+        parent_segment = parent; parent_offset = at;
+        mouse_position_set(x<(unsigned)gfx_width()?(int)x:gfx_width()-1,y<(unsigned)gfx_height()?(int)y:gfx_height()-1); return;
     }
 }
 void clip_mouse_return(void) {

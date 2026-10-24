@@ -8,7 +8,7 @@ static const u16 theme[] = {
     0x112, 0xabc, 0x678, 0x456, 0x234, 0x7bc, 0xeee, 0xbcd,
 };
 static unsigned font_segment,palette_segment;
-static int high_requested,high;
+static int high_requested,high,wallpaper_ready;
 int gfx_width(void){return high?800:640;}
 int gfx_height(void){return high?600:400;}
 void gfx_highcolor(int enabled){high_requested=enabled;}
@@ -115,6 +115,24 @@ static void packed_fill(u32 at, unsigned count, u8 color) {
         at += n; count -= n;
     }
 }
+void gfx_wallpaper(void){
+    if(!high)return;
+    if(!wallpaper_ready){
+        u16 pixels[800];unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
+        int work=(gfx_height()/16-2)*16;
+        for(int y=0;y<gfx_height();y++){
+            for(int x=0;x<gfx_width();x+=8){int r=12+x*50/gfx_width(),g=24+y*80/work,b=48+(x+y)*110/(gfx_width()+work);
+                u16 color=((r>>3)<<11)|((g>>2)<<5)|(b>>3);for(int n=0;n<8;n++)pixels[x+n]=color;}
+            cirrus_write(0x200000ul+(u32)y*gfx_width()*2,ds,(unsigned)pixels,gfx_width()*2);
+            if(!(y&15))mouse_pump();
+        }wallpaper_ready=1;
+    }
+    if(!cirrus_blit(0x200000ul,high_base(),gfx_width()*2,gfx_height(),gfx_width()*2)){
+        u16 pixels[800];unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
+        for(int y=0;y<gfx_height();y++){u32 at=(u32)y*gfx_width()*2;
+            cirrus_read(0x200000ul+at,ds,(unsigned)pixels,gfx_width()*2);cirrus_write(high_base()+at,ds,(unsigned)pixels,gfx_width()*2);}
+    }
+}
 void gfx_read_span(int x, int y, unsigned segment, u32 offset, unsigned count) {
     if(high){cirrus_read(((u32)y*gfx_width()+x)*2+high_base(),segment+offset/16,offset&15,count*2);return;}
     u32 at = y * 640u + x;
@@ -144,6 +162,8 @@ void gfx_present(int x, int y, int w, int h) {
 }
 static void restore_background(int x, int y, int w, int h) {
     if(high){
+        u32 first=((u32)y*gfx_width()+x)*2;
+        if(cirrus_blit(first+0x100000ul,first,w*2,h,gfx_width()*2))return;
         u16 rowbuf[800];unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
         for(int row=0;row<h;row++){u32 at=((u32)(y+row)*gfx_width()+x)*2;
             cirrus_read(at+0x100000ul,ds,(unsigned)rowbuf,w*2);cirrus_write(at,ds,(unsigned)rowbuf,w*2);
@@ -500,7 +520,7 @@ void gfx_start(void) {
         out(0xa1, 0); out(0xa3, 0); out(0xa5, 0); fonts_ready = 1;
     }
     bios(0x0d00, 0); /* Graphics glyphs replace the visible text layer. */
-    if(high_requested&&cirrus_open(800,600)){high=1;packed=1;}
+    if(high_requested&&cirrus_open(800,600)){high=1;packed=1;wallpaper_ready=0;}
     graphics_active = 1;
     mouse_start();
 }

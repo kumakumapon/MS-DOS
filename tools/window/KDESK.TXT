@@ -165,3 +165,11 @@ are occupied, end a session in Tasks first. DOS shell opens KSH.EXE in enhanced
 mode. Ctrl+N / Ctrl+O open or focus the two independent sessions.
 These applications require the enhanced image. Full-screen DOS applications
 remain available, and COM compatibility is retained in the DOS sessions.
+
+HIGH-RESOLUTION DISPLAY
+WebNP2: choose KDESK/386 (800x600, 65,536 colors) at startup, or add
+video=cirrus to the enhanced disk URL. Native Cirrus RGB565 rendering uses
+independent composition/wallpaper VRAM and hardware copies. The ordinary
+PEGC desktop remains available when the adapter is absent or unsupported.
+The external image tools continue in their existing full-screen video mode;
+returning to the desktop restores the enhanced display.

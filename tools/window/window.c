@@ -272,7 +272,6 @@ static void launch(const char *program, const char *arguments) {
     scene_dirty=1; damage(0,0,SW,SH);
     clip_mouse_save(); clip_state(2); gfx_stop(); p_finish();
     int result = p_exec(program, arguments);
-    clip_mouse_resume();
     if (result < 0) message("Cannot start program; check its path and memory");
     else {
         p_output("\r\nPress any key or click to return to KDESK...");
@@ -286,7 +285,7 @@ static void launch(const char *program, const char *arguments) {
         mouse_stop(); message("Program returned to desktop");
     }
     if (!dirty) load();
-    enter_graphics(); refresh();
+    enter_graphics(); clip_mouse_resume(); refresh();
 }
 static void tool(int id, const char *arguments) {
     if (id == 0) { refresh(); focus(FILES); return; }
@@ -390,7 +389,7 @@ static const char help_text[] =
     "Ctrl+D / Desk: show desktop, restore\nDesktop DOS icons: open a session";
 static const char about_text[] =
     "Kuma Desktop 1.9\n\nOriginal PC-98 window system\n"
-    "MS-DOS 4.0 / 640 x 400\n\nCopyright 2026 kumakumapon\n"
+    "MS-DOS 4.0 / PC-98 display\n\nCopyright 2026 kumakumapon\n"
     "MIT license - see KDLIC.TXT";
 static int document(Window *w, Pane *v, int id, int paint) {
     const char *s=id==HELP?help_text:about_text;
@@ -658,14 +657,11 @@ static void draw_window(int id) {
 }
 static void compose(int foreground) {
     gfx_target(1);
-    gfx_rect(0, 0, SW, SH, DESKTOP); gfx_clear_text(0, 0, COLS, ROWS);
-    if(gfx_colors()>256)for(int y=16;y<WORK;y++){
-        for(int x=0;x<SW;x+=8){int r=8+x*28/SW,g=18+y*38/WORK,b=40+(x+y)*50/(SW+WORK);
-            int color=0x10000|((r>>3)<<11)|((g>>2)<<5)|(b>>3);gfx_rect(x,y,8,1,color);}
-    }
-    else if (gfx_colors() == 256) for (int y = 16; y < WORK; y++)
+    if(gfx_colors()>256)gfx_wallpaper();else gfx_rect(0,0,SW,SH,DESKTOP);
+    gfx_clear_text(0,0,COLS,ROWS);
+    if (gfx_colors() == 256) for (int y = 16; y < WORK; y++)
         gfx_rect(0, y, SW, 1, 232 + (y - 16) * 23 / (WORK-17));
-    else for (int y = 64; y < 352; y += 32) gfx_rect(0, y, SW, 1, DESKTOP_LIGHT);
+    else if(gfx_colors()<256)for (int y = 64; y < 352; y += 32) gfx_rect(0, y, SW, 1, DESKTOP_LIGHT);
     label(60,21,"PC-98 / MS-DOS",18,HANDLE,DESKTOP,0);
     /* Original geometric wallpaper; the system palette remains available to images. */
     for(int i=0;i<4;i++) {
