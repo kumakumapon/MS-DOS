@@ -10,6 +10,11 @@
  * 16-color scene and CG-ROM glyphs; hidden text VRAM mirrors the labels. */
 enum { LAUNCHER, FILES, MEMO, HELP, ABOUT, CALCULATOR, CLOCK, TASKS, DOS1, DOS2, WINDOWS };
 enum { LAUNCH_APPS = 9 };
+#define SW (gfx_width())
+#define SH (gfx_height())
+#define COLS (SW/8)
+#define ROWS (SH/16)
+#define WORK ((ROWS-2)*16)
 typedef struct { int x, y, w, h, open, hidden, selected, ox, oy, top; } Window;
 static Window windows[WINDOWS];
 /* Only geometry is restored: task state, text and scroll position stay live. */
@@ -47,12 +52,12 @@ static void invalidate(int id) {
     if(w->open&&!w->hidden)damage(w->x*8+w->ox,w->y*16+w->oy,w->w*8+5,w->h*16+5);
 }
 static void present(void) {
-    if(damage_right>640)damage_right=640;
-    if(damage_bottom>400)damage_bottom=400;
+    if(damage_right>SW)damage_right=SW;
+    if(damage_bottom>SH)damage_bottom=SH;
     if(damage_right>damage_left&&damage_bottom>damage_top)
         gfx_present(damage_left,damage_top,damage_right-damage_left,damage_bottom-damage_top);
-    gfx_present(0,368,640,32);
-    damage_left=640;damage_top=400;damage_right=damage_bottom=0;
+    gfx_present(0,WORK,SW,SH-WORK);
+    damage_left=SW;damage_top=SH;damage_right=damage_bottom=0;
 }
 static int order[WINDOWS], active = -1, mode, dirty, confirm, exiting;
 static char home[FD_PATH], folder[FD_PATH], note_path[FD_PATH];
@@ -143,8 +148,8 @@ static void place_window(int kind) {
         if(!placement[active]) {
             r[0]=w->x;r[1]=w->y;r[2]=w->w;r[3]=w->h;r[4]=w->ox;r[5]=w->oy;
         }
-        w->x=kind==3?40:0;w->y=1;w->w=kind==1?79:kind==2?40:39;
-        w->h=22;w->ox=w->oy=0;
+        w->x=kind==3?COLS/2:0;w->y=1;w->w=kind==1?COLS-1:kind==2?COLS/2:COLS-COLS/2-1;
+        w->h=ROWS-3;w->ox=w->oy=0;
         message(kind==1?"Window maximized; Ctrl+G or double-click title restores":
             kind==2?"Window tiled left; Find apps / Restore window undoes layout":
                     "Window tiled right; Find apps / Restore window undoes layout");
@@ -173,16 +178,16 @@ static void show_desktop(void) {
 }
 static int task_width(void) {
     int count=0;for(int i=0;i<WINDOWS;i++)count+=windows[i].open;
-    int width=count?74/count:14;return width>14?14:width;
+    int width=count?(COLS-6)/count:14;return width>14?14:width;
 }
 static void taskbar(void) {
-    gfx_rect(0,368,640,16,BORDER);gfx_rect(0,384,640,16,SURFACE);
-    gfx_clear_text(0,23,80,2);label(1,23,status,78,WHITE,BORDER,0);
-    button(0,24,6,"Desk",active<0);
+    gfx_rect(0,WORK,SW,16,BORDER);gfx_rect(0,WORK+16,SW,SH-WORK-16,SURFACE);
+    gfx_clear_text(0,ROWS-2,COLS,2);label(1,ROWS-2,status,COLS-2,WHITE,BORDER,0);
+    button(0,ROWS-1,6,"Desk",active<0);
     int x=6,width=task_width();
     for(int id=0;id<WINDOWS;id++)if(windows[id].open) {
-        button(x,24,width,task_labels[id],active==id);
-        gfx_rect(x*8+3,397,width*8-6,2,windows[id].hidden?MUTED:active==id?GOLD:ACCENT);
+        button(x,ROWS-1,width,task_labels[id],active==id);
+        gfx_rect(x*8+3,(ROWS-1)*16+13,width*8-6,2,windows[id].hidden?MUTED:active==id?GOLD:ACCENT);
         x+=width;
     }
 }
@@ -264,12 +269,13 @@ static int launch_app(const char *program,const char *arguments) {
 }
 static void launch(const char *program, const char *arguments) {
     if(launch_app(program,arguments))return;
-    scene_dirty=1; damage(0,0,640,400);
+    scene_dirty=1; damage(0,0,SW,SH);
     clip_mouse_save(); clip_state(2); gfx_stop(); p_finish();
     int result = p_exec(program, arguments);
-    clip_mouse_resume();
     if (result < 0) message("Cannot start program; check its path and memory");
     else {
+        /* Start the return prompt at the child's final pointer position. */
+        clip_mouse_resume();
         p_output("\r\nPress any key or click to return to KDESK...");
         mouse_start(); int previous = mouse_read().buttons;
         while (!key_ready()) {
@@ -278,10 +284,10 @@ static void launch(const char *program, const char *arguments) {
             previous = current.buttons; input_idle();
         }
         if (key_ready()) key_read();
-        mouse_stop(); message("Program returned to desktop");
+        mouse_stop(); clip_mouse_save(); message("Program returned to desktop");
     }
     if (!dirty) load();
-    enter_graphics(); refresh();
+    enter_graphics(); clip_mouse_resume(); refresh();
 }
 static void tool(int id, const char *arguments) {
     if (id == 0) { refresh(); focus(FILES); return; }
@@ -385,7 +391,7 @@ static const char help_text[] =
     "Ctrl+D / Desk: show desktop, restore\nDesktop DOS icons: open a session";
 static const char about_text[] =
     "Kuma Desktop 1.9\n\nOriginal PC-98 window system\n"
-    "MS-DOS 4.0 / 640 x 400\n\nCopyright 2026 kumakumapon\n"
+    "MS-DOS 4.0 / PC-98 display\n\nCopyright 2026 kumakumapon\n"
     "MIT license - see KDLIC.TXT";
 static int document(Window *w, Pane *v, int id, int paint) {
     const char *s=id==HELP?help_text:about_text;
@@ -633,8 +639,9 @@ static void draw_window(int id) {
         unsigned session=id-DOS1;
         if(!enhanced){line(w,0,"Use the KDESK/386 experimental disk",0);line(w,1,"DOS windows need K386 without EMM386",0);}
         else {
-            if(dos_horizontal[session]>80-(w->w-6))dos_horizontal[session]=80-(w->w-6);
-            for(int row=0;row<w->h-6;row++)for(int col=0;col<w->w-6;col++) {
+            int columns=w->w-6;if(columns>80)columns=80;
+            if(dos_horizontal[session]>80-columns)dos_horizontal[session]=80-columns;
+            for(int row=0;row<w->h-6&&row<25;row++)for(int col=0;col<columns;col++) {
                 unsigned cell=(w->top+row)*80+dos_horizontal[session]+col;
                 if(cell<2000)gfx_cell(w->x+2+col,w->y+3+row,k386_character(session,cell),INK,PAPER,0);
             }
@@ -652,10 +659,11 @@ static void draw_window(int id) {
 }
 static void compose(int foreground) {
     gfx_target(1);
-    gfx_rect(0, 0, 640, 400, DESKTOP); gfx_clear_text(0, 0, 80, 25);
-    if (gfx_colors() == 256) for (int y = 16; y < 368; y++)
-        gfx_rect(0, y, 640, 1, 232 + (y - 16) * 23 / 351);
-    else for (int y = 64; y < 352; y += 32) gfx_rect(0, y, 640, 1, DESKTOP_LIGHT);
+    if(gfx_colors()>256)gfx_wallpaper();else gfx_rect(0,0,SW,SH,DESKTOP);
+    gfx_clear_text(0,0,COLS,ROWS);
+    if (gfx_colors() == 256) for (int y = 16; y < WORK; y++)
+        gfx_rect(0, y, SW, 1, 232 + (y - 16) * 23 / (WORK-17));
+    else if(gfx_colors()<256)for (int y = 64; y < 352; y += 32) gfx_rect(0, y, SW, 1, DESKTOP_LIGHT);
     label(60,21,"PC-98 / MS-DOS",18,HANDLE,DESKTOP,0);
     /* Original geometric wallpaper; the system palette remains available to images. */
     for(int i=0;i<4;i++) {
@@ -668,7 +676,7 @@ static void compose(int foreground) {
         utility_icon(4,x*8+24,54);
         label(x+2,6,titles[DOS1+i],6,WHITE,DESKTOP_LIGHT,0);
     }
-    gfx_rect(0, 0, 640, 16, INK);
+    gfx_rect(0, 0, SW, 16, INK);
     button(0,0,14,"Kuma Desktop",panel_open);
     static const char *menus[] = {"Apps", "Files", "Memo", "Help", "About", "Paint", "Exit", "Tasks"};
     static const int menu_x[] = {22, 30, 39, 47, 55, 63, 71, 14};
@@ -680,13 +688,13 @@ static void compose(int foreground) {
     if(foreground && active>=0 && !windows[active].hidden)draw_window(active);
     taskbar();
     if (confirm) {
-        label(1, 23, "Unsaved memo: Enter saves / D discards / Esc cancels", 78, WHITE, BORDER, 0);
+        label(1, ROWS-2, "Unsaved memo: Enter saves / D discards / Esc cancels", 78, WHITE, BORDER, 0);
         frame(17, 9, 46, 8);
         gfx_rect(17 * 8 + 3, 9 * 16 + 8, 46 * 8 - 6, 28, ACCENT);
         label(19, 10, "Unsaved memo", 40, WHITE, ACCENT, 0);
         text(20, 12, "Save changes before closing?", 40, 0);
         button(20, 14, 10, "Save", 0); button(34, 14, 11, "Discard", 0); button(49, 14, 11, "Cancel", 0);
-    } else if (mode) label(1, 23, mode == 1 ? "MOVE: arrows change position; Enter finishes" : "RESIZE: arrows change size; Enter finishes", 78, WHITE, BORDER, 0);
+    } else if (mode) label(1, ROWS-2, mode == 1 ? "MOVE: arrows change position; Enter finishes" : "RESIZE: arrows change size; Enter finishes", 78, WHITE, BORDER, 0);
     if(panel_open)draw_panel();
 }
 static void draw(void) {
@@ -759,11 +767,11 @@ static int handle_key(int key) {
         int dx = key == KEY_RIGHT ? 1 : key == KEY_LEFT ? -1 : 0;
         int dy = key == KEY_DOWN ? 1 : key == KEY_UP ? -1 : 0;
         if (mode == 1) {
-            if (w->x + dx >= 0 && w->x + dx + w->w < 80) w->x += dx;
-            if (w->y + dy >= 1 && w->y + dy + w->h < 24) w->y += dy;
+            if (w->x + dx >= 0 && w->x + dx + w->w < COLS) w->x += dx;
+            if (w->y + dy >= 1 && w->y + dy + w->h < ROWS-1) w->y += dy;
         } else {
-            if (w->w + dx >= (active == CALCULATOR ? 36 : active == CLOCK ? 32 : 30) && w->x + w->w + dx < 80) w->w += dx;
-            if (w->h + dy >= (active == CALCULATOR ? 20 : active == CLOCK ? 15 : 10) && w->y + w->h + dy < 24) w->h += dy;
+            if (w->w + dx >= (active == CALCULATOR ? 36 : active == CLOCK ? 32 : 30) && w->x + w->w + dx < COLS) w->w += dx;
+            if (w->h + dy >= (active == CALCULATOR ? 20 : active == CLOCK ? 15 : 10) && w->y + w->h + dy < ROWS-1) w->h += dy;
         }
         return 0;
     }
@@ -818,7 +826,7 @@ static __attribute__((noinline)) int app_key(int id,int key) {
     if(id>=DOS1&&enhanced) {
         unsigned session=id-DOS1;
         if(key==1001){if(dos_horizontal[session])dos_horizontal[session]--;return 0;}
-        if(key==1002){if(dos_horizontal[session]<80-(w->w-6))dos_horizontal[session]++;return 0;}
+        if(key==1002){if(dos_horizontal[session]<(w->w-6<80?80-(w->w-6):0))dos_horizontal[session]++;return 0;}
         if(key==12){dos_edit[session]=1;dos_path[session][0]=0;message("COM/EXE command: type a name, Enter runs (files read-only)");return 0;}
         if(key==16){k386_command(K386_STOP,session,0,0);return 0;}
         if(key==18){if(k386_command(K386_RESUME,session,0,0))message("Cannot resume; raise or disable the CPU limit in Tasks");return 0;}
@@ -916,14 +924,14 @@ static __attribute__((noinline)) int mouse_event(Mouse now, int previous, int *r
         if (!w->open || w->hidden || confirm) { drag = 0; return 0; }
         int x = w->x, y = w->y, width = w->w, height = w->h;
         if (drag == 1) {
-            int px = clamp(drag_x + now.x - drag_mx, 0, 640 - w->w * 8 - 5);
-            int py = clamp(drag_y + now.y - drag_my, 16, 368 - w->h * 16);
+            int px = clamp(drag_x + now.x - drag_mx, 0, SW - w->w * 8 - 5);
+            int py = clamp(drag_y + now.y - drag_my, 16, WORK - w->h * 16);
             if (live_drag == 1) { gfx_drag_move(px, py); damage(px,py,w->w*8+5,w->h*16+5); }
             x = px / 8; y = py / 16;
-            if (!(now.buttons & 1)) { w->ox = gfx_colors() == 256 ? px & 7 : 0; w->oy = gfx_colors() == 256 ? py & 15 : 0; gfx_drag_end(); live_drag = 0; }
+            if (!(now.buttons & 1)) { w->ox = gfx_colors() >= 256 ? px & 7 : 0; w->oy = gfx_colors() >= 256 ? py & 15 : 0; gfx_drag_end(); live_drag = 0; }
         } else {
-            width = clamp(drag_w + (now.x - drag_mx) / 8, drag_id == CALCULATOR ? 36 : drag_id == CLOCK ? 32 : 30, 79 - w->x);
-            height = clamp(drag_h + (now.y - drag_my) / 16, drag_id == CALCULATOR ? 20 : drag_id == CLOCK ? 15 : 10, 23 - w->y - (w->oy != 0));
+            width = clamp(drag_w + (now.x - drag_mx) / 8, drag_id == CALCULATOR ? 36 : drag_id == CLOCK ? 32 : 30, COLS-1 - w->x);
+            height = clamp(drag_h + (now.y - drag_my) / 16, drag_id == CALCULATOR ? 20 : drag_id == CLOCK ? 15 : 10, ROWS-2 - w->y - (w->oy != 0));
         }
         gfx_origin(w->ox, w->oy);
         if (preview_visible) gfx_outline(preview_x, preview_y, preview_w, preview_h);
@@ -970,7 +978,7 @@ static __attribute__((noinline)) int mouse_event(Mouse now, int previous, int *r
         for (int i = 0; i < 8; i++) if (cx >= menu_x[i] && cx < menu_x[i] + 7) return menu_key[i];
         return 0;
     }
-    if (cy == 24) {
+    if (cy == ROWS-1) {
         if(cx<6)return 4;
         int slot=(cx-6)/task_width();
         for(int id=0;id<WINDOWS;id++)if(windows[id].open&&!slot--) {
@@ -1136,8 +1144,8 @@ int main(void) {
     enhanced=k386_probe();
     if(k386_resources_available())windows[TASKS]=(Window){3,1,74,22,0,0,0,0,0,0};
     calc_init(&calculator);clock_read(&desk_clock);clock_tick=input_ticks();
-    load(); refresh(); focus(LAUNCHER); enter_graphics();
-    damage(0,0,640,400);draw(); Mouse previous = mouse_read(); gfx_pointer_show(previous.x, previous.y);
+    load(); refresh(); focus(LAUNCHER); gfx_highcolor(1); enter_graphics();
+    damage(0,0,SW,SH);draw(); Mouse previous = mouse_read(); gfx_pointer_show(previous.x, previous.y);
     for (;;) {
         Mouse now = mouse_read(); int ready = key_ready(), redraw = 0, stop = 0;
         if(windows[CLOCK].open&&((input_ticks()-clock_tick)&0xffffff)>=153600)
@@ -1197,7 +1205,7 @@ int main(void) {
             }
             if (drag == 1 && !live_drag) {
                 Window *w = &windows[drag_id];
-                if(gfx_colors()==256){compose(0);gfx_target(0);}
+                if(gfx_colors()>=256){compose(0);gfx_target(0);}
                 live_drag = gfx_drag_begin(w->x * 8 + w->ox, w->y * 16 + w->oy, w->w * 8 + 5, w->h * 16 + 5) ? 1 : 2;
             }
             gfx_pointer_show(now.x, now.y);

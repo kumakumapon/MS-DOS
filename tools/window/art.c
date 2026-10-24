@@ -9,9 +9,9 @@ static void paper(int x,int y) {
     box(x+19,y+5,6,1,MUTED);
 }
 void utility_icon(int id,int x,int y) {
-    int green=gfx_colors()==256?114:HANDLE;
-    int red=gfx_colors()==256?196:GOLD;
-    int orange=gfx_colors()==256?214:GOLD;
+    int green=gfx_colors()>=256?114:HANDLE;
+    int red=gfx_colors()>=256?196:GOLD;
+    int orange=gfx_colors()>=256?214:GOLD;
     if(id==0) { /* Folder with documents and a highlighted lip. */
         box(x+2,y+6,28,24,SHADOW);box(x,y+4,13,8,orange);
         box(x+1,y+7,28,20,orange);box(x+5,y+3,20,20,WHITE);
