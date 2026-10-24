@@ -274,6 +274,8 @@ static void launch(const char *program, const char *arguments) {
     int result = p_exec(program, arguments);
     if (result < 0) message("Cannot start program; check its path and memory");
     else {
+        /* Start the return prompt at the child's final pointer position. */
+        clip_mouse_resume();
         p_output("\r\nPress any key or click to return to KDESK...");
         mouse_start(); int previous = mouse_read().buttons;
         while (!key_ready()) {
@@ -282,7 +284,7 @@ static void launch(const char *program, const char *arguments) {
             previous = current.buttons; input_idle();
         }
         if (key_ready()) key_read();
-        mouse_stop(); message("Program returned to desktop");
+        mouse_stop(); clip_mouse_save(); message("Program returned to desktop");
     }
     if (!dirty) load();
     enter_graphics(); clip_mouse_resume(); refresh();

@@ -21,7 +21,10 @@ void clip_mouse_save(void) {
     clipboard.cursor_x = now.x; clipboard.cursor_y = now.y; clipboard.reserved = 0x4352;
 }
 void clip_mouse_resume(void) {
-    if (clipboard.reserved == 0x4352) mouse_position_set(clipboard.cursor_x, clipboard.cursor_y);
+    if (clipboard.reserved == 0x4352) {
+        int x=clipboard.cursor_x,y=clipboard.cursor_y;
+        mouse_position_set(x<gfx_width()?x:gfx_width()-1,y<gfx_height()?y:gfx_height()-1);
+    }
 }
 void clip_mouse_inherit(void) {
     u16 segment; __asm__ volatile("movw %%ds,%0" : "=r"(segment));
