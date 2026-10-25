@@ -687,6 +687,7 @@ static int update_dos_window(int id) {
     int columns=w->w-6;if(columns>80)columns=80;
     gfx_target(1);gfx_origin(w->ox,w->oy);
     for(int row=0;row<w->h-6&&row<25;row++) {
+        gfx_target(1); /* gfx_present returns rendering to the visible page. */
         int first=columns,last=-1;
         for(int col=0;col<columns;col++) {
             unsigned cell=(w->top+row)*80+dos_horizontal[session]+col;
@@ -701,12 +702,14 @@ static int update_dos_window(int id) {
     }
     unsigned state=k386_word(session,0);
     if(dos_state[session]!=state) {
+        gfx_target(1);
         static const char *states[]={"Ended  ","Running","Waiting","Stopped","Fault  "};
         text(w->x+2,w->y+w->h-3,states[state<=4?state:4],7,0);
         gfx_present((w->x+2)*8+w->ox,(w->y+w->h-3)*16+w->oy,56,16);
         dos_state[session]=state;
     }
     if(dos_top[session]!=w->top) {
+        gfx_target(1);
         Pane v;pane(id,&v);scrollbar(w,&v);
         gfx_present((w->x+w->w-3)*8+w->ox,(w->y+3)*16+w->oy,16,(w->h-6)*16);
         dos_top[session]=w->top;
