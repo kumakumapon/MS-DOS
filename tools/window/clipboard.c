@@ -27,7 +27,8 @@ void clip_mouse_resume(void) {
     }
 }
 void clip_mouse_inherit(void) {
-    u16 segment; __asm__ volatile("movw %%ds,%0" : "=r"(segment));
+    unsigned service=0x6200,segment;
+    __asm__ volatile("int $0x21":"+a"(service),"=b"(segment)::"cc","memory");
     unsigned parent = read_word(segment, 0x16);
     if (!parent || parent == segment || parent >= 0xa000) return;
     unsigned kind = mem_get(parent - 1, 0);
