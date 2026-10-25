@@ -70,7 +70,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
   await capture();
   await key('ESC'); await key('F2'); await title('Launcher', 4, 6);
   await key('HOME'); await key('DOWN'); await key('DOWN'); await key('ENTER');
-  await wait('PC-98 SYSTEM SETTINGS'); await type('q'); await wait('Program returned to desktop'); await wait('Kuma Desktop'); await wait('Program returned to desktop');
+  await wait('PC-98 SYSTEM SETTINGS'); await type('q'); await wait('Program returned to desktop'); await wait('Kuma Desktop');
   await key('F3'); await wait('Parent'); await key('v'); await wait('Files list view');
   await selectFile('GUIWORK'); await key('ENTER'); await wait('A:\\GUIWORK'); await wait('Empty directory');
   await key('BS');
@@ -245,6 +245,7 @@ export async function verifyMedia(page, { screenshot } = {}) {
   await click(116,140);await wait('Image changed');await key('F4');await wait('Save BMP as:');
   await key('CTRL+U');await type('BRIDGE.BMP\r');await wait('Saved BMP');
   assert.ok(near(await guest('BRIDGE.BMP'),50,30,196),'KDESK passes its current mouse position to KPAINT');
+  await move(600,350);
   await key('F10');await wait('Program returned to desktop');
   await pause(200);
   const returnedPointer=await page.evaluate(()=>{
