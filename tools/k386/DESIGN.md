@@ -209,6 +209,8 @@ source provenance are retained; no Windows code, binaries or resources are used.
 
 ## Interactive scheduling and presentation
 
+K386_SCHEDULE with key=0 retains its original single-slice behavior. KDESK
+requests key=8 (counts 1..8 are accepted; larger counts fail with error 87).
 The scheduler services at most eight slices or 10 ms of PC-98 free-running
 clock time per desktop call, whichever limit is reached first. It re-evaluates
 runnable sessions, weighted priorities, virtual timers and CPU quotas between

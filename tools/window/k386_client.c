@@ -64,7 +64,7 @@ unsigned k386_tick(void) {
     if(resources_segment){
         unsigned flags[2],states[2],changed=0;
         for(unsigned i=0;i<2;i++){flags[i]=k386_word(i,6);states[i]=k386_word(i,0);}
-        if(k386_command(K386_SCHEDULE,0,0,0))return 0;
+        if(k386_command(K386_SCHEDULE,0,8,0))return 0;
         for(unsigned i=0;i<2;i++)if(flags[i]!=k386_word(i,6)||states[i]!=k386_word(i,0))changed|=1u<<i;
         return changed;
     }
