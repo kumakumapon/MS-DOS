@@ -80,7 +80,7 @@ static int prepare(unsigned id,const char *name,int *handle,K386Image *plan,char
     int h=p_open(path);if(h<0)return -h;
     k32 size;k8 header[96]={0};error=file_length(h,&size);
     if(!error){int n=p_read(h,header,sizeof header);error=n<0?-n:k386_image(header,size,plan);
-        if(!error&&kapp_header(header,n)<0)error=11;}
+        if(!error){int kind=kapp_header(header,n);if(kind<0)error=11;else if(kind==KAPP_DESKTOP)error=50;}}
     if(!error&&plan->relocations){
         if(p_seek(h,plan->table)<0)error=11;
         for(unsigned i=0;!error&&i<plan->relocations;i++){

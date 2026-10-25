@@ -7,6 +7,7 @@ int k386_command(unsigned command,unsigned id,unsigned key,const char *path);
 unsigned k386_word(unsigned id,unsigned offset);
 unsigned k386_counter(unsigned id);
 char k386_character(unsigned id,unsigned cell);
+void k386_screen(unsigned id,char *out);
 unsigned k386_tick(void);
 int k386_resources_available(void);
 int k386_usage(unsigned id,K386Usage *usage);

@@ -205,3 +205,19 @@ Inspected upstream: uraraworks/NP2kai-wasm wasm branch,
 `romimage/BIOS/VECT08.X86`, `io/pit.c`, `io/pic.c`. The shipped wasm is tested
 rather than assuming every upstream capability works. Original licenses and
 source provenance are retained; no Windows code, binaries or resources are used.
+
+
+## Interactive scheduling and presentation
+
+The scheduler services at most eight slices or 10 ms of PC-98 free-running
+clock time per desktop call, whichever limit is reached first. It re-evaluates
+runnable sessions, weighted priorities, virtual timers and CPU quotas between
+slices. Host DOS calls remain serialized. A slow synchronous host file request
+can exceed the time target; no further slice starts after that request returns.
+Blocking input and explicit yields still return from each protected-mode slice.
+
+KDESK batches a session screen snapshot and caches rendered viewport cells.
+Unobscured DOS windows repaint only changed character spans, state labels and
+scrollbar positions. Window overlap, dialogs and dragging use normal scene
+composition; geometry and focus operations rebuild the cache. Emulator clock
+settings and the isolated, read-only file service policy do not change.

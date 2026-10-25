@@ -33,6 +33,12 @@ static char dos_path[2][128];
 static unsigned dos_edit[2];
 static int dos_follow[2]={1,1};
 static int dos_horizontal[2];
+/* Cache rendered viewport cells, not raw guest offsets: scrolling can then
+   compare old and new rows without clearing the entire desktop. */
+static char dos_cells[2][K386_SCREEN];
+static unsigned dos_state[2];
+static int dos_top[2];
+static int drag;
 static u32 dos_tick;
 static u32 resource_tick;
 static unsigned event_age;
@@ -71,7 +77,7 @@ static unsigned entries_segment, data_segment;
 static char memo_get(int at){return mem_get(entries_segment,MEMO_OFFSET+at);}
 static void memo_put(int at,char ch){mem_put(entries_segment,MEMO_OFFSET+at,ch);}
 static const char *titles[] = {"Launcher", "Files", "Memo", "Help", "About", "Calculator", "Clock", "Tasks", "DOS 1", "DOS 2"};
-static const char *apps[] = {"FD98.COM", "EDIT98.COM", "CPANEL.COM", "RBASIC.COM", "COMMAND.COM", "KVIEW.COM", "KPAINT.COM"};
+static const char *apps[] = {"FD98.EXE", "EDIT98.EXE", "CPANEL.EXE", "RBASIC.COM", "COMMAND.COM", "KVIEW.EXE", "KPAINT.EXE"};
 static const char *labels[] = {"File manager", "Text editor", "System settings", "BASIC", "DOS shell (EXIT returns)", "Image viewer", "Image editor", "Calculator", "Clock"};
 static const char *icon_labels[] = {"File manager", "Text editor", "Settings", "BASIC", "DOS shell", "Image viewer", "Image editor", "Calculator", "Clock"};
 static const char *task_labels[] = {"Apps", "Files", "Memo", "Help", "About", "Calc", "Clock", "Tasks", "DOS 1", "DOS 2"};
@@ -248,12 +254,13 @@ static void load(void) {
 static void enter_graphics(void) { gfx_start(); clip_state(1); }
 /* Tagged applications run in independent guest sessions. Never replace a live
  * session as a side effect of opening a file or search result. */
-static int launch_app(const char *program,const char *arguments) {
+static int launch_app(const char *program,const char *arguments,int *desktop) {
     unsigned char header[96];int h=p_open(program);
     if(h<0)return 0;
     int n=p_read(h,header,sizeof header);p_close(h);
     int kind=n<0?0:kapp_header(header,n);
     if(!kind)return 0;
+    if(kind==KAPP_DESKTOP){*desktop=1;return 0;}
     if(kind<0){message("Unsupported KDESK/386 application version or header");return 1;}
     if(!enhanced){message("This application needs KDESK/386; boot the enhanced image");return 1;}
     int slot;
@@ -268,11 +275,13 @@ static int launch_app(const char *program,const char *arguments) {
     focus(DOS1+slot);message((const char *)header+40);return 1;
 }
 static void launch(const char *program, const char *arguments) {
-    if(launch_app(program,arguments))return;
+    int desktop=0;
+    if(launch_app(program,arguments,&desktop))return;
     scene_dirty=1; damage(0,0,SW,SH);
     clip_mouse_save(); clip_state(2); gfx_stop(); p_finish();
     int result = p_exec(program, arguments);
     if (result < 0) message("Cannot start program; check its path and memory");
+    else if(desktop){clip_mouse_resume();message("Program returned to desktop");}
     else {
         /* Start the return prompt at the child's final pointer position. */
         clip_mouse_resume();
@@ -641,10 +650,14 @@ static void draw_window(int id) {
         else {
             int columns=w->w-6;if(columns>80)columns=80;
             if(dos_horizontal[session]>80-columns)dos_horizontal[session]=80-columns;
+            char screen[K386_SCREEN];k386_screen(session,screen);
             for(int row=0;row<w->h-6&&row<25;row++)for(int col=0;col<columns;col++) {
                 unsigned cell=(w->top+row)*80+dos_horizontal[session]+col;
-                if(cell<2000)gfx_cell(w->x+2+col,w->y+3+row,k386_character(session,cell),INK,PAPER,0);
+                char ch=cell<K386_SCREEN?screen[cell]:' ';
+                dos_cells[session][row*80+col]=ch;
+                gfx_cell(w->x+2+col,w->y+3+row,ch,INK,PAPER,0);
             }
+            dos_state[session]=k386_word(session,0);dos_top[session]=w->top;
             if(dos_edit[session])text(w->x+2,w->y+w->h-3,dos_path[session],w->w-4,0);
             else {static const char *states[]={"Ended","Running","Waiting","Stopped","Fault"};unsigned state=k386_word(session,0);text(w->x+2,w->y+w->h-3,states[state<=4?state:4],w->w-4,0);}
             button(w->x+w->w-9,w->y+w->h-3,3,"<",0);button(w->x+w->w-5,w->y+w->h-3,3,">",0);
@@ -656,6 +669,49 @@ static void draw_window(int id) {
     for (int i = 0; i < 3; i++)
         gfx_rect((w->x + w->w) * 8 - 7 + i * 2, (w->y + w->h) * 16 - 5 - i * 3, 1, 3 + i * 3, MUTED);
     gfx_origin(0, 0);
+}
+/* Fast path only for an unobscured DOS window. Overlap, modal UI and drag
+   retain normal composition, which repairs occlusion and the saved cursor. */
+static int update_dos_window(int id) {
+    Window *w=&windows[id];unsigned session=id-DOS1;
+    if(drag||mode||confirm||panel_open||dos_edit[session]||scene_dirty)return 0;
+    int above=0;
+    for(int i=0;i<WINDOWS;i++) {
+        int other=order[i];if(other==id){above=1;continue;}
+        Window *o=&windows[other];
+        if(above&&o->open&&!o->hidden&&
+           w->x*8+w->ox<o->x*8+o->ox+o->w*8+5&&o->x*8+o->ox<w->x*8+w->ox+w->w*8+5&&
+           w->y*16+w->oy<o->y*16+o->oy+o->h*16+5&&o->y*16+o->oy<w->y*16+w->oy+w->h*16+5)return 0;
+    }
+    char screen[K386_SCREEN];k386_screen(session,screen);
+    int columns=w->w-6;if(columns>80)columns=80;
+    gfx_target(1);gfx_origin(w->ox,w->oy);
+    for(int row=0;row<w->h-6&&row<25;row++) {
+        int first=columns,last=-1;
+        for(int col=0;col<columns;col++) {
+            unsigned cell=(w->top+row)*80+dos_horizontal[session]+col;
+            char ch=cell<K386_SCREEN?screen[cell]:' ';
+            if(dos_cells[session][row*80+col]==ch)continue;
+            dos_cells[session][row*80+col]=ch;
+            gfx_cell(w->x+2+col,w->y+3+row,ch,INK,PAPER,0);
+            if(col<first)first=col;
+            last=col;
+        }
+        if(last>=first)gfx_present((w->x+2+first)*8+w->ox,(w->y+3+row)*16+w->oy,(last-first+1)*8,16);
+    }
+    unsigned state=k386_word(session,0);
+    if(dos_state[session]!=state) {
+        static const char *states[]={"Ended  ","Running","Waiting","Stopped","Fault  "};
+        text(w->x+2,w->y+w->h-3,states[state<=4?state:4],7,0);
+        gfx_present((w->x+2)*8+w->ox,(w->y+w->h-3)*16+w->oy,56,16);
+        dos_state[session]=state;
+    }
+    if(dos_top[session]!=w->top) {
+        Pane v;pane(id,&v);scrollbar(w,&v);
+        gfx_present((w->x+w->w-3)*8+w->ox,(w->y+3)*16+w->oy,16,(w->h-6)*16);
+        dos_top[session]=w->top;
+    }
+    gfx_origin(0,0);return 1;
 }
 static void compose(int foreground) {
     gfx_target(1);
@@ -900,7 +956,7 @@ static __attribute__((noinline)) int app_key(int id,int key) {
     return 0;
 }
 
-static int live_drag, drag, drag_id, drag_mx, drag_my, drag_x, drag_y, drag_w, drag_h;
+static int live_drag, drag_id, drag_mx, drag_my, drag_x, drag_y, drag_w, drag_h;
 static int preview_x, preview_y, preview_w, preview_h, preview_visible;
 static int last_file = -1, last_app = -1;
 static u32 app_click;
@@ -1148,6 +1204,7 @@ int main(void) {
     damage(0,0,SW,SH);draw(); Mouse previous = mouse_read(); gfx_pointer_show(previous.x, previous.y);
     for (;;) {
         Mouse now = mouse_read(); int ready = key_ready(), redraw = 0, stop = 0;
+        unsigned dos_changed=0;
         if(windows[CLOCK].open&&((input_ticks()-clock_tick)&0xffffff)>=153600)
             task_post(CLOCK,TASK_TICK,0);
         redraw|=dispatch_events();
@@ -1155,7 +1212,7 @@ int main(void) {
             dos_tick=input_ticks();unsigned changed=k386_tick();
             if(changed){for(int id=DOS1;id<=DOS2;id++)if((changed&(1u<<(id-DOS1)))&&windows[id].open&&!windows[id].hidden){
                 if(dos_follow[id-DOS1]){int top=k386_word(id-DOS1,__builtin_offsetof(K386View,row))-(windows[id].h-7);windows[id].top=scroll_clamp(top,25,windows[id].h-6);}
-                invalidate(id);scene_dirty=1;redraw=1;}}
+                dos_changed|=1u<<id;}}
         }
         int previous_active=active,previous_mode=mode,previous_confirm=confirm;
         Window before=active<0?(Window){0}:windows[active];
@@ -1209,6 +1266,13 @@ int main(void) {
                 live_drag = gfx_drag_begin(w->x * 8 + w->ox, w->y * 16 + w->oy, w->w * 8 + 5, w->h * 16 + 5) ? 1 : 2;
             }
             gfx_pointer_show(now.x, now.y);
+        }
+        if(dos_changed) {
+            gfx_pointer_hide();
+            for(int id=DOS1;id<=DOS2;id++)if(dos_changed&(1u<<id))
+                if(!update_dos_window(id)){invalidate(id);scene_dirty=1;}
+            if(scene_dirty)draw();
+            gfx_pointer_show(now.x,now.y);
         }
         resources_update(drag||scrolling>=0);
         previous = now; input_idle();

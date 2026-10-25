@@ -45,6 +45,13 @@ class MZTests(unittest.TestCase):
             with self.assertRaises((ValueError, UnicodeError)):
                 package(bytes(64), self.symbols(), title)
 
+    def test_desktop_tools_have_distinct_execution_kind(self):
+        exe = package(bytes(64), self.symbols(__mz_reloc_ds=2), 'Text editor', 2)
+        self.assertEqual(struct.unpack_from('<HH', exe, 36), (0x0100, 2))
+        self.assertEqual(struct.unpack_from('<HH', exe, 72), (2, 0))
+        with self.assertRaises(ValueError):
+            package(bytes(64), self.symbols(), 'Unknown kind', 3)
+
     def test_exact_page_size_and_flat_resident_module(self):
         exe = package(bytes(480), self.symbols(480))
         h = struct.unpack_from('<14H', exe)

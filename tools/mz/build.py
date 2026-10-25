@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 
 
-def package(payload, symbols, app_title=None):
+def package(payload, symbols, app_title=None, app_kind=1):
     required = ('_start', '__mz_cs', '__mz_ss', '__mz_sp',
                 '__mz_image_end', '__mz_memory_bytes')
     if any(name not in symbols for name in required):
@@ -40,10 +40,12 @@ def package(payload, symbols, app_title=None):
     table = 28
     descriptor = b''
     if app_title is not None:
+        if app_kind not in (1, 2):
+            raise ValueError('unsupported KDESK application kind')
         title = app_title.encode('ascii')
         if not 1 <= len(title) <= 31 or any(c < 32 or c > 126 for c in title):
             raise ValueError('KDESK/386 title must be 1..31 printable ASCII bytes')
-        descriptor = b'K386APP1' + struct.pack('<HH', 0x0100, 1) + title.ljust(32, b'\0')
+        descriptor = b'K386APP1' + struct.pack('<HH', 0x0100, app_kind) + title.ljust(32, b'\0')
         table += len(descriptor)
     header_size = (table + 4 * len(relocations) + 15) & ~15
     size = header_size + len(payload)
@@ -60,7 +62,9 @@ def package(payload, symbols, app_title=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--k386-app', metavar='TITLE', help='KDESK/386 text application descriptor')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--k386-app', metavar='TITLE', help='KDESK/386 text application descriptor')
+    group.add_argument('--desktop-app', metavar='TITLE', help='KDESK full-screen native tool descriptor')
     parser.add_argument('elf', type=Path)
     parser.add_argument('output', type=Path)
     args = parser.parse_args()
@@ -71,7 +75,8 @@ def main():
     with tempfile.TemporaryDirectory() as directory:
         raw = Path(directory) / 'module.bin'
         subprocess.run(['objcopy', '-O', 'binary', str(args.elf), str(raw)], check=True)
-        executable = package(raw.read_bytes(), symbols, args.k386_app)
+        executable = package(raw.read_bytes(), symbols, args.k386_app or args.desktop_app,
+                             2 if args.desktop_app else 1)
     args.output.write_bytes(executable)
     print(f'{args.output}: MZ {len(executable)} bytes, module allocation '
           f'{symbols["__mz_memory_bytes"]} bytes plus PSP')

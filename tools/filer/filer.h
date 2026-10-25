@@ -64,6 +64,7 @@ int p_chdir(const char *path);
 int p_exec(const char *program, const char *arguments);
 int p_cancel(void);
 void p_init(void);
+int p_arguments(char *out, int capacity);
 void p_screen(void);
 void p_finish(void);
 void p_cell(int x, int y, char character, int highlighted);

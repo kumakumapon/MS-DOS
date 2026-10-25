@@ -63,7 +63,7 @@ MZ bytes0..27 remain standard. Offset28 contains a44-byte descriptor:
 | --- | --- | --- |
 | 28 | 8 | ASCII `K386APP1` |
 | 36 | 2 | little-endian ABI version0100h |
-| 38 | 2 | application kind1: text |
+| 38 | 2 | kind 1: V86 text; kind 2: exclusive desktop tool |
 | 40 | 32 | printable ASCII title, 1..31 bytes, NUL terminated |
 
 The relocation table starts at72; the standard MZ table offset and header size
