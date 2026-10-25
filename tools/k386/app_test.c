@@ -11,7 +11,8 @@ int main(void) {
     h[24]=28;assert(kapp_header(h,sizeof h)==-1);h[24]=72;
     h[8]=4;assert(kapp_header(h,sizeof h)==-1);h[8]=5;
     h[37]=2;assert(kapp_header(h,sizeof h)==-1);h[37]=1;
-    h[38]=2;assert(kapp_header(h,sizeof h)==-1);h[38]=1;
+    h[38]=2;assert(kapp_header(h,sizeof h)==KAPP_DESKTOP);
+    h[38]=3;assert(kapp_header(h,sizeof h)==-1);h[38]=1;
     memset(h+40,'A',32);assert(kapp_header(h,sizeof h)==-1);
     h[71]=0;assert(kapp_header(h,sizeof h)==1);
     h[40]=0;assert(kapp_header(h,sizeof h)==-1);

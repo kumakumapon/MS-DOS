@@ -70,16 +70,14 @@ export async function verifyWindow(page, { screenshot } = {}) {
   await capture();
   await key('ESC'); await key('F2'); await title('Launcher', 4, 6);
   await key('HOME'); await key('DOWN'); await key('DOWN'); await key('ENTER');
-  await wait('PC-98 SYSTEM SETTINGS'); await type('q'); await wait('Press any key or click to return to KDESK');
-  await key('SPACE'); await wait('Kuma Desktop'); await wait('Program returned to desktop');
+  await wait('PC-98 SYSTEM SETTINGS'); await type('q'); await wait('Program returned to desktop'); await wait('Kuma Desktop');
   await key('F3'); await wait('Parent'); await key('v'); await wait('Files list view');
   await selectFile('GUIWORK'); await key('ENTER'); await wait('A:\\GUIWORK'); await wait('Empty directory');
   await key('BS');
   await selectFile('P98TEST.COM'); await key('ENTER'); await wait('DOS4 EXEC OK');
   await wait('Press any key or click to return to KDESK'); await key('SPACE'); await wait('Kuma Desktop');
   await selectFile('NOTE.TXT'); await key('ENTER'); await wait('EDIT98'); await wait('WINDOW MEMO OK');
-  await key('F10'); await wait('Press any key or click to return to KDESK');
-  await key('SPACE'); await wait('Kuma Desktop');
+  await key('F10'); await wait('Program returned to desktop'); await wait('Kuma Desktop');
   await key('F10'); await wait('KDESK exited.');
   // Test a failed save against a real DOS-created conflicting temporary file.
   await type('ECHO RESERVED>KDTMP.TMP\r'); await type('KDESK\r'); await wait('Kuma Desktop');
@@ -146,8 +144,7 @@ export async function verifyWindow(page, { screenshot } = {}) {
   await cell(55, 5);
   await cell(24, 0); await title('Launcher', 5, 11);
   await cell(18, 11); await wait('PC-98 SYSTEM SETTINGS');
-  await type('q'); await wait('Press any key or click to return to KDESK');
-  await click(600, 350); await wait('Program returned to desktop');
+  await type('q'); await wait('Program returned to desktop');
   await cell(32, 0); await title('Files', 4, 9); await wait('Parent'); await key('v'); await wait('Files list view');
   const names = await page.evaluate(async () =>
     (await window.np2debug.np2.diskListFiles('fd1')).entries.map(entry => entry.name));
@@ -248,7 +245,8 @@ export async function verifyMedia(page, { screenshot } = {}) {
   await click(116,140);await wait('Image changed');await key('F4');await wait('Save BMP as:');
   await key('CTRL+U');await type('BRIDGE.BMP\r');await wait('Saved BMP');
   assert.ok(near(await guest('BRIDGE.BMP'),50,30,196),'KDESK passes its current mouse position to KPAINT');
-  await key('F10');await wait('Press any key or click to return to KDESK');await click(600,350);await wait('Program returned to desktop');
+  await move(600,350);
+  await key('F10');await wait('Program returned to desktop');
   await pause(200);
   const returnedPointer=await page.evaluate(()=>{
     const source=document.querySelector('#canvas'),c=document.createElement('canvas');c.width=source.width;c.height=source.height;
@@ -489,9 +487,9 @@ export async function verifyExplorer(page, { screenshot } = {}) {
   assert.ok(!(await text()).includes('F00.TXT'),'Files retains its own scroll position across focus changes');
   await key('HOME');await key('ROLLDOWN');await wait('F06.TXT');await key('ROLLUP');await wait('F00.TXT');
   await click(112,144,2);await wait('EDIT98');await wait('EXPLORER FILE 0');
-  await key('F10');await wait('Press any key or click to return to KDESK');await key('SPACE');await wait('Program returned to desktop');
+  await key('F10');await wait('Program returned to desktop');
   await click(420,264);await wait('F03.TXT');await click(112,144,2);await wait('EDIT98');await wait('EXPLORER FILE 3');
-  await key('F10');await wait('Press any key or click to return to KDESK');await key('SPACE');await wait('Program returned to desktop');
+  await key('F10');await wait('Program returned to desktop');
   await key('v');await wait('Files list view');await key('HOME');await wait('F00.TXT');
   await drag({x:420,y:152},{x:420,y:251});await wait('F27.TXT');
   // Reflow at the minimum size must retain access to the final file and footer.
@@ -500,7 +498,7 @@ export async function verifyExplorer(page, { screenshot } = {}) {
   if(screenshot){await page.waitForFunction(()=>window.np2debug.np2.getScreenText().lines[11]?.slice(29,33)==='List');await pause(200);await page.screenshot({path:screenshot.replace(/\.png$/,'-narrow.png')});}
   await key('BS');await wait('A:\\');
   // FD98 remains available for copy/move/delete operations.
-  await key('f');await wait('FD Filer 1.0');await key('F10');await wait('Press any key or click to return to KDESK');await key('SPACE');await wait('Program returned to desktop');
+  await key('f');await wait('FD Filer 1.0');await key('F10');await wait('Program returned to desktop');
   await key('F4');await key('CTRL+A');
   const note=Array.from({length:25},(_,i)=>`ROW${String(i).padStart(2,'0')}`).join('\r');
   await type(note);await wait('ROW24');await key('HOME');await wait('ROW00');

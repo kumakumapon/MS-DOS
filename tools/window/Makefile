@@ -1,9 +1,9 @@
 CC ?= gcc
 BUILD ?= build
-# MZ desktop code/data are separate; COM image tools retain their stack guard.
+# Native desktop and image tools use separate MZ code/data/stack segments.
 CFLAGS = -m16 -march=i386 -mregparm=3 -mpreferred-stack-boundary=2 -Oz -flto -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -ffunction-sections -fdata-sections -Wall -Wextra -Werror -DDOS
 
-all: $(BUILD)/KVIEW.COM $(BUILD)/KPAINT.COM $(BUILD)/COLORS.BMP $(BUILD)/KIMAGE.TXT $(BUILD)/KDESK.EXE $(BUILD)/KDESK.TXT $(BUILD)/KDLIC.TXT
+all: $(BUILD)/KVIEW.EXE $(BUILD)/KPAINT.EXE $(BUILD)/COLORS.BMP $(BUILD)/KIMAGE.TXT $(BUILD)/KDESK.EXE $(BUILD)/KDESK.TXT $(BUILD)/KDLIC.TXT
 $(BUILD):
 	mkdir -p $@
 $(BUILD)/start.o: ../filer/start.s | $(BUILD)
@@ -52,14 +52,14 @@ $(BUILD)/paint.o: imageapp.c bitmap.h clipboard.h hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/view.o: imageapp.c bitmap.h clipboard.h hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -DVIEW_ONLY=1 -c $< -o $@
-$(BUILD)/paint.elf: $(BUILD)/paint.o $(BUILD)/bitmap.o $(BUILD)/cirrus.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/start.o $(BUILD)/core.o $(BUILD)/dos98.o ../filer/com.ld
-	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,-T,../filer/com.ld $(filter %.o,$^) -o $@
-$(BUILD)/view.elf: $(BUILD)/view.o $(BUILD)/bitmap.o $(BUILD)/cirrus.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/start.o $(BUILD)/core.o $(BUILD)/dos98.o ../filer/com.ld
-	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,-T,../filer/com.ld $(filter %.o,$^) -o $@
-$(BUILD)/KPAINT.COM: $(BUILD)/paint.elf
-	objcopy -O binary $< $@
-$(BUILD)/KVIEW.COM: $(BUILD)/view.elf
-	objcopy -O binary $< $@
+$(BUILD)/paint.elf: $(BUILD)/paint.o $(BUILD)/bitmap.o $(BUILD)/cirrus.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
+	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,--no-check-sections,-T,exe.ld $(filter %.o,$^) -o $@
+$(BUILD)/view.elf: $(BUILD)/view.o $(BUILD)/bitmap.o $(BUILD)/cirrus.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
+	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,--no-check-sections,-T,exe.ld $(filter %.o,$^) -o $@
+$(BUILD)/KPAINT.EXE: $(BUILD)/paint.elf ../mz/build.py
+	python3 ../mz/build.py --desktop-app 'Image editor' $< $@
+$(BUILD)/KVIEW.EXE: $(BUILD)/view.elf ../mz/build.py
+	python3 ../mz/build.py --desktop-app 'Image viewer' $< $@
 $(BUILD)/COLORS.BMP: sample.py | $(BUILD)
 	python3 $< $@
 $(BUILD)/KIMAGE.TXT: KIMAGE.TXT | $(BUILD)

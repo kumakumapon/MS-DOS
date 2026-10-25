@@ -4,6 +4,7 @@
 #define KAPP_HEADER_SIZE 72
 #define KAPP_ABI 0x0100
 #define KAPP_TEXT 1
-/* 0: ordinary DOS image, 1: supported text application, -1: invalid descriptor. */
+#define KAPP_DESKTOP 2
+/* 0: ordinary DOS image, 1: V86 text app, 2: exclusive desktop tool, -1: invalid descriptor. */
 int kapp_header(const unsigned char *header, unsigned length);
 #endif

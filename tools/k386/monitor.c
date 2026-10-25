@@ -64,14 +64,26 @@ void api_dispatch(void) {
         if(!k386_mailbox.error){resource_begin(id);event(id,K386_EVENT_START,K386_REASON_NONE);}
         usage(id);break;
     case K386_SCHEDULE: {
-        unsigned runnable=0;
-        for(unsigned i=0;i<K386_SESSIONS;i++){
-            limit(i);unsigned state=k386_mailbox.view[i].state;
-            if(state==K386_RUNNING||state==K386_WAITING)k386_clock(i);
-            if(k386_mailbox.view[i].state==K386_RUNNING)runnable|=1u<<i;
-        }
-        int chosen=resource_pick(runnable);k386_mailbox.session=chosen<0?0xffff:chosen;
-        if(chosen>=0){selected=chosen;step(chosen);}break;
+        /* DOS brokers (DIR/TYPE/EXEC) used to cost one entire desktop turn
+           each. Reconsider all runnable sessions between bounded slices, so
+           I/O-heavy shells progress without starving CPU loops or the GUI. */
+        /* key=0 retains the original one-slice public API. The desktop
+           explicitly requests up to eight slices; reject unbounded requests. */
+        if(k386_mailbox.key>8){k386_mailbox.error=87;break;}
+        unsigned slices=k386_mailbox.key?k386_mailbox.key:1;
+        k32 start=k386_clock_ticks();
+        for(unsigned batch=0;batch<slices;batch++) {
+            unsigned runnable=0;
+            for(unsigned i=0;i<K386_SESSIONS;i++){
+                limit(i);unsigned state=k386_mailbox.view[i].state;
+                if(state==K386_RUNNING||state==K386_WAITING)k386_clock(i);
+                if(k386_mailbox.view[i].state==K386_RUNNING)runnable|=1u<<i;
+            }
+            int chosen=resource_pick(runnable);k386_mailbox.session=chosen<0?0xffff:chosen;
+            if(chosen<0)break;
+            selected=chosen;step(chosen);
+            if(((k386_clock_ticks()-start)&0xffffff)>=3072)break;
+        }break;
     }
     case K386_STEP:step(id);break;
     case K386_KEY:

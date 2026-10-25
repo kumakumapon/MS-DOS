@@ -247,7 +247,7 @@ static void run(int editing) {
     fd_text(program, path, FD_PATH);
     if (editing) {
         char root[4] = {original[0], ':', '\\', 0};
-        fd_path(program, root, "EDIT98.COM");
+        fd_path(program, root, "EDIT98.EXE");
         fd_text(arguments, path, FD_PATH);
     } else if (!fd_cmp(ext, ".BAS")) {
         char root[4] = {original[0], ':', '\\', 0};

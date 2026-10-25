@@ -1,10 +1,10 @@
 CC ?= gcc
 BUILD ?= build
-CFLAGS = -m16 -march=i386 -Os -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -Wall -Wextra -Werror -DDOS
-all: $(BUILD)/EDIT98.COM $(BUILD)/EDIT.COM $(BUILD)/EDIT.TXT $(BUILD)/EDITLIC.TXT $(BUILD)/JPHELLO.TXT
+CFLAGS = -m16 -march=i386 -Os -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -Wall -Wextra -Werror -DDOS -DDOS_MZ
+all: $(BUILD)/EDIT98.EXE $(BUILD)/EDIT.EXE $(BUILD)/EDIT.TXT $(BUILD)/EDITLIC.TXT $(BUILD)/JPHELLO.TXT
 $(BUILD):
 	mkdir -p $@
-$(BUILD)/start.o: ../filer/start.s | $(BUILD)
+$(BUILD)/start.o: ../mz/start.S | $(BUILD)
 	as --32 $< -o $@
 $(BUILD)/core.o: ../filer/core.c ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -14,11 +14,11 @@ $(BUILD)/editor.o: editor.c editor.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/ui.o: ui.c editor.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/edit.elf: $(BUILD)/editor.o $(BUILD)/ui.o $(BUILD)/start.o $(BUILD)/core.o $(BUILD)/dos98.o ../filer/com.ld
-	ld -m elf_i386 -T ../filer/com.ld $(filter %.o,$^) -o $@
-$(BUILD)/EDIT98.COM: $(BUILD)/edit.elf
-	objcopy -O binary $< $@
-$(BUILD)/EDIT.COM: $(BUILD)/EDIT98.COM
+$(BUILD)/edit.elf: $(BUILD)/editor.o $(BUILD)/ui.o $(BUILD)/start.o $(BUILD)/core.o $(BUILD)/dos98.o ../mz/native.ld
+	ld -m elf_i386 --no-check-sections -T ../mz/native.ld $(filter %.o,$^) -o $@
+$(BUILD)/EDIT98.EXE: $(BUILD)/edit.elf ../mz/build.py
+	python3 ../mz/build.py --desktop-app 'Text editor' $< $@
+$(BUILD)/EDIT.EXE: $(BUILD)/EDIT98.EXE
 	cp $< $@
 $(BUILD)/EDIT.TXT: EDIT.TXT | $(BUILD)
 	python3 -c "from pathlib import Path; Path('$@').write_bytes(Path('$<').read_text().replace('\n', '\r\n').encode('ascii'))"
@@ -31,3 +31,5 @@ $(BUILD)/editor-host: editor.c host_test.c editor.h ../filer/core.c ../filer/hos
 test: $(BUILD)/editor-host
 	python3 -m unittest discover -s . -p 'test_*.py'
 .PHONY: all test
+
+$(BUILD)/core.o $(BUILD)/dos98.o $(BUILD)/start.o $(BUILD)/editor.o $(BUILD)/ui.o: Makefile

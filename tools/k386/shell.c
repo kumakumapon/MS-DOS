@@ -46,7 +46,8 @@ static void execute(const char *name,const char *args) {
     if(!extension)fd_text(path+n,".EXE",128-n);
     int status=p_exec(path,args);
     if(!extension&&status==-2){fd_text(path+n,".COM",128-n);status=p_exec(path,args);}
-    if(status<0){output("Cannot execute program: ");number(-status);output("\r\n");}
+    if(status==-50)output("Desktop application: open from KDESK Launcher or Files.\r\n");
+    else if(status<0){output("Cannot execute program: ");number(-status);output("\r\n");}
     else if(status){output("Program returned: ");number(status);output("\r\n");}
 }
 int main(void) {

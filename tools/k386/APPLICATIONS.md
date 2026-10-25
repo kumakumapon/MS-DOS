@@ -63,7 +63,7 @@ MZ bytes0..27 remain standard. Offset28 contains a44-byte descriptor:
 | --- | --- | --- |
 | 28 | 8 | ASCII `K386APP1` |
 | 36 | 2 | little-endian ABI version0100h |
-| 38 | 2 | application kind1: text |
+| 38 | 2 | kind 1: V86 text; kind 2: exclusive desktop tool |
 | 40 | 32 | printable ASCII title, 1..31 bytes, NUL terminated |
 
 The relocation table starts at72; the standard MZ table offset and header size
@@ -82,12 +82,26 @@ bounded DOS/PC-98 BIOS services documented in DESIGN.md.
 
 This is the external **text application** contract. Calculator, Clock, Memo,
 Files and other native GUI tasks still live in KDESK.EXE. External graphical
-window/widget APIs and simultaneous GDC/PEGC apps are not implemented. The
-existing full-screen editor, CPANEL and image tools retain their original
-real-DOS execution path. Converting those to GUI plugins requires a separate
-widget/event interface, not an executable extension change.
+window/widget APIs and simultaneous GDC/PEGC apps are not implemented.
 
-Two sessions and four EXEC levels remain the limit. File services are read-only;
+FD98.EXE, EDIT98.EXE (EDIT.EXE alias), CPANEL.EXE, KVIEW.EXE and KPAINT.EXE
+use descriptor kind 2: an exclusive full-screen desktop tool. Their MZ modules
+have separate code/data/stack segments and retrieve arguments from their PSP.
+KDESK Launcher/Files run them through host DOS and return directly to the saved
+desktop after exit, preserving file writes and mouse/clipboard handoff. They
+also run from real DOS. Loading kind 2 in a V86 session returns DOS error 50
+before replacing live memory; KSH explains how to open it from the desktop.
+Their execution temporarily pauses V86 scheduling. They are not graphical
+window plugins or independently running background GUI applications.
+
+Build the tools with `make -C tools/filer all`, `make -C tools/editor all`,
+`make -C tools/control all` and `make -C tools/window all`. Their linker/startup
+contract is in `tools/mz/native.ld` / `tools/mz/start.S` (the graphics tools
+share KDESK's equivalent layout); package with `--desktop-app TITLE`.
+WebNP2's `verify-native-tools.mjs` validates real saves, exclusive handoff,
+retained V86 identities and the incremental text raster in both display modes.
+
+Two V86 sessions and four EXEC levels remain the limit. Their file services are read-only;
 there is no shared-disk write permission, unrestricted hardware I/O, general
 Windows EXE support or full DOS/BIOS compatibility. See STATUS.md.
 

@@ -8,6 +8,7 @@ _start:
     push ds
     pop fs
 .endif
+    mov WORD PTR [owner_psp],fs
     mov ax,cs
     mov es,ax
     mov bx,OFFSET callback
@@ -64,7 +65,11 @@ callback:
     mov ax,cs
     mov ds,ax
     inc DWORD PTR [0x800]
-    cmp BYTE PTR fs:[0x80],0
+    /* A timer may interrupt a child with its own FS/PSP. Inspect the saved
+       owner command tail, not registers belonging to the interrupted child. */
+    mov ax,WORD PTR [owner_psp]
+    mov es,ax
+    cmp BYTE PTR es:[0x80],0
     jne rearm
     cmp DWORD PTR [0x800],3
     jae done
@@ -90,6 +95,7 @@ fail:
 waiting: .ascii "V86 TIMER WAIT: callbacks continue without input\r\n$"
 success: .ascii "V86 PC98 TIMER PASS\r\n$"
 failure: .ascii "V86 TIMER FAIL\r\n$"
+owner_psp: .word 0
 child:
 .ifdef K386_APP
     .asciz "COUNTER.EXE"

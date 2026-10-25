@@ -14,6 +14,23 @@ void p_init(void) {
     unsigned a = 0x1a00, d = (unsigned)dta;
     __asm__ volatile("int $0x21" : "+a"(a) : "d"(d) : "cc", "memory");
 }
+int p_arguments(char *out, int capacity) {
+    if(capacity<=0)return 0;
+    unsigned a=0x6200,psp;u8 tail[128];
+    __asm__ volatile("int $0x21":"+a"(a),"=b"(psp)::"cc","memory");
+    for(unsigned i=0;i<128;i++) {
+        unsigned at=0x80+i;u8 value;
+        __asm__ volatile("pushw %%es; movw %w1,%%es; movb %%es:(%2),%0; popw %%es"
+                         :"=q"(value):"r"(psp),"r"(at):"memory");
+        tail[i]=value;
+    }
+    unsigned length=tail[0],first=0;int n=0;
+    if(length>126)length=126;
+    while(first<length&&tail[first+1]==' ')first++;
+    while(first<length&&n<capacity-1)out[n++]=tail[++first];
+    while(n&&out[n-1]==' ')n--;
+    out[n]=0;return n;
+}
 static int find(const char *path, int next) {
     unsigned a = next ? 0x4f00 : 0x4e00, c = 0x37, d = (unsigned)path;
     __asm__ volatile("int $0x21; jc 1f; xor %%eax,%%eax; jmp 2f; 1: neg %%eax; 2:"

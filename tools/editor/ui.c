@@ -176,15 +176,8 @@ static void help(void) {
 }
 int main(void) {
     p_init(); p_cwd(original); ed_init(&editor);
-    u32 address = 0x80;
-    __asm__ volatile ("" : "+r"(address));
-    volatile u8 *tail = (volatile u8 *)address;
     char argument[FD_PATH], path[FD_PATH];
-    int length = tail[0], first = 0, n = 0;
-    while (first < length && tail[first + 1] == ' ') first++;
-    while (first < length && n < FD_PATH - 1) argument[n++] = (char)tail[++first];
-    while (n && argument[n - 1] == ' ') n--;
-    argument[n] = 0;
+    int n = p_arguments(argument, sizeof argument);
     if (n) {
         int error = fd_path(path, original, argument);
         if (!error) error = ed_load(&editor, path);

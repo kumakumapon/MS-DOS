@@ -2,7 +2,7 @@ FD Filer 1.0 / MS-DOS 4.0
 ========================
 
 FD.COM: IBM PC 80x25 text / INT 10h and INT 16h
-FD98.COM: PC-98 80x25 text VRAM / NEC INT 18h
+FD98.EXE: PC-98 80x25 text VRAM / NEC INT 18h
 Both use DOS INT 21h for files and require a 386 or later.
 
 This is an original MIT-licensed two-pane filer inspired by keyboard-driven
@@ -18,7 +18,7 @@ F1 / ?: help               F2 / R: rename       F3 / V: view
 F4: refresh                F5 / C: copy         F6 / M: move
 F7 / N: create directory   F8 / D: delete        F9 / X: run
 F10 / Q / Esc: quit
-E: edit the selected file with EDIT98.COM (PC-98 bundled disk)
+E: edit the selected file with EDIT98.EXE (PC-98 bundled disk)
 
 Copy/move defaults to the OTHER pane's directory. Edit the proposed path,
 then press Enter. Ctrl-U clears a prompt; Esc cancels. Paths may be relative
@@ -39,7 +39,7 @@ Applications must be compatible with the machine they run on.
 
 Each pane lists up to 256 entries (255 plus ".." in a subdirectory); a visible
 message indicates truncation. One entry is handled per operation.
-E uses EDIT98.COM at the startup drive's root, then returns to the filer.
+E uses EDIT98.EXE at the startup drive's root, then returns to the filer.
 EDIT.TXT and EDITLIC.TXT describe the editor and its MIT license.
 Archive support, long names, recursive operations, multiple-file marking,
 and Japanese filenames are unsupported.

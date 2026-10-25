@@ -32,6 +32,17 @@ int kernel_deliver(void) {
     v->state=K386_FAULTED;v->fault=13;return 1;
 }
 static void error(K386Frame *f,k16 code) {f->eax=code;f->eflags|=1;}
+/* Private PC-98 TVRAM is ordinary session RAM under the active page table.
+ * Move complete character words in bulk: a long TYPE used to perform 1,920
+ * separate C read/write pairs for every newline after row 25. */
+static void scroll_screen(void) {
+    k32 src=0xa00a0,dst=0xa0000,count=1920;
+    __asm__ volatile("push %%ds; push %%es; push %%fs; pop %%ds; push %%fs; pop %%es; rep movsw; pop %%es; pop %%ds"
+                     :"+S"(src),"+D"(dst),"+c"(count)::"memory");
+    dst=0xa0f00;count=80;
+    __asm__ volatile("push %%es; push %%fs; pop %%es; rep stosw; pop %%es"
+                     :"+D"(dst),"+c"(count):"a"(0x20):"memory");
+}
 static void output(k8 c) {
     K386View *v=&k386_mailbox.view[selected];
     if(c=='\r')v->column=0;
@@ -39,7 +50,7 @@ static void output(k8 c) {
     else if(c==8){if(v->column)v->column--;else if(v->row){v->row--;v->column=79;}}
     else if(c==9){int n=8-(v->column&7);while(n--)output(' ');}
     else if(c>=32){write8(0xa0000+(v->row*80+v->column)*2,c);write8(0xa0001+(v->row*80+v->column)*2,0);if(++v->column==80){v->column=0;v->row++;}}
-    if(v->row>=25){for(k32 i=0;i<1920;i++)write8(0xa0000+i*2,read8(0xa0000+(i+80)*2));for(k32 i=1920;i<2000;i++)write8(0xa0000+i*2,' ');v->row=24;}
+    if(v->row>=25){scroll_screen();v->row=24;}
 }
 void kernel_map(void) {
     k32 pd=page_directory[selected],physical=runtime[selected].backing.physical;

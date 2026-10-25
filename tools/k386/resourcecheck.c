@@ -45,6 +45,13 @@ int main(void){
     call(K386_STEP,1,0);counter=k386_counter(1);call(K386_STEP,0,0);
     if(k386_word(0,0)!=K386_FAULTED||!k386_history(0,&e)||e.type!=K386_EVENT_FAULT||e.fault!=14||e.cr2!=0xe0000||e.cs!=0x8010)goto fail;
     call(K386_STEP,1,0);if(k386_counter(1)<=counter)goto fail;
+    /* Legacy callers above retain exact single-slice accounting. Exercise
+       the opt-in bounded desktop batch and invalid-count refusal too. */
+    stage=9;k386_usage(1,&b);runs=b.runs;
+    if(call(K386_SCHEDULE,1,9)!=87)goto fail;
+    k386_usage(1,&b);if(b.runs!=runs)goto fail;
+    if(call(K386_SCHEDULE,1,8))goto fail;
+    k386_usage(1,&b);if(b.runs<=runs||b.runs>runs+8)goto fail;
     stage=8;if(call(K386_PRIORITY,0,3)!=87||call(K386_BUDGET,0,60001)!=87)goto fail;
     for(unsigned n=0;n<20;n++)call(K386_PRIORITY,0,n%3);
     if(!k386_history(15,&e)||k386_history(16,&e))goto fail;

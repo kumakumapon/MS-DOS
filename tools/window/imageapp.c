@@ -277,12 +277,8 @@ static int mouse_event(Mouse now, int previous) {
     return 0;
 }
 int main(void) {
-    p_init(); unsigned length = mem_get(local_segment(), 0x80); char argument[FD_PATH];
-    if (length >= FD_PATH) length = FD_PATH - 1;
-    unsigned start = 0; while (start < length && mem_get(local_segment(), 0x81 + start) == ' ') start++;
-    unsigned used = 0; while (start < length) argument[used++] = mem_get(local_segment(), 0x81 + start++);
-    while (used && argument[used - 1] == ' ') used--;
-    argument[used] = 0;
+    p_init(); char argument[FD_PATH];
+    int used = p_arguments(argument, sizeof argument);
     clip_mouse_inherit(); gfx_start(); clip_state(VIEW_ONLY ? 3 : 4);
     if (!bitmap_new(&image, 224, 144, WHITE)) { clip_mouse_return(); clip_state(0); gfx_stop(); p_output("Image allocation failed\r\n"); return 8; }
     fd_text(path, VIEW_ONLY ? "COLORS.BMP" : "DRAW.BMP", sizeof path);

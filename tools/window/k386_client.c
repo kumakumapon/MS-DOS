@@ -54,12 +54,17 @@ int k386_command(unsigned command,unsigned id,unsigned key,const char *path) {
 unsigned k386_word(unsigned id,unsigned at) {return word(OFF(view)+id*sizeof(K386View)+at);}
 unsigned k386_counter(unsigned id) {return k386_word(id,__builtin_offsetof(K386View,counter))|k386_word(id,__builtin_offsetof(K386View,counter)+2)<<16;}
 char k386_character(unsigned id,unsigned cell) {unsigned c=mem_get(segment,offset+OFF(view)+id*sizeof(K386View)+__builtin_offsetof(K386View,screen)+cell);return c<32?' ':c;}
+void k386_screen(unsigned id,char *out) {
+    unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
+    mem_copy(ds,(unsigned)out,segment,offset+OFF(view)+id*sizeof(K386View)+__builtin_offsetof(K386View,screen),K386_SCREEN);
+    for(unsigned i=0;i<K386_SCREEN;i++)if((unsigned char)out[i]<32)out[i]=' ';
+}
 unsigned k386_tick(void) {
     if(!segment)return 0;
     if(resources_segment){
         unsigned flags[2],states[2],changed=0;
         for(unsigned i=0;i<2;i++){flags[i]=k386_word(i,6);states[i]=k386_word(i,0);}
-        if(k386_command(K386_SCHEDULE,0,0,0))return 0;
+        if(k386_command(K386_SCHEDULE,0,8,0))return 0;
         for(unsigned i=0;i<2;i++)if(flags[i]!=k386_word(i,6)||states[i]!=k386_word(i,0))changed|=1u<<i;
         return changed;
     }
