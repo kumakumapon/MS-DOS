@@ -148,7 +148,7 @@ $(BUILD)/ROMWRITE.COM: $(BUILD)/romwrite.sample.o com.ld
 
 # KDESK/386 application SDK: real MZ modules, separate PSP and explicit stack.
 # COM outputs above remain build-only compatibility fixtures.
-APP_SAMPLES = COUNTER ECHO FAULT KFILE PORT DF FPU FLAGS DTA KEYCHK TIMER MEMORY PROCESS BADTIMER ROMWRITE INTWAIT
+APP_SAMPLES = COUNTER ECHO FAULT KFILE PORT DF FPU FLAGS DTA KEYCHK TIMER MEMORY PROCESS BADTIMER ROMWRITE INTWAIT CASE
 all: $(addprefix $(BUILD)/,$(addsuffix .EXE,$(APP_SAMPLES))) $(BUILD)/KSH.EXE $(BUILD)/KHELLO.EXE
 $(BUILD)/app-start.o: app-start.S | $(BUILD)
 	$(CC) -m16 -c -x assembler-with-cpp $< -o $@
@@ -184,6 +184,7 @@ $(eval $(call app_rule,PROCESS,processcheck,Nested process check))
 $(eval $(call app_rule,BADTIMER,badtimer,Timer protection check))
 $(eval $(call app_rule,ROMWRITE,romwrite,ROM protection check))
 $(eval $(call app_rule,INTWAIT,interrupt,Process interruption check))
+$(eval $(call app_rule,CASE,casecheck,Case mapping check))
 $(BUILD)/shell.app.elf: $(BUILD)/shell.o $(BUILD)/app-c-start.o $(BUILD)/app-dos.o $(BUILD)/core.o app.ld
 	ld -m elf_i386 --gc-sections -T app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KSH.EXE: $(BUILD)/shell.app.elf ../mz/build.py
