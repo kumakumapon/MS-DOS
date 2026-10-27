@@ -165,8 +165,9 @@ static int service(K386Frame *f,k8 number) {
             write8(ptr,c);writen(ptr+1,0,2);writen(ptr+3,c==7?0x824:0x800,2);f->ecx=5;
         }else if(c==0x20){c=f->edx&255;if(c>='a'&&c<='z')f->edx-=32;}
         else if(c==0x21||c==0x22){
-            n=c==0x21?65536-(f->edx&65535):f->ecx&65535;ptr=address(f->ds,f->edx,n);if(!ptr){error(f,13);break;}
-            for(k32 i=0;i<n;i++){c=read8(ptr+i);if(!c&&(f->eax&255)==0x21)break;if(c>='a'&&c<='z')write8(ptr+i,c-32);}
+            /* 6521h: CX-byte string; 6522h: ASCIZ string. */
+            n=c==0x22?65536-(f->edx&65535):f->ecx&65535;ptr=address(f->ds,f->edx,n);if(!ptr){error(f,13);break;}
+            for(k32 i=0;i<n;i++){c=read8(ptr+i);if(!c&&(f->eax&255)==0x22)break;if(c>='a'&&c<='z')write8(ptr+i,c-32);}
         }else error(f,1);break;
     case 0x44:
         n=f->ebx&65535;c=f->eax&255;
