@@ -54,7 +54,15 @@ $(BUILD)/tools-entry.o: $(BUILD)/tools-entry.raw.o bank-sections.py
 	python3 bank-sections.py $< $@ tools
 $(BUILD)/bank.o: bank.c bank.h windowtools.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/window.elf: $(BUILD)/bank.o $(BUILD)/tools-entry.o $(BUILD)/windowtools.o $(BUILD)/windoweditor.o $(BUILD)/windowcontrol.o $(BUILD)/window.o $(BUILD)/cirrus.o $(BUILD)/app.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o banked.ld
+$(BUILD)/bitmap-bank.raw.o: bitmap.c bitmap.h | $(BUILD)
+	$(CC) $(filter-out -flto,$(CFLAGS)) -c $< -o $@
+$(BUILD)/bitmap-bank.o: $(BUILD)/bitmap-bank.raw.o bank-sections.py
+	python3 bank-sections.py $< $@ tools
+$(BUILD)/bank-core.raw.o: ../filer/core.c ../filer/filer.h | $(BUILD)
+	$(CC) $(filter-out -flto,$(CFLAGS)) -c $< -o $@
+$(BUILD)/bank-core.o: $(BUILD)/bank-core.raw.o
+	objcopy $(foreach f,fd_copy fd_move fd_rename fd_remove fd_mkdir,--rename-section .text.$(f)=.tools.text.$(f)) $< $@
+$(BUILD)/window.elf: $(BUILD)/bitmap-bank.o $(BUILD)/bank.o $(BUILD)/tools-entry.o $(BUILD)/windowtools.o $(BUILD)/windoweditor.o $(BUILD)/windowcontrol.o $(BUILD)/window.o $(BUILD)/cirrus.o $(BUILD)/app.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/bank-core.o $(BUILD)/exe-dos98.o banked.ld
 	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,--no-check-sections,-T,banked.ld $(filter %.o,$^) -o $@
 $(BUILD)/KDESK.EXE: $(BUILD)/window.elf ../mz/build.py
 	python3 ../mz/build.py $< $@

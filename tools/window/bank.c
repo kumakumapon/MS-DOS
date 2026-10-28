@@ -24,3 +24,9 @@ int wt_close(int tool){request.tool=tool;return call(BANK_CLOSE);}
 int wt_clean(void){return call(BANK_CLEAN);}
 int wt_click(int tool,int x,int y,int w,int h,int top,int px,int py){request.tool=tool;request.x=x;request.y=y;request.w=w;request.h=h;request.top=top;request.px=px;request.py=py;return call(BANK_CLICK);}
 void wt_finish(void){call(BANK_FINISH);}
+
+int wt_rows(int tool,int width){request.tool=tool;request.w=width;return call(BANK_ROWS);}
+int wt_scroll(int tool,int width,int height,int top,int follow){request.tool=tool;request.w=width;request.h=height;request.top=top;request.active=follow;return call(BANK_SCROLL);}
+int wt_pointer(int tool,int x,int y,int w,int h,int top,int px,int py,int buttons){request.tool=tool;request.x=x;request.y=y;request.w=w;request.h=h;request.top=top;request.px=px;request.py=py;request.key=buttons;return call(BANK_POINTER);}
+
+int wt_file(int operation,const char *source,const char *destination){request.key=operation;request.path=source;request.destination=destination;return call(BANK_FILE);}
