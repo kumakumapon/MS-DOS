@@ -20,7 +20,10 @@ static int drop(unsigned id,KXBlock *b){
 }
 void xmem_release(unsigned id,k16 owner){
     for(unsigned i=0;i<KX_BLOCKS;i++){KXBlock *b=&k386_xmem.blocks[id][i];
-        if(b->handle&&(!owner||b->owner==owner))drop(id,b);}
+        if(b->handle&&(!owner||b->owner==owner)){
+            if(k386_xmem.pending[id]==b->token)k386_xmem.pending[id]=0;
+            if(drop(id,b))b->owner=0; /* revoke authority even if the driver cannot free */
+        }}
 }
 int xmem_service(unsigned id,k16 owner,K386Frame *f,k8 *buffer){
     unsigned op=f->ebx&65535,error=0,count;
@@ -47,7 +50,9 @@ int xmem_service(unsigned id,k16 owner,K386Frame *f,k8 *buffer){
                 for(unsigned i=0;i<KX_CHUNK;i++)buffer[i]=0;
                 unsigned budget=KX_ZERO_SLICE;
                 while(b->initialized<b->bytes&&budget){unsigned n=b->bytes-b->initialized;if(n>KX_CHUNK)n=KX_CHUNK;
-                    if(!xmem_write(b->handle,b->initialized,buffer,n)){drop(id,b);error=8;break;}
+                    if(!xmem_write(b->handle,b->initialized,buffer,n)){
+                        k386_xmem.pending[id]=0;if(drop(id,b))b->owner=0;error=8;break;
+                    }
                     b->initialized+=n;budget-=n;}
                 if(!error&&b->initialized<b->bytes)return 1;
                 if(!error){f->edx=b->token;k386_xmem.pending[id]=0;}

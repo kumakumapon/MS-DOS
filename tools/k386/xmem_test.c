@@ -44,6 +44,14 @@ int main(void){
     /* Cancel a not-yet-published allocation, as End/fault/replacement does. */
     f=frame(KX_ALLOC,0);f.ecx=1024;writes=0;assert(xmem_service(0,0x8000,&f,bounce)==1);assert(writes==KX_ZERO_SLICE&&k386_xmem.pending[0]);
     xmem_release(0,0);assert(!active()&&!k386_xmem.pending[0]);
+    /* Failed automatic frees must not authorize a future process with the same PSP. */
+    k16 orphan=alloc(0,0x8000,1);fail_free=1;xmem_release(0,0x8000);
+    f=frame(KX_READ,orphan);f.ecx=1;assert(run(0,0x8000,&f)==6&&active()==1);
+    fail_free=0;xmem_release(0,0);assert(!active());
+    f=frame(KX_ALLOC,0);f.ecx=1024;assert(xmem_service(0,0x8000,&f,bounce));
+    fail_free=fail_write=1;assert(run(0,0x8000,&f)==8&&!k386_xmem.pending[0]);
+    fail_free=fail_write=0;f=frame(KX_ALLOC,0);f.ecx=1;assert(!run(0,0x8000,&f));
+    xmem_release(0,0);assert(!active());
     k386_xmem.serial=65535;f=frame(KX_ALLOC,0);f.ecx=1;assert(run(0,0x8000,&f)==8);assert(active()==0);
     puts("XMS: isolation, zeroing, bounded progress, quotas, ranges, stale handles, nested ownership and failure cleanup passed");
 }

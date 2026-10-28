@@ -51,7 +51,8 @@ parent/child ownership; both are actual guest MZ applications.
   allocations until reboot. Freed tokens never regain authority during a boot,
   including after session restart or reuse of a DOS PSP/driver handle.
 - Driver allocation/free/transfer failures return errors. A failed free retains
-  its trusted record and quota (fail closed); later cleanup retries it. No raw
+  its trusted record and quota (fail closed); automatic cleanup revokes its owner
+  so a reused PSP cannot acquire authority. Session cleanup retries it. No raw
   driver handle, driver entry point, address or physical page is returned.
 
 Before a newly allocated block is published, all of its bytes are cleared.

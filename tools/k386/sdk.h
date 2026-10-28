@@ -14,7 +14,7 @@ static inline void kapp_yield(void) {
     __asm__ volatile("int $0x2f":"+a"(a),"+b"(b),"=c"(c),"=d"(d)::"cc","memory");
 }
 /* Managed XMS data blocks: no driver entry point or host handle is exposed.
- * Calls preserve DS/ES, SI/DI and use ES:DI for at most 4096 data bytes.
+ * Wrappers preserve DS/ES and use ES:DI for at most 4096 data bytes.
  * Return 0 on success or a DOS-style error. An allocation may yield while zeroing.
  */
 enum { KAPP_XMS_QUOTA_KIB=4096, KAPP_XMS_TRANSFER=4096 };
