@@ -21,7 +21,7 @@ def main():
         subprocess.run(['git', '-C', str(dest), 'remote', 'add', 'origin', url], check=True)
         subprocess.run(['git', '-C', str(dest), 'fetch', '--depth', '1', 'origin', commit], check=True)
         subprocess.run(['git', '-C', str(dest), 'checkout', '--detach', commit], check=True)
-        subprocess.run(['make', '-C', str(dest), '-f', 'GccUnix.mak', '-j2'], check=True)
+        subprocess.run(['make', '-C', str(dest), '-f', 'GccUnix.mak', '-j2', 'CC=cc -std=gnu17'], check=True)
     (args.output / 'versions.json').write_text(json.dumps(TOOLS, indent=2) + '\n')
 
 if __name__ == '__main__':

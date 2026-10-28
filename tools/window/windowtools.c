@@ -77,7 +77,7 @@ __attribute__((noinline)) void wt_draw(int tool,int x,int y,int w,int h,int top,
   label(x,y+ch,editor.path[0]?editor.path:"[New file]",w,INK,PAPER);
  }
 
- if(prompt==1&&request==tool)label(x,y+h-2,paths[tool],w,INK,SURFACE);
+ if(prompt==1&&request==tool){label(x,y+h-2,"Save as:",w,INK,SURFACE);label(x+9,y+h-2,paths[tool],w-9,INK,SURFACE);}
  else label(x,y+h-2,tool==WT_SETTINGS?control_status():notice,w,MUTED,PAPER);
  label(x,y+h-1,tool==WT_SETTINGS?"S Save / R Reload / +/- FILES":"^S Save ^W SaveAs ^Z Undo ^R Reload",w,INK,SURFACE);
  if(changed[tool])gfx_cell(x+w-1,y+h-1,'*',WHITE,SELECTED,1);
