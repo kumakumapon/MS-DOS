@@ -4,6 +4,9 @@
 #include "../editor/editor.h"
 static Editor editor;
 static Bitmap pictures[2],undo,copied;
+static u8 image_row[IMAGE_WIDTH];
+static u16 image_pixels[IMAGE_WIDTH],image_palette[256];
+static int palette_ready;
 static int pan[2],color=196,image_tool,stroke,sx,sy,last_x,last_y,selection,x1,y1,x2,y2;
 static const char *image_tools[]={"Pencil","Line","Rectangle","Fill","Pick","Erase","Select"};
 static int inside(const Bitmap *b,int x,int y){return x>=0&&y>=0&&x<b->width&&y<b->height;}
@@ -108,7 +111,7 @@ void wt_key(int tool,int key){
   else if(key==KEY_END)editor.cursor=ed_end(&editor,editor.cursor);
   else if(key==8)ed_delete(&editor,1);
   else if(key==KEY_DELETE)ed_delete(&editor,0);
-  else if(key==3){if(editor.length>CLIP_CAPACITY)say("Text exceeds the 1024-byte clipboard limit");else clip_copy((char *)editor.data,editor.length);}
+  else if(key==3){if(editor.length>=CLIP_CAPACITY)say("Text exceeds the 1024-byte clipboard limit");else clip_copy((char *)editor.data,editor.length);}
   else if(key==22)ed_insert(&editor,(const u8 *)clipboard.text,clipboard.length);
   else if(key==13||key==9||(key>=32&&key<=255)){u8 c=key==13?'\n':key;ed_insert(&editor,&c,1);}
   changed[0]=editor.dirty;return;
@@ -163,7 +166,15 @@ __attribute__((noinline)) void wt_draw(int tool,int x,int y,int w,int h,int top,
   int height=(ch-1)*16,remaining=b->height-top*16;if(height>remaining)height=remaining;
   int *left=&pan[tool-WT_VIEW];if(*left>b->width-width)*left=b->width-width;
   label(x,y,tool==WT_VIEW?"BMP viewer":image_tools[image_tool],w,INK,SURFACE);
-  for(int yy=0;yy<height;yy++)for(int xx=0;xx<width;xx++)gfx_pixel(x*8+xx,(y+1)*16+yy,mem_get(b->segment,(yy+top*16)*(u32)b->width+xx+*left));
+  unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
+  int colors=gfx_colors();
+  if(colors>256&&!palette_ready){for(int i=0;i<256;i++){u32 rgb=gfx_rgb(i);image_palette[i]=((rgb>>19)<<11)|(((rgb>>10)&63)<<5)|((rgb>>3)&31);}palette_ready=1;}
+  for(int yy=0;yy<height;yy++){
+   mem_copy(ds,(unsigned)image_row,b->segment,(yy+top*16)*(u32)b->width+*left,width);
+   if(colors>256){for(int xx=0;xx<width;xx++)image_pixels[xx]=image_palette[image_row[xx]];gfx_write_span(x*8,(y+1)*16+yy,ds,(unsigned)image_pixels,width);}
+   else if(colors==256)gfx_write_span(x*8,(y+1)*16+yy,ds,(unsigned)image_row,width);
+   else for(int xx=0;xx<width;xx++)gfx_pixel(x*8+xx,(y+1)*16+yy,image_row[xx]);
+  }
   if(tool==WT_PAINT){for(int i=0;i<16&&i*2+1<w;i++)gfx_rect((x+i*2)*8,(y+ch)*16,14,14,(color&240)+i);}
   else label(x,y+ch,paths[tool],w,INK,PAPER);
  }
@@ -178,6 +189,7 @@ int wt_click(int tool,int x,int y,int w,int h,int top,int px,int py){
  if(px<0||px>=w*8||py<0||py>=h*16)return 0;
  if(py/16==h-1){wt_key(tool,tool==WT_SETTINGS?'s':19);return 1;}
  if(tool==WT_PAINT&&py/16==h-3){color=(color&240)+px/16;return 1;}
+ if(tool==WT_PAINT&&py>=16&&py<(h-3)*16)return wt_pointer(tool,x,y,w,h,top,px+x*8,py+y*16,1);
  if(tool==WT_EDITOR&&py<(h-3)*16){
   int at=0,row=0,col=0,target_row=top+py/16,target_col=px/8;
   while(at<editor.length){
@@ -190,7 +202,16 @@ int wt_click(int tool,int x,int y,int w,int h,int top,int px,int py){
  }else if(tool==WT_SETTINGS){int row=top+py/16;int key=row==5?'x':row==6?'e':row==9?'+':row==12?'f':row>=19?'s':0;if(key)wt_key(tool,key);return 1;}
  return 0;
 }
-int wt_close(int tool){if(prompt&&request==tool){prompt=0;return 0;}if(changed[tool]){say("Unsaved work: save before closing this window");return 0;}return 1;}
+int wt_close(int tool){
+ if(prompt&&request==tool){prompt=0;return 0;}
+ if(changed[tool]){say("Unsaved work: save or Ctrl+R reload before closing");return 0;}
+ if(tool>=WT_VIEW){
+  Bitmap *b=&pictures[tool-WT_VIEW];
+  if(clipboard.segment==b->segment){if(copied.segment)publish(&copied);else clip_image(0,0,0);}
+  bitmap_free(b);if(tool==WT_PAINT){bitmap_free(&undo);stroke=selection=0;}
+ }
+ initialized[tool]=0;return 1;
+}
 int wt_clean(void){for(int i=0;i<WT_COUNT;i++)if(changed[i])return 0;return 1;}
 void wt_finish(void){clip_image(0,0,0);bitmap_free(&pictures[0]);bitmap_free(&pictures[1]);bitmap_free(&undo);bitmap_free(&copied);}
 static void image_save(int tool){

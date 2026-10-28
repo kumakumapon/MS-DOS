@@ -99,12 +99,14 @@ $(BUILD)/tasks-test: tasks_test.c tasks.c tasks.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror tasks_test.c tasks.c -o $@
 $(BUILD)/commands-test: commands_test.c commands.c commands.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror commands_test.c commands.c -o $@
-test: $(BUILD)/calculator-test $(BUILD)/scroll-test $(BUILD)/tasks-test $(BUILD)/commands-test
+test: $(BUILD)/KDESK.EXE $(BUILD)/calculator-test $(BUILD)/scroll-test $(BUILD)/tasks-test $(BUILD)/commands-test
 	$(BUILD)/calculator-test
 	$(BUILD)/scroll-test
 	$(BUILD)/tasks-test
 	$(BUILD)/commands-test
 	python3 -m unittest discover -s ../mz -p 'test_*.py'
+	python3 generate-art.py --check
+	python3 test_bank.py $(BUILD)/window.elf $(BUILD)/KDESK.EXE
 .PHONY: test
 
 # Rebuild every native object if the internal C calling convention changes.
@@ -119,3 +121,5 @@ $(BUILD)/cirrus.o: ../display/cirrus.c ../display/cirrus.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/window.raw.o $(BUILD)/windowtools.raw.o $(BUILD)/windoweditor.raw.o $(BUILD)/windowcontrol.raw.o $(BUILD)/bank.o $(BUILD)/tools-entry.raw.o: Makefile
+
+$(BUILD)/bitmap-bank.raw.o $(BUILD)/bank-core.raw.o: Makefile

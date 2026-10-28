@@ -1,5 +1,5 @@
 """Encode the original rectangle artwork as data to conserve 16-bit code space."""
-import subprocess,tempfile
+import subprocess,tempfile,sys
 from pathlib import Path
 root=Path(__file__).resolve().parent
 with tempfile.TemporaryDirectory() as temp:
@@ -14,4 +14,6 @@ int main(void){for(int i=0;i<9;i++){printf("{");utility_icon(i,0,0);puts("255},"
  rows=subprocess.check_output([str(p/'capture')],text=True)
  lengths=[len(r.rstrip(',').strip('{}').split(',')) for r in rows.splitlines()]
  table='/* Generated from art_shapes.c by generate-art.py. */\nstatic const unsigned char icon_shapes[][{}]={{\n'.format(max(lengths))+rows+'};\n'
- (root/'art_data.h').write_text(table)
+ if '--check' in sys.argv:
+  if (root/'art_data.h').read_text()!=table:raise SystemExit('art_data.h is stale; run generate-art.py')
+ else:(root/'art_data.h').write_text(table)
