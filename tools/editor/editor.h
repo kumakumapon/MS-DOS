@@ -2,7 +2,9 @@
 #define EDITOR_H
 #include "../filer/filer.h"
 #include "../filer/sjis.h"
+#ifndef ED_CAP
 #define ED_CAP 16384
+#endif
 #define ED_BAD_TEXT 1000
 #define ED_RECOVERY 1001
 #define ED_BACKUP_KEPT 1002

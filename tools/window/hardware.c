@@ -1,3 +1,4 @@
+#include "../filer/sjis.h"
 #include "hardware.h"
 #include "../display/cirrus.h"
 
@@ -546,4 +547,14 @@ void gfx_stop(void) {
     if (saved_256) { out(0x6a, 7); out(0x6a, 0x21); }
     out(0x6a, saved_gate ? 7 : 6);
     out(0xa8, saved_index); out(0x6a, saved_mode ? 1 : 0); bios(0x0c00, 0);
+}
+
+void gfx_pair(int x,int y,u8 lead,u8 trail){
+    unsigned code=sjis_vram(lead,trail)&0x7fff;
+    out(0xa1,code>>8);out(0xa3,code);
+    u8 glyph[32];
+    for(int half=0;half<2;half++)for(int row=0;row<16;row++){out(0xa5,row+(half?0:32));glyph[half*16+row]=in(0xa9);}
+    out(0xa1,0);out(0xa3,0);out(0xa5,0);
+    for(int row=0;row<16;row++)for(int col=0;col<16;col++)gfx_pixel(x*8+col,y*16+row,glyph[col/8*16+row]&(128>>(col%8))?INK:PAPER);
+    p_pair(x,y,lead,trail,0);
 }

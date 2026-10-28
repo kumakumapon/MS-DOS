@@ -26,7 +26,7 @@ $(BUILD)/scroll.o: scroll.c scroll.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/utilities.o: utilities.c utilities.h hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/art.o: art.c utilities.h hardware.h | $(BUILD)
+$(BUILD)/art.o: art.c art_data.h utilities.h hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/commands.o: commands.c commands.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -36,7 +36,13 @@ $(BUILD)/memory.o: memory.c hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/hardware.o: hardware.c hardware.h ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/cirrus.o $(BUILD)/app.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
+$(BUILD)/windowtools.o: windowtools.c windowtools.h ../editor/editor.h | $(BUILD)
+	$(CC) $(CFLAGS) -DED_CAP=8192 -c $< -o $@
+$(BUILD)/windoweditor.o: ../editor/editor.c ../editor/editor.h | $(BUILD)
+	$(CC) $(CFLAGS) -DED_CAP=8192 -c $< -o $@
+$(BUILD)/windowcontrol.o: ../control/control.c | $(BUILD)
+	$(CC) $(CFLAGS) -DKDESK_WINDOW -c $< -o $@
+$(BUILD)/window.elf: $(BUILD)/windowtools.o $(BUILD)/windoweditor.o $(BUILD)/windowcontrol.o $(BUILD)/window.o $(BUILD)/cirrus.o $(BUILD)/app.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
 	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,--no-check-sections,-T,exe.ld $(filter %.o,$^) -o $@
 $(BUILD)/KDESK.EXE: $(BUILD)/window.elf ../mz/build.py
 	python3 ../mz/build.py $< $@
@@ -86,7 +92,8 @@ $(BUILD)/window.o $(BUILD)/cirrus.o $(BUILD)/app.o $(BUILD)/k386_client.o $(BUIL
 
 $(BUILD)/app.o: ../k386/app.c ../k386/app.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/window.o: ../k386/app.h
+$(BUILD)/window.o: ../k386/app.h windowtools.h
+$(BUILD)/windowtools.o $(BUILD)/windoweditor.o $(BUILD)/windowcontrol.o: Makefile
 
 $(BUILD)/cirrus.o: ../display/cirrus.c ../display/cirrus.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
