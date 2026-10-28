@@ -4,11 +4,12 @@
 #include "tasks.h"
 #include "k386_client.h"
 #include "commands.h"
+#include "windowtools.h"
 #include "../k386/app.h"
 
 /* Window positions use 8 x 16 cells. Four graphics planes hold both the
  * 16-color scene and CG-ROM glyphs; hidden text VRAM mirrors the labels. */
-enum { LAUNCHER, FILES, MEMO, HELP, ABOUT, CALCULATOR, CLOCK, TASKS, DOS1, DOS2, WINDOWS };
+enum { LAUNCHER, FILES, MEMO, HELP, ABOUT, CALCULATOR, CLOCK, TASKS, DOS1, DOS2, EDITOR, SETTINGS, VIEWER, PAINTER, WINDOWS };
 enum { LAUNCH_APPS = 9 };
 #define SW (gfx_width())
 #define SH (gfx_height())
@@ -43,6 +44,8 @@ static u32 dos_tick;
 static u32 resource_tick;
 static unsigned event_age;
 static int scrolling = -1, scroll_grab;
+static int file_mode;
+static char file_input[FD_PATH],file_source[FD_PATH];
 static u32 clock_tick;
 /* Union of window damage, kept separate from the status/taskbar rows. */
 static int damage_left=640, damage_top=400, damage_right, damage_bottom;
@@ -76,11 +79,11 @@ static unsigned entries_segment, data_segment;
  * near data/stack segment. Directory refreshes never touch this tail. */
 static char memo_get(int at){return mem_get(entries_segment,MEMO_OFFSET+at);}
 static void memo_put(int at,char ch){mem_put(entries_segment,MEMO_OFFSET+at,ch);}
-static const char *titles[] = {"Launcher", "Files", "Memo", "Help", "About", "Calculator", "Clock", "Tasks", "DOS 1", "DOS 2"};
+static const char *titles[] = {"Launcher", "Files", "Memo", "Help", "About", "Calculator", "Clock", "Tasks", "DOS 1", "DOS 2", "Text editor", "System settings", "Image viewer", "Image editor"};
 static const char *apps[] = {"FD98.EXE", "EDIT98.EXE", "CPANEL.EXE", "RBASIC.COM", "COMMAND.COM", "KVIEW.EXE", "KPAINT.EXE"};
-static const char *labels[] = {"File manager", "Text editor", "System settings", "BASIC", "DOS shell (EXIT returns)", "Image viewer", "Image editor", "Calculator", "Clock"};
+static const char *labels[] = {"File manager", "Text editor", "System settings", "Image viewer", "Image editor", "BASIC", "DOS shell (EXIT returns)", "Image viewer", "Image editor", "Calculator", "Clock"};
 static const char *icon_labels[] = {"File manager", "Text editor", "Settings", "BASIC", "DOS shell", "Image viewer", "Image editor", "Calculator", "Clock"};
-static const char *task_labels[] = {"Apps", "Files", "Memo", "Help", "About", "Calc", "Clock", "Tasks", "DOS 1", "DOS 2"};
+static const char *task_labels[] = {"Apps", "Files", "Memo", "Help", "About", "Calc", "Clock", "Tasks", "DOS 1", "DOS 2", "Text editor", "System settings", "Image viewer", "Image editor"};
 
 static void label(int x, int y, const char *s, int width, int fg, int bg, int selected) {
     for (int i = 0; i < width && s[i]; i++) gfx_cell(x + i, y, s[i], fg, bg, selected);
@@ -93,7 +96,7 @@ static void line(Window *w, int row, const char *s, int selected) {
 }
 static void draw_resources(Window *w){
     if(!k386_resources_available())return;
-    if(w->selected<DOS1){line(w,10,"Select DOS 1 or DOS 2 for resource controls",0);return;}
+    if((w->selected<DOS1||w->selected>DOS2)){line(w,10,"Select DOS 1 or DOS 2 for resource controls",0);return;}
     if(k386_command(K386_DESCRIBE,w->selected-DOS1,event_age,0))return;
     char row[72];for(unsigned i=0;i<6;i++){k386_report_line(i,row);line(w,10+i,row,0);}
 }
@@ -105,6 +108,13 @@ static void button(int x, int y, int width, const char *caption, int pressed) {
     gfx_rect(x * 8, y * 16 + 15, width * 8, 1, pressed?GOLD:INACTIVE);
     gfx_rect((x + width) * 8 - 1, y * 16+1, 1, 14, SURFACE);
 }
+typedef struct { unsigned char x,width,minimum; const char *caption; } ToolButton;
+static void tool_buttons(Window *w,const ToolButton *b,unsigned n){
+    for(unsigned i=0;i<n;i++)if(w->w>=b[i].minimum)button(w->x+b[i].x,w->y+w->h-2,b[i].width,b[i].caption,0);
+}
+static const ToolButton memo_buttons[]={{2,9,0,"Save"},{12,7,0,"Copy"},{20,6,0,"Cut"},{27,8,40,"Paste"},{36,7,46,"All"}};
+static const ToolButton task_buttons[]={{2,8,0,"Switch"},{11,7,0,"Stop"},{19,8,0,"Start"},{28,6,36,"End"}};
+static const ToolButton dos_buttons[]={{2,7,0,"Run"},{10,7,0,"Pause"},{18,8,0,"Resume"},{27,6,35,"End"}};
 static void message(const char *s) { fd_text(status, s, sizeof status); }
 static void refresh(void) {
     Entry entries[128];
@@ -117,7 +127,29 @@ static void refresh(void) {
 static void file_entry(int index,Entry *e) {
     mem_copy(data_segment,(unsigned)e,entries_segment,index*sizeof(Entry),sizeof(Entry));
 }
+static void file_actions(int key){
+    if(key==27){file_mode=0;message("File action cancelled");return;}
+    if(file_mode==1){
+        int action=key=='r'?2:key=='c'?5:key=='m'?6:key=='n'?7:key=='d'?8:0;
+        if(!action)return;
+        if(action!=7){Entry e;if(!count){message("Select a file first");return;}file_entry(windows[FILES].selected,&e);if(fd_path(file_source,folder,e.name))return;}
+        file_input[0]=0;file_mode=action;
+        message(action==8?"Delete selected entry? Enter confirms / Esc cancels":"Type destination name or path; Enter applies / Esc cancels");return;
+    }
+    int n=fd_len(file_input);
+    if(key==21)file_input[0]=0;
+    else if(key==8&&n)file_input[n-1]=0;
+    else if(key>=32&&key<127&&n<FD_PATH-1){file_input[n]=key;file_input[n+1]=0;}
+    else if(key==13){char target[FD_PATH];int error=0;
+        if(file_mode!=8)error=fd_path(target,folder,file_input);
+        if(!error)error=wt_file(file_mode,file_source,target);
+        if(error){char value[12];fd_number(value,error);message("File operation failed; check destination / access / disk space");}
+        else message("File operation completed");
+        file_mode=0;refresh();
+    }
+}
 static void focus(int id) {
+    if(active==PAINTER&&id!=active)wt_pointer(WT_PAINT,0,0,0,0,0,-1,-1,0);
     if(active!=id || !windows[id].open || windows[id].hidden)scene_dirty=1;
     invalidate(active);
     int at = 0;
@@ -125,8 +157,9 @@ static void focus(int id) {
     for (; at < WINDOWS - 1; at++) order[at] = order[at + 1];
     order[WINDOWS - 1] = id;
     if(!windows[id].open){
+        if(id>=EDITOR&&id<=PAINTER&&!wt_open(id-EDITOR,""))return;
         task_start(id);
-        if(id>=DOS1&&enhanced&&(k386_word(id-DOS1,0)==K386_ENDED||k386_word(id-DOS1,0)>=K386_FAULTED)){
+        if((id>=DOS1&&id<=DOS2)&&enhanced&&(k386_word(id-DOS1,0)==K386_ENDED||k386_word(id-DOS1,0)>=K386_FAULTED)){
             dos_follow[id-DOS1]=1;
             if(k386_command(K386_CREATE,id-DOS1,0,"KSH.EXE"))message("Cannot start KSH.EXE; use Run to choose a program");
         }
@@ -254,6 +287,10 @@ static void load(void) {
 static void enter_graphics(void) { gfx_start(); clip_state(1); }
 /* Tagged applications run in independent guest sessions. Never replace a live
  * session as a side effect of opening a file or search result. */
+static int window_tool(int id,const char *path){
+    if(!wt_open(id-EDITOR,path)){message("Window app could not open; save current work first");return 1;}
+    focus(id);message("Window app ready; DOS sessions continue running");return 1;
+}
 static int launch_app(const char *program,const char *arguments,int *desktop) {
     unsigned char header[96];int h=p_open(program);
     if(h<0)return 0;
@@ -275,6 +312,9 @@ static int launch_app(const char *program,const char *arguments,int *desktop) {
     focus(DOS1+slot);message((const char *)header+40);return 1;
 }
 static void launch(const char *program, const char *arguments) {
+    static const char *native[]={"EDIT98.EXE","EDIT.EXE","CPANEL.EXE","KVIEW.EXE","KPAINT.EXE","FD98.EXE"};
+    static const int ids[]={EDITOR,EDITOR,SETTINGS,VIEWER,PAINTER,FILES};
+    for(unsigned i=0;enhanced&&i<6;i++){char path[FD_PATH];if(!fd_path(path,home,native[i])&&!fd_cmp(program,path)){if(ids[i]==FILES){refresh();focus(FILES);file_mode=1;}else window_tool(ids[i],arguments);return;}}
     int desktop=0;
     if(launch_app(program,arguments,&desktop))return;
     scene_dirty=1; damage(0,0,SW,SH);
@@ -296,10 +336,11 @@ static void launch(const char *program, const char *arguments) {
         mouse_stop(); clip_mouse_save(); message("Program returned to desktop");
     }
     if (!dirty) load();
-    enter_graphics(); clip_mouse_resume(); refresh();
+    p_chdir(home);enter_graphics(); clip_mouse_resume(); refresh();
 }
 static void tool(int id, const char *arguments) {
     if (id == 0) { refresh(); focus(FILES); return; }
+    if(enhanced&&(id==1||id==2||id==5||id==6)){window_tool(id==1?EDITOR:id==2?SETTINGS:id==5?VIEWER:PAINTER,arguments);return;}
     if (id == 7) { focus(CALCULATOR); return; }
     if (id == 8) { clock_read(&desk_clock); focus(CLOCK); return; }
     char path[FD_PATH];
@@ -421,8 +462,9 @@ static void pane(int id, Pane *v) {
     Window *w=&windows[id];
     v->x=w->x+2;v->y=w->y+(id==FILES?5:3);v->cols=w->w-6;
     v->columns=1;v->step=1;
-    int height=w->h-(id==FILES?7:id==HELP||id==ABOUT?5:6);
-    if(id>=DOS1)v->total=25;
+    int height=w->h-(id>=EDITOR?8:id==FILES?7:id==HELP||id==ABOUT?5:6);
+    if(id>=EDITOR&&id<=PAINTER)v->total=wt_rows(id-EDITOR,v->cols);
+    else if((id>=DOS1&&id<=DOS2))v->total=25;
     else if(id==LAUNCHER||id==FILES) {
         v->step=icons(id)?4:id==LAUNCHER?2:1;
         v->columns=icons(id)?v->cols/14:1;
@@ -589,7 +631,7 @@ static void draw_window(int id) {
     title_button(w->x+w->w-9,w->y+1,placement[id]==1?2:1);
     title_button(w->x+w->w-5,w->y+1,3);
     Pane v;
-    if(id<CALCULATOR||id>=DOS1)pane(id,&v);
+    if(id<CALCULATOR||(id>=DOS1&&id<=DOS2)||(id>=EDITOR&&id<=PAINTER))pane(id,&v);
     if (id == LAUNCHER || id == FILES) {
         draw_items(id,&v);
         if(id==LAUNCHER) {
@@ -610,41 +652,41 @@ static void draw_window(int id) {
             button(w->x+21,w->y+w->h-2,8,file_icons?"List":"Icons",0);
             if(w->w>=39)button(w->x+30,w->y+w->h-2,7,"FD98",0);
             if(truncated)text(w->x+w->w-8,w->y+3,"128+",4,0);
+            if(file_mode){
+                gfx_rect((w->x+2)*8,(w->y+w->h-4)*16,(w->w-4)*8,32,SURFACE);
+                text(w->x+2,w->y+w->h-4,file_mode==1?"R Rename C Copy M Move N Mkdir D Delete":file_mode==8?"Delete? Enter confirms / Esc cancels":"Destination: Enter applies / Esc cancels",w->w-4,0);
+                text(w->x+2,w->y+w->h-3,file_input,w->w-4,0);
+            }
         }
     } else if (id == MEMO) {
         if (memo_blocked) line(w, 0, "Open NOTE.TXT in the Text editor", 0);
         else document(w,&v,MEMO,1);
-        button(w->x + 2, w->y + w->h - 2, 9, "Save", 0);
-        text(w->x + 2, w->y + w->h - 3, dirty ? "NOTE.TXT *" : "NOTE.TXT", w->w - 4, 0);
-        button(w->x + 12, w->y + w->h - 2, 7, "Copy", 0);
-        button(w->x + 20, w->y + w->h - 2, 6, "Cut", 0);
-        if (w->w >= 40) button(w->x + 27, w->y + w->h - 2, 8, "Paste", 0);
-        if (w->w >= 46) button(w->x + 36, w->y + w->h - 2, 7, "All", 0);
+        text(w->x+2,w->y+w->h-3,dirty?"NOTE.TXT *":"NOTE.TXT",w->w-4,0);
+        tool_buttons(w,memo_buttons,5);
     } else if (id == CALCULATOR) {
         draw_calculator(w);
     } else if (id == CLOCK) {
         clock_controls(w);
     } else if(id==TASKS) {
-        for(int i=0;i<WINDOWS&&i<w->h-6;i++) {
+        for(int i=w->top;i<WINDOWS&&i<w->top+10&&i-w->top<w->h-6;i++) {
             char row[48];int at=0;unsigned n=desktop_tasks[i].id;
             row[at++]='0'+n/100%10;row[at++]='0'+n/10%10;row[at++]='0'+n%10;row[at++]=' ';
             fd_text(row+at,titles[i],sizeof row-at);at=fd_len(row);
             while(at<16)row[at++]=' ';
             static const char *dos_states[]={"Ended","Running","Waiting","Stopped","Fault"};
-            unsigned state=i>=DOS1&&enhanced?k386_word(i-DOS1,0):0;
-            fd_text(row+at,i>=DOS1&&enhanced?dos_states[state<=4?state:4]:task_state(i),sizeof row-at);
-            line(w,i,row,w->selected==i);
+            unsigned state=(i>=DOS1&&i<=DOS2)&&enhanced?k386_word(i-DOS1,0):0;
+            fd_text(row+at,(i>=DOS1&&i<=DOS2)&&enhanced?dos_states[state<=4?state:4]:task_state(i),sizeof row-at);
+            line(w,i-w->top,row,w->selected==i);
         }
         draw_resources(w);
-        button(w->x+2,w->y+w->h-2,8,"Switch",0);
-        button(w->x+11,w->y+w->h-2,7,"Stop",0);
-        button(w->x+19,w->y+w->h-2,8,"Start",0);
-        if(w->w>=36)button(w->x+28,w->y+w->h-2,6,"End",0);
+        tool_buttons(w,task_buttons,4);
         if(k386_resources_available()&&w->w>=66){
             static const char *controls[]={"Prio","Limit","Break"};
             for(int i=0;i<3;i++)button(w->x+38+i*8,w->y+w->h-2,7,controls[i],0);
         }
-    } else if(id>=DOS1) {
+    } else if(id>=EDITOR&&id<=PAINTER){
+        wt_draw(id-EDITOR,w->x+2,w->y+3,w->w-6,w->h-5,w->top,active==id);
+    } else if((id>=DOS1&&id<=DOS2)) {
         unsigned session=id-DOS1;
         if(!enhanced){line(w,0,"Use the KDESK/386 experimental disk",0);line(w,1,"DOS windows need K386 without EMM386",0);}
         else {
@@ -661,11 +703,10 @@ static void draw_window(int id) {
             if(dos_edit[session])text(w->x+2,w->y+w->h-3,dos_path[session],w->w-4,0);
             else {static const char *states[]={"Ended","Running","Waiting","Stopped","Fault"};unsigned state=k386_word(session,0);text(w->x+2,w->y+w->h-3,states[state<=4?state:4],w->w-4,0);}
             button(w->x+w->w-9,w->y+w->h-3,3,"<",0);button(w->x+w->w-5,w->y+w->h-3,3,">",0);
-            button(w->x+2,w->y+w->h-2,7,"Run",0);button(w->x+10,w->y+w->h-2,7,"Pause",0);
-            button(w->x+18,w->y+w->h-2,8,"Resume",0);if(w->w>=35)button(w->x+27,w->y+w->h-2,6,"End",0);
+            tool_buttons(w,dos_buttons,4);
         }
     } else document(w,&v,id,1);
-    if(id<CALCULATOR||id>=DOS1)scrollbar(w,&v);
+    if(id<CALCULATOR||(id>=DOS1&&id<=DOS2)||(id>=EDITOR&&id<=PAINTER))scrollbar(w,&v);
     for (int i = 0; i < 3; i++)
         gfx_rect((w->x + w->w) * 8 - 7 + i * 2, (w->y + w->h) * 16 - 5 - i * 3, 1, 3 + i * 3, MUTED);
     gfx_origin(0, 0);
@@ -760,8 +801,9 @@ static void draw(void) {
     compose(1);present();scene_dirty=0;
 }
 static void close_window(void) {
+    if(active>=EDITOR&&active<=PAINTER&&!wt_close(active-EDITOR)){message("Save window app changes before closing");return;}
     invalidate(active);scene_dirty=1;
-    if(active>=DOS1&&enhanced)k386_command(K386_END,active-DOS1,0,0);
+    if((active>=DOS1&&active<=DOS2)&&enhanced)k386_command(K386_END,active-DOS1,0,0);
     task_exit(active);windows[active].open = 0; next();
 }
 static int handle_confirm(int key) {
@@ -796,10 +838,12 @@ static int handle_key(int key) {
     if (decision == 2) return 1;
     if (decision) return 0;
     if(panel_open){panel_key(key);return 0;}
+    if(active==FILES&&file_mode&&(key==27||key==13||key==8||key==21||(key>=32&&key<127))){task_post(FILES,TASK_KEY,key);return 0;}
     if(key==11){panel_start();return 0;}
     if(key==4){show_desktop();return 0;}
     if (key == KEY_F1 + 8) { tool(6, ""); return 0; }
     if (key == KEY_F1 + 9) {
+        if(!wt_clean()){message("Save window app changes before exiting KDESK");return 0;}
         if (dirty) { confirm = 1; exiting = 1; return 0; }
         return 1;
     }
@@ -839,7 +883,7 @@ static int handle_key(int key) {
         message("Window minimized; Tab restores"); return 0;
     }
     if(key==1003){close_window();return 0;}
-    if(key==27&&active>=DOS1&&enhanced){if(dos_edit[active-DOS1])dos_edit[active-DOS1]=0;else task_post(active,TASK_KEY,key);return 0;}
+    if(key==27&&(active>=DOS1&&active<=DOS2)&&enhanced){if(dos_edit[active-DOS1])dos_edit[active-DOS1]=0;else task_post(active,TASK_KEY,key);return 0;}
     if (key == 27) {
         if (active == MEMO && dirty) { confirm = 1; exiting = 0; }
         else close_window();
@@ -851,18 +895,28 @@ static int handle_key(int key) {
 /* Guest ASCII keys only enqueue input. Paint after the VM produces output,
  * rather than repainting the desktop twice for every input batch. */
 static int guest_input(int id,unsigned key) {
-    return !panel_open&&enhanced&&id>=DOS1&&!dos_edit[id-DOS1]&&!mode&&!confirm&&key<128
+    return !panel_open&&enhanced&&(id>=DOS1&&id<=DOS2)&&!dos_edit[id-DOS1]&&!mode&&!confirm&&key<128
         &&key!=4&&key!=11&&key!=7&&key!=9&&key!=12&&key!=14&&key!=15&&key!=20&&key!=16&&key!=18&&key!=5
         &&(key!=3||!k386_resources_available());
 }
 static __attribute__((noinline)) int app_key(int id,int key) {
     Window *w=&windows[id];
+    if(id>=EDITOR&&id<=PAINTER){
+        if(key==KEY_PAGEUP){if(w->top)w->top--;}
+        else if(key==KEY_PAGEDOWN)w->top++;
+        else wt_key(id-EDITOR,key);
+        w->top=wt_scroll(id-EDITOR,w->w-6,w->h-5,w->top,key!=KEY_PAGEUP&&key!=KEY_PAGEDOWN);
+        return 0;
+    }
+    if(id==FILES&&file_mode){file_actions(key);return 0;}
     if(id==TASKS) {
         if(key==KEY_UP&&w->selected)w->selected--;
         if(key==KEY_DOWN&&w->selected+1<WINDOWS)w->selected++;
+        if(w->selected<w->top)w->top=w->selected;
+        if(w->selected>=w->top+10)w->top=w->selected-9;
         int selected=w->selected;
         if(key==13)focus(selected);
-        if(selected>=DOS1&&enhanced) {
+        if((selected>=DOS1&&selected<=DOS2)&&enhanced) {
             invalidate(selected);scene_dirty=1;
             unsigned session=selected-DOS1;
             if(k386_resources_available()){
@@ -882,7 +936,7 @@ static __attribute__((noinline)) int app_key(int id,int key) {
         if((key=='k'||key=='K')&&selected!=TASKS) {focus(selected);if(selected==MEMO&&dirty){confirm=1;exiting=0;}else close_window();}
         return 0;
     }
-    if(id>=DOS1&&enhanced) {
+    if((id>=DOS1&&id<=DOS2)&&enhanced) {
         unsigned session=id-DOS1;
         if(key==1001){if(dos_horizontal[session])dos_horizontal[session]--;return 0;}
         if(key==1002){if(dos_horizontal[session]<(w->w-6<80?80-(w->w-6):0))dos_horizontal[session]++;return 0;}
@@ -917,6 +971,7 @@ static __attribute__((noinline)) int app_key(int id,int key) {
             message(id==LAUNCHER?(icon_view?"Launcher icon view":"Launcher list view"):(file_icons?"Files icon view":"Files list view"));return 0;
         }
         if(id==FILES&&(key=='f'||key=='F')) {
+            if(enhanced){file_mode=1;message("R Rename / C Copy / M Move / N New folder / D Delete");return 0;}
             char path[FD_PATH];
             if(!fd_path(path,home,apps[0])&&p_chdir(folder)>=0) {launch(path,"");p_chdir(home);}
             else message("Cannot open FD98 in this directory");
@@ -973,7 +1028,7 @@ static __attribute__((noinline)) int mouse_event(Mouse now, int previous, int *r
         Window *w=&windows[scrolling];Pane v;pane(scrolling,&v);
         int top=scroll_row(now.y-w->oy-v.y*16-16-scroll_grab,v.total,v.rows,v.height*16-32);
         if(top!=w->top){w->top=top;*redraw=1;}
-        if(scrolling>=DOS1)dos_follow[scrolling-DOS1]=top>=v.total-v.rows;
+        if((scrolling>=DOS1&&scrolling<=DOS2))dos_follow[scrolling-DOS1]=top>=v.total-v.rows;
         if(!(now.buttons&1))scrolling=-1;
         return 0;
     }
@@ -1052,7 +1107,7 @@ static __attribute__((noinline)) int mouse_event(Mouse now, int previous, int *r
         if (!w->open || w->hidden || now.x < w->x * 8 + w->ox || now.x >= (w->x + w->w) * 8 + w->ox ||
             now.y < w->y * 16 + w->oy || now.y >= (w->y + w->h) * 16 + w->oy) continue;
         focus(id);
-        if (cy == w->y + 1 && cx >= w->x + w->w - 5 && cx < w->x + w->w - 2) return id>=DOS1?1003:27;
+        if (cy == w->y + 1 && cx >= w->x + w->w - 5 && cx < w->x + w->w - 2) return (id>=DOS1&&id<=DOS2)?1003:27;
         if (cy == w->y + 1 && cx >= w->x + w->w - 9 && cx < w->x + w->w - 6) return 1004;
         if (cy == w->y + 1 && cx >= w->x + w->w - 13 && cx < w->x + w->w - 10) return KEY_F1 + 7;
         if (cx >= w->x + w->w - 2 && cy >= w->y + w->h - 2) drag = 2;
@@ -1067,7 +1122,7 @@ static __attribute__((noinline)) int mouse_event(Mouse now, int previous, int *r
             drag_x = w->x * 8 + w->ox; drag_y = w->y * 16 + w->oy; drag_w = w->w; drag_h = w->h; return 0;
         }
         Pane v;
-        if(id<CALCULATOR||id>=DOS1) {
+        if(id<CALCULATOR||(id>=DOS1&&id<=DOS2)||(id>=EDITOR&&id<=PAINTER)) {
             pane(id,&v);
             int py=now.y-w->oy-v.y*16,h=v.height*16,track=h-32;
             if(cx>=w->x+w->w-3&&cx<w->x+w->w-1&&py>=0&&py<h&&v.total>v.rows) {
@@ -1077,11 +1132,12 @@ static __attribute__((noinline)) int mouse_event(Mouse now, int previous, int *r
                 else if(py<16+top)w->top-=v.rows;
                 else if(py>=16+top+size)w->top+=v.rows;
                 else {scrolling=id;scroll_grab=py-16-top;}
-                w->top=scroll_clamp(w->top,v.total,v.rows);if(id>=DOS1)dos_follow[id-DOS1]=w->top>=v.total-v.rows;return 0;
+                w->top=scroll_clamp(w->top,v.total,v.rows);if((id>=DOS1&&id<=DOS2))dos_follow[id-DOS1]=w->top>=v.total-v.rows;return 0;
             }
         }
-        if(id>=DOS1&&cy==w->y+w->h-3) {if(cx>=w->x+w->w-9&&cx<w->x+w->w-6)return 1001;if(cx>=w->x+w->w-5&&cx<w->x+w->w-2)return 1002;}
-        if(id>=DOS1&&cy==w->y+w->h-2) {
+        if(id>=EDITOR&&id<=PAINTER){wt_click(id-EDITOR,w->x+2,w->y+3,w->w-6,w->h-5,w->top,now.x-w->ox,now.y-w->oy);return 0;}
+        if((id>=DOS1&&id<=DOS2)&&cy==w->y+w->h-3) {if(cx>=w->x+w->w-9&&cx<w->x+w->w-6)return 1001;if(cx>=w->x+w->w-5&&cx<w->x+w->w-2)return 1002;}
+        if((id>=DOS1&&id<=DOS2)&&cy==w->y+w->h-2) {
             int col=cx-w->x;
             if(col>=2&&col<9)return 12;
             if(col>=10&&col<17)return 16;
@@ -1089,7 +1145,7 @@ static __attribute__((noinline)) int mouse_event(Mouse now, int previous, int *r
             if(w->w>=35&&col>=27&&col<33)return 5;
         } else if(id==TASKS) {
             int row=cy-w->y-3;
-            if(row>=0&&row<WINDOWS)w->selected=row;
+            if(row>=0&&row<10&&row+w->top<WINDOWS)w->selected=row+w->top;
             if(cy==w->y+w->h-2) {
                 int col=cx-w->x;
                 if(col>=2&&col<10)return 13;
@@ -1101,6 +1157,7 @@ static __attribute__((noinline)) int mouse_event(Mouse now, int previous, int *r
                 }
             }
         } else if (id == LAUNCHER || id == FILES) {
+            if(id==FILES&&file_mode)return 0;
             if(cy==w->y+w->h-2) {
                 if(cx>=w->x+2&&cx<w->x+11)return id==LAUNCHER?'v':8;
                 if(cx>=w->x+12&&cx<w->x+20)return 13;
@@ -1167,7 +1224,7 @@ static int clock_update(int moving) {
 }
 static void resources_update(int moving){
     if(active!=TASKS||!k386_resources_available()||moving||mode||confirm||panel_open||
-       windows[TASKS].selected<DOS1||((input_ticks()-resource_tick)&0xffffff)<307200)return;
+       (windows[TASKS].selected<DOS1||windows[TASKS].selected>DOS2)||((input_ticks()-resource_tick)&0xffffff)<307200)return;
     Window *w=&windows[TASKS];int rows=w->h-15;if(rows<=0)return;if(rows>6)rows=6;
     resource_tick=input_ticks();gfx_pointer_hide();gfx_target(1);gfx_origin(w->ox,w->oy);
     gfx_rect((w->x+2)*8,(w->y+13)*16,(w->w-4)*8,rows*16,PAPER);
@@ -1200,6 +1257,7 @@ int main(void) {
     windows[CLOCK]=(Window){39,3,38,17,0,0,0,0,0,0};
     windows[TASKS]=(Window){8,2,48,18,0,0,0,0,0,0};
     windows[DOS1]=(Window){2,2,46,17,0,0,0,0,0,0};windows[DOS2]=(Window){32,5,46,17,0,0,0,0,0,0};
+    for(int id=EDITOR;id<=PAINTER;id++)windows[id]=(Window){4+(id-EDITOR)*3,2+(id-EDITOR)%2,58,20,0,0,0,0,0,0};
     enhanced=k386_probe();
     if(k386_resources_available())windows[TASKS]=(Window){3,1,74,22,0,0,0,0,0,0};
     calc_init(&calculator);clock_read(&desk_clock);clock_tick=input_ticks();
@@ -1245,6 +1303,10 @@ int main(void) {
                 if (stop) break;
             }
             redraw|=dispatch_events();
+            if(active>=VIEWER&&active<=PAINTER&&!drag&&!mode&&!confirm&&!panel_open){
+                Window *w=&windows[active];
+                redraw|=wt_pointer(active-EDITOR,w->x+2,w->y+3,w->w-6,w->h-5,w->top,now.x-w->ox,now.y-w->oy,now.buttons);
+            }
             if (redraw) {
                 if(previous_active>=0&&before.open&&!before.hidden)
                     damage(before.x*8+before.ox,before.y*16+before.oy,before.w*8+5,before.h*16+5);
@@ -1281,5 +1343,5 @@ int main(void) {
         previous = now; input_idle();
     }
     if(enhanced){k386_command(K386_END,0,0,0);k386_command(K386_END,1,0,0);}
-    mem_free(entries_segment);clip_state(0); gfx_stop(); p_finish(); p_output("KDESK exited.\r\n"); return 0;
+    wt_finish();mem_free(entries_segment);clip_state(0); gfx_stop(); p_finish(); p_output("KDESK exited.\r\n"); return 0;
 }

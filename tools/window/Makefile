@@ -10,14 +10,16 @@ $(BUILD)/start.o: ../filer/start.s | $(BUILD)
 	as --32 $< -o $@
 $(BUILD)/exe-start.o: exe-start.s | $(BUILD)
 	as --32 $< -o $@
+$(BUILD)/image-start.o: ../mz/start.S | $(BUILD)
+	as --32 $< -o $@
 $(BUILD)/core.o: ../filer/core.c ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/dos98.o: ../filer/dos.c ../filer/filer.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -DPC98 -c $< -o $@
 $(BUILD)/exe-dos98.o: ../filer/dos.c ../filer/filer.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -DPC98 -DDOS_MZ -c $< -o $@
-$(BUILD)/window.o: window.c commands.h k386_client.h ../k386/abi.h ../k386/resources.h tasks.h scroll.h hardware.h clipboard.h utilities.h ../filer/filer.h | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/window.raw.o: window.c commands.h k386_client.h ../k386/abi.h ../k386/resources.h tasks.h scroll.h hardware.h clipboard.h utilities.h ../filer/filer.h | $(BUILD)
+	$(CC) $(filter-out -flto,$(CFLAGS)) -c $< -o $@
 $(BUILD)/k386_client.o: k386_client.c k386_client.h ../k386/abi.h ../k386/resources.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/tasks.o: tasks.c tasks.h | $(BUILD)
@@ -26,7 +28,7 @@ $(BUILD)/scroll.o: scroll.c scroll.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/utilities.o: utilities.c utilities.h hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/art.o: art.c utilities.h hardware.h | $(BUILD)
+$(BUILD)/art.o: art.c art_data.h utilities.h hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/commands.o: commands.c commands.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -36,8 +38,32 @@ $(BUILD)/memory.o: memory.c hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/hardware.o: hardware.c hardware.h ../filer/filer.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/window.elf: $(BUILD)/window.o $(BUILD)/cirrus.o $(BUILD)/app.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
-	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,--no-check-sections,-T,exe.ld $(filter %.o,$^) -o $@
+$(BUILD)/windowtools.raw.o: windowtools.c windowtools.h ../editor/editor.h | $(BUILD)
+	$(CC) $(filter-out -flto,$(CFLAGS)) -DKDESK_BANK_TOOLS -DED_CAP=8192 -c $< -o $@
+$(BUILD)/windoweditor.raw.o: ../editor/editor.c ../editor/editor.h | $(BUILD)
+	$(CC) $(filter-out -flto,$(CFLAGS)) -DKDESK_BANK_TOOLS -DED_CAP=8192 -c $< -o $@
+$(BUILD)/windowcontrol.raw.o: ../control/control.c | $(BUILD)
+	$(CC) $(filter-out -flto,$(CFLAGS)) -DKDESK_WINDOW -c $< -o $@
+$(BUILD)/window.o: $(BUILD)/window.raw.o bank-sections.py
+	python3 bank-sections.py $< $@ gui
+$(BUILD)/windowtools.o $(BUILD)/windoweditor.o $(BUILD)/windowcontrol.o: $(BUILD)/%.o: $(BUILD)/%.raw.o bank-sections.py
+	python3 bank-sections.py $< $@ tools
+$(BUILD)/tools-entry.raw.o: tools_entry.c bank.h windowtools.h | $(BUILD)
+	$(CC) $(filter-out -flto,$(CFLAGS)) -DKDESK_BANK_TOOLS -c $< -o $@
+$(BUILD)/tools-entry.o: $(BUILD)/tools-entry.raw.o bank-sections.py
+	python3 bank-sections.py $< $@ tools
+$(BUILD)/bank.o: bank.c bank.h windowtools.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/bitmap-bank.raw.o: bitmap.c bitmap.h | $(BUILD)
+	$(CC) $(filter-out -flto,$(CFLAGS)) -c $< -o $@
+$(BUILD)/bitmap-bank.o: $(BUILD)/bitmap-bank.raw.o bank-sections.py
+	python3 bank-sections.py $< $@ tools
+$(BUILD)/bank-core.raw.o: ../filer/core.c ../filer/filer.h | $(BUILD)
+	$(CC) $(filter-out -flto,$(CFLAGS)) -c $< -o $@
+$(BUILD)/bank-core.o: $(BUILD)/bank-core.raw.o
+	objcopy $(foreach f,fd_copy fd_move fd_rename fd_remove fd_mkdir,--rename-section .text.$(f)=.tools.text.$(f)) $< $@
+$(BUILD)/window.elf: $(BUILD)/bitmap-bank.o $(BUILD)/bank.o $(BUILD)/tools-entry.o $(BUILD)/windowtools.o $(BUILD)/windoweditor.o $(BUILD)/windowcontrol.o $(BUILD)/window.o $(BUILD)/cirrus.o $(BUILD)/app.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/bank-core.o $(BUILD)/exe-dos98.o banked.ld
+	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,--no-check-sections,-T,banked.ld $(filter %.o,$^) -o $@
 $(BUILD)/KDESK.EXE: $(BUILD)/window.elf ../mz/build.py
 	python3 ../mz/build.py $< $@
 $(BUILD)/KDESK.TXT: KDESK.TXT | $(BUILD)
@@ -52,9 +78,9 @@ $(BUILD)/paint.o: imageapp.c bitmap.h clipboard.h hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/view.o: imageapp.c bitmap.h clipboard.h hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -DVIEW_ONLY=1 -c $< -o $@
-$(BUILD)/paint.elf: $(BUILD)/paint.o $(BUILD)/bitmap.o $(BUILD)/cirrus.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
+$(BUILD)/paint.elf: $(BUILD)/paint.o $(BUILD)/bitmap.o $(BUILD)/cirrus.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/image-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
 	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,--no-check-sections,-T,exe.ld $(filter %.o,$^) -o $@
-$(BUILD)/view.elf: $(BUILD)/view.o $(BUILD)/bitmap.o $(BUILD)/cirrus.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
+$(BUILD)/view.elf: $(BUILD)/view.o $(BUILD)/bitmap.o $(BUILD)/cirrus.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/image-start.o $(BUILD)/core.o $(BUILD)/exe-dos98.o exe.ld
 	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,--no-check-sections,-T,exe.ld $(filter %.o,$^) -o $@
 $(BUILD)/KPAINT.EXE: $(BUILD)/paint.elf ../mz/build.py
 	python3 ../mz/build.py --desktop-app 'Image editor' $< $@
@@ -73,12 +99,14 @@ $(BUILD)/tasks-test: tasks_test.c tasks.c tasks.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror tasks_test.c tasks.c -o $@
 $(BUILD)/commands-test: commands_test.c commands.c commands.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror commands_test.c commands.c -o $@
-test: $(BUILD)/calculator-test $(BUILD)/scroll-test $(BUILD)/tasks-test $(BUILD)/commands-test
+test: $(BUILD)/KDESK.EXE $(BUILD)/calculator-test $(BUILD)/scroll-test $(BUILD)/tasks-test $(BUILD)/commands-test
 	$(BUILD)/calculator-test
 	$(BUILD)/scroll-test
 	$(BUILD)/tasks-test
 	$(BUILD)/commands-test
 	python3 -m unittest discover -s ../mz -p 'test_*.py'
+	python3 generate-art.py --check
+	python3 test_bank.py $(BUILD)/window.elf $(BUILD)/KDESK.EXE
 .PHONY: test
 
 # Rebuild every native object if the internal C calling convention changes.
@@ -86,7 +114,12 @@ $(BUILD)/window.o $(BUILD)/cirrus.o $(BUILD)/app.o $(BUILD)/k386_client.o $(BUIL
 
 $(BUILD)/app.o: ../k386/app.c ../k386/app.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/window.o: ../k386/app.h
+$(BUILD)/window.o: ../k386/app.h windowtools.h
+$(BUILD)/windowtools.o $(BUILD)/windoweditor.o $(BUILD)/windowcontrol.o: Makefile
 
 $(BUILD)/cirrus.o: ../display/cirrus.c ../display/cirrus.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/window.raw.o $(BUILD)/windowtools.raw.o $(BUILD)/windoweditor.raw.o $(BUILD)/windowcontrol.raw.o $(BUILD)/bank.o $(BUILD)/tools-entry.raw.o: Makefile
+
+$(BUILD)/bitmap-bank.raw.o $(BUILD)/bank-core.raw.o: Makefile

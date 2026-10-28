@@ -27,6 +27,7 @@ void gfx_drag_end(void);
 void gfx_start(void);
 void gfx_stop(void);
 void gfx_rect(int x, int y, int w, int h, int color);
+void gfx_pair(int x,int y,u8 lead,u8 trail);
 void gfx_cell(int x, int y, char ch, int foreground, int background, int selected);
 void gfx_clear_text(int x, int y, int w, int h);
 void gfx_pointer_show(int x, int y);

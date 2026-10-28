@@ -8,6 +8,9 @@ typedef struct {
 
 static char input[CAP + 1], output[CAP + 1], message[80];
 static Settings settings;
+#ifdef KDESK_WINDOW
+static int window_error;
+#endif
 
 static char upper(char c) { return c >= 'a' && c <= 'z' ? (char)(c - 'a' + 'A') : c; }
 static int equal(const char *a, const char *b) {
@@ -29,11 +32,16 @@ static int number(const char *s) {
     while (*s >= '0' && *s <= '9') n = n * 10 + (*s++ - '0');
     return n;
 }
+#ifdef KDESK_WINDOW
+extern void control_line(int y,const char *s,int hi);
+#define line control_line
+#else
 static void line(int y, const char *s, int hi) {
     int x = 0;
     while (s[x] && x < 80) { p_cell(x, y, s[x], hi); x++; }
     while (x < 80) p_cell(x++, y, ' ', hi);
 }
+#endif
 static void put_number(char *out, unsigned n) {
     fd_number(out, n);
 }
@@ -55,7 +63,11 @@ static void render(void) {
     line(15, "X  Toggle XMS     E  Toggle EMS (requires XMS)", 0);
     line(16, "+/-  FILES 20-60  [/]  BUFFERS 8/16", 0);
     line(17, "F  Toggle FD98 startup", 0);
+    #ifdef KDESK_WINDOW
+    line(19, "S  Save settings    R  Reload files    Esc  Close", 1);
+#else
     line(19, "S  Save settings    R  Reload files    Q/Esc  Exit", 1);
+#endif
     line(22, message, 0);
 }
 static int read_file(const char *path, char *data, int capacity) {
@@ -276,9 +288,41 @@ static int save_all(void) {
 static void load(void) {
     int error = scan_config();
     if (!error) error = scan_autoexec();
+    #ifdef KDESK_WINDOW
+    window_error=error;
+#endif
     if (error) fd_text(message, "Read error; settings not loaded.", sizeof message);
     else fd_text(message, "Ready. S saves changes; reboot to apply.", sizeof message);
 }
+#ifdef KDESK_WINDOW
+const char *control_status(void){return message;}
+void control_open(void){load();}
+void control_draw(void){render();}
+int control_key(int key){
+        if (key == 'x' || key == 'X') {
+            settings.xms = !settings.xms;
+            if (!settings.xms) settings.ems = 0;
+        } else if (key == 'e' || key == 'E') {
+            if (!settings.ems) { settings.xms = 1; settings.ems = 1; }
+            else settings.ems = 0;
+        } else if (key == 'f' || key == 'F') settings.filer = !settings.filer;
+        else if (key == '+' || key == '=') { settings.files += 10; if (settings.files > 60) settings.files = 20; }
+        else if (key == '-') { settings.files -= 10; if (settings.files < 20) settings.files = 60; }
+        else if (key == ']') settings.buffers = settings.buffers == 8 ? 16 : 8;
+        else if (key == '[') settings.buffers = settings.buffers == 8 ? 16 : 8;
+        else if (key == 'r' || key == 'R') load();
+        else if (key == 's' || key == 'S') {
+            int error = save_all();
+#ifdef KDESK_WINDOW
+            window_error=error;
+#endif
+            fd_text(message, error ? "Save failed; check free disk space and file access." :
+                    "Saved. Reboot for CONFIG.SYS changes to take effect.", sizeof message);
+            if (!error) { scan_config(); scan_autoexec(); }
+        }
+return window_error;
+}
+#else
 int main(void) {
     p_init();
     p_screen();
@@ -301,6 +345,9 @@ int main(void) {
         else if (key == 'r' || key == 'R') load();
         else if (key == 's' || key == 'S') {
             int error = save_all();
+#ifdef KDESK_WINDOW
+            window_error=error;
+#endif
             fd_text(message, error ? "Save failed; check free disk space and file access." :
                     "Saved. Reboot for CONFIG.SYS changes to take effect.", sizeof message);
             if (!error) { scan_config(); scan_autoexec(); }
@@ -310,3 +357,5 @@ int main(void) {
     p_output("CPANEL exited.\r\n");
     return 0;
 }
+
+#endif
