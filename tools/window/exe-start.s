@@ -22,7 +22,7 @@ __mz_reloc_ds:
     sub %edi,%ecx
     xor %eax,%eax
     rep stosb
-    call main
+    call kdesk_boot
     mov $0x4c,%ah
     int $0x21
 failed:

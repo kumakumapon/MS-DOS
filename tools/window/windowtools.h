@@ -1,5 +1,14 @@
 #ifndef WINDOWTOOLS_H
 #define WINDOWTOOLS_H
+#ifdef KDESK_BANK_TOOLS
+#define wt_open tool_open
+#define wt_draw tool_draw
+#define wt_key tool_key
+#define wt_close tool_close
+#define wt_clean tool_clean
+#define wt_click tool_click
+#define wt_finish tool_finish
+#endif
 enum { WT_EDITOR, WT_SETTINGS, WT_COUNT };
 int wt_open(int tool,const char *path);
 void wt_draw(int tool,int x,int y,int w,int h,int top,int active);
