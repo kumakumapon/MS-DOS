@@ -110,3 +110,9 @@ WebNP2's `verify-k386-apps.mjs` tests real CPU segments/PSP/relocated RAM, renam
 EXE file-icon launch, simultaneous apps, busy-slot refusal, termination/reuse,
 wrong-ABI rejection, input isolation, native GUI coexistence and unchanged disk
 bytes. Existing COM, shell, process, timer, fault and GUI suites remain gates.
+
+In the enhanced desktop, the shipped EDIT98/EDIT, CPANEL, KVIEW and KPAINT
+root entries open cooperative GUI implementations; FD98 opens Files actions.
+Their standalone MZ descriptors remain kind 2 and are still rejected by V86.
+Other kind-2 programs use foreground EXEC. See ../window/WINDOW-TOOLS.md for
+window controls, code banks and limits.
