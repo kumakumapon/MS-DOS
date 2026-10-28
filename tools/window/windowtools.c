@@ -54,7 +54,8 @@ int wt_open(int tool,const char *path){
   const char *target=path;
   if(tool==WT_VIEW&&(!path||!*path))target="COLORS.BMP";
   if(target&&*target){if(bitmap_load(b,target)){say("Cannot open BMP; current image retained");return 0;}fd_text(paths[tool],target,FD_PATH);}
-  else if(!bitmap_new(b,224,144,WHITE)){say("Not enough image memory");return 0;}
+  else {if(!bitmap_new(b,224,144,WHITE)){say("Not enough image memory");return 0;}paths[tool][0]=0;}
+  if(tool==WT_PAINT){bitmap_free(&undo);stroke=selection=0;}
   publish(b);
  }
  if(path&&*path)fd_text(paths[tool],path,FD_PATH);
@@ -86,7 +87,8 @@ void wt_key(int tool,int key){
    else {changed[tool]=0;initialized[tool]=0;if(!wt_open(tool,paths[tool])){initialized[tool]=1;changed[tool]=1;}}
   }return;}
   int n=fd_len(paths[tool]);
-  if(key==27){prompt=0;say("Path cancelled");return;}
+  if(key==27){prompt=0;fd_text(paths[tool],owned[tool],FD_PATH);say("Path cancelled");return;}
+  if(key==21){paths[tool][0]=0;return;}
   if(key==8&&n)paths[tool][--n]=0;
   else if(key>=32&&key<127&&n<FD_PATH-1){paths[tool][n]=key;paths[tool][n+1]=0;}
   else if(key==13){Entry entry;
@@ -203,7 +205,7 @@ int wt_click(int tool,int x,int y,int w,int h,int top,int px,int py){
  return 0;
 }
 int wt_close(int tool){
- if(prompt&&request==tool){prompt=0;return 0;}
+ if(prompt&&request==tool){wt_key(tool,27);return 0;}
  if(changed[tool]){say("Unsaved work: save or Ctrl+R reload before closing");return 0;}
  if(tool>=WT_VIEW){
   Bitmap *b=&pictures[tool-WT_VIEW];

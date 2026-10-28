@@ -63,7 +63,11 @@ static void render(void) {
     line(15, "X  Toggle XMS     E  Toggle EMS (requires XMS)", 0);
     line(16, "+/-  FILES 20-60  [/]  BUFFERS 8/16", 0);
     line(17, "F  Toggle FD98 startup", 0);
+    #ifdef KDESK_WINDOW
+    line(19, "S  Save settings    R  Reload files    Esc  Close", 1);
+#else
     line(19, "S  Save settings    R  Reload files    Q/Esc  Exit", 1);
+#endif
     line(22, message, 0);
 }
 static int read_file(const char *path, char *data, int capacity) {
