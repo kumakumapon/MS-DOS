@@ -62,6 +62,15 @@ static void edit_save(void){
  if(!editor.path[0]){prompt=1;request=WT_EDITOR;paths[0][0]=0;say("Save as: type a DOS path / Enter / Esc");return;}
  int e=ed_save(&editor);if(!e)fd_text(owned[0],editor.path,FD_PATH);changed[0]=editor.dirty;say(e?"Save failed; inspect recovery / disk space":"Saved text (Shift_JIS / CRLF)");
 }
+static void text_position(int limit,int width,int *row,int *col){
+ *row=*col=0;
+ for(int at=0;at<limit;at=ed_next(&editor,at)){
+  if(editor.data[at]=='\n'){(*row)++;*col=0;continue;}
+  int cells=ed_width(&editor,at,*col);
+  if(*col+cells>width){(*row)++;*col=0;cells=ed_width(&editor,at,0);}
+  *col+=cells;if(*col>=width){(*row)++;*col=0;}
+ }
+}
 void wt_key(int tool,int key){
  if(prompt&&request==tool){
   if(prompt==3){
@@ -71,7 +80,7 @@ void wt_key(int tool,int key){
   }
   if(prompt==2){if(key==27)prompt=0;else if(key==13){prompt=0;
    if(tool==WT_EDITOR){if(editor.path[0])ed_load(&editor,editor.path);else ed_init(&editor);changed[0]=editor.dirty;}
-   else {changed[tool]=0;initialized[tool]=0;wt_open(tool,paths[tool]);}
+   else {changed[tool]=0;initialized[tool]=0;if(!wt_open(tool,paths[tool])){initialized[tool]=1;changed[tool]=1;}}
   }return;}
   int n=fd_len(paths[tool]);
   if(key==27){prompt=0;say("Path cancelled");return;}
@@ -99,7 +108,7 @@ void wt_key(int tool,int key){
   else if(key==KEY_END)editor.cursor=ed_end(&editor,editor.cursor);
   else if(key==8)ed_delete(&editor,1);
   else if(key==KEY_DELETE)ed_delete(&editor,0);
-  else if(key==3)clip_copy((char *)editor.data,editor.length);
+  else if(key==3){if(editor.length>CLIP_CAPACITY)say("Text exceeds the 1024-byte clipboard limit");else clip_copy((char *)editor.data,editor.length);}
   else if(key==22)ed_insert(&editor,(const u8 *)clipboard.text,clipboard.length);
   else if(key==13||key==9||(key>=32&&key<=255)){u8 c=key==13?'\n':key;ed_insert(&editor,&c,1);}
   changed[0]=editor.dirty;return;
@@ -136,15 +145,18 @@ __attribute__((noinline)) void wt_draw(int tool,int x,int y,int w,int h,int top,
  cx=x;cy=y;cw=w;ch=h-3;ct=top;
  if(tool==WT_SETTINGS)control_draw();
  else if(tool==WT_EDITOR){
-  int at=0,row=0,col=0;
-  for(;at<editor.length;at++){
+  int row=0,col=0;
+  for(int at=0;at<editor.length;at=ed_next(&editor,at)){
    if(editor.data[at]=='\n'){row++;col=0;continue;}
-   if(sjis_lead(editor.data[at])&&at+1<editor.length){if(col+2>w){row++;col=0;}if(row>=top&&row<top+ch)gfx_pair(x+col,y+row-top,editor.data[at],editor.data[at+1]);at++;col++;}
-   else if(row>=top&&row<top+ch&&col<w)gfx_cell(x+col,y+row-top,editor.data[at],INK,PAPER,0);
-   if(++col==w){row++;col=0;}
+   int cells=ed_width(&editor,at,col),next=ed_next(&editor,at);
+   if(col+cells>w){row++;col=0;cells=ed_width(&editor,at,0);}
+   if(row>=top&&row<top+ch){
+    if(next-at==2)gfx_pair(x+col,y+row-top,editor.data[at],editor.data[at+1]);
+    else if(editor.data[at]!='\t')gfx_cell(x+col,y+row-top,editor.data[at],INK,PAPER,0);
+   }
+   col+=cells;if(col>=w){row++;col=0;}
   }
-  if(active){int r=0,c=0;for(int i=0;i<editor.cursor;i++){if(editor.data[i]=='\n'){r++;c=0;}else if(++c==w){r++;c=0;}}
-   if(r>=top&&r<top+ch)gfx_cell(x+c,y+r-top,'_',WHITE,SELECTED,1);}
+  if(active){text_position(editor.cursor,w,&row,&col);if(row>=top&&row<top+ch)gfx_cell(x+col,y+row-top,'_',WHITE,SELECTED,1);}
   label(x,y+ch,editor.path[0]?editor.path:"[New file]",w,INK,PAPER);
  }else {
   Bitmap *b=&pictures[tool-WT_VIEW];int width=w*8;if(width>b->width)width=b->width;
@@ -167,8 +179,14 @@ int wt_click(int tool,int x,int y,int w,int h,int top,int px,int py){
  if(py/16==h-1){wt_key(tool,tool==WT_SETTINGS?'s':19);return 1;}
  if(tool==WT_PAINT&&py/16==h-3){color=(color&240)+px/16;return 1;}
  if(tool==WT_EDITOR&&py<(h-3)*16){
-  int target=(top+py/16)*w+px/8,at=0,pos=0;
-  while(at<editor.length&&pos<target){if(editor.data[at]=='\n')pos=(pos/w+1)*w;else pos++;at=ed_next(&editor,at);}editor.cursor=at;return 1;
+  int at=0,row=0,col=0,target_row=top+py/16,target_col=px/8;
+  while(at<editor.length){
+   if(row>target_row||(row==target_row&&col>=target_col))break;
+   if(editor.data[at]=='\n'){row++;col=0;}
+   else {int cells=ed_width(&editor,at,col);if(col+cells>w){row++;col=0;cells=ed_width(&editor,at,0);}col+=cells;if(col>=w){row++;col=0;}}
+   at=ed_next(&editor,at);
+  }
+  editor.cursor=at;return 1;
  }else if(tool==WT_SETTINGS){int row=top+py/16;int key=row==5?'x':row==6?'e':row==9?'+':row==12?'f':row>=19?'s':0;if(key)wt_key(tool,key);return 1;}
  return 0;
 }
@@ -210,11 +228,11 @@ int wt_pointer(int tool,int x,int y,int w,int h,int top,int px,int py,int button
 int wt_rows(int tool,int width){
  if(tool==WT_SETTINGS)return 23;
  if(tool>=WT_VIEW)return (pictures[tool-WT_VIEW].height+15)/16+1;
- int row=0,col=0;for(int at=0;at<editor.length;at=ed_next(&editor,at)){if(editor.data[at]=='\n'){row++;col=0;}else {col+=ed_width(&editor,at,col);if(col>=width){row++;col=0;}}}return row+1;
+ int row,col;text_position(editor.length,width,&row,&col);return row+1;
 }
 int wt_scroll(int tool,int width,int height,int top,int follow){
  int rows=height-3,total=wt_rows(tool,width);if(rows<1)rows=1;
- if(tool==WT_EDITOR&&follow){int row=0,col=0;for(int at=0;at<editor.cursor;at=ed_next(&editor,at)){if(editor.data[at]=='\n'){row++;col=0;}else {col+=ed_width(&editor,at,col);if(col>=width){row++;col=0;}}}if(row<top)top=row;if(row>=top+rows)top=row-rows+1;}
+ if(tool==WT_EDITOR&&follow){int row,col;text_position(editor.cursor,width,&row,&col);if(row<top)top=row;if(row>=top+rows)top=row-rows+1;}
  if(top>total-rows)top=total-rows;
  if(top<0)top=0;
  return top;

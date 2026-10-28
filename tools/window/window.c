@@ -149,6 +149,7 @@ static void file_actions(int key){
     }
 }
 static void focus(int id) {
+    if(active==PAINTER&&id!=active)wt_pointer(WT_PAINT,0,0,0,0,0,-1,-1,0);
     if(active!=id || !windows[id].open || windows[id].hidden)scene_dirty=1;
     invalidate(active);
     int at = 0;
@@ -156,6 +157,7 @@ static void focus(int id) {
     for (; at < WINDOWS - 1; at++) order[at] = order[at + 1];
     order[WINDOWS - 1] = id;
     if(!windows[id].open){
+        if(id>=EDITOR&&id<=PAINTER&&!wt_open(id-EDITOR,""))return;
         task_start(id);
         if((id>=DOS1&&id<=DOS2)&&enhanced&&(k386_word(id-DOS1,0)==K386_ENDED||k386_word(id-DOS1,0)>=K386_FAULTED)){
             dos_follow[id-DOS1]=1;
@@ -334,7 +336,7 @@ static void launch(const char *program, const char *arguments) {
         mouse_stop(); clip_mouse_save(); message("Program returned to desktop");
     }
     if (!dirty) load();
-    enter_graphics(); clip_mouse_resume(); refresh();
+    p_chdir(home);enter_graphics(); clip_mouse_resume(); refresh();
 }
 static void tool(int id, const char *arguments) {
     if (id == 0) { refresh(); focus(FILES); return; }
