@@ -6,7 +6,7 @@ static Editor editor;
 static int initialized[WT_COUNT],changed[WT_COUNT],prompt,request,pending;
 static char paths[WT_COUNT][FD_PATH],notice[80];
 static int cx,cy,cw,ch,ct;
-void control_open(void);void control_draw(void);int control_key(int key);
+const char *control_status(void);void control_open(void);void control_draw(void);int control_key(int key);
 static void say(const char *s){fd_text(notice,s,sizeof notice);}
 static void label(int x,int y,const char *s,int width,int fg,int bg){
  for(int i=0;i<width&&s[i];i++)gfx_cell(x+i,y,s[i],fg,bg,0);
@@ -78,7 +78,7 @@ __attribute__((noinline)) void wt_draw(int tool,int x,int y,int w,int h,int top,
  }
 
  if(prompt==1&&request==tool)label(x,y+h-2,paths[tool],w,INK,SURFACE);
- else label(x,y+h-2,notice,w,MUTED,PAPER);
+ else label(x,y+h-2,tool==WT_SETTINGS?control_status():notice,w,MUTED,PAPER);
  label(x,y+h-1,tool==WT_SETTINGS?"S Save / R Reload / +/- FILES":"^S Save ^W SaveAs ^Z Undo ^R Reload",w,INK,SURFACE);
  if(changed[tool])gfx_cell(x+w-1,y+h-1,'*',WHITE,SELECTED,1);
 }

@@ -291,6 +291,7 @@ static void load(void) {
     else fd_text(message, "Ready. S saves changes; reboot to apply.", sizeof message);
 }
 #ifdef KDESK_WINDOW
+const char *control_status(void){return message;}
 void control_open(void){load();}
 void control_draw(void){render();}
 int control_key(int key){
