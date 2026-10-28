@@ -54,3 +54,18 @@ int backing_zero(const K386Backing *p,k32 at,k32 count) {
     while(count){unsigned n=count>sizeof zero?sizeof zero:count;if(!backing_write(p,at,zero,n))return 0;at+=n;count-=n;}
     return 1;
 }
+
+/* Application blocks stay unlocked and are reachable only through the broker. */
+#include "xmem.h"
+int xmem_new(k16 kb,k16 *handle){unsigned b=0,d=kb;if(call(9,&b,&d,0)!=1)return 0;*handle=d;return 1;}
+int xmem_free(k16 handle){unsigned b=0,d=handle;return call(10,&b,&d,0)==1;}
+int xmem_read(k16 handle,k32 at,void *out,unsigned n){
+    unsigned even=n&~1u;if(even&&!move(handle,at,0,local(out),even))return 0;
+    if(n&1){k8 tail[2];k32 pos=at+even;if(!move(handle,pos&~1u,0,local(tail),2))return 0;((k8 *)out)[even]=tail[pos&1];}
+    return 1;
+}
+int xmem_write(k16 handle,k32 at,const void *in,unsigned n){
+    unsigned even=n&~1u;if(even&&!move(0,local(in),handle,at,even))return 0;
+    if(n&1){k8 tail[2];k32 pos=at+even;if(!move(handle,pos&~1u,0,local(tail),2))return 0;tail[pos&1]=((const k8 *)in)[even];if(!move(0,local(tail),handle,pos&~1u,2))return 0;}
+    return 1;
+}

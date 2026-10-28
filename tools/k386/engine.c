@@ -1,6 +1,7 @@
 /* Ring-0 monitor. All ordinary DOS/BIOS and file I/O stays in real mode. */
 #define K386_MONITOR
 #include "runtime.h"
+#include "xmem.h"
 static k8 read8(k32 address) {
     k8 b;__asm__ volatile("movb %%fs:(%1),%0":"=q"(b):"r"(address):"memory");return b;
 }
@@ -88,6 +89,7 @@ static int service(K386Frame *f,k8 number) {
         clock->clock=clock->accumulator=0;return 0;
     }
     if(number==0x2f) {
+        if((f->eax&65535)==0xd389){s->request=KX_REQUEST;return 1;}
         if((f->eax&65535)==0xd388&&(f->ebx&65535)<=1){
             int yield=(f->ebx&65535)==1;
             f->eax=0x388d;f->ebx=0x0100;f->ecx=1;f->edx=selected+1;

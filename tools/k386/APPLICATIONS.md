@@ -116,3 +116,8 @@ root entries open cooperative GUI implementations; FD98 opens Files actions.
 Their standalone MZ descriptors remain kind 2 and are still rejected by V86.
 Other kind-2 programs use foreground EXEC. See ../window/WINDOW-TOOLS.md for
 window controls, code banks and limits.
+
+Applications can retain additional data with the isolated XMS API in [XMS.md](XMS.md).
+The 64 KiB SDK executable/stack limit is unchanged; data blocks use explicit
+4 KiB bounded copies and a 4 MiB session quota. XMEM.EXE and XCHILD.EXE are
+additional diagnostics, not standalone real-DOS applications.

@@ -1,6 +1,7 @@
 #define K386_MONITOR
 #include "runtime.h"
 #include "resources.h"
+#include "xmem.h"
 #include "../window/hardware.h"
 K386Mailbox k386_mailbox={{'K','3','8','6','A','B','I','1'},1,sizeof(K386Mailbox),1,0,0,0,0,0,{0},{{0}}};
 K386Session sessions[2];
@@ -14,6 +15,7 @@ static void usage(unsigned id){
     for(unsigned i=0;i<r->arena.count;i++)if(r->arena.block[i].owner)heap+=r->arena.block[i].size+1;
     for(unsigned i=0;i<K386_HANDLES;i++)if(sessions[id].handles[i])handles++;
     u->memory_kb=r->backing.handle?(K386_BACKING+4095+1023)/1024:0;
+    unsigned blocks;u->memory_kb+=xmem_used(id,0,&blocks);
     u->heap_kb=(heap+63)/64;u->handles=handles;u->depth=r->process.psp?r->depth+1:0;u->psp=r->process.psp;
     for(unsigned i=0;i<sizeof u->program;i++)u->program[i]=r->process.program[i];
 }
@@ -36,10 +38,11 @@ static void step(unsigned id){
     if(v->state!=K386_RUNNING)return;
     if(!backing_a20(1)){
         v->state=K386_FAULTED;v->fault=0x8001;
-        event(id,K386_EVENT_FAULT,K386_REASON_FAULT);return;
+        event(id,K386_EVENT_FAULT,K386_REASON_FAULT);k386_reap(id);return;
     }
     k32 start=k386_clock_ticks();
-    pm_run();backing_a20(0);if(s->request)k386_broker(id);
+    if(!s->request)pm_run();
+    backing_a20(0);if(s->request)k386_broker(id);
     resource_charge(id,(k386_clock_ticks()-start)&0xffffff);
     if(v->state==K386_FAULTED)event(id,K386_EVENT_FAULT,K386_REASON_FAULT);
     else if(v->state==K386_ENDED)event(id,K386_EVENT_EXIT,K386_REASON_EXIT);

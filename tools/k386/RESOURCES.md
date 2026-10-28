@@ -50,8 +50,8 @@ screen. The other VM and GUI continue. Raise/disable the limit and explicitly
 resume; changing the budget never resumes automatically. Root replacement
 assigns a fresh globally distinct ID and zeroes usage while preserving that
 slot's priority and limit. Nested EXEC shares its session budget and counters.
-Heap is trusted arena allocation; XMS is the actual 664KiB reservation including
-alignment. End releases it; an ended/faulted root may retain its snapshot and
+Heap is trusted arena allocation; XMS includes the actual 664KiB VM reservation
+including alignment plus application data blocks (see XMS.md). End releases it; an ended/faulted root may retain its snapshot and
 reservation until End/replacement. Time used before a pause remains charged.
 
 ## API
