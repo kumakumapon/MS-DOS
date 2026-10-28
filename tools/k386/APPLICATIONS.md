@@ -87,18 +87,18 @@ window/widget APIs and simultaneous GDC/PEGC apps are not implemented.
 FD98.EXE, EDIT98.EXE (EDIT.EXE alias), CPANEL.EXE, KVIEW.EXE and KPAINT.EXE
 use descriptor kind 2: an exclusive full-screen desktop tool. Their MZ modules
 have separate code/data/stack segments and retrieve arguments from their PSP.
-KDESK Launcher/Files run them through host DOS and return directly to the saved
-desktop after exit, preserving file writes and mouse/clipboard handoff. They
-also run from real DOS. Loading kind 2 in a V86 session returns DOS error 50
+The enhanced desktop maps the shipped root entries to cooperative GUI versions
+(and FD98 to Files actions). Ordinary KDESK still uses host DOS EXEC and returns
+to the saved desktop after exit. They also run from real DOS. Loading kind 2 in a V86 session returns DOS error 50
 before replacing live memory; KSH explains how to open it from the desktop.
-Their execution temporarily pauses V86 scheduling. They are not graphical
-window plugins or independently running background GUI applications.
+Only foreground EXEC pauses V86 scheduling. The enhanced GUI versions continue
+scheduling the DOS sessions; these are built-in tools, not a public plugin API.
 
 Build the tools with `make -C tools/filer all`, `make -C tools/editor all`,
 `make -C tools/control all` and `make -C tools/window all`. Their linker/startup
 contract is in `tools/mz/native.ld` / `tools/mz/start.S` (the graphics tools
 share KDESK's equivalent layout); package with `--desktop-app TITLE`.
-WebNP2's `verify-native-tools.mjs` validates real saves, exclusive handoff,
+WebNP2's `verify-native-tools.mjs` validates real saves, window operations,
 retained V86 identities and the incremental text raster in both display modes.
 
 Two V86 sessions and four EXEC levels remain the limit. Their file services are read-only;
