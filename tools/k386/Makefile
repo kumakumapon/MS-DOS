@@ -78,10 +78,11 @@ $(BUILD)/loader-test: loader_test.c loader.c loader.h abi.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror loader_test.c loader.c -o $@
 $(BUILD)/resources-test: resources_test.c resources.c resources.h abi.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror resources_test.c resources.c -o $@
-test: $(BUILD)/loader-test $(BUILD)/arena-test $(BUILD)/resources-test
+test: $(BUILD)/loader-test $(BUILD)/arena-test $(BUILD)/resources-test $(BUILD)/xmem-test
 	$(BUILD)/loader-test
 	$(BUILD)/arena-test
 	$(BUILD)/resources-test
+	$(BUILD)/xmem-test
 .PHONY: test
 
 all: $(BUILD)/INTWAIT.COM $(BUILD)/KRESCHK.COM
@@ -203,3 +204,24 @@ app-test: $(BUILD)/app-test
 	python3 -m unittest discover -s ../mz -p 'test_*.py'
 .PHONY: app-test
 $(BUILD)/runtime.o: app.h
+
+$(BUILD)/xmem.o: xmem.c xmem.h abi.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -c $< -o $@
+$(BUILD)/monitor.elf: $(BUILD)/xmem.o
+$(BUILD)/runtime.o $(BUILD)/engine.o $(BUILD)/backing.o $(BUILD)/monitor.o: xmem.h
+
+all: $(BUILD)/XMEM.EXE $(BUILD)/XCHILD.EXE
+$(BUILD)/xmemcheck.o: xmemcheck.c sdk.h ../filer/filer.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/xmemchild.o: xmemchild.c sdk.h ../filer/filer.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/xmemcheck.elf: $(BUILD)/xmemcheck.o $(BUILD)/app-c-start.o $(BUILD)/app-dos.o $(BUILD)/core.o app.ld
+	ld -m elf_i386 --gc-sections -T app.ld $(filter %.o,$^) -o $@
+$(BUILD)/xmemchild.elf: $(BUILD)/xmemchild.o $(BUILD)/app-c-start.o $(BUILD)/app-dos.o $(BUILD)/core.o app.ld
+	ld -m elf_i386 --gc-sections -T app.ld $(filter %.o,$^) -o $@
+$(BUILD)/XMEM.EXE: $(BUILD)/xmemcheck.elf ../mz/build.py
+	python3 ../mz/build.py --k386-app 'XMS data diagnostic' $< $@
+$(BUILD)/XCHILD.EXE: $(BUILD)/xmemchild.elf ../mz/build.py
+	python3 ../mz/build.py --k386-app 'XMS ownership diagnostic' $< $@
+$(BUILD)/xmem-test: xmem_test.c xmem.c xmem.h abi.h | $(BUILD)
+	$(CC) -O2 -Wall -Wextra -Werror xmem_test.c xmem.c -o $@

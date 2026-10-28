@@ -3,6 +3,7 @@
 #include "runtime.h"
 #include "loader.h"
 #include "app.h"
+#include "xmem.h"
 #include "../window/hardware.h"
 #include "../filer/filer.h"
 K386Runtime runtime[2];
@@ -13,6 +14,7 @@ static k16 word(const k8 *p){return p[0]|(k16)p[1]<<8;}
 static void physical32(k32 at,k32 value){for(int i=0;i<4;i++)mem_put(at>>4,(at&15)+i,value>>(i*8));}
 static int get(unsigned id,k32 at,void *b,unsigned n){return backing_read(&runtime[id].backing,at,b,n);}
 static int put(unsigned id,k32 at,const void *b,unsigned n){return backing_write(&runtime[id].backing,at,b,n);}
+int xmem_guest(unsigned id,k32 at,void *b,unsigned n,int write){return write?put(id,at,b,n):get(id,at,b,n);}
 static k16 getword(unsigned id,k32 at){k8 b[2]={0};get(id,at,b,2);return word(b);}
 static void putword(unsigned id,k32 at,k16 w){k8 b[2]={w,w>>8};put(id,at,b,2);}
 static void snapshot(unsigned id){
@@ -135,7 +137,7 @@ static int load_program(unsigned id,int h,const K386Image *p,const k8 *tail,cons
     v->eip=p->ip;v->eflags=s->frame.eflags;v->keys=s->count;v->flags++;
     arenas(id);jft(id);snapshot(id);return 0;
 }
-static void discard(unsigned id){K386Runtime *r=&runtime[id];close_files(id);for(unsigned d=0;d<r->depth;d++)for(int i=0;i<K386_HANDLES;i++)close_token(r->parent[d].handles[i]);r->depth=0;}
+static void discard(unsigned id){xmem_release(id,0);K386Runtime *r=&runtime[id];close_files(id);for(unsigned d=0;d<r->depth;d++)for(int i=0;i<K386_HANDLES;i++)close_token(r->parent[d].handles[i]);r->depth=0;}
 int k386_start(unsigned id,const char *command){
     int length=0;while(length<128&&command[length])length++;if(!length||length==128)return 3;
     while(*command==' ')command++;
@@ -161,7 +163,7 @@ int k386_start(unsigned id,const char *command){
 }
 static void restore_parent(unsigned id,int status){
     K386Runtime *r=&runtime[id];K386Session *s=&sessions[id];K386View *v=&k386_mailbox.view[id];k16 ended=r->process.psp;
-    close_files(id);arena_release(&r->arena,ended);r->depth--;r->process=r->parent[r->depth];
+    close_files(id);xmem_release(id,ended);arena_release(&r->arena,ended);r->depth--;r->process=r->parent[r->depth];
     backing_copy(&r->backing,0,0xa4000+r->depth*1024,1024);
     for(int i=0;i<K386_HANDLES;i++)s->handles[i]=r->process.handles[i];
     s->frame=r->process.frame;s->frame.eax=0;s->frame.eflags&=~1u;r->process.last_exit=status;s->line_count=s->request=0;
@@ -169,7 +171,7 @@ static void restore_parent(unsigned id,int status){
     v->state=K386_RUNNING;v->fault=0;v->psp=r->process.psp;v->physical=r->backing.physical+(k32)r->process.psp*16;v->eip=s->frame.eip;v->eflags=s->frame.eflags;v->cr2=v->counter=0;v->flags++;
     arenas(id);jft(id);snapshot(id);
 }
-void k386_reap(unsigned id){K386Runtime *r=&runtime[id];K386View *v=&k386_mailbox.view[id];if(v->state!=K386_ENDED&&v->state!=K386_FAULTED)return;if(r->depth)restore_parent(id,v->state==K386_FAULTED?0x200|(v->fault&255):v->exit_code);else close_files(id);}
+void k386_reap(unsigned id){K386Runtime *r=&runtime[id];K386View *v=&k386_mailbox.view[id];if(v->state!=K386_ENDED&&v->state!=K386_FAULTED)return;if(r->depth)restore_parent(id,v->state==K386_FAULTED?0x200|(v->fault&255):v->exit_code);else{close_files(id);xmem_release(id,r->process.psp);}}
 void k386_release(unsigned id){discard(id);backing_free(&runtime[id].backing);runtime[id]=(K386Runtime){0};sessions[id]=(K386Session){0};}
 static int attributes(const char *path,k16 *attrs){if(!fd_cmp(path,"A:\\")){*attrs=0x10;return 0;}unsigned a=0x4300,c=0,d=(unsigned)path;__asm__ volatile("int $0x21; jc 1f; xor %%eax,%%eax; jmp 2f; 1: neg %%eax; 2:":"+a"(a),"+c"(c):"d"(d):"cc","memory");*attrs=c;return (int)a;}
 static int directory(unsigned id,int next,const char *path){
@@ -186,6 +188,7 @@ static int directory(unsigned id,int next,const char *path){
 void k386_broker(unsigned id){
     K386Session *s=&sessions[id];K386Frame *f=&s->frame;K386Runtime *r=&runtime[id];K386Process *p=&r->process;
     int result=0;unsigned handle=f->ebx&65535;char path[128];f->eflags&=~1u;
+    if(s->request==KX_REQUEST){s->request=xmem_service(id,p->psp,f,transfer)?KX_REQUEST:0;return;}
     if(s->request==0x4b){
         char name[128];k8 tail[128];for(int i=0;i<128;i++){name[i]=transfer[i];tail[i]=transfer[128+i];}k16 env=word(transfer+256);
         int h,error;K386Image plan;if(r->depth==K386_DEPTH-1)result=-8;
