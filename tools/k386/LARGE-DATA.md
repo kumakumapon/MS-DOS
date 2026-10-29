@@ -118,8 +118,11 @@ array would miss on nearly every access and is not a goal.
 Measured by `scripts/verify-k386-xarray.mjs` in WebNP2 (NP2kai core, `clk=8`,
 16 MiB extended memory), from the monitor's per-session CPU ticks (ARTIC,
 307200 Hz) between the key press and the scenario's result line. Three
-consecutive runs agreed to within 0.1%, and the hit/miss/write-back counts were
-identical to the host run.
+consecutive runs on one machine agreed to within 0.1%, and the
+hit/miss/write-back counts were identical to the host run. The GitHub Actions run
+gave the same counts but different times (fill 135.7 s, sequential 2.46 s, sort
+46.2 s, search 1.41 s: 3 to 12% away), so treat the times as approximate and
+environment dependent.
 
 | Scenario | hits | misses | write-backs | CPU time | Reading |
 | --- | --- | --- | --- | --- | --- |
