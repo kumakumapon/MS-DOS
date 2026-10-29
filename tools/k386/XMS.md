@@ -31,6 +31,9 @@ It retains its block until Q (exit), F (protection fault), P (child ownership
 check), T (foreign token check), or R (retained data check). `XCHILD.EXE` tests
 parent/child ownership; both are actual guest MZ applications.
 
+For working sets larger than a few pages, `xarray.h` provides a paged, cached
+byte array over one block; see [LARGE-DATA.md](LARGE-DATA.md).
+
 ## Limits and ownership
 
 - Two V86 sessions; each has an independent **4096 KiB quota and eight blocks**.

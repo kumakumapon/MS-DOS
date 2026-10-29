@@ -225,3 +225,21 @@ $(BUILD)/XCHILD.EXE: $(BUILD)/xmemchild.elf ../mz/build.py
 	python3 ../mz/build.py --k386-app 'XMS ownership diagnostic' $< $@
 $(BUILD)/xmem-test: xmem_test.c xmem.c xmem.h abi.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror xmem_test.c xmem.c -o $@
+
+# Paged XMS array library for text applications (LARGE-DATA.md).
+$(BUILD)/xarray-test: xarray_test.c xarray.c xarray.h | $(BUILD)
+	$(CC) -O2 -Wall -Wextra -Werror xarray_test.c xarray.c -o $@
+test: xarray-test
+xarray-test: $(BUILD)/xarray-test
+	$(BUILD)/xarray-test
+.PHONY: xarray-test
+
+all: $(BUILD)/XARRAY.EXE
+$(BUILD)/xarray.o: xarray.c xarray.h sdk.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -DXARRAY_KAPP -c $< -o $@
+$(BUILD)/xarraycheck.o: xarraycheck.c xarray.h sdk.h ../filer/filer.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -DXARRAY_KAPP -c $< -o $@
+$(BUILD)/xarraycheck.elf: $(BUILD)/xarraycheck.o $(BUILD)/xarray.o $(BUILD)/app-c-start.o $(BUILD)/app-dos.o $(BUILD)/core.o app.ld
+	ld -m elf_i386 --gc-sections -T app.ld $(filter %.o,$^) -o $@
+$(BUILD)/XARRAY.EXE: $(BUILD)/xarraycheck.elf ../mz/build.py
+	python3 ../mz/build.py --k386-app 'XMS paged array' $< $@
