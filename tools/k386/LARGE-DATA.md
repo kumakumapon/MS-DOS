@@ -1,9 +1,9 @@
 # K386 large-data applications: paged array proposal
 
-Status: **library, host tests and `XARRAY.EXE` implemented; not yet run on the
-emulated CPU.** Nothing here changes the shipped ABI. Statements about speed are
-design estimates: V86 applications cannot read the clock (port I/O is trapped),
-so per-miss cost still has to be measured from the host side (see Validation).
+Status: **implemented and verified on the emulated CPU** (library, host tests,
+`XARRAY.EXE`, and the WebNP2 browser verifier). Nothing here changes the shipped
+ABI. V86 applications cannot read the clock (port I/O is trapped), so costs
+below are taken from the monitor's per-session CPU tick record by the verifier.
 
 ## Goal
 
@@ -108,15 +108,39 @@ internally. A range outside `bytes` returns 87 and transfers nothing.
 - `kapp_yield()` is not called inside the library. Each miss is a bounded
   INT 2Fh call, and the monitor can preempt the application between calls.
 
-## Expected cost (to be measured)
+## Measured cost
 
-A cache hit is plain memory access. A miss costs up to two INT 2Fh calls that
-leave V86, enter the monitor and return through the real-mode broker, so
-sequential or blocked access patterns are the intended use. Pointer-chasing
-over the whole array would miss on nearly every access and is not a goal.
-No numbers are claimed. The demo reports miss counts; elapsed time per scenario
-must be measured from the host side (guests cannot read the clock), which gives
-the cost per miss and the best cache size.
+A cache hit is a function call plus a copy; a miss adds one or two INT 2Fh calls
+that leave V86, enter the monitor and return through the real-mode broker.
+Sequential or blocked access is the intended use; pointer-chasing over the whole
+array would miss on nearly every access and is not a goal.
+
+Measured by `scripts/verify-k386-xarray.mjs` in WebNP2 (NP2kai core, `clk=8`,
+16 MiB extended memory), from the monitor's per-session CPU ticks (ARTIC,
+307200 Hz) between the key press and the scenario's result line. Three
+consecutive runs agreed to within 0.1%, and the hit/miss/write-back counts were
+identical to the host run.
+
+| Scenario | hits | misses | write-backs | CPU time | Reading |
+| --- | --- | --- | --- | --- | --- |
+| sequential 1 MiB (2 reads per page) | 256 | 256 | 0 | 2.35 s | 2818 ticks, about 9.2 ms, per missed 4 KiB page; almost no guest computation, so the cleanest miss figure |
+| fill 2 MiB (3 byte-wise sweeps) | 0 | 1536 | 512 | 129.7 s | dominated by the guest's own byte loop (6.3 M iterations, about 6 ticks each) |
+| sort 8192 values | 114632 | 56 | 28 | 44.8 s | about 120 ticks (0.39 ms) per `xarray_read`/`xarray_write` of 2 bytes; the 84 transfers account for roughly 1% |
+| search 64 KiB | 65 | 16 | 2 | 1.6 s | scanning dominates |
+| range errors | 0 | 1 | 0 | 0.04 s | |
+
+What this means for a design:
+
+- A miss costs about 9 ms per 4 KiB page. Processing the same page byte by byte
+  in the guest cost about 10 times that in the fill scenario, so paging was not
+  the bottleneck there.
+- The per-call overhead of the byte-addressed `xarray_read`/`xarray_write` is
+  what makes element-wise code slow (the sort). Tight loops should use
+  `xarray_page` and work on a whole resident page, as the fill scenario does.
+- The ticks include the guest's own computation, so only the sequential row is a
+  direct miss cost; the others are upper bounds for their transfers.
+- These are emulated-CPU figures for this core and clock setting, not a
+  prediction for real hardware.
 
 ## Demo and tests
 
@@ -134,10 +158,12 @@ all, `Q` quit), and runs self-checking scenarios. Each prints
    verify it, all through `xarray_page`.
 2. Sequential 1 MiB: read the first and last byte of every page; the statistics
    must be exactly one miss and one hit per page and no write-back.
-3. Sort 32768 16-bit values with a bottom-up merge sort between two 64 KiB
-   arrays; check ordering and that the sum is preserved. The size is a build
-   constant (`SORT_VALUES`); 1 M values was judged too slow for per-element
-   calls on the emulated CPU and has not been tried.
+3. Sort 8192 16-bit values with a bottom-up merge sort between two 16 KiB
+   arrays, each behind a 2-line cache so that 4 pages really pass through 2
+   lines; check ordering and that the sum is preserved. The size is a build
+   constant (`SORT_VALUES`). 32768 values did not finish within five minutes on
+   the emulated CPU, which matches the per-call cost measured below (about a
+   million element calls at roughly 0.4 ms each); 1 M values was not tried.
 4. Search for an 8-byte pattern planted across a page boundary; it must be found
    exactly once at the planted offset.
 5. Out-of-range read, write and page requests return 87 and leave the
@@ -160,14 +186,26 @@ passed. That is a logic check only, not a run on the emulated CPU.
 
 ### Browser verification (WebNP2)
 
-**Not yet written.** Planned as `scripts/verify-k386-xarray.mjs`, modeled on
-`verify-k386-xms.mjs`: run `XARRAY.EXE` in both sessions, wait for
-`XARRAY ALL OK`, confirm task-manager XMS usage while running and release after
-exit and after a forced fault, and an unchanged FAT12 image hash. Because guests
-cannot read the clock, the verifier is also the place to measure elapsed
-emulated time per scenario and so the cost per miss. WebNP2 pins the tested
-MS-DOS commit in `scripts/prepare-msdos4-cpanel-ci.sh` as for earlier K386 work,
-and `XARRAY.EXE` must be added to the enhanced image there.
+`scripts/verify-k386-xarray.mjs` in `kumakumapon/webnp2` (CI job `k386-xarray`),
+modeled on `verify-k386-xms.mjs`, drives the real emulated CPU and PC-98 XMS
+driver. It checks that:
+
+1. `XARRAY.EXE` starts from the enhanced image and prints its menu;
+2. each of the five scenarios passes in the guest, its hit/miss/write-back counts
+   match exactly (sort: counts positive and hit-dominated), and the XMS records
+   show no block left afterwards;
+3. ending the program while the sort runs shows two 16 KiB initialized blocks
+   with different tokens, then an ended session with no blocks;
+4. two sessions run scenarios 2 to 5 at the same time (the 2 MiB fill is left out
+   to keep the run short), both finish, and no block remains;
+5. the exported FAT12 image is byte-identical to the original after a clean
+   desktop exit.
+
+It also records the measurements above in `verification.json`. WebNP2 pins the
+tested MS-DOS commit in `scripts/prepare-msdos4-cpanel-ci.sh` and bundles
+`XARRAY.EXE` through `scripts/update-k386.py`. What it does not cover: a protection
+fault during a scenario (the demo has no fault key), a forced failure of the XMS
+driver, and the real-hardware speed.
 
 ## Non-goals
 
@@ -183,12 +221,14 @@ and `XARRAY.EXE` must be added to the enhanced image there.
 1. Can the page cache be allocated from the DOS arena at run time inside the SDK
    module layout, so cache size is not bound by the 64 KiB module?
 2. Is a larger transfer unit worthwhile? The 4 KiB limit is part of ABI 1.0, so
-   this would be a separate, versioned change and needs a miss-cost
-   measurement first.
-3. Should a read-ahead hint (`xarray_prefetch`) exist for sequential scans, and
-   would it help given that each call is synchronous?
-4. Is a second access method needed for 16-bit element arrays, or is the byte
-   interface plus `xarray_page` enough?
+   this would be a separate, versioned change. The measurements give no evidence
+   for it: a miss is about 9 ms per page, small against guest processing of that
+   page. It could matter for copy-only workloads, which have not been measured.
+3. Should a read-ahead hint (`xarray_prefetch`) exist for sequential scans? Each
+   call is synchronous, so a hint cannot overlap with computation; probably not.
+4. Is a second access method needed for 16-bit element arrays? The sort result
+   shows the byte interface is expensive per element; either a typed accessor
+   that avoids the generic copy loop, or guidance to use `xarray_page`, is needed.
 5. Should the library live in `tools/k386` next to the SDK, or in a shared
    directory that other tools may include?
 
@@ -198,6 +238,7 @@ and `XARRAY.EXE` must be added to the enhanced image there.
    `make -C tools/k386 test`.
 2. Done: `XARRAY.EXE` with the self-checking scenarios and statistics, built by
    `make -C tools/k386 all`.
-3. Open: run on the emulated CPU, measure miss cost from the host side and settle
-   the default cache size; resolve the open questions with those results.
-4. Open: WebNP2 verifier, enhanced-image entry and CI job.
+3. Done: run on the emulated CPU and measure miss cost from the host side (see
+   Measured cost); the default stays at 4 lines per array in the demo.
+4. Done: WebNP2 verifier, enhanced-image entry and CI job (`k386-xarray`).
+5. Open: the open questions above, mainly the per-element access cost.
