@@ -4,7 +4,8 @@
 #include "../filer/filer.h"
 #include "sdk.h"
 #include "xarray.h"
-enum { LINES=4, SORT_VALUES=32768, FILL_BYTES=2048*1024 };
+/* SORT_VALUES: 32768 did not finish within five minutes on the emulated CPU (see LARGE-DATA.md). */
+enum { LINES=4, SORT_LINES=2, SORT_VALUES=8192, FILL_BYTES=2048*1024 };
 static unsigned char cache[2*LINES*XARRAY_PAGE];
 static XArray a,b;
 static int fail(const char *message){p_output("XARRAY FAIL: ");p_output(message);p_output("\r\n");return 1;}
@@ -53,8 +54,8 @@ static int put(XArray *x,unsigned long index,unsigned value){unsigned char raw[2
 static int scenario_sort(void){
     unsigned long seed=12345,sum=0,check=0;unsigned previous=0,value;
     XArray *src=&a,*dst=&b,*swap;
-    if(xarray_open(src,&xarray_kapp_backend,SORT_VALUES*2UL,cache,LINES))return fail("open sort source");
-    if(xarray_open(dst,&xarray_kapp_backend,SORT_VALUES*2UL,cache+LINES*XARRAY_PAGE,LINES)){xarray_close(src);return fail("open sort target");}
+    if(xarray_open(src,&xarray_kapp_backend,SORT_VALUES*2UL,cache,SORT_LINES))return fail("open sort source");
+    if(xarray_open(dst,&xarray_kapp_backend,SORT_VALUES*2UL,cache+SORT_LINES*XARRAY_PAGE,SORT_LINES)){xarray_close(src);return fail("open sort target");}
     p_output("XARRAY sorting ");number(SORT_VALUES);p_output(" 16-bit values\r\n");
     for(unsigned long i=0;i<SORT_VALUES;i++){
         seed=seed*1103515245UL+12345UL;value=(unsigned)(seed>>8)&0xffff;sum+=value;
