@@ -120,4 +120,5 @@ window controls, code banks and limits.
 Applications can retain additional data with the isolated XMS API in [XMS.md](XMS.md).
 The 64 KiB SDK executable/stack limit is unchanged; data blocks use explicit
 4 KiB bounded copies and a 4 MiB session quota. XMEM.EXE and XCHILD.EXE are
-additional diagnostics, not standalone real-DOS applications.
+additional diagnostics, not standalone real-DOS applications. `XARRAY.EXE` and
+`xarray.h` demonstrate a paged array over that API ([LARGE-DATA.md](LARGE-DATA.md)).
