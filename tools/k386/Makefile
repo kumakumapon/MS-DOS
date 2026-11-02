@@ -248,6 +248,6 @@ all: ../k38632/build/K32CPU.COM
 ../k38632/build/K32CPU.COM: ../k38632/probe.S ../k38632/probe.ld ../k38632/Makefile
 	$(MAKE) -C ../k38632 all
 test: k38632-test
-k38632-test:
-	$(MAKE) -C ../k38632 all test
+k38632-test: ../k38632/build/K32CPU.COM
+	$(MAKE) -C ../k38632 test
 .PHONY: k38632-test
