@@ -70,7 +70,8 @@ must retain or replace these explicit invariants.
 Only an unowned PIT channel is used. The IRQ is acknowledged and the original
 PIC mask is restored. PIC initialization/vector registers are not rewritten;
 the diagnostic reads ISR and restores IRR read selection. CR0/CR3, GDTR/IDTR,
-caller flags and real-mode FS/GS are restored. A20 is not changed: physical pages
+caller flags and real-mode FS/GS are restored. Descriptor-register operations
+explicitly use 32-bit operands so their upper base byte is preserved too. A20 is not changed: physical pages
 are below 1 MiB even though their user linear addresses are above it.
 
 ## Record format

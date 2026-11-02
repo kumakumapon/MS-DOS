@@ -39,6 +39,19 @@ class ProbeLayout(unittest.TestCase):
             self.assertEqual(access, 0xee if index == 48 else 0x8e)
             self.assertEqual(off, SYMBOLS[{8: 'irq_or_df', 13: 'vector_13', 14: 'vector_14', 48: 'user_exit'}[index]])
 
+    def test_full_descriptor_register_width(self):
+        # Real-mode default operand size would truncate/mask the high base byte.
+        # Require the linked instructions to save AND load the full 32-bit base.
+        text = IMAGE[:SYMBOLS['gdt'] - 0x100]
+        for modrm, targets in ((0x06, ('results+44', 'results+50')),
+                               (0x0e, ('results+56', 'results+62')),
+                               (0x16, ('gdtr', 'results+44')),
+                               (0x1e, ('idtr', 'results+56'))):
+            for target in targets:
+                name, _, add = target.partition('+')
+                address = SYMBOLS[name] + int(add or 0)
+                self.assertIn(bytes((0x66, 0x0f, 0x01, modrm)) + struct.pack('<H', address), text)
+
     def test_code_pages_records_and_stacks(self):
         self.assertLess(SYMBOLS['__bss_end'], 0xc000)
         self.assertLessEqual(SYMBOLS['user_end'] - SYMBOLS['user_code'], 4096)

@@ -71,8 +71,8 @@ next_case:
     mov DWORD PTR results+32,eax
     mov eax,cr3
     mov DWORD PTR results+40,eax
-    sgdt results+50
-    sidt results+62
+    data32 sgdt results+50
+    data32 sidt results+62
     in al,2
     mov BYTE PTR results+77,al
     mov si,OFFSET results+44
@@ -205,14 +205,14 @@ run_pm:
     mov eax,DWORD PTR results+20
     add eax,OFFSET idt
     mov DWORD PTR idtr+2,eax
-    sgdt results+44
-    sidt results+56
+    data32 sgdt results+44
+    data32 sidt results+56
     mov eax,cr0
     mov DWORD PTR results+28,eax
     mov eax,cr3
     mov DWORD PTR results+36,eax
-    lgdt gdtr
-    lidt idtr
+    data32 lgdt gdtr
+    data32 lidt idtr
     mov eax,cr0
     or eax,1
     mov cr0,eax
@@ -469,8 +469,8 @@ real_return:
     mov ax,WORD PTR old_gs
     mov gs,ax
     mov sp,WORD PTR real_sp
-    lidt results+56
-    lgdt results+44
+    data32 lidt results+56
+    data32 lgdt results+44
     push DWORD PTR results+68
     popfd
     pushfd
