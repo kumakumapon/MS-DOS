@@ -243,3 +243,11 @@ $(BUILD)/xarraycheck.elf: $(BUILD)/xarraycheck.o $(BUILD)/xarray.o $(BUILD)/app-
 	ld -m elf_i386 --gc-sections -T app.ld $(filter %.o,$^) -o $@
 $(BUILD)/XARRAY.EXE: $(BUILD)/xarraycheck.elf ../mz/build.py
 	python3 ../mz/build.py --k386-app 'XMS paged array' $< $@
+
+all: ../k38632/build/K32CPU.COM
+../k38632/build/K32CPU.COM: ../k38632/probe.S ../k38632/probe.ld ../k38632/Makefile
+	$(MAKE) -C ../k38632 all
+test: k38632-test
+k38632-test:
+	$(MAKE) -C ../k38632 all test
+.PHONY: k38632-test
