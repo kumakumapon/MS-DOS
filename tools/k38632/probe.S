@@ -31,18 +31,20 @@ _start:
     shl eax,8
     in al,0x5c
     mov DWORD PTR results+88,eax
+    /* Keep DOS's supplied stack until the 64 KiB allocation is confirmed. */
+    mov bx,0x1000
+    mov ah,0x4a
+    int 0x21
+    jc failed
     mov ax,cs
     mov ss,ax
     mov esp,0xfff0
+    mov es,ax
     xor ax,ax
     mov di,OFFSET tss
     mov cx,OFFSET __bss_end
     sub cx,di
     rep stosb
-    mov bx,0x1000
-    mov ah,0x4a
-    int 0x21
-    jc failed
     mov DWORD PTR current,0
 next_case:
     call run_pm

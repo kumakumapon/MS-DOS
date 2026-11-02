@@ -23,6 +23,7 @@ K32CPU PASS: Ring3 PM32, paging, IRQ0, PF, GP, DF, DOS return
 Run it again, or run `KDESK` and open the normal DOS sessions. The diagnostic
 requires the standard PC-98 IRQ0 vector 08h, real mode and masked/unowned IRQ0.
 It refuses an existing PE/V86 owner or unmasked IRQ0 before modifying hardware.
+It confirms its DOS allocation before switching stacks or clearing BSS.
 Invoking it from KSH inside a V86 window deliberately refuses, then returns to
 its shell; run it from real DOS for the protected-mode experiment.
 
