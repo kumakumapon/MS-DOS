@@ -3,6 +3,9 @@
 The second milestone adds the independent XMS-backed `K32MEM.EXE` runner.
 See [MEMORY.md](MEMORY.md) for ownership, resumable execution, tests and limits.
 
+The external EXE loader and minimal freestanding C SDK are documented in
+[SDK.md](SDK.md). Start these applications with `K32RUN APP32.EXE` from real DOS.
+
 `K32CPU.COM` is an independent original PC-98 DOS diagnostic for issue #31.
 It executes actual 32-bit Ring-3 instructions with PE/PG set and VM clear,
 handles a user-callable exit gate, timer preemption and exceptions, and returns

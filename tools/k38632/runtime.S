@@ -8,7 +8,12 @@
 .equ UD,0x801000
 .equ GUARD,0xa01000
 .equ UM,0xa02000
+.ifdef LOADER
+.equ US,0xbff000
+.else
 .equ US,0xa04000
+.endif
+.global xms_entry
 .equ USER_CS,59
 .equ USER_DS,67
 _start:
@@ -29,6 +34,7 @@ _start:
     mov BYTE PTR results+140,al
     mov ax,es
     mov WORD PTR results+44,ax
+.ifndef LOADER
     xor ecx,ecx
     mov cl,BYTE PTR es:[0x80]
     mov si,0x81
@@ -41,6 +47,7 @@ parse:
     je parse
     and al,0xdf
     mov BYTE PTR results+46,al
+.endif
 parsed:
     /* DOS supplied a stack via the MZ header; confirm before private writes. */
     mov bx,0x1010
@@ -69,6 +76,11 @@ parsed:
     mov eax,64
 budget_ready:
     mov DWORD PTR results+492,eax
+.ifdef LOADER
+    data32 call loader_open
+    test eax,eax
+    jnz loader_rejected
+.endif
     mov ax,0x4300
     int 0x2f
     cmp al,0x80
@@ -110,6 +122,11 @@ budget_ready:
     cmp eax,0x1000000-0x400000
     ja allocation_error
     mov DWORD PTR results+28,eax
+.ifdef LOADER
+    data32 call loader_prepare
+    test eax,eax
+    jnz allocation_error
+.endif
     mov ah,5
     call xcall
     cmp ax,1
@@ -120,12 +137,26 @@ budget_ready:
     int 0x21
 schedule:
     call run_pm
+.ifdef LOADER
+    inc DWORD PTR results+636
+.endif
     call verify_host
     cmp DWORD PTR results+16,0
     jne cleanup
     cmp DWORD PTR results+12,2
     jne cleanup
+.ifdef LOADER
+    cmp DWORD PTR loader_request,0
+    je broker_done
+    data32 call loader_write
+    mov DWORD PTR context+44,eax
+broker_done:
+.endif
+.ifdef LOADER
+    mov eax,DWORD PTR results+636
+.else
     mov eax,DWORD PTR results+60
+.endif
     cmp eax,DWORD PTR results+492
     jae budget_end
     mov ah,0x0b
@@ -150,6 +181,9 @@ no_memory:
     mov DWORD PTR results+12,6
     mov DWORD PTR results+16,8
 cleanup:
+.ifdef LOADER
+    data32 call loader_close
+.endif
     cmp DWORD PTR results+16,0
     jne clear_mapping
     call verify_finish
@@ -214,6 +248,13 @@ released:
     mov ah,9
     int 0x21
     mov ax,0x4c00
+.ifdef LOADER
+    mov al,BYTE PTR results+628
+    cmp DWORD PTR results+12,3
+    je return_status
+    mov al,255
+return_status:
+.endif
     int 0x21
 cleanup_error:
     mov DWORD PTR results+16,10
@@ -227,6 +268,9 @@ memory_refused:
     mov dx,OFFSET memory_text
     jmp refused
 no_xms:
+.ifdef LOADER
+    data32 call loader_close
+.endif
     mov dx,OFFSET xms_text
     jmp refused
 refuse_pe:
@@ -239,6 +283,19 @@ refused:
     int 0x21
     mov ax,0x4c01
     int 0x21
+.ifdef LOADER
+loader_rejected:
+    mov DWORD PTR results+12,6
+    cmp DWORD PTR results+16,0
+    jne rejection_recorded
+    mov DWORD PTR results+16,20
+rejection_recorded:
+    mov dx,OFFSET rejected_text
+    mov ah,9
+    int 0x21
+    mov ax,0x4c02
+    int 0x21
+.endif
 /* Validate host restoration on every actual preemption, before any DOS call. */
 verify_host:
     pushad
@@ -271,6 +328,9 @@ bad_host:
     popad
     ret
 verify_finish:
+.ifdef LOADER
+    ret
+.endif
     mov al,BYTE PTR results+46
     cmp al,'B'
     je check_cancel
@@ -436,6 +496,19 @@ identity:
     inc ecx
     cmp ecx,1024
     jb identity
+.ifdef LOADER
+    xor ecx,ecx
+map_external:
+    mov eax,DWORD PTR loader_map[ecx*4]
+    test eax,eax
+    jz external_pte
+    add eax,DWORD PTR results+28
+external_pte:
+    mov DWORD PTR es:[edi+8192+ecx*4],eax
+    inc ecx
+    cmp ecx,1024
+    jb map_external
+.else
     mov eax,DWORD PTR results+28
     or eax,5
     mov DWORD PTR es:[edi+8192],eax
@@ -468,11 +541,17 @@ map_data:
     mov DWORD PTR es:[edi+0x201000],eax
     mov eax,DWORD PTR results+20
     mov DWORD PTR es:[edi+0x201010],eax
+.endif
     mov DWORD PTR context,USER_DS
     mov DWORD PTR context+4,USER_DS
     mov DWORD PTR context+8,USER_DS
     mov DWORD PTR context+12,USER_DS
+.ifdef LOADER
+    mov eax,DWORD PTR loader_entry
+    mov DWORD PTR context+56,eax
+.else
     mov DWORD PTR context+56,UC
+.endif
     mov DWORD PTR context+60,USER_CS
     mov DWORD PTR context+64,0x202
     mov DWORD PTR context+68,US+4096
@@ -639,6 +718,9 @@ later_irq:
     mov DWORD PTR results+12,2
     jmp capture
 not_timer:
+.ifdef LOADER
+    jmp loader_trap
+.endif
     cmp DWORD PTR context+48,48
     jne capture
     cmp DWORD PTR context+44,0
@@ -650,6 +732,28 @@ invalid_context:
 capture:
     mov ax,24
     mov es,ax
+.ifdef LOADER
+    mov ebx,DWORD PTR loader_rwbase
+    cmp DWORD PTR loader_rwbytes,0x200000
+    jb external_no_samples
+    xor ecx,ecx
+external_samples:
+    mov esi,DWORD PTR sample_offsets[ecx*4]
+    mov eax,DWORD PTR es:[ebx+esi]
+    mov DWORD PTR results+396[ecx*4],eax
+    inc ecx
+    cmp ecx,16
+    jb external_samples
+    mov DWORD PTR results+152,16
+external_no_samples:
+    cmp DWORD PTR loader_rwbytes,4
+    jb external_no_counter
+    mov ebx,DWORD PTR loader_rwbase
+    mov eax,DWORD PTR es:[ebx]
+    mov DWORD PTR results+468,eax
+external_no_counter:
+    jmp pte_capture
+.endif
     mov eax,DWORD PTR es:[UM+4]
     mov DWORD PTR results+144,eax
     mov eax,DWORD PTR es:[UM+8]
@@ -666,6 +770,7 @@ sample:
     cmp ecx,16
     jb sample
     mov DWORD PTR results+152,16
+pte_capture:
     xor ecx,ecx
 pte_sample:
     mov esi,DWORD PTR pte_offsets[ecx*4]
@@ -675,6 +780,114 @@ pte_sample:
     inc ecx
     cmp ecx,13
     jb pte_sample
+.ifdef LOADER
+    jmp leave_pm
+loader_trap:
+    cmp DWORD PTR context+48,48
+    jne capture
+    inc DWORD PTR results+608
+    mov eax,DWORD PTR context+44
+    test eax,eax
+    jz loader_exit
+    cmp eax,1
+    je loader_output
+    cmp eax,2
+    je loader_yield
+    cmp eax,3
+    je loader_ticks
+    mov DWORD PTR context+44,-38
+    inc DWORD PTR results+632
+    jmp loader_resume
+loader_exit:
+    mov eax,DWORD PTR context+32
+    mov DWORD PTR results+628,eax
+    mov DWORD PTR results+12,3
+    jmp capture
+loader_yield:
+    mov DWORD PTR context+44,0
+    inc DWORD PTR results+616
+    jmp loader_resume
+loader_ticks:
+stable_ticks:
+    xor eax,eax
+    in al,0x5f
+    shl eax,8
+    in al,0x5d
+    shl eax,8
+    in al,0x5c
+    mov edx,eax
+    /* Match k386_clock_ticks: retry if middle/high rolled during the read. */
+    in al,0x5d
+    cmp al,dh
+    jne stable_ticks
+    in al,0x5f
+    mov ebx,edx
+    shr ebx,16
+    cmp al,bl
+    jne stable_ticks
+    mov DWORD PTR context+44,edx
+    inc DWORD PTR results+620
+    jmp loader_resume
+loader_output:
+    mov ecx,DWORD PTR context+40
+    cmp ecx,4096
+    ja bad_length
+    test ecx,ecx
+    jz empty_write
+    mov esi,DWORD PTR context+32
+    cmp esi,UC
+    jb bad_pointer
+    mov edx,esi
+    add edx,ecx
+    jc bad_pointer
+    cmp edx,0xc00000
+    ja bad_pointer
+    dec edx
+    sub edx,UC
+    shr edx,12
+    mov eax,esi
+    sub eax,UC
+    shr eax,12
+    mov ebx,DWORD PTR results+24
+    mov di,24
+    mov es,di
+check_user_page:
+    mov edi,DWORD PTR es:[ebx+8192+eax*4]
+    and edi,5
+    cmp edi,5
+    jne bad_pointer
+    cmp eax,edx
+    je copy_user_output
+    inc eax
+    jmp check_user_page
+copy_user_output:
+    mov DWORD PTR loader_length,ecx
+    mov edi,OFFSET loader_buffer
+    mov ax,16
+    mov es,ax
+    mov ax,USER_DS
+    mov ds,ax
+    rep movsb
+    mov ax,16
+    mov ds,ax
+    mov ax,24
+    mov es,ax
+    mov DWORD PTR loader_request,1
+    inc DWORD PTR results+612
+    jmp loader_resume
+bad_pointer:
+    inc DWORD PTR results+624
+    mov DWORD PTR context+44,-14
+    jmp loader_resume
+bad_length:
+    mov DWORD PTR context+44,-22
+    jmp loader_resume
+empty_write:
+    mov DWORD PTR context+44,0
+loader_resume:
+    mov DWORD PTR results+12,2
+    jmp capture
+.endif
 leave_pm:
     cli
     mov esp,0xeff0
@@ -731,7 +944,12 @@ real_return:
     mov BYTE PTR results+141,al
     popad
     ret
+.ifndef LOADER
 .include "memory-app.S"
+.else
+user_code:
+user_end:
+.endif
 .section .data
 .align 8
 gdt:
@@ -782,7 +1000,11 @@ IDT \n,vector_\n
     .word 0
 .align 4
 results:
+.ifdef LOADER
+    .ascii "K32RUN01"
+.else
     .ascii "K32MEM01"
+.endif
     .word 0x100,1024
     .space 24,0
     .long 0x401000
@@ -795,13 +1017,40 @@ pte_offsets:
 sample_offsets:
     .long 0,4,8,12,0xfff8,0xfffc,0x10000,0x10004
     .long 0xffff8,0xffffc,0x100000,0x100004,0x1ffff0,0x1ffff4,0x1ffff8,0x1ffffc
+ .ifdef LOADER
+rejected_text: .ascii "K32RUN REJECTED: invalid EXE/ELF\r\n$"
+running: .ascii "K32RUN RUNNING\r\n$"
+finished: .ascii "K32RUN DONE: resources reclaimed\r\n$"
+failure: .ascii "K32RUN FAIL\r\n$"
+.else
 running: .ascii "K32MEM RUNNING: XMS PM32\r\n$"
 finished: .ascii "K32MEM DONE: resources reclaimed\r\n$"
 failure: .ascii "K32MEM FAIL\r\n$"
-memory_text: .ascii "K32MEM REFUSED: XMS memory\r\n$"
-xms_text: .ascii "K32MEM REFUSED: XMS driver required\r\n$"
-busy_pe: .ascii "K32MEM REFUSED: protected/V86 owner present\r\n$"
-busy_irq: .ascii "K32MEM REFUSED: IRQ0 must be masked and unowned\r\n$"
+.endif
+memory_text:
+.ifdef LOADER
+    .ascii "K32RUN REFUSED: XMS memory\r\n$"
+.else
+    .ascii "K32MEM REFUSED: XMS memory\r\n$"
+.endif
+xms_text:
+.ifdef LOADER
+    .ascii "K32RUN REFUSED: XMS driver required\r\n$"
+.else
+    .ascii "K32MEM REFUSED: XMS driver required\r\n$"
+.endif
+busy_pe:
+.ifdef LOADER
+    .ascii "K32RUN REFUSED: protected/V86 owner present\r\n$"
+.else
+    .ascii "K32MEM REFUSED: protected/V86 owner present\r\n$"
+.endif
+busy_irq:
+.ifdef LOADER
+    .ascii "K32RUN REFUSED: IRQ0 must be masked and unowned\r\n$"
+.else
+    .ascii "K32MEM REFUSED: IRQ0 must be masked and unowned\r\n$"
+.endif
 .section .bss
 .align 16
 tss: .space 104
