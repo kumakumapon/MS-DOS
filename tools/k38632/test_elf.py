@@ -52,7 +52,7 @@ class ElfValidation(unittest.TestCase):
         self.assertLessEqual(symbols['loader_buffer']+4096,symbols['__bss_end'])
     def test_host_private_state_and_stack_bounds(self):
         symbols={line.split()[2]:int(line.split()[0],16) for line in subprocess.check_output(['nm','-n',str(ROOT/'build/host.elf')],text=True).splitlines() if len(line.split())==3}
-        self.assertLessEqual(symbols['__task_end']-symbols['__task_start'],8192)
+        self.assertLessEqual(symbols['__task_end']-symbols['__task_start'],7168)
         self.assertLess(symbols['__bss_end'],0xd000)
         for name in ('results','context','initialized','loader_map','loader_plan'):
             self.assertGreaterEqual(symbols[name],symbols['__task_start']);self.assertLess(symbols[name],symbols['__task_end'])

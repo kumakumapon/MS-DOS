@@ -77,7 +77,8 @@ Ctrl+P pauses, Ctrl+R resumes, and Ctrl+E ends the selected owner. Tasks (Ctrl+T
 shows generation, program, priority/budget, CPU usage, XMS, heap and handles.
 Its R/Start resumes a stopped owner or restarts the retained PM32 command after
 exit/fault/End. A restart gets a new generation. Focused ASCII/packed PC-98
-navigation keys enter only that task's queue. VIEW32 uses n/p, j/k, PageDown/
+navigation keys enter only that task's queue. Queued input, including Escape,
+is processed after resuming a stopped task; End releases it immediately. VIEW32 uses n/p, j/k, PageDown/
 PageUp, Home/End and q. Escape cancels the selected PM32 task. Ctrl+C/Break ends
 a PM32 root; V86 child interruption still returns to its shell.
 
