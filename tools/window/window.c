@@ -5,6 +5,7 @@
 #include "k386_client.h"
 #include "commands.h"
 #include "windowtools.h"
+#include "performance.h"
 #include "../k386/app.h"
 
 /* Window positions use 8 x 16 cells. Four graphics planes hold both the
@@ -47,6 +48,9 @@ static int scrolling = -1, scroll_grab;
 static int file_mode;
 static char file_input[FD_PATH],file_source[FD_PATH];
 static u32 clock_tick;
+static volatile KDeskPerformance performance={.signature={'K','D','P','E','R','F','0','1'},.version=1,.size=sizeof(KDeskPerformance)};
+static u32 last_schedule;
+static u32 saturated(u32 value,u32 extra){return extra>~0u-value?~0u:value+extra;}
 /* Union of window damage, kept separate from the status/taskbar rows. */
 static int damage_left=640, damage_top=400, damage_right, damage_bottom;
 static void damage(int x,int y,int w,int h) {
@@ -812,7 +816,13 @@ static void compose(int foreground) {
     if(panel_open)draw_panel();
 }
 static void draw(void) {
+    u32 begin=input_ticks();performance.busy++;
     compose(1);present();scene_dirty=0;
+    u32 elapsed=(input_ticks()-begin)&0xffffff;
+    performance.full_scenes=saturated(performance.full_scenes,1);
+    performance.full_scene_ticks=saturated(performance.full_scene_ticks,elapsed);
+    if(elapsed>performance.full_scene_max)performance.full_scene_max=elapsed;
+    performance.busy--;
 }
 static void close_window(void) {
     if(active>=EDITOR&&active<=PAINTER&&!wt_close(active-EDITOR)){message("Save window app changes before closing");return;}
@@ -1230,14 +1240,44 @@ static int clock_update(int moving) {
     int changed=next.second!=desk_clock.second||next.minute!=desk_clock.minute||next.hour!=desk_clock.hour||next.day!=desk_clock.day||next.month!=desk_clock.month||next.year!=desk_clock.year||next.valid!=desk_clock.valid;
     desk_clock=next;
     if(!changed||windows[CLOCK].hidden||confirm||moving||mode)return 0;
-    if(panel_open){invalidate(CLOCK);scene_dirty=1;return 1;}
+    performance.clock_updates=saturated(performance.clock_updates,1);
+    if(panel_open||scene_dirty){invalidate(CLOCK);scene_dirty=1;return 1;}
     Window *w=&windows[CLOCK];int x=w->x*8+w->ox+w->w*4-100,y=w->y*16+w->oy+48,above=0;
+    int occluders[WINDOWS],occluded=0;
     for(int i=0;i<WINDOWS;i++) {
         int id=order[i];if(id==CLOCK){above=1;continue;}Window *other=&windows[id];
-        if(above&&other->open&&!other->hidden&&x<other->x*8+other->ox+other->w*8+5&&x+200>other->x*8+other->ox&&y<other->y*16+other->oy+other->h*16+5&&y+136>other->y*16+other->oy){invalidate(CLOCK);scene_dirty=1;return 1;}
+        if(above&&other->open&&!other->hidden&&x<other->x*8+other->ox+other->w*8+5&&x+200>other->x*8+other->ox&&y<other->y*16+other->oy+other->h*16+5&&y+136>other->y*16+other->oy)occluders[occluded++]=id;
     }
-    gfx_pointer_hide();gfx_target(1);gfx_origin(w->ox,w->oy);clock_draw(&desk_clock,twelve_hour,w->x*8,w->y*16,w->w*8);gfx_origin(0,0);gfx_present(x,y,200,136);
-    Mouse now=mouse_position();gfx_pointer_show(now.x,now.y);return 0;
+    if(occluded&&gfx_colors()<256){invalidate(CLOCK);scene_dirty=1;return 1;}
+    /* The clock only mirrors three text rows. Preserve those too: copying
+       graphics alone would leave other windows' accessibility text corrupted. */
+    u16 saved[3][2][80];unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
+    int first=w->y+3;
+    if(occluded)for(int row=0;row<3;row++)if(first+row<25){
+        mem_copy(ds,(unsigned)saved[row][0],0xa000,(first+row)*160,160);
+        mem_copy(ds,(unsigned)saved[row][1],0xa200,(first+row)*160,160);
+    }
+    performance.busy++;
+    gfx_pointer_hide();gfx_target(1);gfx_origin(w->ox,w->oy);
+    clock_draw(&desk_clock,twelve_hour,w->x*8,w->y*16,w->w*8);gfx_origin(0,0);
+    for(int i=0;i<occluded;i++){
+        Window *o=&windows[occluders[i]];
+        int left=o->x*8+o->ox,top=o->y*16+o->oy,right=left+o->w*8+5,bottom=top+o->h*16+5;
+        if(left<x)left=x;
+        if(top<y)top=y;
+        if(right>x+200)right=x+200;
+        if(bottom>y+136)bottom=y+136;
+        gfx_preserve(left,top,right-left,bottom-top);
+        /* Mirrors use logical character cells, including for odd-pixel moves. */
+        left=o->x;right=left+o->w+1;if(left<0)left=0;if(right>80)right=80;
+        for(int row=0;row<3;row++)if(first+row<25&&first+row>=o->y&&first+row<=o->y+o->h&&right>left){
+            mem_copy(0xa000,(first+row)*160+left*2,ds,(unsigned)&saved[row][0][left],(right-left)*2);
+            mem_copy(0xa200,(first+row)*160+left*2,ds,(unsigned)&saved[row][1][left],(right-left)*2);
+        }
+    }
+    gfx_present(x,y,200,136);
+    if(occluded)performance.clock_preserves=saturated(performance.clock_preserves,1);
+    Mouse now=mouse_position();gfx_pointer_show(now.x,now.y);performance.busy--;return 0;
 }
 static void resources_update(int moving){
     if(active!=TASKS||!k386_resources_available()||moving||mode||confirm||panel_open||
@@ -1279,6 +1319,8 @@ int main(void) {
     if(k386_resources_available())windows[TASKS]=(Window){3,1,74,22,0,0,0,0,0,0};
     calc_init(&calculator);clock_read(&desk_clock);clock_tick=input_ticks();
     load(); refresh(); focus(LAUNCHER); gfx_highcolor(1); enter_graphics();
+    performance.owner=data_segment;performance.cookie=input_ticks()|1;
+    performance.width=SW;performance.height=SH;performance.ready=1;
     damage(0,0,SW,SH);draw(); Mouse previous = mouse_read(); gfx_pointer_show(previous.x, previous.y);
     for (;;) {
         Mouse now = mouse_read(); int ready = key_ready(), redraw = 0, stop = 0;
@@ -1287,6 +1329,9 @@ int main(void) {
             task_post(CLOCK,TASK_TICK,0);
         redraw|=dispatch_events();
         if(enhanced&&((input_ticks()-dos_tick)&0xffffff)>=3072) {
+            u32 tick=input_ticks(),gap=(tick-last_schedule)&0xffffff;
+            if(performance.schedule_calls&&gap>performance.schedule_gap_max)performance.schedule_gap_max=gap;
+            performance.schedule_calls=saturated(performance.schedule_calls,1);last_schedule=tick;
             dos_tick=input_ticks();unsigned changed=k386_tick();
             if(changed){for(int id=DOS1;id<=DOS2;id++)if((changed&(1u<<(id-DOS1)))&&windows[id].open&&!windows[id].hidden){
                 if(dos_follow[id-DOS1]&&!k386_kind(id-DOS1)){int top=k386_word(id-DOS1,__builtin_offsetof(K386View,row))-(windows[id].h-7);windows[id].top=scroll_clamp(top,25,windows[id].h-6);}

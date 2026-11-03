@@ -161,6 +161,30 @@ void gfx_present(int x, int y, int w, int h) {
     offscreen = 0;
     if (packed) restore_background(x, y, w, h);
 }
+void gfx_preserve(int x,int y,int w,int h) {
+    if(x<0){w+=x;x=0;}if(y<0){h+=y;y=0;}
+    if(x+w>gfx_width())w=gfx_width()-x;
+    if(y+h>gfx_height())h=gfx_height()-y;
+    if(!packed||w<=0||h<=0)return;
+    if(high){
+        u32 first=((u32)y*gfx_width()+x)*2;
+        if(cirrus_blit(first,first+0x100000ul,w*2,h,gfx_width()*2))return;
+        u16 rowbuf[800];unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
+        for(int row=0;row<h;row++){u32 at=((u32)(y+row)*gfx_width()+x)*2;
+            cirrus_read(at,ds,(unsigned)rowbuf,w*2);cirrus_write(at+0x100000ul,ds,(unsigned)rowbuf,w*2);
+            if(!(row&15))mouse_pump();}return;
+    }
+    int buffered=offscreen;offscreen=0;
+    for(int row=0;row<h;row++){
+        u32 at=(y+row)*640u+x;unsigned left=w;
+        while(left){unsigned n=32768-(at&32767);if(n>left)n=left;
+            select_bank((at>>15)+8);put(0xe000,6,at>>15);put(0xe000,7,0);
+            mem_copy(0xa800,at&32767,0xb000,at&32767,n);at+=n;left-=n;
+        }
+        if(!(row&15))mouse_pump();
+    }
+    offscreen=buffered;
+}
 static void restore_background(int x, int y, int w, int h) {
     if(high){
         u32 first=((u32)y*gfx_width()+x)*2;
