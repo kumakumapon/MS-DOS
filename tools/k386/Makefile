@@ -244,10 +244,12 @@ $(BUILD)/xarraycheck.elf: $(BUILD)/xarraycheck.o $(BUILD)/xarray.o $(BUILD)/app-
 $(BUILD)/XARRAY.EXE: $(BUILD)/xarraycheck.elf ../mz/build.py
 	python3 ../mz/build.py --k386-app 'XMS paged array' $< $@
 
-all: ../k38632/build/K32CPU.COM
+all: ../k38632/build/K32MEM.EXE
 ../k38632/build/K32CPU.COM: ../k38632/probe.S ../k38632/probe.ld ../k38632/Makefile
 	$(MAKE) -C ../k38632 all
+../k38632/build/K32MEM.EXE: ../k38632/build/K32CPU.COM ../k38632/runtime.S ../k38632/memory-app.S ../k38632/runtime.ld ../mz/build.py
+	$(MAKE) -C ../k38632 all
 test: k38632-test
-k38632-test: ../k38632/build/K32CPU.COM
+k38632-test: ../k38632/build/K32MEM.EXE
 	$(MAKE) -C ../k38632 test
 .PHONY: k38632-test

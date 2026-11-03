@@ -1,5 +1,8 @@
 # K38632 first milestone: real Ring-3 CPU bring-up
 
+The second milestone adds the independent XMS-backed `K32MEM.EXE` runner.
+See [MEMORY.md](MEMORY.md) for ownership, resumable execution, tests and limits.
+
 `K32CPU.COM` is an independent original PC-98 DOS diagnostic for issue #31.
 It executes actual 32-bit Ring-3 instructions with PE/PG set and VM clear,
 handles a user-callable exit gate, timer preemption and exceptions, and returns
