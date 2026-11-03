@@ -9,7 +9,7 @@ subprocess.run(['cc','-shared','-fPIC','-Wall','-Wextra','-Werror',str(ROOT/'elf
 class Segment(c.Structure):
     _fields_=[(k,c.c_uint32) for k in ('offset','address','filesz','memsz','flags')]
 class Plan(c.Structure):
-    _fields_=[(k,c.c_uint32) for k in ('entry','elf_offset','elf_size','count','rwbase','rwbytes')]+[('segments',Segment*8)]
+    _fields_=[(k,c.c_uint32) for k in ('entry','elf_offset','elf_size','count','rwbase','rwbytes')]+[('segments',Segment*8),('abi',c.c_uint32),('features',c.c_uint32)]
 READ=c.CFUNCTYPE(c.c_int,c.c_void_p,c.c_uint32,c.c_void_p,c.c_uint32)
 LIB=c.CDLL(str(ROOT/'build/elf-test.so'));LIB.k32_plan.argtypes=[READ,c.c_void_p,c.c_uint32,c.POINTER(Plan)]
 def parse(data):
@@ -25,6 +25,13 @@ class ElfValidation(unittest.TestCase):
         data=fixture();error,p=parse(data);self.assertEqual(error,0)
         self.assertGreater(len(data),65536);self.assertGreater(p.segments[0].filesz,8192)
         self.assertGreaterEqual(p.rwbytes,2*1024*1024)
+    def test_extended_abi_and_feature_requirements(self):
+        for name in ('ARGS32','HEAP32','INPUT32','FILE32','VIEW32'):
+            b=(ROOT/f'build/{name}.EXE').read_bytes();error,p=parse(b)
+            self.assertEqual(error,0);self.assertEqual(p.abi,257);self.assertEqual(p.features,15)
+        b=bytearray(b);struct.pack_into('<I',b,92,16);self.assertNotEqual(parse(b)[0],0)
+        struct.pack_into('<I',b,92,0);self.assertEqual(parse(b)[0],0)
+        struct.pack_into('<H',b,80,258);self.assertNotEqual(parse(b)[0],0)
     def test_existing_v86_classifier_rejects_pm32_kind(self):
         subprocess.run(['cc','-shared','-fPIC',str(ROOT/'../k386/app.c'),'-o',str(ROOT/'build/old-app-test.so')],check=True)
         lib=c.CDLL(str(ROOT/'build/old-app-test.so'));lib.kapp_header.argtypes=[c.c_void_p,c.c_uint]

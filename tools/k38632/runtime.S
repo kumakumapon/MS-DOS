@@ -148,9 +148,18 @@ schedule:
 .ifdef LOADER
     cmp DWORD PTR loader_request,0
     je broker_done
-    data32 call loader_write
+    data32 call services_dispatch
     mov DWORD PTR context+44,eax
 broker_done:
+    cmp DWORD PTR results+12,7
+    jne wait_finished
+wait_service:
+    data32 call services_wait
+    test eax,eax
+    jz wait_service
+    cmp DWORD PTR results+12,5
+    je cleanup
+wait_finished:
 .endif
 .ifdef LOADER
     mov eax,DWORD PTR results+636
@@ -159,6 +168,15 @@ broker_done:
 .endif
     cmp eax,DWORD PTR results+492
     jae budget_end
+.ifdef LOADER
+    cmp DWORD PTR results+768,257
+    jne legacy_keyboard
+    data32 call services_cancel
+    test eax,eax
+    jnz cleanup
+    jmp schedule
+legacy_keyboard:
+.endif
     mov ah,0x0b
     int 0x21
     test al,al
@@ -182,6 +200,7 @@ no_memory:
     mov DWORD PTR results+16,8
 cleanup:
 .ifdef LOADER
+    data32 call services_close
     data32 call loader_close
 .endif
     cmp DWORD PTR results+16,0
@@ -795,6 +814,11 @@ loader_trap:
     je loader_yield
     cmp eax,3
     je loader_ticks
+    cmp eax,12
+    ja unknown_service
+    mov DWORD PTR loader_request,eax
+    jmp loader_resume
+unknown_service:
     mov DWORD PTR context+44,-38
     inc DWORD PTR results+632
     jmp loader_resume
