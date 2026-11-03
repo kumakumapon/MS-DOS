@@ -1,5 +1,10 @@
 #ifndef K32_ELF_H
 #define K32_ELF_H
+#ifdef K32_HOST
+#define K32_STATE __attribute__((section(".task.data")))
+#else
+#define K32_STATE
+#endif
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned u32;

@@ -16,6 +16,9 @@
 .global xms_entry
 .equ USER_CS,59
 .equ USER_DS,67
+.ifdef HOST
+.include "host-entry.S"
+.else
 _start:
     cld
     push cs
@@ -315,6 +318,7 @@ rejection_recorded:
     mov ax,0x4c02
     int 0x21
 .endif
+.endif /* standalone frontend */
 /* Validate host restoration on every actual preemption, before any DOS call. */
 verify_host:
     pushad
@@ -493,10 +497,14 @@ pm_start:
     mov esp,0xeff0
     cmp DWORD PTR initialized,0
     jne tables_ready
+.ifdef HOST
+    mov edi,DWORD PTR results+24
+.else
     mov edi,DWORD PTR results+20
     add edi,OFFSET pages+4095
     and edi,0xfffff000
     mov DWORD PTR results+24,edi
+.endif
     mov ebx,edi
     xor eax,eax
     mov ecx,3072
@@ -771,6 +779,25 @@ external_no_samples:
     mov eax,DWORD PTR es:[ebx]
     mov DWORD PTR results+468,eax
 external_no_counter:
+.ifdef HOST
+    mov ecx,DWORD PTR loader_rwbytes
+    shr ecx,2
+    cmp ecx,16
+    jbe host_sample_count
+    mov ecx,16
+host_sample_count:
+    mov DWORD PTR results+944,ecx
+    xor edx,edx
+host_samples:
+    cmp edx,ecx
+    jae host_samples_done
+    mov ebx,DWORD PTR loader_rwbase
+    mov eax,DWORD PTR es:[ebx+edx*4]
+    mov DWORD PTR results+880[edx*4],eax
+    inc edx
+    jmp host_samples
+host_samples_done:
+.endif
     jmp pte_capture
 .endif
     mov eax,DWORD PTR es:[UM+4]
@@ -1023,11 +1050,18 @@ IDT \n,vector_\n
     .byte 0,0xee
     .word 0
 .align 4
+.ifdef HOST
+.section .task.data
+.endif
 results:
+.ifdef HOST
+    .ascii "K32HST01"
+.else
 .ifdef LOADER
     .ascii "K32RUN01"
 .else
     .ascii "K32MEM01"
+.endif
 .endif
     .word 0x100,1024
     .space 24,0
@@ -1035,6 +1069,9 @@ results:
     .space 432,0
     .long UC,UD,UM,US,0x200000,65536
     .space 528,0
+.ifdef HOST
+.section .data
+.endif
 pte_offsets:
     .long 0,8,8192,8196,8192+16*4,8192+17*4,8192+256*4,8192+257*4
     .long 8192+512*4,8192+513*4,8192+514*4,8192+515*4,8192+516*4
@@ -1078,7 +1115,14 @@ busy_irq:
 .section .bss
 .align 16
 tss: .space 104
+.ifdef HOST
+.section .task.data
+.endif
 context: .space 76
 initialized: .space 4
+.ifndef HOST
 pages: .space 16384
+.else
+.section .bss
+.endif
 .section .note.GNU-stack,"",@progbits

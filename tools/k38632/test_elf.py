@@ -48,6 +48,15 @@ class ElfValidation(unittest.TestCase):
         self.assertEqual(module[symbols['results']:symbols['results']+8],b'K32RUN01')
         self.assertLessEqual(symbols['loader_map']+4096,symbols['__bss_end'])
         self.assertLessEqual(symbols['loader_buffer']+4096,symbols['__bss_end'])
+    def test_host_private_state_and_stack_bounds(self):
+        symbols={line.split()[2]:int(line.split()[0],16) for line in subprocess.check_output(['nm','-n',str(ROOT/'build/host.elf')],text=True).splitlines() if len(line.split())==3}
+        self.assertLessEqual(symbols['__task_end']-symbols['__task_start'],8192)
+        self.assertLess(symbols['__bss_end'],0xd000)
+        for name in ('results','context','initialized','loader_map','loader_plan'):
+            self.assertGreaterEqual(symbols[name],symbols['__task_start']);self.assertLess(symbols[name],symbols['__task_end'])
+        b=(ROOT/'build/K32HOST.EXE').read_bytes();h=struct.unpack_from('<14H',b)
+        self.assertEqual(((len(b)-h[4]*16+15)//16+h[5])*16,65536)
+        self.assertEqual(b[28:36],b'K386APP1');self.assertEqual(struct.unpack_from('<H',b,38)[0],2)
     def test_program_headers_do_not_require_section_headers(self):
         b=fixture();base=struct.unpack_from('<I',b,84)[0]
         struct.pack_into('<I',b,base+32,0);struct.pack_into('<HHH',b,base+46,0,0,0)

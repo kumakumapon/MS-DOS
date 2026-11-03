@@ -5,12 +5,12 @@ extern u32 context[19],loader_map[1024],loader_request,xms_entry;
 extern K32Plan loader_plan;
 extern K32Args loader_args;
 extern int loader_write(void);
-static K32Heap heap;
-static struct {u32 token,position,size;int handle;} files[K32_FILES];
-static u32 serial,wait_start,wait_ticks,wait_mask;
+static K32Heap heap K32_STATE;
+static struct {u32 token,position,size;int handle;} files[K32_FILES] K32_STATE;
+static u32 serial K32_STATE,wait_start K32_STATE,wait_ticks K32_STATE,wait_mask K32_STATE;
 static u8 dta[43];
-static u16 keys[64];
-static unsigned key_head,key_count,escape_pending;
+static u16 keys[64] K32_STATE;
+static unsigned key_head K32_STATE,key_count K32_STATE,escape_pending K32_STATE;
 static u32 get(unsigned at){return *(u32 *)(results+at);}
 static void put(unsigned at,u32 n){*(u32 *)(results+at)=n;}
 static void inc(unsigned at){put(at,get(at)+1);}
@@ -38,7 +38,13 @@ static int transfer(u32 at,void *buffer,unsigned n,int write){
 }
 static void pte(unsigned i,u32 value){
  loader_map[i]=value;
+ #ifdef K32_HOST
+ if(get(24)){
+  extern void host_physical32(u32,u32);host_physical32(get(24)+8192+i*4,value?get(28)+value:0);
+ }
+#else
  if(get(24)){u32 *table=(u32 *)(get(24)-get(20)+8192);table[i]=value?get(28)+value:0;}
+#endif
  inc(848);
 }
 int services_start(void){
@@ -70,6 +76,7 @@ static int release(u32 at){
  K32Allocation *b=&heap.block[slot];for(unsigned i=0;i<b->pages;i++)pte((at-K32_BASE)/4096+i,0);
  put(788,get(788)-b->pages);b->pages=0;inc(800);return 0;
 }
+#ifndef K32_HOST
 static int key(int consume){
  u32 a=0x0100,b=0;__asm__ volatile("int $0x18":"+a"(a),"+b"(b)::"ecx","edx","esi","edi","cc","memory");
  if(!(b&0xff00))return -11;
@@ -85,6 +92,17 @@ static void pump_keys(void){
  }
  put(872,key_count);
 }
+#else
+static void pump_keys(void){}
+int services_key(unsigned k){
+ if((k&255)==27){escape_pending=1;return 0;}
+ if(key_count==64){inc(876);return 8;}
+ keys[(key_head+key_count++)%64]=(u16)k;put(872,key_count);return 0;
+}
+static u32 paused_wait K32_STATE;
+void services_pause(void){paused_wait=(ticks()-wait_start)&0xffffff;if(paused_wait>wait_ticks)paused_wait=wait_ticks;}
+void services_resume(void){wait_ticks-=paused_wait;wait_start=ticks();}
+#endif
 static int poll_key(void){
  inc(804);pump_keys();if(!key_count)return -11;
  unsigned k=keys[key_head];key_head=(key_head+1)%64;key_count--;put(872,key_count);put(852,k);return (int)k;

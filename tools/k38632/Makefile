@@ -86,3 +86,28 @@ apps: $(BUILD)/FILE32.EXE
 $(BUILD)/VIEW32.EXE: $(BUILD)/view.ext.elf package.py
 	python3 package.py $< $@ --abi 257 --features 15
 apps: $(BUILD)/VIEW32.EXE
+
+$(BUILD)/host-run.o: runtime.S host-entry.S | $(BUILD)
+	as --32 --defsym LOADER=1 --defsym HOST=1 $< -o $@
+$(BUILD)/%.host.o: %.c services.h elf.h host.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DK32_HOST -c $< -o $@
+$(BUILD)/host.elf: $(BUILD)/host-run.o $(BUILD)/host.host.o $(BUILD)/loader.host.o $(BUILD)/elf.host.o $(BUILD)/services.host.o $(BUILD)/services-dos.host.o $(BUILD)/libmemory.o host.ld
+	ld -m elf_i386 -T host.ld $(filter %.o,$^) -o $@
+$(BUILD)/K32HOST.EXE: $(BUILD)/host.elf ../mz/build.py Makefile
+	python3 ../mz/build.py --desktop-app "PM32 resident service" $< $@
+all: $(BUILD)/K32HOST.EXE
+$(BUILD)/mix.o: mix.c host.h ../window/k386_client.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/mix-client.o: ../window/k386_client.c | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/mix-dos.o: ../filer/dos.c | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -DPC98 -c $< -o $@
+$(BUILD)/mix-start.o: ../filer/start.s | $(BUILD)
+	as --32 $< -o $@
+$(BUILD)/mix-core.o: ../filer/core.c | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/mix.elf: $(BUILD)/mix.o $(BUILD)/mix-client.o $(BUILD)/mix-dos.o $(BUILD)/mix-start.o $(BUILD)/mix-core.o $(BUILD)/libmemory.o ../filer/com.ld
+	ld -m elf_i386 --gc-sections -T ../filer/com.ld $(filter %.o,$^) -o $@
+$(BUILD)/K32MIX.COM: $(BUILD)/mix.elf
+	objcopy -O binary $< $@
+all: $(BUILD)/K32MIX.COM
