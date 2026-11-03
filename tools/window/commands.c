@@ -28,6 +28,7 @@ const DeskCommand desk_commands[DESK_COMMANDS] = {
     {"PM32 viewer", "view32 read32 32bit", "Read a file in a PM32 window", 4},
     {"PM32 ticker", "count32 32bit progress", "Run a protected 32-bit task", 4},
     {"PM32 memory test", "mem32 32bit", "Verify a private 2 MiB array", 4},
+    {"PM32 array lab", "xarray32 dataset benchmark", "Compare protected array workloads", 4},
 };
 static char lower(char c) { return c >= 'A' && c <= 'Z' ? c + 'a' - 'A' : c; }
 static int contains(const char *text, const char *word, unsigned length) {

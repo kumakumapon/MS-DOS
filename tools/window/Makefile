@@ -18,7 +18,7 @@ $(BUILD)/dos98.o: ../filer/dos.c ../filer/filer.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -DPC98 -c $< -o $@
 $(BUILD)/exe-dos98.o: ../filer/dos.c ../filer/filer.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -DPC98 -DDOS_MZ -c $< -o $@
-$(BUILD)/window.raw.o: window.c commands.h k386_client.h ../k386/abi.h ../k386/resources.h tasks.h scroll.h hardware.h clipboard.h utilities.h ../filer/filer.h | $(BUILD)
+$(BUILD)/window.raw.o: window.c commands.h k386_client.h ../k386/abi.h ../k386/resources.h tasks.h scroll.h hardware.h performance.h clipboard.h utilities.h ../filer/filer.h | $(BUILD)
 	$(CC) $(filter-out -flto,$(CFLAGS)) -c $< -o $@
 $(BUILD)/k386_client.o: k386_client.c k386_client.h ../k386/abi.h ../k386/resources.h ../k38632/manager.h ../k38632/host.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@

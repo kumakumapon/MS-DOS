@@ -8,12 +8,17 @@
 enum { LINES=4, SORT_LINES=2, SORT_VALUES=8192, FILL_BYTES=2048*1024 };
 static unsigned char cache[2*LINES*XARRAY_PAGE];
 static XArray a,b;
+static unsigned long fill_sum;
 static int fail(const char *message){p_output("XARRAY FAIL: ");p_output(message);p_output("\r\n");return 1;}
 static void number(unsigned long value){char text[12];fd_number(text,value);p_output(text);}
 static void report(const char *name,const XArray *array){
     XArrayStats s;xarray_stats(array,&s);
     p_output("XARRAY OK ");p_output(name);p_output(" hits=");number(s.hits);
     p_output(" misses=");number(s.misses);p_output(" writebacks=");number(s.writebacks);p_output("\r\n");
+}
+static void result(const char *name,unsigned long bytes,unsigned long sum,unsigned long detail,unsigned long work){
+    p_output("XARRAY RESULT ");p_output(name);p_output(" bytes=");number(bytes);p_output(" sum=");number(sum);
+    p_output(" detail=");number(detail);p_output(" work=");number(work);p_output("\r\n");
 }
 static unsigned char pattern(unsigned long at){return (unsigned char)(at^(at>>8)^(at>>16));}
 /* mode 0: expect zeros, 1: write the pattern, 2: expect the pattern. */
@@ -23,30 +28,35 @@ static int sweep(XArray *x,unsigned long size,int mode){
         if(xarray_page(x,at,mode==1,&page,&n))return 1;
         for(unsigned i=0;i<n;i++){
             if(mode==1)page[i]=pattern(at+i);
-            else if(page[i]!=(mode?pattern(at+i):0))return 2;
+            else {if(page[i]!=(mode?pattern(at+i):0))return 2;if(mode==2)fill_sum+=page[i];}
         }
         at+=n;
     }
     return 0;
 }
 static int scenario_fill(void){
+    fill_sum=0;
     if(xarray_open(&a,&xarray_kapp_backend,FILL_BYTES,cache,LINES))return fail("open 2 MiB");
     if(sweep(&a,FILL_BYTES,0))return fail("new array is not zero");
     if(sweep(&a,FILL_BYTES,1))return fail("pattern write");
     if(sweep(&a,FILL_BYTES,2))return fail("pattern verify");
-    report("fill 2 MiB",&a);
+    result("fill",FILL_BYTES,fill_sum,0,FILL_BYTES*3UL);report("fill 2 MiB",&a);
     return xarray_close(&a)?fail("close"):0;
 }
 static int scenario_sequential(void){
     enum { PAGES=256 };
-    unsigned char byte;XArrayStats s;
+    unsigned char byte;XArrayStats s;unsigned long sum=0;
     if(xarray_open(&a,&xarray_kapp_backend,PAGES*(unsigned long)XARRAY_PAGE,cache,LINES))return fail("open 1 MiB");
     for(unsigned long page=0;page<PAGES;page++){
-        if(xarray_read(&a,page*XARRAY_PAGE,&byte,1)||xarray_read(&a,page*XARRAY_PAGE+XARRAY_PAGE-1,&byte,1))return fail("sequential read");
+        if(xarray_read(&a,page*XARRAY_PAGE,&byte,1))return fail("sequential read");
+        sum+=byte;
+        if(xarray_read(&a,page*XARRAY_PAGE+XARRAY_PAGE-1,&byte,1))return fail("sequential read");
+        sum+=byte;
     }
     xarray_stats(&a,&s);
     if(s.misses!=PAGES||s.hits!=PAGES||s.writebacks)return fail("sequential statistics");
-    report("sequential 1 MiB",&a);
+    if(sum)return fail("sequential zero data");
+    result("seq",PAGES*(unsigned long)XARRAY_PAGE,sum,0,PAGES*2UL);report("sequential 1 MiB",&a);
     return xarray_close(&a)?fail("close"):0;
 }
 static int get(XArray *x,unsigned long index,unsigned *value){unsigned char raw[2];if(xarray_read(x,index*2,raw,2))return 1;*value=raw[0]|raw[1]<<8;return 0;}
@@ -88,6 +98,8 @@ static int scenario_sort(void){
         previous=value;check+=value;
     }
     if(check!=sum)return fail("sort checksum");
+    XArrayStats source_stats,target_stats;xarray_stats(src,&source_stats);xarray_stats(dst,&target_stats);
+    result("sort",SORT_VALUES*2UL,check,previous,source_stats.hits+source_stats.misses+target_stats.hits+target_stats.misses);
     report("sort source",src);report("sort target",dst);
     if(xarray_close(src)|xarray_close(dst))return fail("close");
     return 0;
@@ -110,7 +122,7 @@ static int scenario_search(void){
         }
     }
     if(matches!=1||found!=at)return fail("needle across a page boundary");
-    report("search",&a);
+    result("search",SIZE,matches,found,SIZE-sizeof needle+1);report("search",&a);
     return xarray_close(&a)?fail("close"):0;
 }
 static int scenario_range(void){
@@ -120,8 +132,8 @@ static int scenario_range(void){
     if(xarray_read(&a,10000,&byte,1)!=87||xarray_write(&a,9999,"ab",2)!=87||xarray_read(&a,0xffffffffUL,&byte,2)!=87||xarray_page(&a,10000,0,&page,&n)!=87)return fail("range accepted");
     xarray_stats(&a,&after);
     if(before.misses!=after.misses||before.hits!=after.hits||before.writebacks!=after.writebacks)return fail("range check transferred");
-    if(xarray_read(&a,10000,&byte,0)||xarray_read(&a,9999,&byte,1))return fail("valid end range");
-    report("range",&a);
+    if(xarray_read(&a,10000,&byte,0)||xarray_read(&a,9999,&byte,1)||byte)return fail("valid end range");
+    result("range",10000,byte,4,6);report("range",&a);
     return xarray_close(&a)?fail("close"):0;
 }
 static int run_all(void){

@@ -1,5 +1,8 @@
 # PM32 resident tasks and KDESK windows
 
+For the paired native-pointer/paged-XMS demo and overlapping drawing policy,
+see [ARRAY32.md](ARRAY32.md).
+
 `K32HOST.EXE` is a separate real-mode resident module. INT 2Fh AX=D390h,
 BX=0 returns AX=390Dh and ES:DI pointing to K32HOST1 version 1. BX=1 executes
 one mailbox request. The mailbox checks a real-mode caller, masked/unowned

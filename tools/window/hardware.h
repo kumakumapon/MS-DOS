@@ -21,6 +21,8 @@ void gfx_read_span(int x, int y, unsigned segment, u32 offset, unsigned count);
 void gfx_write_span(int x, int y, unsigned segment, u32 offset, unsigned count);
 void gfx_target(int buffered);
 void gfx_present(int x, int y, int w, int h);
+/* Preserve visible occluders in the composition page; screen coordinates. */
+void gfx_preserve(int x, int y, int w, int h);
 int gfx_drag_begin(int x, int y, int w, int h);
 void gfx_drag_move(int x, int y);
 void gfx_drag_end(void);
