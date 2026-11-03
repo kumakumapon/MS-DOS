@@ -16,7 +16,8 @@ INPUT32 expects `a` then `b`. VIEW32 supports n/space/PageDown, p/PageUp,
 j/Down, k/Up, Home, End and q; Escape always stops the owner. It previews at
 most 64 KiB / 1024 lines, replaces control characters, and does not edit files.
 HEAP32 and FILE32 accept `hold` (Escape cleanup) or `fault` (real protection
-fault cleanup). DATA32.BIN is a deterministic 70001-byte read/seek fixture.
+fault cleanup). HEAP32 also accepts `revoked` (use after free) and `info`
+(write to immutable startup page), both expected page faults. DATA32.BIN is a deterministic 70001-byte read/seek fixture.
 
 ## Build and discovery
 

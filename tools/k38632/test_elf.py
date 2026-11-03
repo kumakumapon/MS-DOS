@@ -35,7 +35,7 @@ class ElfValidation(unittest.TestCase):
     def test_existing_v86_classifier_rejects_pm32_kind(self):
         subprocess.run(['cc','-shared','-fPIC',str(ROOT/'../k386/app.c'),'-o',str(ROOT/'build/old-app-test.so')],check=True)
         lib=c.CDLL(str(ROOT/'build/old-app-test.so'));lib.kapp_header.argtypes=[c.c_void_p,c.c_uint]
-        for name in ('HELLO32','MEM32','SPIN32','BADPTR32','FAULT32'):
+        for name in ('HELLO32','MEM32','SPIN32','BADPTR32','FAULT32','ARGS32','HEAP32','INPUT32','FILE32','VIEW32'):
             b=(ROOT/f'build/{name}.EXE').read_bytes();self.assertEqual(lib.kapp_header(c.create_string_buffer(b[:96]),96),-1)
     def test_runner_allocation_and_private_metadata(self):
         b=(ROOT/'build/K32RUN.EXE').read_bytes();h=struct.unpack_from('<14H',b);module=b[h[4]*16:]

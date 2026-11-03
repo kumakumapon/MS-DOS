@@ -2,6 +2,10 @@
 #define K32_EXTENDED_SDK_H
 #include "k32.h"
 #define K32_ABI_EXT 0x0101
+#define K32_FEATURE_STARTUP 1
+#define K32_FEATURE_HEAP 2
+#define K32_FEATURE_INPUT 4
+#define K32_FEATURE_FILES 8
 #define K32_WAIT_KEY 1
 #define K32_WAIT_TIME 2
 #define K32_BOOT_ADDRESS 0xbfd000u
