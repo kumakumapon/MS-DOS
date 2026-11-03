@@ -387,8 +387,8 @@ static void panel_run(void) {
     case 18:focus(LAUNCHER);break;
     case 19:focus(ABOUT);break;
     case 20:place_window(1);break;
-    case 24:case 25:case 26:{
-        static const char *programs[]={"VIEW32.EXE","COUNT32.EXE","MEM32.EXE"};
+    case 24:case 25:case 26:case 27:{
+        static const char *programs[]={"VIEW32.EXE","COUNT32.EXE","MEM32.EXE","XARRAY32.EXE"};
         char path[FD_PATH];if(!fd_path(path,home,programs[id-24]))launch(path,id==24?"VIEWDATA.TXT":id==25?"1":"");break;
     }
     case 21:case 22:case 23:{
@@ -729,20 +729,43 @@ static void draw_window(int id) {
         gfx_rect((w->x + w->w) * 8 - 7 + i * 2, (w->y + w->h) * 16 - 5 - i * 3, 1, 3 + i * 3, MUTED);
     gfx_origin(0, 0);
 }
-/* Fast path only for an unobscured DOS window. Overlap, modal UI and drag
-   retain normal composition, which repairs occlusion and the saved cursor. */
+/* A changed console row can lie below another window. Restore the visible
+ * occluder into the composition page and restore its logical text cells too.
+ * One saved text row uses 320 bytes, independent of viewport height. */
+static void preserve_dos_row(int id,int row,int first,int last,u16 saved[2][80]) {
+    Window *w=&windows[id];int x=first*8+w->ox,y=row*16+w->oy,above=0;
+    unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
+    for(int i=0;i<WINDOWS;i++) {
+        int other=order[i];if(other==id){above=1;continue;}Window *o=&windows[other];
+        if(!above||!o->open||o->hidden)continue;
+        int left=o->x*8+o->ox,top=o->y*16+o->oy,right=left+o->w*8+5,bottom=top+o->h*16+5;
+        if(left<x)left=x;
+        if(top<y)top=y;
+        if(right>(last+1)*8+w->ox)right=(last+1)*8+w->ox;
+        if(bottom>y+16)bottom=y+16;
+        if(right>left&&bottom>top)gfx_preserve(left,top,right-left,bottom-top);
+        left=o->x;right=left+o->w+1;if(left<0)left=0;if(right>80)right=80;
+        if(row<25&&row>=o->y&&row<=o->y+o->h&&right>left){
+            mem_copy(0xa000,row*160+left*2,ds,(unsigned)&saved[0][left],(right-left)*2);
+            mem_copy(0xa200,row*160+left*2,ds,(unsigned)&saved[1][left],(right-left)*2);
+        }
+    }
+}
+/* Modal UI, viewport scrollbar changes and drag retain normal composition. */
 static int update_dos_window(int id) {
     Window *w=&windows[id];unsigned session=id-DOS1;
     if(drag||mode||confirm||panel_open||dos_edit[session]||scene_dirty)return 0;
-    int above=0;
+    int above=0,occluded=0;
     for(int i=0;i<WINDOWS;i++) {
         int other=order[i];if(other==id){above=1;continue;}
         Window *o=&windows[other];
         if(above&&o->open&&!o->hidden&&
            w->x*8+w->ox<o->x*8+o->ox+o->w*8+5&&o->x*8+o->ox<w->x*8+w->ox+w->w*8+5&&
-           w->y*16+w->oy<o->y*16+o->oy+o->h*16+5&&o->y*16+o->oy<w->y*16+w->oy+w->h*16+5)return 0;
+           w->y*16+w->oy<o->y*16+o->oy+o->h*16+5&&o->y*16+o->oy<w->y*16+w->oy+w->h*16+5)occluded=1;
     }
+    if(occluded&&(gfx_colors()<256||dos_top[session]!=w->top))return 0;
     char screen[K386_SCREEN];k386_screen(session,screen);
+    u16 saved[2][80];unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
     int columns=w->w-6;if(columns>80)columns=80;
     gfx_target(1);gfx_origin(w->ox,w->oy);
     for(int row=0;row<w->h-6&&row<25;row++) {
@@ -752,18 +775,28 @@ static int update_dos_window(int id) {
             unsigned cell=(w->top+row)*80+dos_horizontal[session]+col;
             char ch=cell<K386_SCREEN?screen[cell]:' ';
             if(dos_cells[session][row*80+col]==ch)continue;
+            if(occluded&&last<0&&w->y+3+row<25){
+                mem_copy(ds,(unsigned)saved[0],0xa000,(w->y+3+row)*160,160);
+                mem_copy(ds,(unsigned)saved[1],0xa200,(w->y+3+row)*160,160);
+            }
             dos_cells[session][row*80+col]=ch;
             gfx_cell(w->x+2+col,w->y+3+row,ch,INK,PAPER,0);
             if(col<first)first=col;
             last=col;
         }
-        if(last>=first)gfx_present((w->x+2+first)*8+w->ox,(w->y+3+row)*16+w->oy,(last-first+1)*8,16);
+        if(last>=first){
+            if(occluded)preserve_dos_row(id,w->y+3+row,w->x+2+first,w->x+2+last,saved);
+            gfx_present((w->x+2+first)*8+w->ox,(w->y+3+row)*16+w->oy,(last-first+1)*8,16);
+        }
     }
     unsigned state=k386_word(session,0);
     if(dos_state[session]!=state) {
         gfx_target(1);
+        int row=w->y+w->h-3;
+        if(occluded&&row<25){mem_copy(ds,(unsigned)saved[0],0xa000,row*160,160);mem_copy(ds,(unsigned)saved[1],0xa200,row*160,160);}
         static const char *states[]={"Ended  ","Running","Waiting","Stopped","Fault  "};
         text(w->x+2,w->y+w->h-3,states[state<=4?state:4],7,0);
+        if(occluded)preserve_dos_row(id,row,w->x+2,w->x+8,saved);
         gfx_present((w->x+2)*8+w->ox,(w->y+w->h-3)*16+w->oy,56,16);
         dos_state[session]=state;
     }
@@ -1404,6 +1437,7 @@ int main(void) {
         resources_update(drag||scrolling>=0);
         previous = now; input_idle();
     }
+    performance.ready=0;
     if(enhanced){k386_command(K386_END,0,0,0);k386_command(K386_END,1,0,0);}
     wt_finish();mem_free(entries_segment);clip_state(0); gfx_stop(); p_finish(); p_output("KDESK exited.\r\n"); return 0;
 }

@@ -120,3 +120,7 @@ $(BUILD)/host.host.o $(BUILD)/manager.host.o: manager.h
 $(BUILD)/COUNT32.EXE: $(BUILD)/count.ext.elf package.py
 	python3 package.py $< $@ --abi 257 --features 15
 apps: $(BUILD)/COUNT32.EXE
+
+$(BUILD)/XARRAY32.EXE: $(BUILD)/xarray.ext.elf package.py
+	python3 package.py $< $@ --abi 257 --features 7
+apps: $(BUILD)/XARRAY32.EXE
