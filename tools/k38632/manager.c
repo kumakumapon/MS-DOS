@@ -33,7 +33,7 @@ int manager_v86_active(unsigned id){
 static void pointers(unsigned id){
  unsigned pm=k32_manager.kind[id]==K32_PM32;
  k32_manager.view[id]=pm?(u32)ds_segment*16+(unsigned)&host_mailbox.task[id].view:(u32)legacy_segment*16+legacy_offset+__builtin_offsetof(K386Mailbox,view)+id*sizeof(K386View);
- k32_manager.record[id]=pm?(u32)ds_segment*16+(unsigned)host_mailbox.task[id].record:0;
+ k32_manager.record[id]=(u32)ds_segment*16+(unsigned)host_mailbox.task[id].record;
  k32_manager.abi[id]=pm?*(u32 *)(host_mailbox.task[id].record+768):0;
  k32_manager.generation[id]=k386_resources.usage[id].generation;
 }
