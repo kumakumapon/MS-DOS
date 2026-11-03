@@ -1,11 +1,25 @@
 #include "k386_client.h"
 #include "hardware.h"
-static unsigned segment,offset,turn;
+#include "../k38632/manager.h"
+static unsigned segment,offset,turn,mixed;
+static u32 cached_view[2];
+static void refresh_views(void){for(unsigned id=0;id<2;id++){unsigned at=__builtin_offsetof(K32Manager,view)+id*4;cached_view[id]=mem_get(segment,offset+at)|(u32)mem_get(segment,offset+at+1)<<8|(u32)mem_get(segment,offset+at+2)<<16|(u32)mem_get(segment,offset+at+3)<<24;}}
 static unsigned resources_segment,resources_offset;
 #define OFF(m) __builtin_offsetof(K386Mailbox,m)
 static unsigned word(unsigned at) {return mem_get(segment,offset+at)|(unsigned)mem_get(segment,offset+at+1)<<8;}
 static void put(unsigned at,unsigned value) {mem_put(segment,offset+at,value);mem_put(segment,offset+at+1,value>>8);}
 int k386_probe(void) {
+    unsigned query=0xd391,zero=0,di_mixed;u16 seg_mixed;
+    __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(query),"=c"(seg_mixed),"=D"(di_mixed):"b"(zero):"cc","memory");
+    if((query&65535)==0x391d){
+        segment=seg_mixed;offset=di_mixed&65535;
+        if(word(8)==1&&word(10)==sizeof(K32Manager)&&word(12)==1){
+            mixed=1;unsigned at=__builtin_offsetof(K32Manager,resources);u32 p=word(at)|(u32)word(at+2)<<16;
+            resources_segment=p>>4;resources_offset=p&15;
+            if(p>=0x10000&&p+sizeof(K386Resources)<=0xa0000){refresh_views();return 1;}
+        }
+    }
+    mixed=0;resources_segment=0;
     unsigned a=0xd386,b=0,di;u16 seg;
     __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=D"(di):"b"(b):"cc","memory");
     if((a&0xffff)!=0x386d)return 0;
@@ -47,16 +61,31 @@ int k386_command(unsigned command,unsigned id,unsigned key,const char *path) {
     if(!segment||id>=2)return 1;
     put(OFF(command),command);put(OFF(session),id);put(OFF(key),key);
     if(path)for(unsigned i=0;i<128;i++){mem_put(segment,offset+OFF(path)+i,path[i]);if(!path[i])break;}
-    unsigned a=0xd386,b=1;
+    unsigned a=mixed?0xd391:0xd386,b=1;
     __asm__ volatile("int $0x2f":"+a"(a),"+b"(b)::"ecx","edx","esi","edi","cc","memory");
+    if(mixed)refresh_views();
     return word(OFF(error));
 }
-unsigned k386_word(unsigned id,unsigned at) {return word(OFF(view)+id*sizeof(K386View)+at);}
+static u32 view_address(unsigned id){return cached_view[id];}
+unsigned k386_kind(unsigned id){return mixed&&id<2?word(__builtin_offsetof(K32Manager,kind)+id*2):0;}
+int k386_restart(unsigned id){return k386_command(mixed?K32_RESTART:K386_CREATE,id,0,mixed?0:"KSH.EXE");}
+unsigned k386_word(unsigned id,unsigned at) {
+    if(id>=2||at+2>sizeof(K386View))return 0;
+    if(!mixed)return word(OFF(view)+id*sizeof(K386View)+at);
+    u32 p=view_address(id)+at;if(p<0x10000||p+2>0xa0000)return 0;
+    return mem_get(p>>4,p&15)|(unsigned)mem_get(p>>4,(p&15)+1)<<8;
+}
 unsigned k386_counter(unsigned id) {return k386_word(id,__builtin_offsetof(K386View,counter))|k386_word(id,__builtin_offsetof(K386View,counter)+2)<<16;}
-char k386_character(unsigned id,unsigned cell) {unsigned c=mem_get(segment,offset+OFF(view)+id*sizeof(K386View)+__builtin_offsetof(K386View,screen)+cell);return c<32?' ':c;}
+char k386_character(unsigned id,unsigned cell) {
+    if(id>=2||cell>=K386_SCREEN)return ' ';
+    u32 p=mixed?view_address(id):(u32)segment*16+offset+OFF(view)+id*sizeof(K386View);
+    p+=__builtin_offsetof(K386View,screen)+cell;
+    unsigned c=mem_get(p>>4,p&15);return c<32?' ':c;
+}
 void k386_screen(unsigned id,char *out) {
     unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
-    mem_copy(ds,(unsigned)out,segment,offset+OFF(view)+id*sizeof(K386View)+__builtin_offsetof(K386View,screen),K386_SCREEN);
+    if(mixed){u32 p=view_address(id)+__builtin_offsetof(K386View,screen);mem_copy(ds,(unsigned)out,p>>4,p&15,K386_SCREEN);}
+    else mem_copy(ds,(unsigned)out,segment,offset+OFF(view)+id*sizeof(K386View)+__builtin_offsetof(K386View,screen),K386_SCREEN);
     for(unsigned i=0;i<K386_SCREEN;i++)if((unsigned char)out[i]<32)out[i]=' ';
 }
 unsigned k386_tick(void) {

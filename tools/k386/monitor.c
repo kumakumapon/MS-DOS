@@ -62,10 +62,14 @@ void api_dispatch(void) {
     service=0x5000;__asm__ volatile("int $0x21":"+a"(service):"b"((unsigned)owner_psp):"cc","memory");
     selected=id;K386Session *s=&sessions[id];K386View *v=&k386_mailbox.view[id];
     switch(k386_mailbox.command) {
-    case K386_CREATE:
+    case K386_CREATE: {
+        /* A resident PM32 owner may occupy the same unified slot. */
+        unsigned a=0xd393,b=0;
+        __asm__ volatile("int $0x2f":"+a"(a),"+b"(b)::"ecx","edx","esi","edi","cc","memory");
+        if((a&65535)==0x393d&&(b&(1u<<id))){k386_mailbox.error=5;break;}
         k386_mailbox.error=k386_start(id,k386_mailbox.path);
         if(!k386_mailbox.error){resource_begin(id);event(id,K386_EVENT_START,K386_REASON_NONE);}
-        usage(id);break;
+        usage(id);break;}
     case K386_SCHEDULE: {
         /* DOS brokers (DIR/TYPE/EXEC) used to cost one entire desktop turn
            each. Reconsider all runnable sessions between bounded slices, so
@@ -89,6 +93,7 @@ void api_dispatch(void) {
         }break;
     }
     case K386_STEP:step(id);break;
+    case K386_POLL:if(v->state==K386_RUNNING||v->state==K386_WAITING)k386_clock(id);break;
     case K386_KEY:
         if(s->count==K386_KEY_CAPACITY){k386_mailbox.error=8;break;}
         s->keys[(s->head+s->count++)%K386_KEY_CAPACITY]=k386_mailbox.key;

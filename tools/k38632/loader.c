@@ -1,15 +1,15 @@
 /* Real-mode file and XMS broker. User code never calls DOS directly. */
 #include "services.h"
-K32Args loader_args;
+K32Args loader_args K32_STATE;
 extern u8 results[1024];
 extern u32 xms_entry;
 extern int services_start(void);
-u32 loader_map[1024],loader_entry,loader_rwbase,loader_rwbytes,loader_request,loader_length;
+u32 loader_map[1024] K32_STATE,loader_entry K32_STATE,loader_rwbase K32_STATE,loader_rwbytes K32_STATE,loader_request K32_STATE,loader_length K32_STATE;
 u8 loader_buffer[4096];
-K32Plan loader_plan;
+K32Plan loader_plan K32_STATE;
 #define plan loader_plan
-static int file=-1;
-static u32 size;
+static int file K32_STATE=-1;
+static u32 size K32_STATE;
 static void put(unsigned at,u32 n){*(u32 *)(results+at)=n;}
 static u32 get(unsigned at){return *(u32 *)(results+at);}
 static int read_at(void *unused,u32 at,void *buffer,u32 n){
@@ -27,12 +27,18 @@ void loader_close(void){
  if(a==~0u)put(16,21);else {file=-1;put(604,0);}
 }
 int loader_open(void){
- char name[64];unsigned length=0,psp=*(u16 *)(results+44);u8 tail[128];
+ char name[64];unsigned length=0;
+#ifdef K32_HOST
+ extern char host_command[128];unsigned n=0;while(host_command[n]&&n<127)n++;
+ if(k32_arguments((u8 *)host_command,n,&loader_args))return 1;
+#else
+ unsigned psp=*(u16 *)(results+44);u8 tail[128];
  for(unsigned i=0;i<128;i++){
   u32 at=0x80+i;u8 value;
   __asm__ volatile("pushw %%es; movw %w1,%%es; movb %%es:(%2),%0; popw %%es":"=q"(value):"r"(psp),"r"(at):"memory");tail[i]=value;
  }
  if(k32_arguments(tail+1,tail[0],&loader_args))return 1;
+#endif
  if(loader_args.budget)put(492,loader_args.budget);
  while(loader_args.arg[0][length]){name[length]=loader_args.arg[0][length];length++;}
  name[length]=0;
@@ -79,7 +85,12 @@ int loader_prepare(void){
  loader_close();if(get(16))return 4;return services_start();
 }
 int loader_write(void){
+#ifdef K32_HOST
+ extern int host_write(const void *,unsigned);
+ loader_request=0;return host_write(loader_buffer,loader_length);
+#else
  u32 a=0x4000;
  __asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"b"(1),"c"(loader_length),"d"((u32)loader_buffer):"cc","memory");
  loader_request=0;return a==~0u?-5:(int)(a&65535);
+#endif
 }

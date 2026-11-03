@@ -223,3 +223,22 @@ Unobscured DOS windows repaint only changed character spans, state labels and
 scrollbar positions. Window overlap, dialogs and dragging use normal scene
 composition; geometry and focus operations rebuild the cache. Emulator clock
 settings and the isolated, read-only file service policy do not change.
+
+
+## Shared PM32 and V86 desktop slots
+
+The experimental profile now installs K32HOST.EXE between K386 and KDESK.
+This separate module hosts the existing PM32 loader/SDK and exposes INT 2Fh
+D391h (K32MUX01), the common two-slot scheduler and resource policy. KDESK
+prefers that facade and falls back to the unchanged legacy V86 API when absent.
+No DOS kernel or NP2kai core changes are required. The engines keep distinct
+CPU-frame layouts and restore real mode between every bounded user slice.
+
+Find apps offers PM32 viewer, PM32 ticker and PM32 memory test. Tagged PM32
+EXEs use private 80x25 text windows with focused input and 4 MiB each, sharing
+the two slots with V86. Ctrl+L accepts a command after ending a live PM32 owner.
+Ctrl+P/R/E pause/resume/end; Tasks can restart a retained PM32 command. Exit or
+fault immediately reclaims the owner's PM32 heap/files/XMS, retaining its last
+screen/record. Shared files remain read-only. Ordinary foreground DOS EXEC still
+pauses GUI scheduling. See tools/k38632/HOST.md for layout, ownership, usage,
+verification and remaining limits. This is not a Windows/DPMI/widget API.

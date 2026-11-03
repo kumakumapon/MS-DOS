@@ -137,3 +137,13 @@ real DOS/XMS/CPU, actual live PTEs and post-cleanup revocation, user data sample
 system call/exit records, malformed files, fault/budget/Escape, GUI recovery,
 real low-memory refusal and whole-disk SHA-256 invariance. K32CPU/K32MEM and all
 existing V86/GUI/XMS/XARRAY checks continue as regression gates.
+
+
+## Resident KDESK execution
+
+[HOST.md](HOST.md) describes K32HOST's two shared PM32/V86 slots. The same PM32
+ABI applications can now run inside KDESK text windows without a K32RUN wrapper.
+In that backend write targets the private console and input comes from the
+focused window queue. DOS stdout/BIOS keyboard behavior above describes the
+standalone runner. ABI numbers, loader validation and memory/file restrictions
+are unchanged; no PM32 GUI-widget API is implied.

@@ -7,4 +7,5 @@
 #define KAPP_DESKTOP 2
 /* 0: ordinary DOS image, 1: V86 text app, 2: exclusive desktop tool, -1: invalid descriptor. */
 int kapp_header(const unsigned char *header, unsigned length);
+int kapp_pm32(const unsigned char *header,unsigned n);
 #endif

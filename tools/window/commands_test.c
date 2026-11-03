@@ -10,10 +10,12 @@ int main(void) {
     assert(command_find("dos 2", 1, ids) == 1 && ids[0] == 12);
     assert(command_find("hello", 0, ids) == 0);
     assert(command_find("hello", 1, ids) == 1 && ids[0] == 21);
+    assert(command_find("pm32",0,ids)==0);
+    assert(command_find("pm32",1,ids)==3);
     assert(command_find("impossible application", 1, ids) == 0);
     assert(command_find("", 1, ids) == DESK_COMMANDS);
-    assert(command_find(" ", 0, ids) == DESK_COMMANDS - 5);
-    for (unsigned i = 0; i < DESK_COMMANDS - 5; i++) {
+    assert(command_find(" ", 0, ids) == DESK_COMMANDS - 8);
+    for (unsigned i = 0; i < DESK_COMMANDS - 8; i++) {
         assert(ids[i] != 11 && ids[i] != 12);
         assert(strlen(desk_commands[ids[i]].name) < 32);
     }

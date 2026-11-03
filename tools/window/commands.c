@@ -25,6 +25,9 @@ const DeskCommand desk_commands[DESK_COMMANDS] = {
     {"Hello KDESK/386", "hello khello exe example", "Open an EXE app in a DOS window", 4},
     {"Background counter", "counter exe", "Run a background EXE application", 4},
     {"Keyboard echo", "echo keys exe", "Type in an independent DOS window", 4},
+    {"PM32 viewer", "view32 read32 32bit", "Read a file in a PM32 window", 4},
+    {"PM32 ticker", "count32 32bit progress", "Run a protected 32-bit task", 4},
+    {"PM32 memory test", "mem32 32bit", "Verify a private 2 MiB array", 4},
 };
 static char lower(char c) { return c >= 'A' && c <= 'Z' ? c + 'a' - 'A' : c; }
 static int contains(const char *text, const char *word, unsigned length) {
