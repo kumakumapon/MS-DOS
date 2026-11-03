@@ -97,6 +97,11 @@ static int pm_image(const char *command){
  char path[128];unsigned n=0,at=0;int quote=0;while(command[at]==' ')at++;
  for(;command[at]&&n<127;at++){char c=command[at];if(c=='"'){quote=!quote;continue;}if(!quote&&c==' ')break;path[n++]=c;}path[n]=0;
  unsigned a=0x3d00;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"d"((u32)path):"cc","memory");if(a==~0u)return 0;unsigned h=a&65535;u8 b[96];
+ /* DOS recognizes devices even with extensions (CON.COM). Never issue a
+  * header read on a character device; leave its rejection to the V86 policy. */
+ unsigned device=0;a=0x4400;
+ __asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a),"=d"(device):"b"(h):"cc","memory");
+ if(a==~0u||(device&128)){a=0x3e00;__asm__ volatile("int $0x21":"+a"(a):"b"(h):"cc","memory");return 0;}
  a=0x3f00;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"b"(h),"c"(96),"d"((u32)b):"cc","memory");unsigned bytes=a;
  a=0x3e00;__asm__ volatile("int $0x21":"+a"(a):"b"(h):"cc","memory");
  const char *sig="K386APP1";if(bytes!=96||b[0]!='M'||b[1]!='Z'||b[38]!=3||b[39])return 0;
