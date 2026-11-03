@@ -34,9 +34,11 @@ class ElfValidation(unittest.TestCase):
         struct.pack_into('<H',b,80,258);self.assertNotEqual(parse(b)[0],0)
     def test_existing_v86_classifier_rejects_pm32_kind(self):
         subprocess.run(['cc','-shared','-fPIC',str(ROOT/'../k386/app.c'),'-o',str(ROOT/'build/old-app-test.so')],check=True)
-        lib=c.CDLL(str(ROOT/'build/old-app-test.so'));lib.kapp_header.argtypes=[c.c_void_p,c.c_uint]
+        lib=c.CDLL(str(ROOT/'build/old-app-test.so'));lib.kapp_header.argtypes=[c.c_void_p,c.c_uint];lib.kapp_pm32.argtypes=[c.c_void_p,c.c_uint]
         for name in ('HELLO32','MEM32','SPIN32','BADPTR32','FAULT32','ARGS32','HEAP32','INPUT32','FILE32','VIEW32'):
             b=(ROOT/f'build/{name}.EXE').read_bytes();self.assertEqual(lib.kapp_header(c.create_string_buffer(b[:96]),96),-1)
+            self.assertEqual(lib.kapp_pm32(c.create_string_buffer(b[:96]),96),1)
+        b=bytearray(b[:96]);b[40:72]=b'A'*32;self.assertEqual(lib.kapp_pm32(c.create_string_buffer(bytes(b)),96),0)
     def test_runner_allocation_and_private_metadata(self):
         b=(ROOT/'build/K32RUN.EXE').read_bytes();h=struct.unpack_from('<14H',b);module=b[h[4]*16:]
         self.assertEqual(h[0],0x5a4d);self.assertEqual(h[5],h[6]);self.assertEqual(((len(module)+15)//16+h[5])*16,65536)

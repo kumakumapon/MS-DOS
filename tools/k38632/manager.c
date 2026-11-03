@@ -10,6 +10,7 @@ extern int host_operate(unsigned,unsigned);
 K32Manager k32_manager={.signature={'K','3','2','M','U','X','0','1'},.version=1,.size=sizeof(K32Manager)};
 static unsigned ds_segment,legacy_segment,legacy_offset,resource_segment,resource_offset;
 static u32 seen_generation[2];
+static unsigned diagnostic_segment,diagnostic_offset;
 static unsigned preparing=2;
 int manager_staging(unsigned id){return preparing==id;}
 static unsigned word(unsigned seg,unsigned at){return mem_get(seg,at)|(unsigned)mem_get(seg,at+1)<<8;}
@@ -54,7 +55,7 @@ static void event(unsigned id,unsigned type,unsigned reason){
  K386Frame f={0};u32 cr2=viewlong(id,__builtin_offsetof(K386View,cr2));unsigned fault=viewword(id,__builtin_offsetof(K386View,fault));
  f.eip=viewlong(id,__builtin_offsetof(K386View,eip));f.eflags=viewlong(id,__builtin_offsetof(K386View,eflags));
  if(k32_manager.kind[id]==K32_PM32)f.cs=*(u32 *)(host_mailbox.task[id].record+380);
- else if(resource_segment){unsigned at=resource_offset+__builtin_offsetof(K386Resources,usage)+id*sizeof(K386Usage);f.cs=word(resource_segment,at+__builtin_offsetof(K386Usage,last_cs));}
+ else if(diagnostic_segment&&type!=K386_EVENT_START)mem_copy(ds_segment,(unsigned)&f,diagnostic_segment,diagnostic_offset+__builtin_offsetof(K386Diagnostics,frame)+id*sizeof f,sizeof f);
  resource_event(id,type,reason,&f,cr2,fault);
 }
 static u32 old_sequence(void){return resource_segment?longword(resource_segment,resource_offset+12):0;}
@@ -136,6 +137,10 @@ void manager_init(unsigned segment){
  a=0xd387;b=0;__asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=D"(di):"b"(b):"edx","esi","cc","memory");
  if((a&65535)!=0x387d)return;
  resource_segment=seg;resource_offset=di&65535;
+ a=0xd388;b=0;__asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=D"(di):"b"(b):"edx","esi","cc","memory");
+ if((a&65535)!=0x388d)return;
+ diagnostic_segment=seg;diagnostic_offset=di&65535;
+ k32_manager.diagnostics=(u32)seg*16+diagnostic_offset;
  resource_init();k32_manager.owner=host_mailbox.owner;k32_manager.legacy=(u32)legacy_segment*16+legacy_offset;k32_manager.resources=(u32)segment*16+(unsigned)&k386_resources;
  for(unsigned id=0;id<2;id++)pointers(id);
  k32_manager.ready=1;
@@ -166,4 +171,4 @@ void manager_dispatch(void){
  default:k32_manager.error=87;
  }
 }
-_Static_assert(sizeof(K32Manager)==196,"versioned mixed manager ABI");
+_Static_assert(sizeof(K32Manager)==200,"versioned mixed manager ABI");

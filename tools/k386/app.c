@@ -15,7 +15,9 @@ int kapp_header(const unsigned char *h,unsigned n) {
 /* GUI classification only; V86's kapp_header deliberately still rejects kind 3. */
 int kapp_pm32(const unsigned char *h,unsigned n){
     const char *magic="K386APP1",*elf="K32EXE01";
-    if(n<96||h[0]!='M'||h[1]!='Z'||h[36]!=0||h[37]!=1||h[38]!=3||h[39])return 0;
+    if(n<96||h[0]!='M'||h[1]!='Z'||h[8]!=6||h[9]||h[24]!=96||h[25]||h[36]!=0||h[37]!=1||h[38]!=3||h[39])return 0;
     for(unsigned i=0;i<8;i++)if(h[28+i]!=(unsigned char)magic[i]||h[72+i]!=(unsigned char)elf[i])return 0;
+    unsigned end=40;for(;end<72&&h[end];end++)if(h[end]<32||h[end]>126)return 0;
+    if(end==40||end==72||h[93]||h[94]||h[95]||(h[92]&~15)||(h[80]==0&&h[92]))return 0;
     return (h[80]==0||h[80]==1)&&h[81]==1&&h[82]==24&&!h[83];
 }

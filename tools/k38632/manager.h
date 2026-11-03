@@ -9,7 +9,7 @@ enum {K32_RESTART=13};
 typedef struct {
  char signature[8];u16 version,size,ready,error,command,session,key,busy;
  char path[128];u16 kind[2],abi[2];u32 generation[2],view[2],record[2];
- u32 resources,legacy;u16 owner,reserved;
+ u32 resources,legacy,diagnostics;u16 owner,reserved;
 } K32Manager;
 extern K32Manager k32_manager;
 void manager_init(unsigned segment);

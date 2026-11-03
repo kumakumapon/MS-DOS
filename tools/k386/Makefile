@@ -246,7 +246,7 @@ $(BUILD)/XARRAY.EXE: $(BUILD)/xarraycheck.elf ../mz/build.py
 
 all: ../k38632/build/K32MEM.EXE
 all: ../k38632/build/K32RUN.EXE
-../k38632/build/K32RUN.EXE: ../k38632/build/K32MEM.EXE $(wildcard ../k38632/*.c ../k38632/*.h ../k38632/*.py ../k38632/sdk/* ../k38632/apps/*) ../k38632/Makefile
+../k38632/build/K32RUN.EXE: ../k38632/build/K32MEM.EXE $(wildcard ../k38632/*.c ../k38632/*.h ../k38632/*.py ../k38632/*.S ../k38632/*.ld ../k38632/sdk/* ../k38632/apps/*) ../k38632/Makefile
 	$(MAKE) -C ../k38632 all
 ../k38632/build/K32CPU.COM: ../k38632/probe.S ../k38632/probe.ld ../k38632/Makefile
 	$(MAKE) -C ../k38632 all

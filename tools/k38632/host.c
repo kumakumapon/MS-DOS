@@ -93,7 +93,7 @@ static int create(unsigned id){
 }
 int host_operate(unsigned id,unsigned cmd){
  if(cmd==K32_HOST_CREATE)return create(id);
- if(!slots[id].state)return cmd==K32_HOST_END?0:5;
+ if(!slots[id].state){if(cmd==K32_HOST_END){host_mailbox.task[id].view.state=K386_ENDED;host_mailbox.task[id].view.flags++;return 0;}return 5;}
  K386View *v=&host_mailbox.task[id].view;load(id);
  if(cmd==K32_HOST_END){put(12,5);put(68,67);v->state=K386_ENDED;return finish(id);}
  if(cmd==K32_HOST_STOP){if(v->state==K386_WAITING)services_pause();v->state=K386_STOPPED;save(id);v->flags++;return 0;}

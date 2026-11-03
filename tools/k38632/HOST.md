@@ -34,3 +34,26 @@ COUNTER, then alternates two PM32 SPIN32 owners. It checks actual user frames,
 progress, different page directories/backing and host restoration before cleanup.
 This is the prerequisite for common scheduling and GUI integration; those parts
 must not be claimed complete until the corresponding live E2E passes.
+
+## Shared real-mode manager
+
+AX=D391h / BX=0 discovers K32MUX01 version 1 (200 bytes); BX=1 executes the
+legacy command/key/path offsets through the new manager. It owns the two-slot
+resource policy, budgets and journal, and exposes pointers to the actual V86 or
+PM32 producer for each view. AX=D393h returns AX=393Dh / BX=occupied PM32 mask;
+the small legacy CREATE guard refuses a slot already owned by PM32. Raw PM32
+CREATE similarly refuses a live V86 slot. A manager transaction may prepare a
+candidate before ending a V86 owner; failure preserves the previous owner.
+
+The original V86 monitor stays within its 64 KiB image/stack bounds. Its only
+extensions are the ownership guard, a no-user-dispatch clock poll, and diagnostic
+pointer discovery (AX=D388h). The two execution engines keep their mode-specific
+frames and exception handlers. Every slice restores real mode before another
+engine or DOS broker runs. No Windows API or hardware I/O emulation is added.
+
+The common manager reuses the existing weighted scheduling/accounting policy.
+Only runnable tasks accrue credits. Waiting PM32 tasks receive a bounded poll,
+not a BIOS polling loop; GUI input is routed by the active slot. File operations
+remain serialized in real mode and all PM32 handles remain read-only. V86
+backend events, including child EXEC exit/fault restoration, are transferred to
+the common journal with the common task generation.
