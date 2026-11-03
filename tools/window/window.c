@@ -81,6 +81,15 @@ static char memo_get(int at){return mem_get(entries_segment,MEMO_OFFSET+at);}
 static void memo_put(int at,char ch){mem_put(entries_segment,MEMO_OFFSET+at,ch);}
 static const char *titles[] = {"Launcher", "Files", "Memo", "Help", "About", "Calculator", "Clock", "Tasks", "DOS 1", "DOS 2", "Text editor", "System settings", "Image viewer", "Image editor"};
 static const char *apps[] = {"FD98.EXE", "EDIT98.EXE", "CPANEL.EXE", "RBASIC.COM", "COMMAND.COM", "KVIEW.EXE", "KPAINT.EXE"};
+static const char *window_title(int id){
+    static char title[40];
+    if(id>=DOS1&&id<=DOS2&&enhanced&&k386_kind(id-DOS1)){
+        K386Usage u;fd_text(title,id==DOS1?"PM32 1: ":"PM32 2: ",sizeof title);
+        if(k386_usage(id-DOS1,&u))fd_text(title+8,u.program,sizeof title-8);
+        return title;
+    }
+    return titles[id];
+}
 static const char *labels[] = {"File manager", "Text editor", "System settings", "Image viewer", "Image editor", "BASIC", "DOS shell (EXIT returns)", "Image viewer", "Image editor", "Calculator", "Clock"};
 static const char *icon_labels[] = {"File manager", "Text editor", "Settings", "BASIC", "DOS shell", "Image viewer", "Image editor", "Calculator", "Clock"};
 static const char *task_labels[] = {"Apps", "Files", "Memo", "Help", "About", "Calc", "Clock", "Tasks", "DOS 1", "DOS 2", "Text editor", "System settings", "Image viewer", "Image editor"};
@@ -225,7 +234,7 @@ static void taskbar(void) {
     button(0,ROWS-1,6,"Desk",active<0);
     int x=6,width=task_width();
     for(int id=0;id<WINDOWS;id++)if(windows[id].open) {
-        button(x,ROWS-1,width,task_labels[id],active==id);
+        button(x,ROWS-1,width,(id>=DOS1&&id<=DOS2&&k386_kind(id-DOS1))?window_title(id):task_labels[id],active==id);
         gfx_rect(x*8+3,(ROWS-1)*16+13,width*8-6,2,windows[id].hidden?MUTED:active==id?GOLD:ACCENT);
         x+=width;
     }
@@ -298,6 +307,7 @@ static int launch_app(const char *program,const char *arguments,int *desktop) {
     int kind=n<0?0:kapp_header(header,n);
     if(!kind)return 0;
     if(kind==KAPP_DESKTOP){*desktop=1;return 0;}
+    if(kind<0&&kapp_pm32(header,n))kind=3;
     if(kind<0){message("Unsupported KDESK/386 application version or header");return 1;}
     if(!enhanced){message("This application needs KDESK/386; boot the enhanced image");return 1;}
     int slot;
@@ -308,7 +318,7 @@ static int launch_app(const char *program,const char *arguments,int *desktop) {
     fd_text(command,program,sizeof command);
     if(args){command[length++]=' ';fd_text(command+length,arguments,sizeof command-length);}
     if(k386_command(K386_CREATE,slot,0,command)){message("Cannot load KDESK/386 application");return 1;}
-    dos_edit[slot]=0;dos_follow[slot]=1;windows[DOS1+slot].top=0;
+    dos_edit[slot]=0;dos_follow[slot]=!k386_kind(slot);windows[DOS1+slot].top=0;
     focus(DOS1+slot);message((const char *)header+40);return 1;
 }
 static void launch(const char *program, const char *arguments) {
@@ -373,6 +383,10 @@ static void panel_run(void) {
     case 18:focus(LAUNCHER);break;
     case 19:focus(ABOUT);break;
     case 20:place_window(1);break;
+    case 24:case 25:case 26:{
+        static const char *programs[]={"VIEW32.EXE","COUNT32.EXE","MEM32.EXE"};
+        char path[FD_PATH];if(!fd_path(path,home,programs[id-24]))launch(path,id==24?"VIEWDATA.TXT":id==25?"1":"");break;
+    }
     case 21:case 22:case 23:{
         static const char *programs[]={"KHELLO.EXE","COUNTER.EXE","ECHO.EXE"};
         char path[FD_PATH];
@@ -598,7 +612,7 @@ static void draw_panel(void) {
         utility_icon(c->icon,120,y*16);
         label(20,y,c->name,42,selected?WHITE:INK,bg,selected);
         char context[44]="Arrange: ";const char *hint=c->hint;
-        if(!*hint){fd_text(context+9,active>=0?titles[active]:"choose a window first",sizeof context-9);hint=context;}
+        if(!*hint){fd_text(context+9,active>=0?window_title(active):"choose a window first",sizeof context-9);hint=context;}
         label(20,y+1,hint,44,selected?SURFACE:MUTED,bg,0);
     }
     char footer[48];fd_number(footer,panel_count);
@@ -626,7 +640,7 @@ static void draw_window(int id) {
     gfx_rect(w->x * 8 + 3, w->y * 16 + 5, w->w * 8 - 6, 31, title_color);
     gfx_rect(w->x * 8 + 3, w->y * 16 + 5, w->w * 8 - 6, 2, active==id?HANDLE:SURFACE);
     gfx_rect(w->x*8+3,w->y*16+34,w->w*8-6,2,active==id?SELECTED:MUTED);
-    label(w->x + 2, w->y + 1, titles[id], w->w - 17, active == id ? WHITE : INK, title_color, 0);
+    label(w->x + 2, w->y + 1, window_title(id), w->w - 17, active == id ? WHITE : INK, title_color, 0);
     title_button(w->x+w->w-13,w->y+1,0);
     title_button(w->x+w->w-9,w->y+1,placement[id]==1?2:1);
     title_button(w->x+w->w-5,w->y+1,3);
@@ -671,7 +685,7 @@ static void draw_window(int id) {
         for(int i=w->top;i<WINDOWS&&i<w->top+10&&i-w->top<w->h-6;i++) {
             char row[48];int at=0;unsigned n=desktop_tasks[i].id;
             row[at++]='0'+n/100%10;row[at++]='0'+n/10%10;row[at++]='0'+n%10;row[at++]=' ';
-            fd_text(row+at,titles[i],sizeof row-at);at=fd_len(row);
+            fd_text(row+at,window_title(i),sizeof row-at);at=fd_len(row);
             while(at<16)row[at++]=' ';
             static const char *dos_states[]={"Ended","Running","Waiting","Stopped","Fault"};
             unsigned state=(i>=DOS1&&i<=DOS2)&&enhanced?k386_word(i-DOS1,0):0;
@@ -774,7 +788,7 @@ static void compose(int foreground) {
         int x=58+i*11;
         gfx_rect(x*8,48,80,64,DESKTOP_LIGHT);
         utility_icon(4,x*8+24,54);
-        label(x+2,6,titles[DOS1+i],6,WHITE,DESKTOP_LIGHT,0);
+        label(x+2,6,window_title(DOS1+i),6,WHITE,DESKTOP_LIGHT,0);
     }
     gfx_rect(0, 0, SW, 16, INK);
     button(0,0,14,"Kuma Desktop",panel_open);
@@ -895,7 +909,7 @@ static int handle_key(int key) {
 /* Guest ASCII keys only enqueue input. Paint after the VM produces output,
  * rather than repainting the desktop twice for every input batch. */
 static int guest_input(int id,unsigned key) {
-    return !panel_open&&enhanced&&(id>=DOS1&&id<=DOS2)&&!dos_edit[id-DOS1]&&!mode&&!confirm&&key<128
+    return !panel_open&&enhanced&&(id>=DOS1&&id<=DOS2)&&!dos_edit[id-DOS1]&&!mode&&!confirm&&(key<128||(k386_kind(id-DOS1)&&key>=KEY_UP&&key<=KEY_PAGEDOWN))
         &&key!=4&&key!=11&&key!=7&&key!=9&&key!=12&&key!=14&&key!=15&&key!=20&&key!=16&&key!=18&&key!=5
         &&(key!=3||!k386_resources_available());
 }
@@ -927,7 +941,7 @@ static __attribute__((noinline)) int app_key(int id,int key) {
                 if(key==']'&&event_age)event_age--;
             }
             if(key=='s'||key=='S')k386_command(K386_STOP,selected-DOS1,0,0);
-            if(key=='r'||key=='R'){if(k386_word(selected-DOS1,0)>=K386_FAULTED||k386_word(selected-DOS1,0)==K386_ENDED)k386_command(K386_CREATE,selected-DOS1,0,"KSH.EXE");else if(k386_command(K386_RESUME,selected-DOS1,0,0))message("Cannot resume; raise or disable the CPU limit in Tasks");focus(selected);}
+            if(key=='r'||key=='R'){if(k386_word(selected-DOS1,0)>=K386_FAULTED||k386_word(selected-DOS1,0)==K386_ENDED)k386_restart(selected-DOS1);else if(k386_command(K386_RESUME,selected-DOS1,0,0))message("Cannot resume; raise or disable the CPU limit in Tasks");focus(selected);}
             if(key=='k'||key=='K')k386_command(K386_END,selected-DOS1,0,0);
             return 0;
         }
@@ -948,9 +962,12 @@ static __attribute__((noinline)) int app_key(int id,int key) {
             int n=fd_len(dos_path[session]);
             if(key==8&&n)dos_path[session][--n]=0;
             else if(key>=32&&key<=126&&n<127){dos_path[session][n]=key;dos_path[session][n+1]=0;}
-            else if(key==13){if(k386_command(K386_CREATE,session,0,dos_path[session]))message("Cannot load program (path, memory or unsupported image)");else{dos_edit[session]=0;dos_follow[session]=1;w->top=0;message("V86 program running; files read-only");}}
+            else if(key==13){if(k386_command(K386_CREATE,session,0,dos_path[session]))message("Cannot load program (path, memory or unsupported image)");else{dos_edit[session]=0;dos_follow[session]=!k386_kind(session);w->top=0;message(k386_kind(session)?"PM32 program running; files read-only":"V86 program running; files read-only");}}
         } else if(key==3&&k386_resources_available()){
             if(k386_command(K386_INTERRUPT,session,0,0))message("No running DOS program to interrupt");else message("DOS program interrupted");
+        } else if(k386_kind(session)&&key>=KEY_UP&&key<=KEY_PAGEDOWN){
+            unsigned scan=key==KEY_UP?0x3a:key==KEY_DOWN?0x3d:key==KEY_LEFT?0x3b:key==KEY_RIGHT?0x3c:key==KEY_HOME?0x3e:key==KEY_END?0x3f:key==KEY_PAGEUP?0x36:0x37;
+            k386_command(K386_KEY,session,scan<<8,0);
         } else if(key==KEY_PAGEUP){dos_follow[session]=0;if(w->top)w->top--;}
         else if(key==KEY_PAGEDOWN){if(w->top<25-(w->h-6))w->top++;dos_follow[session]=w->top>=25-(w->h-6);}
         else if(key>=0&&key<=127){dos_follow[session]=1;if(k386_command(K386_KEY,session,key,0)){message("Input queue full; resume the session and retry");scene_dirty=1;}}
@@ -1272,7 +1289,7 @@ int main(void) {
         if(enhanced&&((input_ticks()-dos_tick)&0xffffff)>=3072) {
             dos_tick=input_ticks();unsigned changed=k386_tick();
             if(changed){for(int id=DOS1;id<=DOS2;id++)if((changed&(1u<<(id-DOS1)))&&windows[id].open&&!windows[id].hidden){
-                if(dos_follow[id-DOS1]){int top=k386_word(id-DOS1,__builtin_offsetof(K386View,row))-(windows[id].h-7);windows[id].top=scroll_clamp(top,25,windows[id].h-6);}
+                if(dos_follow[id-DOS1]&&!k386_kind(id-DOS1)){int top=k386_word(id-DOS1,__builtin_offsetof(K386View,row))-(windows[id].h-7);windows[id].top=scroll_clamp(top,25,windows[id].h-6);}
                 dos_changed|=1u<<id;}}
         }
         int previous_active=active,previous_mode=mode,previous_confirm=confirm;

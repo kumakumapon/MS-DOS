@@ -1,6 +1,6 @@
 /* Included by runtime.S only for the resident bounded-slice backend. */
 .code16gcc
-.global host_acquire,host_enter,host_drop_xms,initialized
+.global host_acquire,host_enter,host_drop_xms,initialized,host_api_kind
 _start:
     cld
     cli
@@ -51,15 +51,54 @@ host_install_failed:
     mov ax,0x4c01
     int 0x21
 host_api:
+    cmp ax,0xd393
+    je host_occupancy_query
+    cmp ax,0xd391
+    je host_manager_api
     cmp ax,0xd390
     jne host_chain
     test bx,bx
-    jnz host_dispatch_api
+    jnz host_raw_dispatch
     mov ax,cs
     mov es,ax
     mov di,OFFSET host_mailbox
     mov ax,0x390d
     iretw
+host_manager_api:
+    test bx,bx
+    jnz host_manager_dispatch
+    mov ax,cs
+    mov es,ax
+    mov di,OFFSET k32_manager
+    mov ax,0x391d
+    iretw
+host_occupancy_query:
+    push ds
+    push es
+    push ecx
+    push edx
+    push esi
+    push edi
+    push ebp
+    mov ax,cs
+    mov ds,ax
+    call host_occupied
+    mov bx,ax
+    pop ebp
+    pop edi
+    pop esi
+    pop edx
+    pop ecx
+    pop es
+    pop ds
+    mov ax,0x393d
+    iretw
+host_manager_dispatch:
+    mov WORD PTR cs:host_api_kind,1
+    jmp host_dispatch_api
+host_raw_dispatch:
+    mov WORD PTR cs:host_api_kind,0
+    jmp host_dispatch_api
 host_chain:
     .byte 0x2e,0xff,0x2e
     .word host_old_int
@@ -227,6 +266,7 @@ host_drop_return:
     pop ebx
     ret
 .section .data
+host_api_kind: .word 0
 host_old_int: .long 0
 host_caller_ss: .word 0
 host_caller_esp: .long 0

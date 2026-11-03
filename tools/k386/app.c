@@ -11,3 +11,11 @@ int kapp_header(const unsigned char *h,unsigned n) {
     for(;i<72&&h[i];i++)if(h[i]<32||h[i]>126)return -1;
     return i>40&&i<72?(h[38]|h[39]<<8):-1;
 }
+
+/* GUI classification only; V86's kapp_header deliberately still rejects kind 3. */
+int kapp_pm32(const unsigned char *h,unsigned n){
+    const char *magic="K386APP1",*elf="K32EXE01";
+    if(n<96||h[0]!='M'||h[1]!='Z'||h[36]!=0||h[37]!=1||h[38]!=3||h[39])return 0;
+    for(unsigned i=0;i<8;i++)if(h[28+i]!=(unsigned char)magic[i]||h[72+i]!=(unsigned char)elf[i])return 0;
+    return (h[80]==0||h[80]==1)&&h[81]==1&&h[82]==24&&!h[83];
+}

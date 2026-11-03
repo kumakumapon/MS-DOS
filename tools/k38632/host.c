@@ -1,7 +1,7 @@
 /* Real-mode PM32 resident service; each call returns after at most one quantum.
  * Task snapshots contain only private trusted state, never the execution stacks.
  */
-#include "host.h"
+#include "manager.h"
 #include "../window/hardware.h"
 extern u8 results[1024],__task_start[],__task_end[];
 extern u32 xms_entry,context[19],initialized,loader_request;
@@ -11,7 +11,8 @@ extern int host_acquire(void);
 extern void host_enter(void),host_drop_xms(void);
 K32HostMailbox host_mailbox={.signature={'K','3','2','H','O','S','T','1'},.version=1,.size=sizeof(K32HostMailbox)};
 char host_command[128];
-static u8 seed[8192];
+extern u16 host_api_kind;
+static u8 seed[7168];
 static struct {u16 state,tables;u32 generation;} slots[2];
 static unsigned active,ds_segment,task_bytes,indos_segment,indos_offset;
 static unsigned csi,parameter[2],which;
@@ -71,7 +72,7 @@ int host_write(const void *buffer,unsigned n){
  terminal_state=csi;terminal_parameter[0]=parameter[0];terminal_parameter[1]=parameter[1];terminal_which=which;v->flags++;return (int)n;
 }
 static int create(unsigned id){
- if(slots[id].state)return 5;
+ if(slots[id].state||(manager_v86_active(id)&&!manager_staging(id)))return 5;
  unsigned snapshot=mem_alloc(task_bytes),tables=mem_alloc(16384);
  if(!snapshot||!tables){mem_free(snapshot);mem_free(tables);return 8;}
  slots[id].state=snapshot;slots[id].tables=tables;
@@ -80,9 +81,9 @@ static int create(unsigned id){
  put(20,(u32)ds_segment*16);put(24,pd);put(44,host_mailbox.owner);put(56,ticks()|1);put(492,~0u);put(504,(unsigned)results);
  copy(host_command,host_mailbox.path,128);host_command[127]=0;
  int e=loader_open();if(e){put(16,20);put(12,6);}
- else if(host_acquire())e=get(16)==8?8:11;
+ else {extern K32Plan loader_plan;put(768,loader_plan.abi);if(host_acquire())e=get(16)==8?8:11;}
  if(e){
-  services_close();loader_close();host_drop_xms();copy(host_mailbox.failure,results,1024);
+  services_close();loader_close();host_drop_xms();copy(host_mailbox.failure,results,sizeof host_mailbox.failure);
   if(*(u16 *)(results+40)||get(820)){save(id);host_mailbox.task[id].view.state=K386_FAULTED;publish(id);return 5;}
   mem_free(tables);mem_free(snapshot);slots[id].state=slots[id].tables=0;return e;
  }
@@ -90,7 +91,7 @@ static int create(unsigned id){
  for(unsigned i=0;i<2000;i++)v->view.screen[i]=' ';
  v->generation=++slots[id].generation;copy(v->command,host_command,128);publish(id);save(id);return 0;
 }
-static int operate(unsigned id,unsigned cmd){
+int host_operate(unsigned id,unsigned cmd){
  if(cmd==K32_HOST_CREATE)return create(id);
  if(!slots[id].state)return cmd==K32_HOST_END?0:5;
  K386View *v=&host_mailbox.task[id].view;load(id);
@@ -100,6 +101,7 @@ static int operate(unsigned id,unsigned cmd){
  if(cmd==K32_HOST_KEY){int e=services_key(host_mailbox.key);if(v->state!=K386_STOPPED&&get(12)==7)services_wait();if(v->state!=K386_STOPPED&&services_cancel())return finish(id);publish(id);save(id);return e;}
  if(cmd!=K32_HOST_STEP&&cmd!=K32_HOST_POLL)return 87;
  if(v->state==K386_STOPPED)return 0;
+ if(services_cancel())return finish(id);
  if(get(12)==7)services_wait();
  else if(cmd==K32_HOST_STEP){
   host_enter();put(636,get(636)+1);
@@ -117,14 +119,18 @@ int host_install(void){
  a=0x6700;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"b"(40):"cc","memory");if(a==~0u)return 1;
  a=0x3400;__asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(bx)::"cc","memory");indos_segment=seg;indos_offset=bx&65535;
  task_bytes=(unsigned)(__task_end-__task_start);if(task_bytes>sizeof seed)return 1;
- copy(seed,__task_start,task_bytes);host_mailbox.cookie=ticks()|1;host_mailbox.ready=1;return 0;
+ copy(seed,__task_start,task_bytes);host_mailbox.cookie=ticks()|1;host_mailbox.ready=1;manager_init(ds_segment);return 0;
 }
+unsigned host_occupied(void){return (slots[0].state?1u:0)|(slots[1].state?2u:0);}
 void host_dispatch(void){
+ unsigned request=host_api_kind;
  u16 msw;u8 mask;__asm__ volatile("smsw %0; inb $2,%1":"=r"(msw),"=a"(mask));
- if(host_mailbox.busy||(msw&1)||!(mask&1)||mem_get(indos_segment,indos_offset)){host_mailbox.error=5;return;}
- if(host_mailbox.session>=2){host_mailbox.error=87;return;}
+ if(host_mailbox.busy||k32_manager.busy||(msw&1)||!(mask&1)||mem_get(indos_segment,indos_offset)){if(request)k32_manager.error=5;else host_mailbox.error=5;return;}
+ if(!request&&host_mailbox.session>=2){host_mailbox.error=87;return;}
  host_mailbox.busy=1;unsigned caller,a=0x6200;__asm__ volatile("int $0x21":"+a"(a),"=b"(caller)::"cc","memory");
  a=0x5000;__asm__ volatile("int $0x21":"+a"(a):"b"((unsigned)host_mailbox.owner):"cc","memory");
- host_mailbox.error=operate(host_mailbox.session,host_mailbox.command);
+ if(request){
+  k32_manager.busy=1;manager_dispatch();k32_manager.busy=0;
+ }else host_mailbox.error=host_operate(host_mailbox.session,host_mailbox.command);
  a=0x5000;__asm__ volatile("int $0x21":"+a"(a):"b"(caller):"cc","memory");host_mailbox.busy=0;
 }

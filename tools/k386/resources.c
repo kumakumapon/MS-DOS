@@ -1,6 +1,11 @@
 /* Pure policy and bounded accounting; no host services or guest-writable state. */
 #include "resources.h"
-K386Resources k386_resources={.signature={'K','3','8','6','S','Y','S','1'},.version=1,.size=sizeof(K386Resources)};
+#ifdef K32_HOST
+#define RESOURCE_MAGIC {'K','3','2','S','Y','S','0','1'}
+#else
+#define RESOURCE_MAGIC {'K','3','8','6','S','Y','S','1'}
+#endif
+K386Resources k386_resources={.signature=RESOURCE_MAGIC,.version=1,.size=sizeof(K386Resources)};
 static int score[K386_SESSIONS];
 static unsigned turn;
 static k32 next_generation;

@@ -91,7 +91,7 @@ $(BUILD)/host-run.o: runtime.S host-entry.S | $(BUILD)
 	as --32 --defsym LOADER=1 --defsym HOST=1 $< -o $@
 $(BUILD)/%.host.o: %.c services.h elf.h host.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DK32_HOST -c $< -o $@
-$(BUILD)/host.elf: $(BUILD)/host-run.o $(BUILD)/host.host.o $(BUILD)/loader.host.o $(BUILD)/elf.host.o $(BUILD)/services.host.o $(BUILD)/services-dos.host.o $(BUILD)/libmemory.o host.ld
+$(BUILD)/host.elf: $(BUILD)/manager.host.o $(BUILD)/host-resources.o $(BUILD)/host-report.o $(BUILD)/host-run.o $(BUILD)/host.host.o $(BUILD)/loader.host.o $(BUILD)/elf.host.o $(BUILD)/services.host.o $(BUILD)/services-dos.host.o $(BUILD)/libmemory.o host.ld
 	ld -m elf_i386 -T host.ld $(filter %.o,$^) -o $@
 $(BUILD)/K32HOST.EXE: $(BUILD)/host.elf ../mz/build.py Makefile
 	python3 ../mz/build.py --desktop-app "PM32 resident service" $< $@
@@ -111,3 +111,12 @@ $(BUILD)/mix.elf: $(BUILD)/mix.o $(BUILD)/mix-client.o $(BUILD)/mix-dos.o $(BUIL
 $(BUILD)/K32MIX.COM: $(BUILD)/mix.elf
 	objcopy -O binary $< $@
 all: $(BUILD)/K32MIX.COM
+
+$(BUILD)/host-resources.o: ../k386/resources.c ../k386/resources.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DK32_HOST -c $< -o $@
+$(BUILD)/host-report.o: ../k386/report.c ../k386/resources.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DK32_HOST -c $< -o $@
+$(BUILD)/host.host.o $(BUILD)/manager.host.o: manager.h
+$(BUILD)/COUNT32.EXE: $(BUILD)/count.ext.elf package.py
+	python3 package.py $< $@ --abi 257 --features 15
+apps: $(BUILD)/COUNT32.EXE
