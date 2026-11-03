@@ -28,12 +28,12 @@ static void save(unsigned id){mem_copy(slots[id].state,0,ds_segment,(unsigned)__
 static unsigned state(void){u32 s=get(12);if(get(16))return K386_FAULTED;if(s==3||s==5||s==6)return K386_ENDED;if(s==4)return K386_FAULTED;return s==7?K386_WAITING:K386_RUNNING;}
 static void publish(unsigned id){
  K32HostView *t=&host_mailbox.task[id];K386View *v=&t->view;
- unsigned previous=v->state;u32 count=v->counter,irqs=v->ticks;
+ unsigned previous=v->state;
  if(v->state!=K386_STOPPED)v->state=state();
  v->exit_code=get(628);if(get(12)==5)v->exit_code=255;
  v->fault=get(16)?0x8000|get(16):get(12)==4?get(68):0;
  v->ticks=get(60);v->cr3=get(24);v->physical=get(28);v->eip=get(376);v->eflags=get(384);v->cr2=get(72);v->counter=get(468);v->keys=get(872);v->psp=host_mailbox.owner;
- copy(t->record,results,1024);if(previous!=v->state||count!=v->counter||irqs!=v->ticks)v->flags++;
+ copy(t->record,results,1024);if(previous!=v->state)v->flags++;
 }
 static int finish(unsigned id){
  services_close();loader_close();

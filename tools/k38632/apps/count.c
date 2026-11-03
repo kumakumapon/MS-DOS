@@ -11,7 +11,7 @@ int main(int argc,char **argv){
   data.counter++;
   if(!(data.counter&65535)){
    if(p[0]!=data.identity||p[1023]!=(data.identity^0xffffffff))return 2;
-   char value[11];number(value,data.counter);k32_puts("\033[HCOUNT32 ");char id=(char)data.identity;k32_write(&id,1);k32_puts("  count ");k32_puts(value);k32_puts("       \r\n");
+   char value[11],line[48];number(value,data.counter);const char *head="\033[HCOUNT32 ";unsigned n=0;while(*head)line[n++]=*head++;line[n++]=(char)data.identity;head="  count ";while(*head)line[n++]=*head++;for(unsigned j=0;value[j];j++)line[n++]=value[j];head="       \r\n";while(*head)line[n++]=*head++;k32_write(line,n);
   }
  }
 }
