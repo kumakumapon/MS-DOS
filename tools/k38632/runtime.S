@@ -808,13 +808,24 @@ loader_yield:
     inc DWORD PTR results+616
     jmp loader_resume
 loader_ticks:
+stable_ticks:
     xor eax,eax
     in al,0x5f
     shl eax,8
     in al,0x5d
     shl eax,8
     in al,0x5c
-    mov DWORD PTR context+44,eax
+    mov edx,eax
+    /* Match k386_clock_ticks: retry if middle/high rolled during the read. */
+    in al,0x5d
+    cmp al,dh
+    jne stable_ticks
+    in al,0x5f
+    mov ebx,edx
+    shr ebx,16
+    cmp al,bl
+    jne stable_ticks
+    mov DWORD PTR context+44,edx
     inc DWORD PTR results+620
     jmp loader_resume
 loader_output:
