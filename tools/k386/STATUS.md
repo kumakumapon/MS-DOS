@@ -48,3 +48,14 @@ use faults inside its VM. Existing foreground real-DOS EXEC pauses GUI-driven
 scheduling. The monitor requires real mode and masked/unowned host IRQ0.
 CPU budgets measure emulated execution/service time, with bounded-quantum
 overshoot, rather than a hard wall deadline or browser CPU percentage.
+
+
+## Resident PM32 continuation
+
+PR #36 adds separate K32HOST.EXE and a common two-slot manager, keeping the
+legacy V86 monitor and original DOS kernel intact. Tagged PM32 ABI 0100h/0101h
+applications run as KDESK text windows with independent 4 MiB backing, contexts,
+input and consoles. PM32+PM32, PM32+V86 and V86+V86 share scheduling/resources.
+See [the resident design and usage](../k38632/HOST.md) for interfaces, limits
+and live validation gates. General DOS compatibility and PM32 widget/graphics
+APIs are still incomplete; issue #31 remains the broader roadmap.

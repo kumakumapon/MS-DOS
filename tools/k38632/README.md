@@ -1,4 +1,8 @@
-# K38632 first milestone: real Ring-3 CPU bring-up
+# K38632: execution foundations and resident window tasks
+
+The resident PM32 backend, shared PM32/V86 scheduling and KDESK text windows
+are documented in [HOST.md](HOST.md). Start there for current GUI usage and
+limits. The original probes and standalone runners below remain available.
 
 The second milestone adds the independent XMS-backed `K32MEM.EXE` runner.
 See [MEMORY.md](MEMORY.md) for ownership, resumable execution, tests and limits.
@@ -121,6 +125,6 @@ exception entry, causing recursive faults/reboot. The corrected entry saves
 state through writable supervisor SS; actual Ring-3/fault/return tests cover it.
 The existing resident V86 transition path is not modified.
 
-Issue #31's PM32 loader/SDK, task-specific XMS page allocation, simultaneous
-PM32/V86 scheduling and PM32 GUI API are later milestones. Passing this probe
-does not mark those features implemented.
+The PM32 loader/SDK and resident text-window milestones have separate tests
+(see SDK.md, SERVICES.md and HOST.md). Passing this CPU probe alone does not
+verify those layers or establish a graphical PM32 widget API.
