@@ -3,7 +3,8 @@
 `K32RUN.EXE` loads a separately built original PM32 application. It uses the
 same protected execution, XMS ownership, IRQ0/context restoration and cleanup
 engine as K32MEM. This milestone has one PM32 owner; mixed PM32/V86 scheduling,
-PM32 GUI windows, a heap, input and application file APIs remain later work.
+PM32 GUI windows remain later work. ABI 0101h adds startup arguments, an owned
+heap, queued input/waits and read-only files; see [SERVICES.md](SERVICES.md).
 
 ## Build and use
 
@@ -85,7 +86,7 @@ ELF segments occupy page-aligned addresses in [800000h, BFD000h), with physical
 offsets relative to 800000h. Code/rodata are user read-only; writable segments
 and BSS are user RW. The stack is BFF000h–BFFFFFh, initial ESP=C00000h, with the
 BFE000h guard unmapped. Other unused user pages are unmapped. Low kernel identity
-pages remain supervisor-only. No heap is exposed. The 386 has no NX; execute
+pages remain supervisor-only. ABI 0100h exposes no heap. The 386 has no NX; execute
 protection for data pages is not claimed.
 
 Normal exit, user exceptions, budget and Escape revoke all user mappings before
@@ -109,7 +110,8 @@ segment registers and user flags are preserved across resumption.
 Write validates the complete nonempty range, overflow and every user-present
 page before copying to a private buffer. Kernel addresses, unmapped pages and
 guard crossings return -14; length >4096 returns -22. Zero length returns 0
-without reading the pointer. Unknown calls return -38; DOS stdout failure -5.
+without reading the pointer. Call 4 queries features (0 for this ABI); calls 5..12 require ABI 0101h.
+Unknown calls return -38; DOS stdout failure -5.
 The broker performs DOS output only after restoring real mode; stdout follows
 normal DOS handle semantics. There is no direct DOS/BIOS API for the application.
 

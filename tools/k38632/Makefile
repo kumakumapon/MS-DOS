@@ -19,17 +19,22 @@ test: all
 	python3 test_probe.py
 	python3 test_runtime.py
 	python3 test_elf.py
+	python3 test_services.py
 .PHONY: test
 CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -msoft-float -mno-sse -mno-mmx -Wall -Wextra -Werror
 $(BUILD)/run.o: runtime.S | $(BUILD)
 	as --32 --defsym LOADER=1 $< -o $@
-$(BUILD)/loader.o: loader.c elf.h | $(BUILD)
+$(BUILD)/loader.o: loader.c elf.h services.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -c $< -o $@
+$(BUILD)/services.o: services.c services.h elf.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -c $< -o $@
+$(BUILD)/services-dos.o: services-dos.c services.h elf.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -c $< -o $@
 $(BUILD)/elf.o: elf.c elf.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -c $< -o $@
 $(BUILD)/libmemory.o: ../window/memory.c | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -c $< -o $@
-$(BUILD)/run.elf: $(BUILD)/run.o $(BUILD)/loader.o $(BUILD)/elf.o $(BUILD)/libmemory.o runtime.ld
+$(BUILD)/run.elf: $(BUILD)/run.o $(BUILD)/loader.o $(BUILD)/elf.o $(BUILD)/services.o $(BUILD)/services-dos.o $(BUILD)/libmemory.o runtime.ld
 	ld -m elf_i386 -T runtime.ld $(filter %.o,$^) -o $@
 $(BUILD)/K32RUN.EXE: $(BUILD)/run.elf ../mz/build.py
 	python3 ../mz/build.py $< $@
@@ -59,3 +64,25 @@ $(BUILD)/invalid.stamp: $(BUILD)/HELLO32.EXE make-invalid.py
 	python3 make-invalid.py $(BUILD)
 	touch $@
 apps: $(BUILD)/invalid.stamp
+
+$(BUILD)/crt1.o: sdk/crt1.S | $(BUILD)
+	as --32 $< -o $@
+$(BUILD)/%.ext.o: apps/%.c sdk/k32.h sdk/k32x.h | $(BUILD)
+	$(CC) -m32 $(CFLAGS) -Isdk -c $< -o $@
+$(BUILD)/%.ext.elf: $(BUILD)/%.ext.o $(BUILD)/crt1.o sdk/app.ld
+	ld -m elf_i386 -T sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/ARGS32.EXE: $(BUILD)/arguments.ext.elf package.py
+	python3 package.py $< $@ --abi 257 --features 15
+apps: $(BUILD)/ARGS32.EXE
+$(BUILD)/HEAP32.EXE: $(BUILD)/heap.ext.elf package.py
+	python3 package.py $< $@ --abi 257 --features 15
+apps: $(BUILD)/HEAP32.EXE
+$(BUILD)/INPUT32.EXE: $(BUILD)/input.ext.elf package.py
+	python3 package.py $< $@ --abi 257 --features 15
+apps: $(BUILD)/INPUT32.EXE
+$(BUILD)/FILE32.EXE: $(BUILD)/file.ext.elf package.py
+	python3 package.py $< $@ --abi 257 --features 15
+apps: $(BUILD)/FILE32.EXE
+$(BUILD)/VIEW32.EXE: $(BUILD)/view.ext.elf package.py
+	python3 package.py $< $@ --abi 257 --features 15
+apps: $(BUILD)/VIEW32.EXE

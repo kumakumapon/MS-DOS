@@ -7,7 +7,9 @@ static int range(u32 at,u32 n,u32 end){return at<=end&&n<=end-at;}
 int k32_plan(K32Read read,void *opaque,u32 bytes,K32Plan *out){
  u8 mz[96],e[52],p[32];K32Plan plan={0};
  if(bytes<96||!read(opaque,0,mz,96)||word(mz)!=0x5a4d||word(mz+8)!=6||word(mz+6)||word(mz+24)!=96)return 1;
- if(!magic(mz+28,"K386APP1",8)||word(mz+36)!=256||word(mz+38)!=3||!magic(mz+72,"K32EXE01",8)||word(mz+80)!=256||word(mz+82)!=24||dword(mz+92))return 2;
+ if(!magic(mz+28,"K386APP1",8)||word(mz+36)!=256||word(mz+38)!=3||!magic(mz+72,"K32EXE01",8)||word(mz+82)!=24)return 2;
+ plan.abi=word(mz+80);plan.features=dword(mz+92);
+ if((plan.abi!=256&&plan.abi!=257)||(plan.abi==256&&plan.features)||(plan.features&~15u))return 2;
  unsigned title=40;for(;title<72&&mz[title];title++)if(mz[title]<32||mz[title]>126)return 2;
  if(title==40||title==72||!word(mz+4)||word(mz+2)>511||word(mz+12)<word(mz+10))return 2;
  u32 load=(word(mz+4)-1u)*512+(word(mz+2)?word(mz+2):512);
