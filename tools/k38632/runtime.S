@@ -125,7 +125,6 @@ schedule:
     jne cleanup
     cmp DWORD PTR results+12,2
     jne cleanup
-    inc DWORD PTR results+64
     mov eax,DWORD PTR results+60
     cmp eax,DWORD PTR results+492
     jae budget_end
@@ -480,6 +479,10 @@ map_data:
     mov DWORD PTR context+72,USER_DS
     mov DWORD PTR initialized,1
 tables_ready:
+    cmp DWORD PTR results+12,2
+    jne context_entry
+    inc DWORD PTR results+64
+context_entry:
     mov DWORD PTR tss+4,0xeff0
     mov WORD PTR tss+8,16
     mov WORD PTR tss+102,104
