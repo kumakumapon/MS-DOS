@@ -5,6 +5,7 @@ int main(int argc,char **argv){
  data.identity=argc>1?(unsigned char)argv[1][0]:'1';data.magic=0x50333221;
  unsigned *p=k32_alloc(8192);if(!p)return 1;data.heap=(unsigned)p;
  p[0]=data.identity;p[1023]=data.identity^0xffffffff;
+ if(argc>1&&argv[1][0]=='f')__asm__ volatile("cli");
  k32_puts("COUNT32: private heap and timer preemption\r\n");
  for(;;){
   data.counter++;

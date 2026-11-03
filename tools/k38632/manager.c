@@ -151,6 +151,7 @@ void manager_dispatch(void){
  switch(k32_manager.command){
  case K386_CREATE:k32_manager.error=create(id,k32_manager.path);break;
  case K386_STEP:step(id);break;
+ case K386_POLL:poll(id);break;
  case K386_SCHEDULE:{
   if(k32_manager.key>8){k32_manager.error=87;break;}unsigned slices=k32_manager.key?k32_manager.key:1;u32 start=ticks();
   for(unsigned n=0;n<slices;n++){
