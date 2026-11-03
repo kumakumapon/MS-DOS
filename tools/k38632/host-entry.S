@@ -94,15 +94,27 @@ host_occupancy_query:
     mov ax,0x393d
     iretw
 host_manager_dispatch:
+    cmp WORD PTR cs:host_entry_busy,0
+    jne host_manager_busy
     mov WORD PTR cs:host_api_kind,1
     jmp host_dispatch_api
 host_raw_dispatch:
+    cmp WORD PTR cs:host_entry_busy,0
+    jne host_raw_busy
     mov WORD PTR cs:host_api_kind,0
     jmp host_dispatch_api
+    jmp host_dispatch_api
+host_manager_busy:
+    mov WORD PTR cs:k32_manager+14,5
+    iretw
+host_raw_busy:
+    mov WORD PTR cs:host_mailbox+14,5
+    iretw
 host_chain:
     .byte 0x2e,0xff,0x2e
     .word host_old_int
 host_dispatch_api:
+    mov WORD PTR cs:host_entry_busy,1
     cld
     pushad
     pushw ds
@@ -119,6 +131,7 @@ host_dispatch_api:
     sti
     call host_dispatch
     cli
+    mov WORD PTR cs:host_entry_busy,0
     mov ss,WORD PTR host_caller_ss
     mov esp,DWORD PTR host_caller_esp
     popw gs
@@ -266,6 +279,7 @@ host_drop_return:
     pop ebx
     ret
 .section .data
+host_entry_busy: .word 0
 host_api_kind: .word 0
 host_old_int: .long 0
 host_caller_ss: .word 0
