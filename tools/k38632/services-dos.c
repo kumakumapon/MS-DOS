@@ -36,6 +36,19 @@ static int transfer(u32 at,void *buffer,unsigned n,int write){
  }
  return 1;
 }
+#ifdef K32_GUI
+/* Only the dedicated GUI loader exports these copies. Ordinary app hosts do
+ * not acquire GUI services or a pointer to the hardware transfer buffer. */
+int gui_copy(u32 at,void *buffer,unsigned n,int write){
+ if(!k32_user_range(loader_map,at,n,write))return -14;
+ return transfer(at-K32_BASE,buffer,n,write)?0:-5;
+}
+int gui_copy_far(u32 at,unsigned segment,unsigned n){
+ if(!n||n>32768||(n&1)||!k32_user_range(loader_map,at,n,0))return -14;
+ u16 h=*(u16 *)(results+40);u32 base=get(28)-get(32);
+ return raw_move(h,base+at-K32_BASE,0,(u32)segment<<16,n)?0:-5;
+}
+#endif
 static void pte(unsigned i,u32 value){
  loader_map[i]=value;
  #ifdef K32_HOST

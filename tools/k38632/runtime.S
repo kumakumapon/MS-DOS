@@ -17,7 +17,11 @@
 .equ USER_CS,59
 .equ USER_DS,67
 .ifdef HOST
+.ifdef GUI_HOST
+.include "../kgui32/entry.S"
+.else
 .include "host-entry.S"
+.endif
 .else
 _start:
     cld
@@ -841,8 +845,18 @@ loader_trap:
     je loader_yield
     cmp eax,3
     je loader_ticks
+.ifdef GUI_HOST
+    cmp eax,64
+    jb gui_old_service
+    cmp eax,68
+    jbe gui_service
+gui_old_service:
+.endif
     cmp eax,12
     ja unknown_service
+.ifdef GUI_HOST
+gui_service:
+.endif
     mov DWORD PTR loader_request,eax
     jmp loader_resume
 unknown_service:

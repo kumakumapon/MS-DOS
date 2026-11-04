@@ -87,7 +87,7 @@ $(BUILD)/VIEW32.EXE: $(BUILD)/view.ext.elf package.py
 	python3 package.py $< $@ --abi 257 --features 15
 apps: $(BUILD)/VIEW32.EXE
 
-$(BUILD)/host-run.o: runtime.S host-entry.S | $(BUILD)
+$(BUILD)/host-run.o: runtime.S host-entry.S host-engine.S | $(BUILD)
 	as --32 --defsym LOADER=1 --defsym HOST=1 $< -o $@
 $(BUILD)/%.host.o: %.c services.h elf.h host.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DK32_HOST -c $< -o $@
