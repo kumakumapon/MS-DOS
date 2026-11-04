@@ -33,6 +33,10 @@ static void check(int width,int height){
  e.key='t';assert(scene_event(&s,&e)==ACT_START);
  e.key='s';assert(scene_event(&s,&e)==ACT_STOP);
  e.key='q';assert(scene_event(&s,&e)==ACT_EXIT);
+ s.damage=(Rect){0};e=(GuiEvent){.type=GUI_TIMER,.counters={123,456},.states={1,1}};scene_event(&s,&e);
+ assert(s.damage.w==196&&s.damage.h==40);
+ s.damage=(Rect){0};scene_event(&s,&e);assert(s.damage.w==0);
+ e.counters[1]++;scene_event(&s,&e);assert(s.damage.w==120&&s.damage.h==16);
  s.damage=(Rect){0};scene_damage(&s,(Rect){-4,-9,20,30});
  assert(s.damage.x==0&&s.damage.y==0&&s.damage.w==16&&s.damage.h==21);
  scene_damage(&s,(Rect){width-2,height-3,50,50});

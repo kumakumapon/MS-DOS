@@ -32,9 +32,14 @@ static void move(Scene *s,int id,int x,int y){
 }
 int scene_event(Scene *s,const GuiEvent *e){
  if(e->type==GUI_TIMER){
-  int changed=0;
-  for(int i=0;i<2;i++){changed|=s->counters[i]!=e->counters[i]||s->states[i]!=e->states[i];s->counters[i]=e->counters[i];s->states[i]=e->states[i];}
-  if(changed&&s->window[1].open&&!s->window[1].hidden)scene_damage(s,covered(&s->window[1]));
+  GuiWindow *w=&s->window[1];
+  for(int i=0;i<2;i++){
+   if(w->open&&!w->hidden){
+    if(s->states[i]!=e->states[i])scene_damage(s,(Rect){w->r.x+32,w->r.y+98+i*24,76,16});
+    if(s->counters[i]!=e->counters[i])scene_damage(s,(Rect){w->r.x+108,w->r.y+98+i*24,120,16});
+   }
+   s->counters[i]=e->counters[i];s->states[i]=e->states[i];
+  }
   return ACT_NONE;
  }
  if(e->type==GUI_KEY){

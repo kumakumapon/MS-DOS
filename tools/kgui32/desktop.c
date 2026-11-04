@@ -23,6 +23,7 @@ static void box(int x,int y,int w,int h,u32 c){
 }
 static void text(int x,int y,const char *s,u32 c){
  for(;*s;s++,x+=8){unsigned ch=(u8)*s;if(ch<32||ch>126)ch='?';
+  if(x+8<=clip.x||x>=clip.x+clip.w||y+16<=clip.y||y>=clip.y+clip.h)continue;
   for(int row=0;row<16;row++){u8 bits=font[(ch-32)*16+row];for(int col=0;col<8;col++)if(bits&(128>>col))box(x+col,y+row,1,1,c);}
  }
 }
@@ -33,6 +34,7 @@ static void button(int x,int y,int w,const char *s){
 static void window(int id){
  GuiWindow *w=&scene.window[id];if(!w->open||w->hidden)return;
  int x=w->r.x,y=w->r.y,width=w->r.w,height=w->r.h;
+ if(x+width+6<=clip.x||x>=clip.x+clip.w||y+height+6<=clip.y||y>=clip.y+clip.h)return;
  box(x+5,y+5,width,height,rgb(8,16,28));box(x,y,width,height,color(11));box(x+1,y+1,width-2,height-2,color(2));
  box(x+2,y+2,width-4,28,color(scene.active==id?4:9));box(x+3,y+3,width-6,1,color(scene.active==id?13:3));
  text(x+12,y+9,id?"System":"Welcome to KGUI32",color(scene.active==id?7:0));
@@ -49,7 +51,7 @@ static void window(int id){
   text(x+16,y+46,"Desktop: private context",color(0));
   text(x+16,y+70,"Application slots: 2",color(0));
   for(int i=0;i<2;i++){
-   int yy=y+98+i*24;number(x+16,yy,i+1,color(0));text(x+32,yy,scene.states[i]==1?"Running":scene.states[i]==2?"Waiting":scene.states[i]==3?"Stopped":"Free",color(10));number(x+108,yy,scene.counters[i],color(0));
+   int yy=y+98+i*24;number(x+16,yy,i+1,color(0));text(x+32,yy,scene.states[i]==1?"Running":scene.states[i]==2?"Waiting":scene.states[i]==3?"Stopped":scene.states[i]==4?"Faulted":"Free",color(10));number(x+108,yy,scene.counters[i],color(0));
   }
   text(x+16,y+146,scene.action_result<0?"Slots busy / unavailable":"CPU workers: T=start S=stop",color(10));
   button(x+16,y+168,94,"Test CPU");button(x+124,y+168,94,"Stop");
@@ -110,6 +112,6 @@ int main(int argc,char **argv){
   if(action==ACT_START||action==ACT_STOP){scene.action_result=k32_call(GUI_PROOF,action==ACT_START?1:2,0);scene_damage(&scene,scene.window[1].r);}
   gui_state.mx=scene.mx;gui_state.my=scene.my;gui_state.x0=scene.window[0].r.x;gui_state.y0=scene.window[0].r.y;gui_state.x1=scene.window[1].r.x;gui_state.y1=scene.window[1].r.y;gui_state.active=scene.active;gui_state.drag=scene.drag;
   e=paint();if(e){gui_state.error=8;return 8;}
-  if((once&&gui_state.events>=20)||(proof&&gui_state.events>=64))return 0;
+  if((once&&gui_state.events>=20)||(proof&&gui_state.events>=16))return 0;
  }
 }
