@@ -1,16 +1,12 @@
 // Usage: node tools/editor/verify-webnp2.mjs WEBNP2_CHECKOUT [BASE_URL] [OUTPUT]
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import { join, resolve } from 'node:path';
+import { launchBrowser } from '../../ports/pc98/browser.mjs';
+import { join } from 'node:path';
 import { verifyEditor } from './verify-ui.mjs';
 const [checkout, base = 'http://127.0.0.1:5173/', output = 'tools/editor/build/pc98-validation'] = process.argv.slice(2);
 if (!checkout) throw new Error('WEBNP2_CHECKOUT is required');
-const require = createRequire(join(resolve(checkout), 'package.json'));
-const browser = await require('puppeteer-core').launch({
-  executablePath: process.env.CHROMIUM ?? '/usr/bin/chromium', headless: true,
-  args: process.env.WEBNP2_NO_SANDBOX === '1' ? ['--no-sandbox'] : [],
-});
+const browser = await launchBrowser(checkout);
 try {
   await mkdir(output, { recursive: true });
   const page = await browser.newPage(), errors = [];

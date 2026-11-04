@@ -572,6 +572,16 @@ void gfx_stop(void) {
     out(0x6a, saved_gate ? 7 : 6);
     out(0xa8, saved_index); out(0x6a, saved_mode ? 1 : 0); bios(0x0c00, 0);
 }
+#ifdef KGUI32_DRIVER
+int gfx_font_copy(unsigned segment){
+    if(!fonts_ready||!font_segment)return 0;
+    mem_copy(segment,0,font_segment,0,95*16);return 1;
+}
+void gfx_driver_release(void){
+    mem_free(font_segment);mem_free(palette_segment);
+    font_segment=palette_segment=0;fonts_ready=0;
+}
+#endif
 
 void gfx_pair(int x,int y,u8 lead,u8 trail){
     unsigned code=sjis_vram(lead,trail)&0x7fff;
