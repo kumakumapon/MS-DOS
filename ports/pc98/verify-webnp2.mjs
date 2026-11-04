@@ -2,19 +2,15 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
+import { launchBrowser } from './browser.mjs';
 import { resolve, join } from 'node:path';
 import { mkdir, writeFile, readFile as readHostFile } from 'node:fs/promises';
 const [checkout, imageName, output = 'ports/pc98/build/validation'] = process.argv.slice(2);
 if (!checkout || !/^[\w.-]+\.xdf$/.test(imageName ?? '')) {
   throw new Error('Usage: node verify-webnp2.mjs /path/to/webnp2 image.xdf [output-dir]');
 }
-const require = createRequire(join(resolve(checkout), 'package.json'));
-const browser = await require('puppeteer-core').launch({
-  executablePath: process.env.CHROMIUM ?? '/usr/bin/chromium',
-  headless: true,
+const browser = await launchBrowser(checkout, {
   protocolTimeout: 660000,
-  args: process.env.WEBNP2_NO_SANDBOX === '1' ? ['--no-sandbox'] : [],
 });
 const results = [];
 const sourceImage = await readHostFile(join(resolve(checkout), 'public/test', imageName));
