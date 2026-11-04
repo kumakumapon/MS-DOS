@@ -1,7 +1,7 @@
 CC ?= gcc
 BUILD ?= build
 K32 = ../k38632
-CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -msoft-float -mno-sse -mno-mmx -ffunction-sections -fdata-sections -Wall -Wextra -Werror
+CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -msoft-float -mno-sse -mno-mmx -ffunction-sections -fdata-sections -Wall -Wextra -Werror -MMD -MP
 NATIVE = $(CFLAGS) -m16 -DDOS -DPC98 -DK32_HOST -DK32_GUI
 all: $(BUILD)/KGUILDR.EXE $(BUILD)/KGUI32.EXE
 all: $(BUILD)/KGPROOF.COM
@@ -53,3 +53,4 @@ test: all $(BUILD)/test-scene
 	$(BUILD)/test-scene
 	python3 test_image.py
 .PHONY: all test
+-include $(wildcard $(BUILD)/*.d)
