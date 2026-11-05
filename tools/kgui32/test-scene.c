@@ -42,4 +42,32 @@ static void check(int width,int height){
  scene_damage(&s,(Rect){width-2,height-3,50,50});
  assert(s.damage.x+s.damage.w==width&&s.damage.y+s.damage.h==height);
 }
-int main(void){check(640,400);check(800,600);return 0;}
+static void sessions(int width,int height){
+ Scene s;scene_init(&s,width,height);
+ GuiEvent e={.type=GUI_BUTTON,.x=width-280,.y=15,.buttons=1};
+ assert(scene_event(&s,&e)==ACT_NEW&&s.slot==0&&s.active==2);
+ assert(s.window[2].open&&s.order[3]==2);
+ s.damage=(Rect){0};GuiEvent timer={.type=GUI_TIMER,.counters={1,0}};scene_event(&s,&timer);
+ if(width==640)assert(!s.damage.w);
+ else assert(s.damage.x==672&&s.damage.w==84&&s.damage.h==16);
+ e.buttons=0;scene_event(&s,&e);
+ e=(GuiEvent){.type=GUI_KEY,.key='q'};assert(scene_event(&s,&e)==ACT_KEY&&s.key=='q'&&s.slot==0);
+ e.key='t';assert(scene_event(&s,&e)==ACT_KEY);e.key=12;assert(scene_event(&s,&e)==ACT_RUN);
+ e.key=16;assert(scene_event(&s,&e)==ACT_PAUSE);e.key=18;assert(scene_event(&s,&e)==ACT_RESUME);
+ e.key=5;assert(scene_event(&s,&e)==ACT_END);
+ scene_focus(&s,3);assert(s.order[3]==3&&s.order[2]==2);
+ Rect r=s.window[3].r;
+ mouse(&s,GUI_BUTTON,r.x+r.w-8,r.y+r.h-8,1);assert(s.resize==4);
+ mouse(&s,GUI_BUTTON,r.x+400-8,r.y+240-8,0);
+ assert(!s.resize&&s.window[3].r.w==400&&s.window[3].r.h==240);
+ r=s.window[3].r;
+ mouse(&s,GUI_BUTTON,r.x+r.w-40,r.y+12,1);mouse(&s,GUI_BUTTON,r.x+r.w-40,r.y+12,0);
+ assert(s.window[3].hidden&&s.active==2);
+ mouse(&s,GUI_BUTTON,480,height-16,1);mouse(&s,GUI_BUTTON,480,height-16,0);
+ assert(!s.window[3].hidden&&s.active==3);
+ e=(GuiEvent){.type=GUI_BUTTON,.x=r.x+r.w-16,.y=r.y+12,.buttons=1};
+ assert(scene_event(&s,&e)==ACT_END&&s.slot==1&&!s.window[3].open&&s.active==2);
+ e=(GuiEvent){.type=GUI_TIMER,.states={2,3},.counters={12,24}};scene_event(&s,&e);
+ assert(s.states[0]==2&&s.states[1]==3&&s.active==2);
+}
+int main(void){check(640,400);check(800,600);sessions(640,400);sessions(800,600);return 0;}

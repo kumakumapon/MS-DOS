@@ -1,7 +1,15 @@
 #ifndef KGUI32_PROTOCOL_H
 #define KGUI32_PROTOCOL_H
 #include "../k38632/elf.h"
-enum {GUI_INFO=64,GUI_EVENT,GUI_PRESENT,GUI_FONT,GUI_PROOF};
+enum {GUI_INFO=64,GUI_EVENT,GUI_PRESENT,GUI_FONT,GUI_PROOF,GUI_SESSION,GUI_SNAPSHOT};
+enum {GS_CREATE=1,GS_END,GS_PAUSE,GS_RESUME,GS_KEY,GS_RESTART,GS_FOCUS=8};
+typedef struct {u32 version,size,slot,generation,operation,key;char path[128];} GuiSessionCommand;
+typedef struct {
+ u32 version,size,slot,generation,state,kind,exit_code,fault,counter,column,row,keys,cpu_ticks,runs,owned,reserved;
+ char program[16],screen[2000];
+} GuiSessionView;
+_Static_assert(sizeof(GuiSessionCommand)==152,"session command ABI");
+_Static_assert(sizeof(GuiSessionView)==2080,"session view ABI");
 enum {GUI_MOTION=1,GUI_BUTTON=2,GUI_KEY=3,GUI_TIMER=4};
 typedef struct {u32 magic,version,size,width,height,bpp,pitch,features,colors[16];} GuiInfo;
 typedef struct {u32 sequence,type,x,y,buttons,key,ticks,states[2],counters[2],lost;} GuiEvent;

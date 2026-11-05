@@ -39,8 +39,8 @@ int main(void){
  u32 total,block;xfree(&total,&block);proof.free_before=total;proof.largest_before=block;
  /* Each child returns to this still-live DOS parent. The GUI must refuse T
   * ownership while these slots are already occupied and preserve both. */
- const char *args[]={"KGUI32.EXE proof","KGUI32.EXE badapi","KGUI32.EXE fault"};
- for(unsigned n=0;n<3;n++){
+ const char *args[]={"KGUI32.EXE proof","KGUI32.EXE badapi","KGUI32.EXE fault","KGUI32.EXE sessionapi"};
+ for(unsigned n=0;n<4;n++){
   int code=p_exec("KGUILDR.EXE",args[n]);
   if(code!=(n==2?1:0)){proof.error=7+n;goto cleanup;}proof.loops++;
   for(unsigned id=0;id<2;id++){

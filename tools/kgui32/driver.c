@@ -13,8 +13,10 @@ extern void gfx_driver_release(void);
 char host_command[128];
 volatile GuiDriverRecord gui_record={.signature={'K','G','3','2','D','R','V','1'},.version=1,.size=sizeof(GuiDriverRecord)};
 static GuiInfo info;static GuiEvent queue[32];
-static unsigned head,count,segment,scratch,tables,manager,started,quit;
-static u32 last_schedule,last_timer,owned_generation[2];static unsigned owned[2];
+static unsigned head,count,segment,scratch,tables,started,quit;
+static u32 last_schedule,last_timer;
+unsigned manager,owned[2],session_focus;u32 owned_generation[2];
+extern int gui_session(u32,unsigned),gui_snapshot(u32,unsigned);
 static Mouse previous;
 static u32 get(unsigned at){return *(u32 *)(results+at);}
 static void put(unsigned at,u32 n){*(u32 *)(results+at)=n;}
@@ -23,9 +25,15 @@ void host_physical32(u32 at,u32 value){for(unsigned i=0;i<4;i++)mem_put(at>>4,(a
 int host_write(const void *p,unsigned n){(void)p;return (int)n;}
 static void workers(void){
  for(unsigned id=0;id<2;id++){
+  K386Usage u;
+  if(manager&&k386_usage(id,&u)){
+   if(owned[id]&&owned_generation[id]!=u.generation)owned[id]=0;
+   gui_record.worker_generation[id]=u.generation;
+  }
   gui_record.worker_counter[id]=manager?k386_counter(id):0;
   gui_record.worker_state[id]=manager?k386_word(id,0):0;
  }
+ if(session_focus&&session_focus<=2&&!owned[session_focus-1])session_focus=0;
  gui_record.owned_workers=owned[0]|owned[1]<<1;
  gui_record.appmask=(gui_record.worker_state[0]!=0)|(gui_record.worker_state[1]!=0)<<1;
 }
@@ -59,7 +67,7 @@ static void pump(void){
  }
  for(unsigned n=0;n<16&&key_ready();n++){
   unsigned k=key_read();gui_record.last_key=k;
-  if(k==27||k==KEY_F1+9)quit=1;
+  if(k==KEY_F1+9||(k==27&&!session_focus))quit=1;
   else enqueue((GuiEvent){.type=GUI_KEY,.key=k,.x=previous.x,.y=previous.y,.buttons=previous.buttons,.ticks=input_ticks()});
  }
 }
@@ -109,6 +117,8 @@ static int dispatch(void){
    u8 font[95*16];mem_copy(segment,(unsigned)font,scratch,0,sizeof font);error=gui_copy(b,font,sizeof font,1);
   }break;
  case GUI_PROOF:error=b==1?start_workers():b==2?(stop_workers(),0):-22;break;
+ case GUI_SESSION:error=gui_session(b,c);break;
+ case GUI_SNAPSHOT:error=gui_snapshot(b,c);break;
  default:gui_record.unknown++;return -38;
  }if(error<0)gui_record.rejected++;return error;
 }
@@ -138,7 +148,10 @@ int gui_main(void){
  previous=mouse_read();enqueue((GuiEvent){.type=GUI_MOTION,.x=previous.x,.y=previous.y,.buttons=previous.buttons,.ticks=previous.ticks});
  while(!gui_record.error&&!quit){
   gui_record.busy=1;pump();
-  u32 now=input_ticks();if(manager&&((now-last_schedule)&0xffffff)>=3072){k386_tick();last_schedule=now;workers();}
+  /* Charge the scheduling interval after the bounded peer batch finishes.
+   * Peer execution must not immediately trigger another batch and starve
+   * the GUI while it is composing a window between IRQ preemptions. */
+  u32 now=input_ticks();if(manager&&((now-last_schedule)&0xffffff)>=3072){k386_tick();last_schedule=input_ticks();workers();}
   if(get(12)==7)services_wait();
   else {host_enter();put(636,get(636)+1);gui_record.quanta++;if(!get(16)&&get(12)==2&&loader_request)context[11]=dispatch();}
   gui_record.busy=0;

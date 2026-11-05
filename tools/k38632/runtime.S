@@ -848,7 +848,7 @@ loader_trap:
 .ifdef GUI_HOST
     cmp eax,64
     jb gui_old_service
-    cmp eax,68
+    cmp eax,70
     jbe gui_service
 gui_old_service:
 .endif
