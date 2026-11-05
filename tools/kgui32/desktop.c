@@ -97,8 +97,12 @@ static void box(int x,int y,int w,int h,u32 c){
  if(bottom>clip.y+clip.h)bottom=clip.y+clip.h;
  if(right<=x||bottom<=y)return;
  for(int row=y;row<bottom;row++){
-  if(info.bpp==1){u8 *p=framebuffer+row*info.pitch+x;for(int col=x;col<right;col++)*p++=(u8)c;}
-  else {u16 *p=(u16 *)(framebuffer+row*info.pitch)+x;for(int col=x;col<right;col++)*p++=(u16)c;}
+  unsigned n=right-x;
+  if(info.bpp==1){u8 *p=framebuffer+row*info.pitch+x;
+   if(n==1)*p=(u8)c;else __asm__ volatile("cld; rep stosb":"+D"(p),"+c"(n):"a"(c):"memory","cc");
+  }else {u16 *p=(u16 *)(framebuffer+row*info.pitch)+x;
+   if(n==1)*p=(u16)c;else __asm__ volatile("cld; rep stosw":"+D"(p),"+c"(n):"a"(c):"memory","cc");
+  }
  }
 }
 static void text(int x,int y,const char *s,u32 c){
@@ -192,7 +196,10 @@ static int paint(void){
  for(int i=0;i<2;i++)if(scene.window[i+2].open)button(300+i*146,info.height-29,136,i?"DOS 2":"DOS 1");
  cursor();
  unsigned row_bytes=clip.w*info.bpp;
- for(int row=0;row<clip.h;row++)for(unsigned i=0;i<row_bytes;i++)packed[row*row_bytes+i]=framebuffer[(clip.y+row)*info.pitch+clip.x*info.bpp+i];
+ for(int row=0;row<clip.h;row++){
+  const u8 *source=framebuffer+(clip.y+row)*info.pitch+clip.x*info.bpp;u8 *to=packed+row*row_bytes;unsigned n=row_bytes;
+  __asm__ volatile("cld; rep movsb":"+S"(source),"+D"(to),"+c"(n)::"memory","cc");
+ }
  GuiPresent p={(u32)packed,clip.x,clip.y,clip.w,clip.h,row_bytes};
  int e=k32_call(GUI_PRESENT,(u32)&p,sizeof p);if(e)return e;
  scene.damage=(Rect){0};gui_state.presents++;gui_state.frames++;return 0;

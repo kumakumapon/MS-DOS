@@ -34,7 +34,9 @@ RESTART is allowed after end/fault and reuses the last successful root path
 and arguments; it creates a new generation. END kills the whole root;
 Ctrl+C maps to INTERRUPT instead. ASCII keys pass through; PM32 navigation
 keys 256..263 map to PC-98 scan codes. FOCUS key=1 claims input routing for
-an owned window; key=0 clears it without changing any task. Native F10
+an owned window; key=0 clears it without changing any task. Key=2 reserves
+Escape for the GUI command editor even if the slot is free or foreign;
+it grants no task controls. Native F10
 always works. Escape is forwarded while a session owns focus and can stop
 an uncooperative GUI from a built-in window (the existing spin test).
 
