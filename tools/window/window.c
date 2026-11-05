@@ -767,6 +767,7 @@ static int update_dos_window(int id) {
     char screen[K386_SCREEN];k386_screen(session,screen);
     u16 saved[2][80];unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
     int columns=w->w-6;if(columns>80)columns=80;
+    unsigned painted=0;performance.busy++;
     gfx_target(1);gfx_origin(w->ox,w->oy);
     for(int row=0;row<w->h-6&&row<25;row++) {
         gfx_target(1); /* gfx_present returns rendering to the visible page. */
@@ -785,12 +786,14 @@ static int update_dos_window(int id) {
             last=col;
         }
         if(last>=first){
+            painted=1;
             if(occluded)preserve_dos_row(id,w->y+3+row,w->x+2+first,w->x+2+last,saved);
             gfx_present((w->x+2+first)*8+w->ox,(w->y+3+row)*16+w->oy,(last-first+1)*8,16);
         }
     }
     unsigned state=k386_word(session,0);
     if(dos_state[session]!=state) {
+        painted=1;
         gfx_target(1);
         int row=w->y+w->h-3;
         if(occluded&&row<25){mem_copy(ds,(unsigned)saved[0],0xa000,row*160,160);mem_copy(ds,(unsigned)saved[1],0xa200,row*160,160);}
@@ -801,12 +804,15 @@ static int update_dos_window(int id) {
         dos_state[session]=state;
     }
     if(dos_top[session]!=w->top) {
+        painted=1;
         gfx_target(1);
         Pane v;pane(id,&v);scrollbar(w,&v);
         gfx_present((w->x+w->w-3)*8+w->ox,(w->y+3)*16+w->oy,16,(w->h-6)*16);
         dos_top[session]=w->top;
     }
-    gfx_origin(0,0);return 1;
+    gfx_origin(0,0);
+    if(painted)performance.dos_updates=saturated(performance.dos_updates,1);
+    performance.busy--;return 1;
 }
 static void compose(int foreground) {
     gfx_target(1);
@@ -1316,11 +1322,12 @@ static void resources_update(int moving){
     if(active!=TASKS||!k386_resources_available()||moving||mode||confirm||panel_open||
        (windows[TASKS].selected<DOS1||windows[TASKS].selected>DOS2)||((input_ticks()-resource_tick)&0xffffff)<307200)return;
     Window *w=&windows[TASKS];int rows=w->h-15;if(rows<=0)return;if(rows>6)rows=6;
-    resource_tick=input_ticks();gfx_pointer_hide();gfx_target(1);gfx_origin(w->ox,w->oy);
+    resource_tick=input_ticks();performance.busy++;gfx_pointer_hide();gfx_target(1);gfx_origin(w->ox,w->oy);
     gfx_rect((w->x+2)*8,(w->y+13)*16,(w->w-4)*8,rows*16,PAPER);
     gfx_clear_text(w->x+2,w->y+13,w->w-4,rows);draw_resources(w);gfx_origin(0,0);
     gfx_present((w->x+2)*8+w->ox,(w->y+13)*16+w->oy,(w->w-4)*8,rows*16);
     Mouse now=mouse_position();gfx_pointer_show(now.x,now.y);
+    performance.busy--;
 }
 static int dispatch_events(void) {
     unsigned slot;TaskEvent event;int redraw=0;
@@ -1381,6 +1388,10 @@ int main(void) {
             clipboard.command = 0; clipboard.sequence++; redraw = 1;
         }
         if (now.x != previous.x || now.y != previous.y || now.buttons != previous.buttons || ready || redraw) {
+            /* A partial repaint, live drag or nested full composition can all
+             * temporarily replace foreground logical text. Publish only the
+             * completed input transaction as an idle snapshot. */
+            performance.busy++;
             gfx_pointer_hide();
             for (int i = 0; i < 16; i++) {
                 int key = mouse_event(now, previous.buttons, &redraw);
@@ -1389,13 +1400,13 @@ int main(void) {
                 if (!mouse_queued()) break;
                 now = mouse_read();
             }
-            if (stop) break;
+            if (stop) {performance.busy--;break;}
             if (ready) {
                 redraw|=drag||scrolling>=0;
                 drag = 0; scrolling=-1; gfx_drag_end(); live_drag = 0; last_file = last_app = last_title = -1;
                 for(int i=0;i<16&&key_ready();i++){int key=key_read();redraw|=!guest_input(active,key);stop=handle_key(key);redraw|=dispatch_events();if(stop)break;}
                 redraw|=scene_dirty;
-                if (stop) break;
+                if (stop) {performance.busy--;break;}
             }
             redraw|=dispatch_events();
             if(active>=VIEWER&&active<=PAINTER&&!drag&&!mode&&!confirm&&!panel_open){
@@ -1426,6 +1437,7 @@ int main(void) {
                 live_drag = gfx_drag_begin(w->x * 8 + w->ox, w->y * 16 + w->oy, w->w * 8 + 5, w->h * 16 + 5) ? 1 : 2;
             }
             gfx_pointer_show(now.x, now.y);
+            performance.busy--;
         }
         if(dos_changed) {
             gfx_pointer_hide();
