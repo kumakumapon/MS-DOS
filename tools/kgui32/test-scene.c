@@ -47,6 +47,9 @@ static void sessions(int width,int height){
  GuiEvent e={.type=GUI_BUTTON,.x=width-280,.y=15,.buttons=1};
  assert(scene_event(&s,&e)==ACT_NEW&&s.slot==0&&s.active==2);
  assert(s.window[2].open&&s.order[3]==2);
+ s.damage=(Rect){0};GuiEvent timer={.type=GUI_TIMER,.counters={1,0}};scene_event(&s,&timer);
+ if(width==640)assert(!s.damage.w);
+ else assert(s.damage.x==672&&s.damage.w==84&&s.damage.h==16);
  e.buttons=0;scene_event(&s,&e);
  e=(GuiEvent){.type=GUI_KEY,.key='q'};assert(scene_event(&s,&e)==ACT_KEY&&s.key=='q'&&s.slot==0);
  e.key='t';assert(scene_event(&s,&e)==ACT_KEY);e.key=12;assert(scene_event(&s,&e)==ACT_RUN);

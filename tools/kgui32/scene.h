@@ -12,6 +12,7 @@ typedef struct {
 enum {ACT_NONE,ACT_EXIT,ACT_START,ACT_STOP,ACT_NEW,ACT_RUN,ACT_KEY,ACT_END,ACT_PAUSE,ACT_RESUME,ACT_RESTART,ACT_SCROLL};
 void scene_init(Scene *,int,int);
 void scene_damage(Scene *,Rect);
+void scene_window_damage(Scene *,int,Rect);
 void scene_focus(Scene *,int);
 int scene_event(Scene *,const GuiEvent *);
 #endif

@@ -15,6 +15,25 @@ void scene_damage(Scene *s,Rect r){
  if(r.y+r.h>bottom)bottom=r.y+r.h;
  s->damage.w=right-s->damage.x;s->damage.h=bottom-s->damage.y;
 }
+/* Remove higher opaque window rectangles before invalidating changing text.
+ * Cached content still advances; revealing a window repaints from that cache. */
+static void visible_damage(Scene *s,Rect r,int level){
+ if(r.w<=0||r.h<=0)return;
+ for(int n=level;n<4;n++){
+  GuiWindow *w=&s->window[s->order[n]];if(!w->open||w->hidden)continue;
+  Rect c=w->r;int l=r.x>c.x?r.x:c.x,t=r.y>c.y?r.y:c.y;
+  int right=r.x+r.w<c.x+c.w?r.x+r.w:c.x+c.w,bottom=r.y+r.h<c.y+c.h?r.y+r.h:c.y+c.h;
+  if(l>=right||t>=bottom)continue;
+  visible_damage(s,(Rect){r.x,r.y,r.w,t-r.y},n+1);
+  visible_damage(s,(Rect){r.x,bottom,r.w,r.y+r.h-bottom},n+1);
+  visible_damage(s,(Rect){r.x,t,l-r.x,bottom-t},n+1);
+  visible_damage(s,(Rect){right,t,r.x+r.w-right,bottom-t},n+1);return;
+ }
+ scene_damage(s,r);
+}
+void scene_window_damage(Scene *s,int id,Rect r){
+ for(int n=0;n<4;n++)if(s->order[n]==id){visible_damage(s,r,n+1);return;}
+}
 void scene_init(Scene *s,int width,int height){
  *s=(Scene){.width=width,.height=height,.mx=320,.my=200,.active=0,.order={3,2,1,0}};
  s->window[0]=(GuiWindow){{48,64,340,224},1,0};
@@ -44,8 +63,8 @@ int scene_event(Scene *s,const GuiEvent *e){
   GuiWindow *w=&s->window[1];
   for(int i=0;i<2;i++){
    if(w->open&&!w->hidden){
-    if(s->states[i]!=e->states[i])scene_damage(s,(Rect){w->r.x+32,w->r.y+98+i*24,76,16});
-    if(s->counters[i]!=e->counters[i])scene_damage(s,(Rect){w->r.x+108,w->r.y+98+i*24,120,16});
+    if(s->states[i]!=e->states[i])scene_window_damage(s,1,(Rect){w->r.x+32,w->r.y+98+i*24,76,16});
+    if(s->counters[i]!=e->counters[i])scene_window_damage(s,1,(Rect){w->r.x+108,w->r.y+98+i*24,120,16});
    }
    s->counters[i]=e->counters[i];s->states[i]=e->states[i];
   }

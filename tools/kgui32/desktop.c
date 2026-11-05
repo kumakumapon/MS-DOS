@@ -23,7 +23,7 @@ static void refresh(void){
   if(w->open&&!w->hidden){
    int changed=v.generation!=views[id].generation||v.state!=views[id].state||v.owned!=views[id].owned;
    for(int i=0;i<16;i++)if(v.program[i]!=views[id].program[i])changed=1;
-   if(changed)scene_damage(&scene,w->r);
+   if(changed)scene_window_damage(&scene,id+2,w->r);
    int cols=(w->r.w-16)/8,rows=(w->r.h-104)/16;
    for(int row=0;row<rows;row++){
     int r=row+scene.scroll_y[id];if(r>=25)break;
@@ -31,7 +31,7 @@ static void refresh(void){
     for(int col=0;col<cols&&col+scene.scroll_x[id]<80;col++){
      int at=r*80+col+scene.scroll_x[id];if(v.screen[at]!=views[id].screen[at])dirty=1;
     }
-    if(dirty)scene_damage(&scene,(Rect){w->r.x+8,w->r.y+70+row*16,cols*8,16});
+    if(dirty)scene_window_damage(&scene,id+2,(Rect){w->r.x+8,w->r.y+70+row*16,cols*8,16});
    }
   }
   views[id]=v;if(following[id]){follow_cursor(id);following[id]--;}
