@@ -16,7 +16,8 @@ static GuiInfo info;static GuiEvent queue[32];
 static unsigned head,count,segment,scratch,tables,started,quit;
 static u32 last_schedule,last_timer;
 unsigned manager,owned[2],session_focus;u32 owned_generation[2];
-extern int gui_session(u32,unsigned),gui_snapshot(u32,unsigned);
+extern int gui_session(u32,unsigned),gui_snapshot(u32,unsigned),kg_clients_start(void),kg_clients_snapshot(u32,unsigned),kg_clients_event(u32,unsigned);
+extern void kg_clients_close(void),kg_clients_tick(void);
 static Mouse previous;
 static u32 get(unsigned at){return *(u32 *)(results+at);}
 static void put(unsigned at,u32 n){*(u32 *)(results+at)=n;}
@@ -119,6 +120,8 @@ static int dispatch(void){
  case GUI_PROOF:error=b==1?start_workers():b==2?(stop_workers(),0):-22;break;
  case GUI_SESSION:error=gui_session(b,c);break;
  case GUI_SNAPSHOT:error=gui_snapshot(b,c);break;
+ case GUI_CLIENT_VIEW:error=kg_clients_snapshot(b,c);break;
+ case GUI_CLIENT_EVENT:error=kg_clients_event(b,c);break;
  default:gui_record.unknown++;return -38;
  }if(error<0)gui_record.rejected++;return error;
 }
@@ -145,9 +148,10 @@ int gui_main(void){
  info=(GuiInfo){.magic=0x3149474b,.version=1,.size=sizeof info,.width=gfx_width(),.height=gfx_height(),.bpp=gfx_colors()>256?2:1,.features=1};info.pitch=info.width*info.bpp;
  for(unsigned i=0;i<16;i++)info.colors[i]=gfx_rgb(i);
  gui_record.width=info.width;gui_record.height=info.height;gui_record.bpp=info.bpp;gui_record.graphics=1;gui_record.ready=1;
+ if(kg_clients_start()){gui_record.error=12;goto cleanup;}
  previous=mouse_read();enqueue((GuiEvent){.type=GUI_MOTION,.x=previous.x,.y=previous.y,.buttons=previous.buttons,.ticks=previous.ticks});
  while(!gui_record.error&&!quit){
-  gui_record.busy=1;pump();
+  gui_record.busy=1;pump();kg_clients_tick();
   /* Charge the scheduling interval after the bounded peer batch finishes.
    * Peer execution must not immediately trigger another batch and starve
    * the GUI while it is composing a window between IRQ preemptions. */
@@ -159,7 +163,7 @@ int gui_main(void){
  }
  if(quit){put(12,5);put(68,65);}
 cleanup:
- gui_record.busy=1;stop_workers();services_close();loader_close();
+ gui_record.busy=1;stop_workers();kg_clients_close();services_close();loader_close();
  if(initialized&&tables){mem_fill(get(24)>>4,0,12288,0);put(464,1);put(948,1);}
  host_drop_xms();
  if(started){gfx_stop();gfx_driver_release();p_finish();}

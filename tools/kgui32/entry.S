@@ -1,4 +1,4 @@
-/* Native loader entry. No interrupt hook and no KDESK code bank is installed. */
+/* Native loader entry. No KDESK code bank; the bounded graphical callback is transient. */
 .code16gcc
 .global initialized
 _start:

@@ -71,6 +71,7 @@ int scene_event(Scene *s,const GuiEvent *e){
   return ACT_NONE;
  }
  if(e->type==GUI_KEY){
+  if(e->key==11||e->key==281){scene_focus(s,0);return ACT_NONE;}
   if(e->key==9){
    int id=(s->active+1)%4;
    while(id>=2&&id!=s->active&&!s->window[id].open)id=(id+1)%4;
@@ -98,7 +99,7 @@ int scene_event(Scene *s,const GuiEvent *e){
  if(s->resize){
   GuiWindow *w=&s->window[s->resize-1];scene_damage(s,covered(w));
   w->r.w=clamp(s->mx-w->r.x+s->dx,360,s->width-w->r.x-8);
-  w->r.h=clamp(s->my-w->r.y+s->dy,208,s->height-40-w->r.y);
+  w->r.h=clamp(s->my-w->r.y+s->dy,s->resize>=3&&s->graphical[s->resize-3]?272:208,s->height-40-w->r.y);
   scene_damage(s,covered(w));if(!(s->buttons&1))s->resize=0;return ACT_NONE;
  }
  if(s->drag){move(s,s->drag-1,s->mx-s->dx,s->my-s->dy);if(!(s->buttons&1))s->drag=0;return ACT_NONE;}
@@ -137,6 +138,11 @@ int scene_event(Scene *s,const GuiEvent *e){
    }
   }
   if(s->my<w->r.y+30){s->drag=id+1;s->dx=s->mx-w->r.x;s->dy=s->my-w->r.y;return ACT_NONE;}
+  if(!id){
+   if(inside((Rect){w->r.x+18,w->r.y+116,140,28},s->mx,s->my))return ACT_CALCULATOR;
+   if(inside((Rect){w->r.x+174,w->r.y+116,140,28},s->mx,s->my))return ACT_CLOCK;
+   if(inside((Rect){w->r.x+18,w->r.y+152,296,28},s->mx,s->my))return ACT_SHELL;
+  }
   if(id==1&&inside((Rect){w->r.x+16,w->r.y+168,94,28},s->mx,s->my))return ACT_START;
   if(id==1&&inside((Rect){w->r.x+124,w->r.y+168,94,28},s->mx,s->my))return ACT_STOP;
   break;

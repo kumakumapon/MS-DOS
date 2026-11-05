@@ -1,5 +1,6 @@
 /* Single-owner services. All calls here occur with the caller CR3 and real mode. */
 #include "services.h"
+#include "../kgui32/sdk/protocol.h"
 extern u8 results[1024],loader_buffer[4096];
 extern u32 context[19],loader_map[1024],loader_request,xms_entry;
 extern K32Plan loader_plan;
@@ -11,6 +12,13 @@ static u32 serial K32_STATE,wait_start K32_STATE,wait_ticks K32_STATE,wait_mask 
 static u8 dta[43];
 static u16 keys[64] K32_STATE;
 static unsigned key_head K32_STATE,key_count K32_STATE,escape_pending K32_STATE;
+static unsigned service_features(void){
+ unsigned f=K32_FEATURES;
+ #if defined(K32_HOST) && !defined(K32_GUI)
+ f|=loader_plan.features&KG_FEATURE;
+ #endif
+ return f;
+}
 static u32 get(unsigned at){return *(u32 *)(results+at);}
 static void put(unsigned at,u32 n){*(u32 *)(results+at)=n;}
 static void inc(unsigned at){put(at,get(at)+1);}
@@ -65,9 +73,9 @@ int services_start(void){
  u32 end=K32_BASE;
  for(unsigned i=0;i<loader_plan.count;i++){K32Segment *s=&loader_plan.segment[i];u32 at=(s->address+s->memsz+4095)&~4095u;if(at>end)end=at;}
  k32_heap_init(&heap,end,K32_INFO);
- put(768,257);put(772,K32_FEATURES);put(776,loader_args.argc);put(780,end);put(784,K32_INFO);
+ put(768,257);put(772,service_features());put(776,loader_args.argc);put(780,end);put(784,K32_INFO);
  for(unsigned i=0;i<4096;i++)loader_buffer[i]=0;
- u32 *info=(u32 *)loader_buffer;info[0]=0x3149324b;info[1]=257;info[2]=64;info[3]=loader_args.argc;info[4]=K32_INFO+64;info[5]=K32_FEATURES;info[6]=end;info[7]=K32_INFO;info[8]=4096;info[9]=307200;
+ u32 *info=(u32 *)loader_buffer;info[0]=0x3149324b;info[1]=257;info[2]=64;info[3]=loader_args.argc;info[4]=K32_INFO+64;info[5]=service_features();info[6]=end;info[7]=K32_INFO;info[8]=4096;info[9]=307200;
  unsigned at=128;
  for(unsigned i=0;i<loader_args.argc;i++){
   *(u32 *)(loader_buffer+64+i*4)=K32_INFO+at;
@@ -180,7 +188,7 @@ static int seek_file(u32 token,u32 at){
 int services_dispatch(void){
  u32 nr=loader_request;loader_request=0;
  if(nr==1)return loader_write();
- if(nr==4)return loader_plan.abi==257?K32_FEATURES:0;
+ if(nr==4)return loader_plan.abi==257?service_features():0;
  if(loader_plan.abi!=257)return -38;
  u32 b=context[8],c=context[10],d=context[9];
  switch(nr){
@@ -194,6 +202,18 @@ int services_dispatch(void){
  case 10:return read_file(b,c,d);
  case 11:return seek_file(b,c);
  case 12:return close_file(b);
+ #if defined(K32_HOST) && !defined(K32_GUI)
+ case 13:{
+  extern int host_graphics(void *,unsigned);
+  if(!(loader_plan.features&KG_FEATURE))return -38;
+  if(c!=sizeof(KgRequest))return -22;
+  if(!k32_user_range(loader_map,b,c,1))return -14;
+  if(!transfer(b-K32_BASE,loader_buffer,c,0))return -5;
+  int e=host_graphics(loader_buffer,1);
+  if(e>=0&&!transfer(b-K32_BASE,loader_buffer,c,1))return -5;
+  return e;
+ }
+ #endif
  default:return -38;
  }
 }

@@ -78,7 +78,7 @@ stop/resume/minimize, failed load, #PF, restart, resize/drag and full disk
 hashes on PEGC/Cirrus. The foundation suite retains low-memory, GUI #PF/spin,
 foreign-owner reclamation and original KDESK calculator regression checks.
 
-This is the first text-client milestone. Generic graphical GUI clients,
-widget SDK, Japanese/attribute rendering, clipboard, direct-GDC application
+This is the first text-client milestone. The initial graphical client SDK is documented in [CLIENT-SDK.md](CLIENT-SDK.md).
+Text-entry/menu widgets, Japanese/attribute rendering, clipboard, direct-GDC application
 virtualization, shared disk writes and expansion beyond two slots remain
 later work. Run uses A: root files only under existing backend restrictions.

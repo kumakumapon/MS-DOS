@@ -70,4 +70,33 @@ static void sessions(int width,int height){
  e=(GuiEvent){.type=GUI_TIMER,.states={2,3},.counters={12,24}};scene_event(&s,&e);
  assert(s.states[0]==2&&s.states[1]==3&&s.active==2);
 }
-int main(void){check(640,400);check(800,600);sessions(640,400);sessions(800,600);return 0;}
+static void clients(int width,int height){
+ Scene s;scene_init(&s,width,height);scene_focus(&s,2);s.graphical[0]=1;
+ /* App letters are delivered to the app; launcher shortcuts are consumed
+  * even when both app windows are open and the launcher is minimized. */
+ GuiEvent e={.type=GUI_KEY,.key='t'};
+ assert(scene_event(&s,&e)==ACT_KEY&&s.slot==0&&s.key=='t');
+ s.window[0].hidden=1;e.key=281;
+ assert(scene_event(&s,&e)==ACT_NONE&&s.active==0&&!s.window[0].hidden);
+ scene_focus(&s,3);e.key=11;
+ assert(scene_event(&s,&e)==ACT_NONE&&s.active==0&&s.order[3]==0);
+ Rect r=s.window[0].r;
+ e=(GuiEvent){.type=GUI_BUTTON,.x=r.x+40,.y=r.y+128,.buttons=1};
+ assert(scene_event(&s,&e)==ACT_CALCULATOR);
+ mouse(&s,GUI_BUTTON,e.x,e.y,0);e.x=r.x+190;
+ assert(scene_event(&s,&e)==ACT_CLOCK);
+ mouse(&s,GUI_BUTTON,e.x,e.y,0);e.x=r.x+40;e.y=r.y+164;
+ assert(scene_event(&s,&e)==ACT_SHELL);
+ mouse(&s,GUI_BUTTON,e.x,e.y,0);
+ /* Client controls remain usable at the minimum size. Text windows keep
+  * their previous smaller minimum, including a final motion on release. */
+ scene_focus(&s,2);r=s.window[2].r;
+ mouse(&s,GUI_BUTTON,r.x+r.w-8,r.y+r.h-8,1);
+ assert(s.resize==3);mouse(&s,GUI_BUTTON,r.x+100,r.y+100,0);
+ assert(!s.resize&&s.window[2].r.w==360&&s.window[2].r.h==272);
+ scene_focus(&s,3);r=s.window[3].r;
+ mouse(&s,GUI_BUTTON,r.x+r.w-8,r.y+r.h-8,1);
+ mouse(&s,GUI_BUTTON,r.x+100,r.y+100,0);
+ assert(!s.resize&&s.window[3].r.h==208);
+}
+int main(void){check(640,400);check(800,600);sessions(640,400);sessions(800,600);clients(640,400);clients(800,600);return 0;}
