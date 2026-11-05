@@ -63,6 +63,9 @@ static void refresh_graphical(unsigned id){
  }
 }
 static void launch(int act){
+ /* An app can finish between GUI timer events. Decide from the monitor's
+  * current state rather than rejecting an available slot from the cache. */
+ refresh();
  unsigned id=0;
  while(id<2&&(views[id].state==1||views[id].state==2||views[id].state==3||(views[id].state==4&&!views[id].owned)))id++;
  if(id==2){scene.action_result=-16;scene_damage(&scene,scene.window[0].r);return;}
