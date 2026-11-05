@@ -11,6 +11,8 @@ $(BUILD)/runtime.o: $(K32)/runtime.S $(K32)/host-engine.S entry.S | $(BUILD)
 	as --32 -I $(K32) --defsym LOADER=1 --defsym HOST=1 --defsym GUI_HOST=1 $< -o $@
 $(BUILD)/driver.o: driver.c gui.h | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
+$(BUILD)/sessions.o: sessions.c gui.h | $(BUILD)
+	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/%.broker.o: $(K32)/%.c $(K32)/elf.h $(K32)/services.h | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/hardware.o: ../window/hardware.c ../window/hardware.h | $(BUILD)
@@ -25,7 +27,7 @@ $(BUILD)/core.o: ../filer/core.c | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/client.o: ../window/k386_client.c | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
-$(BUILD)/driver.elf: $(BUILD)/runtime.o $(BUILD)/driver.o $(BUILD)/loader.broker.o $(BUILD)/elf.broker.o $(BUILD)/services.broker.o $(BUILD)/services-dos.broker.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/cirrus.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/client.o driver.ld
+$(BUILD)/driver.elf: $(BUILD)/runtime.o $(BUILD)/driver.o $(BUILD)/sessions.o $(BUILD)/loader.broker.o $(BUILD)/elf.broker.o $(BUILD)/services.broker.o $(BUILD)/services-dos.broker.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/cirrus.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/client.o driver.ld
 	ld -m elf_i386 --gc-sections -T driver.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGUILDR.EXE: $(BUILD)/driver.elf ../mz/build.py
 	python3 ../mz/build.py --desktop-app 'KGUI32 native loader' $< $@
@@ -49,8 +51,11 @@ $(BUILD)/KGPROOF.COM: $(BUILD)/proof.elf
 	objcopy -O binary $< $@
 $(BUILD)/test-scene: test-scene.c scene.c scene.h gui.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-scene.c scene.c -o $@
-test: all $(BUILD)/test-scene
+$(BUILD)/test-sessions: test-sessions.c sessions.c gui.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror test-sessions.c sessions.c -o $@
+test: all $(BUILD)/test-scene $(BUILD)/test-sessions
 	$(BUILD)/test-scene
+	$(BUILD)/test-sessions
 	python3 test_image.py
 .PHONY: all test
 -include $(wildcard $(BUILD)/*.d)
