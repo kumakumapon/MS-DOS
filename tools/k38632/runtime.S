@@ -848,11 +848,15 @@ loader_trap:
 .ifdef GUI_HOST
     cmp eax,64
     jb gui_old_service
-    cmp eax,70
+    cmp eax,72
     jbe gui_service
 gui_old_service:
 .endif
+    .ifdef HOST
+    cmp eax,13
+    .else
     cmp eax,12
+    .endif
     ja unknown_service
 .ifdef GUI_HOST
 gui_service:

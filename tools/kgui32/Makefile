@@ -11,6 +11,12 @@ $(BUILD)/runtime.o: $(K32)/runtime.S $(K32)/host-engine.S entry.S | $(BUILD)
 	as --32 -I $(K32) --defsym LOADER=1 --defsym HOST=1 --defsym GUI_HOST=1 $< -o $@
 $(BUILD)/driver.o: driver.c gui.h | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
+$(BUILD)/clients.o: clients.c client-policy.h sdk/protocol.h | $(BUILD)
+	$(CC) $(NATIVE) -c $< -o $@
+$(BUILD)/client-policy.o: client-policy.c client-policy.h sdk/protocol.h | $(BUILD)
+	$(CC) $(NATIVE) -c $< -o $@
+$(BUILD)/client-gate.o: client-gate.S | $(BUILD)
+	as --32 $< -o $@
 $(BUILD)/sessions.o: sessions.c gui.h | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/%.broker.o: $(K32)/%.c $(K32)/elf.h $(K32)/services.h | $(BUILD)
@@ -27,7 +33,7 @@ $(BUILD)/core.o: ../filer/core.c | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/client.o: ../window/k386_client.c | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
-$(BUILD)/driver.elf: $(BUILD)/runtime.o $(BUILD)/driver.o $(BUILD)/sessions.o $(BUILD)/loader.broker.o $(BUILD)/elf.broker.o $(BUILD)/services.broker.o $(BUILD)/services-dos.broker.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/cirrus.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/client.o driver.ld
+$(BUILD)/driver.elf: $(BUILD)/clients.o $(BUILD)/client-policy.o $(BUILD)/client-gate.o $(BUILD)/runtime.o $(BUILD)/driver.o $(BUILD)/sessions.o $(BUILD)/loader.broker.o $(BUILD)/elf.broker.o $(BUILD)/services.broker.o $(BUILD)/services-dos.broker.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/cirrus.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/client.o driver.ld
 	ld -m elf_i386 --gc-sections -T driver.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGUILDR.EXE: $(BUILD)/driver.elf ../mz/build.py
 	python3 ../mz/build.py --desktop-app 'KGUI32 native loader' $< $@
@@ -53,9 +59,36 @@ $(BUILD)/test-scene: test-scene.c scene.c scene.h gui.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-scene.c scene.c -o $@
 $(BUILD)/test-sessions: test-sessions.c sessions.c gui.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-sessions.c sessions.c -o $@
-test: all $(BUILD)/test-scene $(BUILD)/test-sessions
+$(BUILD)/test-client-policy: test-client-policy.c client-policy.c client-policy.h sdk/protocol.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror test-client-policy.c client-policy.c -o $@
+test: all $(BUILD)/test-scene $(BUILD)/test-sessions $(BUILD)/test-client-policy
 	$(BUILD)/test-scene
 	$(BUILD)/test-sessions
+	$(BUILD)/test-client-policy
 	python3 test_image.py
 .PHONY: all test
 -include $(wildcard $(BUILD)/*.d)
+
+# Independent graphical clients, using the same PM32 CRT and memory budget.
+$(BUILD)/sdk.o: sdk/kgui.c sdk/kgui.h sdk/protocol.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/%.app.o: apps/%.c apps/stats.h sdk/kgui.h sdk/protocol.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/calculator-core.o: ../window/utilities.c ../window/utilities.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -DCALCULATOR_TEST -c $< -o $@
+$(BUILD)/client-core.o: ../filer/core.c | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/calculator.elf: $(BUILD)/calculator.app.o $(BUILD)/calculator-core.o $(BUILD)/client-core.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/clock.elf: $(BUILD)/clock.app.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KGCALC.EXE: $(BUILD)/calculator.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client
+$(BUILD)/KGCLOCK.EXE: $(BUILD)/clock.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client
+all: $(BUILD)/KGCALC.EXE $(BUILD)/KGCLOCK.EXE
+$(BUILD)/boundary.elf: $(BUILD)/boundary.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KGBAD.EXE: $(BUILD)/boundary.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client
+all: $(BUILD)/KGBAD.EXE

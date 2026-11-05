@@ -124,3 +124,5 @@ apps: $(BUILD)/COUNT32.EXE
 $(BUILD)/XARRAY32.EXE: $(BUILD)/xarray.ext.elf package.py
 	python3 package.py $< $@ --abi 257 --features 7
 apps: $(BUILD)/XARRAY32.EXE
+
+$(BUILD)/host.host.o $(BUILD)/services-dos.host.o $(BUILD)/services-dos.o: ../kgui32/sdk/protocol.h

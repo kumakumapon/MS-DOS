@@ -1,6 +1,7 @@
 /* Original flat-pointer GUI: composition, cursor, hit testing and window state
  * execute only in CPL3 protected mode. No physical VRAM or I/O mapping. */
 #include "scene.h"
+#include "sdk/protocol.h"
 #include "../k38632/sdk/k32x.h"
 typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,presents,last_key,heartbeat,error;} GuiState;
 volatile GuiState gui_state __attribute__((used,section(".data.gui_state")))={.magic=0x3147554b,.version=1};
@@ -9,6 +10,9 @@ static u8 framebuffer[800*600*2],packed[800*600*2];
 static Rect clip;
 static GuiSessionView views[2];static int errors[2],editing[2],lengths[2];
 static char paths[2][128];static unsigned following[2];
+static KgRequest clients[2],client_io;
+static void refresh_graphical(unsigned);
+static int client_event(unsigned,const KgEvent *);
 static void follow_cursor(unsigned);
 static int session_command(unsigned slot,unsigned operation,unsigned key){
  GuiSessionCommand c={.version=1,.size=sizeof c,.slot=slot,.generation=operation==GS_CREATE?0:views[slot].generation,.operation=operation,.key=key};
@@ -34,8 +38,40 @@ static void refresh(void){
     if(dirty)scene_window_damage(&scene,id+2,(Rect){w->r.x+8,w->r.y+70+row*16,cols*8,16});
    }
   }
-  views[id]=v;if(following[id]){follow_cursor(id);following[id]--;}
+  views[id]=v;refresh_graphical(id);if(following[id]){follow_cursor(id);following[id]--;}
  }
+}
+static int client_event(unsigned id,const KgEvent *e){
+ client_io=(KgRequest){.version=1,.size=sizeof client_io,.slot=id,.generation=views[id].generation,.token=clients[id].token,.event=*e};
+ return k32_call(GUI_CLIENT_EVENT,(u32)&client_io,sizeof client_io);
+}
+static void refresh_graphical(unsigned id){
+ client_io=(KgRequest){.version=1,.size=sizeof client_io,.slot=id};
+ if(k32_call(GUI_CLIENT_VIEW,(u32)&client_io,sizeof client_io))return;
+ unsigned yes=views[id].owned&&views[id].kind==1&&client_io.generation==views[id].generation&&client_io.revision;
+ scene.graphical[id]=yes;
+ if(yes&&client_io.token&&(clients[id].token!=client_io.token||clients[id].generation!=client_io.generation)){
+  GuiWindow *w=&scene.window[id+2];scene_damage(&scene,(Rect){w->r.x,w->r.y,w->r.w+6,w->r.h+6});
+  w->r.w=client_io.width+16;w->r.h=client_io.height+104;
+  w->r.x=id?scene.width-w->r.w-16:16;w->r.y=id?scene.height-w->r.h-40:40;
+  if(w->r.y<40)w->r.y=40;
+  scene_focus(&scene,id+2);scene_damage(&scene,w->r);
+ }
+ if(clients[id].revision!=client_io.revision||clients[id].generation!=client_io.generation||clients[id].token!=client_io.token){
+  if(yes&&scene.window[id+2].open&&!scene.window[id+2].hidden)scene_window_damage(&scene,id+2,scene.window[id+2].r);
+  clients[id]=client_io;
+ }
+}
+static void launch(int act){
+ unsigned id=0;
+ while(id<2&&(views[id].state==1||views[id].state==2||views[id].state==3||(views[id].state==4&&!views[id].owned)))id++;
+ if(id==2){scene.action_result=-16;scene_damage(&scene,scene.window[0].r);return;}
+ const char *path=act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":"KSH.EXE";
+ for(unsigned i=0;i<128;i++){paths[id][i]=path[i];if(!path[i])break;}
+ errors[id]=session_command(id,GS_CREATE,0);scene.action_result=errors[id];
+ if(!errors[id])scene_focus(&scene,id+2);
+ else scene_damage(&scene,scene.window[0].r);
+ refresh();
 }
 static void follow_cursor(unsigned id){
  GuiWindow *w=&scene.window[id+2];int cols=(w->r.w-16)/8,rows=(w->r.h-104)/16;
@@ -52,6 +88,7 @@ static void begin_run(unsigned id){
 }
 static void action(int act){
  unsigned id=scene.slot;
+ if(act>=ACT_CALCULATOR){launch(act);return;}
  if(act==ACT_START||act==ACT_STOP){scene.action_result=k32_call(GUI_PROOF,act==ACT_START?1:2,0);scene_damage(&scene,scene.window[1].r);refresh();return;}
  if(act<ACT_NEW)return;
  if(act==ACT_SCROLL){following[id]=0;return;}
@@ -71,10 +108,13 @@ static void action(int act){
   }
  }else {
   unsigned op=act==ACT_KEY?GS_KEY:act==ACT_END?GS_END:act==ACT_PAUSE?GS_PAUSE:act==ACT_RESUME?GS_RESUME:GS_RESTART;
-  errors[id]=session_command(id,op,scene.key);if(act==ACT_KEY)following[id]=3;
+  if(act==ACT_KEY&&scene.graphical[id]){
+   if(clients[id].token){KgEvent event={.type=KG_KEY,.key=scene.key};errors[id]=client_event(id,&event);}
+  }else errors[id]=session_command(id,op,scene.key);
+  if(act==ACT_KEY&&!scene.graphical[id])following[id]=3;
   if(act==ACT_RESTART&&!errors[id])scene.scroll_x[id]=scene.scroll_y[id]=0;
  }
- refresh();if(act==ACT_KEY&&!editing[id])follow_cursor(id);
+ refresh();if(act==ACT_KEY&&!editing[id]&&!scene.graphical[id])follow_cursor(id);
  GuiWindow *w=&scene.window[id+2];
  if(act==ACT_KEY&&!was_editing&&!editing[id]){
   if(old_error!=errors[id])scene_damage(&scene,(Rect){w->r.x,w->r.y+w->r.h-32,w->r.w,32});
@@ -158,24 +198,63 @@ static void terminal(unsigned id,int x,int y,int width,int height){
   text(x+16,y+126,"Enter: start   Esc: cancel",color(10));
  }
 }
+static void graphical(unsigned id,int x,int y,int width,int height){
+ const char *names[]={"Run","Stop","Resume","End","Again"};
+ for(int i=0;i<5;i++)button(x+8+i*64,y+36,60,names[i]);
+ Rect saved=clip;int left=x+8,top=y+70,right=x+width-8,bottom=y+height-34;
+ if(clip.x>left)left=clip.x;
+ if(clip.y>top)top=clip.y;
+ if(clip.x+clip.w<right)right=clip.x+clip.w;
+ if(clip.y+clip.h<bottom)bottom=clip.y+clip.h;
+ clip=(Rect){left,top,right>left?right-left:0,bottom>top?bottom-top:0};
+ box(x+8,y+70,width-16,height-104,rgb(234,240,245));
+ KgRequest *r=&clients[id];
+ for(unsigned i=0;r->token&&i<r->count;i++){
+  KgDraw *d=&r->draw[i];int xx=x+8+d->x,yy=y+70+d->y;u32 c=rgb(d->color>>16,(d->color>>8)&255,d->color&255);
+  if(d->op==KG_RECT)box(xx,yy,d->w,d->h,c);
+  if(d->op==KG_TEXT)text(xx,yy,d->text,c);
+  if(d->op==KG_BUTTON){
+   box(xx,yy,d->w,d->h,color(11));box(xx+1,yy+1,d->w-2,d->h-2,c);box(xx+2,yy+2,d->w-4,1,color(7));
+   text(xx+(d->w-8*(int)k32_len(d->text))/2,yy+(d->h-16)/2,d->text,color(0));
+  }
+ }
+ if(!r->token)text(x+24,y+86,views[id].state==4?"Application faulted":"Application ended",color(10));
+ clip=saved;
+ text(x+16,y+height-22,views[id].state==3?"Stopped":views[id].state==4?"Faulted":views[id].state==0?"Ended":"PM32 GUI client",color(10));
+ text(x+width-18,y+height-18,"/",color(10));
+ if(editing[id]){
+  box(x+8,y+70,width-16,72,color(3));text(x+16,y+78,"Run (End current first):",color(0));
+  int n=lengths[id],visible=(width-40)/8,start=n>visible?n-visible:0;
+  text(x+16,y+102,paths[id]+start,color(0));text(x+16,y+126,"Enter: start   Esc: cancel",color(10));
+ }
+}
+static void client_mouse(const GuiEvent *e){
+ if(scene.active<2||e->type!=GUI_BUTTON||scene.drag||scene.resize)return;
+ unsigned id=scene.active-2;if(!scene.graphical[id]||!clients[id].token||editing[id])return;
+ GuiWindow *w=&scene.window[id+2];int x=(int)e->x-w->r.x-8,y=(int)e->y-w->r.y-70;
+ if(!w->open||w->hidden||x<0||y<0||x>=w->r.w-16||y>=w->r.h-104)return;
+ KgEvent event={.type=KG_MOUSE,.x=x,.y=y,.key=e->buttons};
+ KgRequest *r=&clients[id];
+ for(unsigned i=0;i<r->count;i++){KgDraw *d=&r->draw[i];if(d->op==KG_BUTTON&&x>=d->x&&y>=d->y&&x-d->x<d->w&&y-d->y<d->h)event.control=d->id;}
+ errors[id]=client_event(id,&event);
+}
 static void window(int id){
  GuiWindow *w=&scene.window[id];if(!w->open||w->hidden)return;
  int x=w->r.x,y=w->r.y,width=w->r.w,height=w->r.h;
  if(x+width+6<=clip.x||x>=clip.x+clip.w||y+height+6<=clip.y||y>=clip.y+clip.h)return;
  box(x+5,y+5,width,height,rgb(8,16,28));box(x,y,width,height,color(11));box(x+1,y+1,width-2,height-2,color(2));
  box(x+2,y+2,width-4,28,color(scene.active==id?4:9));box(x+3,y+3,width-6,1,color(scene.active==id?13:3));
- text(x+12,y+9,id>=2?(id==2?"DOS 1":"DOS 2"):id?"System":"Welcome to KGUI32",color(scene.active==id?7:0));
+ text(x+12,y+9,id>=2?(scene.graphical[id-2]?(id==2?"App 1":"App 2"):(id==2?"DOS 1":"DOS 2")):id?"System":"Welcome to KGUI32",color(scene.active==id?7:0));
  box(x+width-47,y+6,18,18,color(3));box(x+width-25,y+6,18,18,color(3));
  text(x+width-43,y+7,"_",color(0));text(x+width-21,y+7,"x",color(0));
  if(id>=2){
-  text(x+72,y+9,views[id-2].program,color(7));terminal(id-2,x,y,width,height);
+  text(x+72,y+9,scene.graphical[id-2]?clients[id-2].title:views[id-2].program,color(7));
+  if(scene.graphical[id-2])graphical(id-2,x,y,width,height);else terminal(id-2,x,y,width,height);
  }else if(!id){
   box(x+16,y+48,46,46,color(4));box(x+24,y+56,12,28,color(7));box(x+38,y+56,12,12,color(6));box(x+38,y+72,12,12,color(3));
   text(x+78,y+48,"Your new desktop",color(0));text(x+78,y+72,"32-bit protected mode",color(10));
-  text(x+18,y+116,"Drag either title bar to move.",color(0));
-  text(x+18,y+140,"Tab switches windows.",color(0));
-  text(x+18,y+164,"Use the taskbar to reopen.",color(0));
-  text(x+18,y+196,"F10: DOS.  New DOS: top bar.",color(10));
+  button(x+18,y+116,140,"Calculator");button(x+174,y+116,140,"Clock");button(x+18,y+152,296,"DOS Shell");
+  text(x+18,y+196,scene.action_result<0?"Both slots busy / launch failed":"F2: launcher   F10: DOS",color(10));
  }else{
   text(x+16,y+46,"Desktop: private context",color(0));
   text(x+16,y+70,"Application slots: 2",color(0));
@@ -202,7 +281,7 @@ static int paint(void){
  for(int i=0;i<4;i++)window(scene.order[i]);
  box(0,info.height-32,info.width,32,color(0));box(0,info.height-32,info.width,1,color(4));
  button(6,info.height-29,136,"Welcome");button(152,info.height-29,136,"System");
- for(int i=0;i<2;i++)if(scene.window[i+2].open)button(300+i*146,info.height-29,136,i?"DOS 2":"DOS 1");
+ for(int i=0;i<2;i++)if(scene.window[i+2].open)button(300+i*146,info.height-29,136,scene.graphical[i]?clients[i].title:i?"DOS 2":"DOS 1");
  cursor();
  unsigned row_bytes=clip.w*info.bpp;
  for(int row=0;row<clip.h;row++){
@@ -215,6 +294,13 @@ static int paint(void){
 }
 static int equal(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 static int session_negative(void){
+ static const u32 client_header[4]={1,sizeof(KgRequest),0,0};
+ if(k32_call(GUI_CLIENT_VIEW,0x10000,sizeof(KgRequest))!=-14)return 12;
+ if(k32_call(GUI_CLIENT_VIEW,(u32)client_header,sizeof(KgRequest))!=-14)return 13;
+ client_io=(KgRequest){.version=1,.size=sizeof client_io,.slot=2};
+ if(k32_call(GUI_CLIENT_VIEW,(u32)&client_io,sizeof client_io)!=-22)return 14;
+ client_io.slot=0;client_io.generation=~0u;
+ if(k32_call(GUI_CLIENT_EVENT,(u32)&client_io,sizeof client_io)!=-1)return 15;
  static const u32 readonly_header[4]={1,sizeof(GuiSessionView),0,0};
  GuiSessionCommand c={.version=1,.size=sizeof c,.operation=GS_END};
  GuiSessionView v={.version=1,.size=sizeof v};
@@ -268,12 +354,20 @@ int main(int argc,char **argv){
   if(got<0){gui_state.error=7;return 7;}
   if(!got){k32_wait(K32_WAIT_TIME,16);continue;}
   gui_state.events++;gui_state.heartbeat++;if(event.type==GUI_KEY)gui_state.last_key=event.key;
+  int previous_focus=scene.active;Rect previous_rect[2]={scene.window[2].r,scene.window[3].r};
   int act;
   if(event.type==GUI_KEY&&scene.active>=2&&editing[scene.active-2]&&event.key!=9){
    scene.slot=scene.active-2;scene.key=event.key;act=ACT_KEY;
   }else act=scene_event(&scene,&event);
   if(act==ACT_EXIT)return 0;
-  action(act);if(event.type==GUI_TIMER)refresh();input_focus();
+  action(act);if(event.type==GUI_TIMER)refresh();
+  for(unsigned id=0;id<2;id++)if(scene.graphical[id]&&clients[id].token){
+   Rect r=scene.window[id+2].r;
+   if(r.w!=previous_rect[id].w||r.h!=previous_rect[id].h){KgEvent change={.type=KG_RESIZE,.width=r.w-16,.height=r.h-104};client_event(id,&change);}
+   if(previous_focus!=scene.active&&scene.active==(int)id+2){KgEvent focus={.type=KG_FOCUS};client_event(id,&focus);}
+  }
+  if(act==ACT_NONE)client_mouse(&event);
+  input_focus();
   gui_state.mx=scene.mx;gui_state.my=scene.my;gui_state.x0=scene.window[0].r.x;gui_state.y0=scene.window[0].r.y;gui_state.x1=scene.window[1].r.x;gui_state.y1=scene.window[1].r.y;gui_state.active=scene.active;gui_state.drag=scene.drag;
   e=paint();if(e){gui_state.error=8;return 8;}
   if((once&&gui_state.events>=20)||(proof&&gui_state.events>=16))return 0;

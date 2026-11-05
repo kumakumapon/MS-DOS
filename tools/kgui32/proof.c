@@ -22,6 +22,9 @@ static void xfree(u32 *total,u32 *block){
 int main(void){
  p_init();proof.tag=input_ticks()|1;proof.dos_before=largest();
  if(!k386_probe()){proof.error=1;goto done;}
+ /* No active desktop: a GUI client must be refused before any CPU/owner change. */
+ for(unsigned i=0;i<2;i++)if(k386_word(i,0)){proof.error=2;goto done;}
+ if(k386_command(K386_CREATE,0,0,"KGCALC.EXE")!=50||k386_word(0,0)){proof.error=15;goto done;}
  for(unsigned id=0;id<2;id++){unsigned state=k386_word(id,0);if(state==1||state==2||state==3){proof.error=2;goto done;}}
  unsigned a=0xd390,b=0,di;u16 es;__asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(a),"=c"(es),"=D"(di):"b"(b):"edx","esi","cc","memory");
  if((a&65535)!=0x390d){proof.error=3;goto done;}seg=es;off=di&65535;

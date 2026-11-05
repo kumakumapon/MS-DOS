@@ -2,6 +2,7 @@
  * Task snapshots contain only private trusted state, never the execution stacks.
  */
 #include "manager.h"
+#include "../kgui32/sdk/protocol.h"
 #include "../window/hardware.h"
 extern u8 results[1024],__task_start[],__task_end[];
 extern u32 xms_entry,context[19],initialized,loader_request;
@@ -35,7 +36,17 @@ static void publish(unsigned id){
  v->ticks=get(60);v->cr3=get(24);v->physical=get(28);v->eip=get(376);v->eflags=get(384);v->cr2=get(72);v->counter=get(468);v->keys=get(872);v->psp=host_mailbox.owner;
  copy(t->record,results,1024);if(previous!=v->state)v->flags++;
 }
+static int graphics_available(void){
+ unsigned a=0xd394,b=0;__asm__ volatile("int $0x2f":"+a"(a),"+b"(b)::"ecx","edx","esi","edi","cc","memory");return (a&65535)==0x394d;
+}
+int host_graphics(void *request,unsigned operation){
+ KgPacket p={1,sizeof p,active,k32_manager.generation[active],(unsigned)request,sizeof(KgRequest),operation,-38};
+ unsigned a=0xd394,b=1,di=(unsigned)&p;
+ __asm__ volatile("pushw %%es; pushw %%ds; popw %%es; int $0x2f; popw %%es":"+a"(a),"+b"(b),"+D"(di)::"ecx","edx","esi","cc","memory");
+ return (a&65535)==0x394d?p.result:-38;
+}
 static int finish(unsigned id){
+ extern K32Plan loader_plan;if(loader_plan.features&32)host_graphics(0,0);
  services_close();loader_close();
  if(get(820))return 5;
  if(initialized){mem_fill(get(24)>>4,0,12288,0);put(464,1);put(948,1);}
@@ -81,7 +92,7 @@ static int create(unsigned id){
  put(20,(u32)ds_segment*16);put(24,pd);put(44,host_mailbox.owner);put(56,ticks()|1);put(492,~0u);put(504,(unsigned)results);
  copy(host_command,host_mailbox.path,128);host_command[127]=0;
  int e=loader_open();if(e){put(16,20);put(12,6);}
- else {extern K32Plan loader_plan;put(768,loader_plan.abi);if(host_acquire())e=get(16)==8?8:11;}
+ else {extern K32Plan loader_plan;put(768,loader_plan.abi);if((loader_plan.features&32)&&!graphics_available())e=50;else if(host_acquire())e=get(16)==8?8:11;}
  if(e){
   services_close();loader_close();host_drop_xms();copy(host_mailbox.failure,results,sizeof host_mailbox.failure);
   if(*(u16 *)(results+40)||get(820)){save(id);host_mailbox.task[id].view.state=K386_FAULTED;publish(id);return 5;}
