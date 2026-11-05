@@ -54,6 +54,7 @@ static void action(int act){
  unsigned id=scene.slot;
  if(act==ACT_START||act==ACT_STOP){scene.action_result=k32_call(GUI_PROOF,act==ACT_START?1:2,0);scene_damage(&scene,scene.window[1].r);refresh();return;}
  if(act<ACT_NEW)return;
+ if(act==ACT_SCROLL){following[id]=0;return;}
  if(act==ACT_RUN){begin_run(id);return;}
  int was_editing=editing[id],old_error=errors[id];
  if(act==ACT_KEY&&editing[id]){
@@ -107,8 +108,16 @@ static void box(int x,int y,int w,int h,u32 c){
 }
 static void text(int x,int y,const char *s,u32 c){
  for(;*s;s++,x+=8){unsigned ch=(u8)*s;if(ch<32||ch>126)ch='?';
+  if(ch==' ')continue;
   if(x+8<=clip.x||x>=clip.x+clip.w||y+16<=clip.y||y>=clip.y+clip.h)continue;
-  for(int row=0;row<16;row++){u8 bits=font[(ch-32)*16+row];for(int col=0;col<8;col++)if(bits&(128>>col))box(x+col,y+row,1,1,c);}
+  for(int row=0;row<16;row++){
+   int yy=y+row;if(yy<clip.y||yy>=clip.y+clip.h)continue;
+   u8 bits=font[(ch-32)*16+row];if(!bits)continue;
+   u8 *line=framebuffer+yy*info.pitch;
+   for(int col=0;col<8;col++)if((bits&(128>>col))&&x+col>=clip.x&&x+col<clip.x+clip.w){
+    if(info.bpp==1)line[x+col]=(u8)c;else ((u16 *)line)[x+col]=(u16)c;
+   }
+  }
  }
 }
 static void number(int x,int y,u32 n,u32 c){char rev[10],out[11];unsigned k=0,i=0;do{rev[k++]=(char)('0'+n%10);n/=10;}while(n);while(k)out[i++]=rev[--k];out[i]=0;text(x,y,out,c);}

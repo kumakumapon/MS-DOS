@@ -148,7 +148,10 @@ int gui_main(void){
  previous=mouse_read();enqueue((GuiEvent){.type=GUI_MOTION,.x=previous.x,.y=previous.y,.buttons=previous.buttons,.ticks=previous.ticks});
  while(!gui_record.error&&!quit){
   gui_record.busy=1;pump();
-  u32 now=input_ticks();if(manager&&((now-last_schedule)&0xffffff)>=3072){k386_tick();last_schedule=now;workers();}
+  /* Charge the scheduling interval after the bounded peer batch finishes.
+   * Peer execution must not immediately trigger another batch and starve
+   * the GUI while it is composing a window between IRQ preemptions. */
+  u32 now=input_ticks();if(manager&&((now-last_schedule)&0xffffff)>=3072){k386_tick();last_schedule=input_ticks();workers();}
   if(get(12)==7)services_wait();
   else {host_enter();put(636,get(636)+1);gui_record.quanta++;if(!get(16)&&get(12)==2&&loader_request)context[11]=dispatch();}
   gui_record.busy=0;

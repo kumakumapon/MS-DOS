@@ -114,7 +114,7 @@ int scene_event(Scene *s,const GuiEvent *e){
     if(b==1)s->scroll_x[id-2]=clamp(s->scroll_x[id-2]+8,0,79);
     if(b==2)s->scroll_y[id-2]=clamp(s->scroll_y[id-2]-4,0,24);
     if(b==3)s->scroll_y[id-2]=clamp(s->scroll_y[id-2]+4,0,24);
-    scene_damage(s,w->r);return ACT_NONE;
+    scene_damage(s,w->r);return ACT_SCROLL;
    }
   }
   if(s->my<w->r.y+30){s->drag=id+1;s->dx=s->mx-w->r.x;s->dy=s->my-w->r.y;return ACT_NONE;}
