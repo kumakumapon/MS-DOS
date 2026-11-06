@@ -14,5 +14,6 @@ void scene_init(Scene *,int,int);
 void scene_damage(Scene *,Rect);
 void scene_window_damage(Scene *,int,Rect);
 void scene_focus(Scene *,int);
+void scene_close(Scene *,int);
 int scene_event(Scene *,const GuiEvent *);
 #endif

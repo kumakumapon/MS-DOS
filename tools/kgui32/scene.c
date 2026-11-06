@@ -53,6 +53,7 @@ static void next_visible(Scene *s){
  for(int n=3;n>=0;n--){int id=s->order[n];if(s->window[id].open&&!s->window[id].hidden){s->active=id;scene_damage(s,covered(&s->window[id]));return;}}
  s->active=0;
 }
+void scene_close(Scene *s,int id){GuiWindow *w=&s->window[id];w->open=0;scene_damage(s,covered(w));if(s->active==id)next_visible(s);}
 static void move(Scene *s,int id,int x,int y){
  GuiWindow *w=&s->window[id];scene_damage(s,covered(w));
  w->r.x=clamp(x,8,s->width-w->r.w-8);w->r.y=clamp(y,40,s->height-32-w->r.h-8);

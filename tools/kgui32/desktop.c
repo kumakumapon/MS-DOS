@@ -12,6 +12,7 @@ static GuiSessionView views[2];static int errors[2],editing[2],lengths[2];
 static char paths[2][128];static unsigned following[2];
 static KgRequest clients[2],client_io;
 static unsigned exit_pending;
+static u32 close_generation[2],close_token[2],close_cancel[2];
 static unsigned capture,capture_generation,capture_token;
 static void refresh_graphical(unsigned);
 static int client_event(unsigned,const KgEvent *);
@@ -50,6 +51,10 @@ static int client_event(unsigned id,const KgEvent *e){
 static void refresh_graphical(unsigned id){
  client_io=(KgRequest){.version=1,.size=sizeof client_io,.slot=id};
  if(k32_call(GUI_CLIENT_VIEW,(u32)&client_io,sizeof client_io))return;
+ if(close_token[id]){
+  if(close_generation[id]!=views[id].generation||close_generation[id]!=client_io.generation||close_cancel[id]!=client_io.event.key||(client_io.token&&client_io.token!=close_token[id]))close_token[id]=0;
+  else if(!client_io.token){scene_close(&scene,id+2);close_token[id]=0;capture=0;}
+ }
  unsigned yes=views[id].owned&&views[id].kind==1&&client_io.generation==views[id].generation&&client_io.revision;
  scene.graphical[id]=yes;
  if(yes&&client_io.token&&(clients[id].token!=client_io.token||clients[id].generation!=client_io.generation)){
@@ -389,7 +394,7 @@ int main(int argc,char **argv){
   }
   if(act==ACT_END&&event.type==GUI_BUTTON&&scene.slot<2&&clients[scene.slot].token&&event.x>=(u32)(scene.window[scene.slot+2].r.x+scene.window[scene.slot+2].r.w-25)&&event.y<(u32)(scene.window[scene.slot+2].r.y+30)&&(clients[scene.slot].event.control&KG_INPUT_CLOSE)){
    unsigned id=scene.slot;scene.window[id+2].open=1;scene_focus(&scene,id+2);
-   KgEvent q={.type=KG_QUIT,.key=1};client_event(id,&q);act=ACT_NONE;
+   KgEvent q={.type=KG_QUIT,.key=1};if(!client_event(id,&q)){close_generation[id]=views[id].generation;close_token[id]=clients[id].token;close_cancel[id]=clients[id].event.key;}act=ACT_NONE;
   }
   action(act);if(event.type==GUI_TIMER)refresh();
   if(exit_pending){unsigned pending=0;for(unsigned id=0;id<2;id++)if(clients[id].token&&(clients[id].event.control&KG_INPUT_CLOSE))pending=1;if(!pending)return 0;}
