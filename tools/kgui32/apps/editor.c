@@ -71,9 +71,10 @@ static int draw(void){
  kw_text(8,h-16,"Ctrl A/C/X/V Z/Y B:mark F2:launcher",(w-16)/8,0x466581);return kg_present();
 }
 int main(int argc,char **argv){
- (void)argc;(void)argv;ke_load(&doc,"",0);if(kg_open("Editor / temporary text",576,320)<0)return 1;
+ ke_load(&doc,"",0);if(kg_open("Editor / temporary text",576,320)<0)return 1;
  if((kg_capabilities()&KG_CAP_ALL)!=KG_CAP_ALL||kg_subscribe(KG_CAP_ALL))return 2;
- index_lines(1);int dirty=1,quit=0;
+ index_lines(1);if(argc>1&&argv[1][0]=='f'){load("EDITTEST.TXT");draw();*(volatile u32 *)0x10000=1;}
+ int dirty=1,quit=0;
  while(!quit){KgEvent e;int got=kg_poll(&e);editor_stats.heartbeat++;if(got<0)break;
   if(mode==1&&kp_tick(&picker))dirty=1;
   if(got){editor_stats.events++;dirty=1;
