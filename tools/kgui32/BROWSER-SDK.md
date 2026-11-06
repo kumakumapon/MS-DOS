@@ -8,7 +8,7 @@ application slots, each with a 4 MiB total code/data/heap/stack budget.
 
 ## Using Files
 
-- Type in Filter to match an ASCII 8.3 name, ignoring case. Tab cycles Filter,
+- Type in Filter to match an ASCII 8.3 name, ignoring case. Up to 192 root entries are retained. Tab cycles Filter,
   List, Open/Back, Refresh/List, About, Close. Click a row to select it; Enter
   in the list or Open previews a TXT file in the **same window**.
 - Up/Down, Home/End and Page Up/Down navigate the focused list or preview.

@@ -113,7 +113,9 @@ static int draw(void){
   kg_button(100+i,x,y,bw,28,labels[i]);
  }
  char n[11];number(n,mode?bytes:list.count);kg_text(8,h-16,n,0x466581);kw_text(64,h-16,loading?"Loading...":"Tab: controls / F2: launcher",(w-72)/8,0x466581);
- if(message)kw_draw_dialog(w,h,"Files",message);
+ /* A modal uses its own frame, keeping even a maximized canvas inside the
+  * 40-command ABI budget rather than silently losing its OK button. */
+ if(message){kg_begin();kg_rect(0,0,w,h,0xb4c2d0);kw_draw_dialog(w,h,"Files",message);}
  diagnostics();int e=kg_present();if(!e)files_stats.frames++;return e;
 }
 int main(int argc,char **argv){
