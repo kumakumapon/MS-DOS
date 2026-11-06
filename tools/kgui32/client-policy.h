@@ -2,7 +2,7 @@
 #define KGUI32_CLIENT_POLICY_H
 #include "sdk/protocol.h"
 typedef struct {
- u32 generation,token,revision,width,height,head,count,received,dropped,input_flags;
+ u32 generation,token,revision,width,height,head,count,received,dropped,input_flags,cancelled;
  char title[32];KgEvent event[KG_EVENTS];
 } KgClient;
 int kg_validate(const KgRequest *,unsigned,unsigned);

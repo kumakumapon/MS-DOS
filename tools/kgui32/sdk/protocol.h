@@ -6,10 +6,13 @@
 #define KG_EVENTS 16
 #define KG_INPUT_MOTION 1u
 #define KG_INPUT_TAB 2u
+#define KG_INPUT_CLOSE 4u
+#define KG_INPUT_KEYS 8u
+#define KG_CAP_ALL 15u
 #define KG_INPUT_FLAGS (KG_INPUT_MOTION|KG_INPUT_TAB)
-enum {KG_OPEN=1,KG_FRAME,KG_POLL,KG_CLOSE,KG_CAPABILITIES,KG_SUBSCRIBE};
+enum {KG_OPEN=1,KG_FRAME,KG_POLL,KG_CLOSE,KG_CAPABILITIES,KG_SUBSCRIBE,KG_CLIP_SET,KG_CLIP_GET,KG_CANCEL_CLOSE};
 enum {KG_RECT=1,KG_TEXT,KG_BUTTON};
-enum {KG_KEY=1,KG_MOUSE,KG_RESIZE,KG_FOCUS,KG_POINTER};
+enum {KG_KEY=1,KG_MOUSE,KG_RESIZE,KG_FOCUS,KG_POINTER,KG_QUIT};
 typedef struct {u32 op;int x,y,w,h;u32 color,id;char text[48];} KgDraw;
 typedef struct {u32 type;int x,y;u32 key,width,height,seconds,control;} KgEvent;
 typedef struct {

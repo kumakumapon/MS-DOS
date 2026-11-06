@@ -37,13 +37,13 @@ class Image(unittest.TestCase):
         b=bytearray(data);struct.pack_into('<I',b,92,32)
         self.assertNotEqual(parser(True)(b)[0],0)
     def test_graphical_client_packages(self):
-        for name in ('KGCALC','KGCLOCK','KGFILES','KGDIRBAD'):
+        for name in ('KGCALC','KGCLOCK','KGFILES','KGDIRBAD','KGEDIT'):
             data=(ROOT/f'build/{name}.EXE').read_bytes()
             self.assertNotEqual(parser(False)(data)[0],0)
             self.assertNotEqual(parser(True)(data)[0],0)
             error,p=parser(False,True)(data);self.assertEqual(error,0)
-            self.assertEqual((p.abi,p.features),(257,103 if name in ('KGFILES','KGDIRBAD') else 39))
-            elf,stats={'KGCALC':('calculator.elf','calc_stats'),'KGCLOCK':('clock.elf','clock_stats'),'KGFILES':('files.elf','files_stats'),'KGDIRBAD':('directory-test.elf','directory_stats')}[name]
+            self.assertEqual((p.abi,p.features),(257,103 if name in ('KGFILES','KGDIRBAD','KGEDIT') else 39))
+            elf,stats={'KGCALC':('calculator.elf','calc_stats'),'KGCLOCK':('clock.elf','clock_stats'),'KGFILES':('files.elf','files_stats'),'KGDIRBAD':('directory-test.elf','directory_stats'),'KGEDIT':('editor.elf','editor_stats')}[name]
             self.assertEqual(symbols(elf)[stats],p.rwbase)
     def test_loader_bounds_and_explicit_allocation(self):
         s=symbols('driver.elf');self.assertLess(s['__bss_end'],0xd000)

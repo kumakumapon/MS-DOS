@@ -71,6 +71,7 @@ int scene_event(Scene *s,const GuiEvent *e){
   return ACT_NONE;
  }
  if(e->type==GUI_KEY){
+  if(e->key==289)return ACT_EXIT;
   if(e->key==11||e->key==281){scene_focus(s,0);return ACT_NONE;}
   if(e->key==9){
    int id=(s->active+1)%4;
@@ -143,6 +144,7 @@ int scene_event(Scene *s,const GuiEvent *e){
    if(inside((Rect){w->r.x+174,w->r.y+116,140,28},s->mx,s->my))return ACT_CLOCK;
    if(inside((Rect){w->r.x+18,w->r.y+152,140,28},s->mx,s->my))return ACT_SHELL;
    if(inside((Rect){w->r.x+174,w->r.y+152,140,28},s->mx,s->my))return ACT_FILES;
+   if(inside((Rect){w->r.x+18,w->r.y+188,140,28},s->mx,s->my))return ACT_EDITOR;
   }
   if(id==1&&inside((Rect){w->r.x+16,w->r.y+168,94,28},s->mx,s->my))return ACT_START;
   if(id==1&&inside((Rect){w->r.x+124,w->r.y+168,94,28},s->mx,s->my))return ACT_STOP;
