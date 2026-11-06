@@ -46,8 +46,8 @@ static void edit_key(unsigned k){
   if(k==258&&at)at--;
   if(k==259&&at<v->n)at++;
   if(k==260)at=lines[r];
-  if(k==261){at=r+1<line_count?lines[r+1]:v->n;if(at&&v->text[at-1]=='\n')at--;}
-  if(k==256||k==257||k==262||k==263){unsigned step=k>=262?rows:1;r=(k==256||k==262)?(r>step?r-step:0):(r+step<line_count?r+step:line_count-1);at=lines[r]+col;unsigned end=r+1<line_count?lines[r+1]:v->n;if(at>end)at=end;}
+  if(k==261){at=r+1<line_count?lines[r+1]:v->n;if(at>lines[r]&&v->text[at-1]=='\n')at--;}
+  if(k==256||k==257||k==262||k==263){unsigned step=k>=262?rows:1;r=(k==256||k==262)?(r>step?r-step:0):(r+step<line_count?r+step:line_count-1);at=lines[r]+col;unsigned end=r+1<line_count?lines[r+1]:v->n;if(end>lines[r]&&v->text[end-1]=='\n')end--;if(at>end)at=end;}
   ke_select(&doc,mark?v->anchor:at,at);return;
  }
  if(k==8||k==264){if(v->anchor==v->cursor){if(k==8&&v->cursor)v->anchor--;else if(k==264&&v->cursor<v->n)v->anchor++;}ke_replace(&doc,"",0);return;}
