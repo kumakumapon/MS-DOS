@@ -3,7 +3,7 @@
 #include "../sdk/widgets.h"
 #define ENTRIES 192
 #define TEXT_BYTES (128*1024)
-#define LINES 8192
+#define LINES TEXT_BYTES /* even a file consisting entirely of newlines */
 /* First 64 bytes are sampled from this slot's private RW mapping. */
 typedef struct {u32 magic,version,frames,events,focus,selected,entries,matches,top,mode,bytes,hash,heartbeat,error,name_hash,records;} FilesStats;
 volatile FilesStats files_stats __attribute__((section(".data.gui_stats")))={.magic=0x3246474b,.version=2};
