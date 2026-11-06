@@ -372,6 +372,9 @@ int main(int argc,char **argv){
   if(!got){k32_wait(K32_WAIT_TIME,16);continue;}
   gui_state.events++;gui_state.heartbeat++;if(event.type==GUI_KEY)gui_state.last_key=event.key;
   int previous_focus=scene.active;Rect previous_rect[2]={scene.window[2].r,scene.window[3].r};
+  /* A child may OPEN/SUBSCRIBE between timer events. Route input against
+   * its current generation/token, never the ended root's cached canvas. */
+  if(event.type==GUI_KEY||event.type==GUI_BUTTON)refresh();
   int act;
   if(event.type==GUI_KEY&&scene.active>=2&&event.key!=281&&event.key!=11&&event.key!=289&&
      ((editing[scene.active-2]&&event.key!=9)||(!editing[scene.active-2]&&event.key!=289&&((event.key==9&&(clients[scene.active-2].event.control&KG_INPUT_TAB))||((clients[scene.active-2].event.control&KG_INPUT_KEYS)&&event.key!=9))))){
@@ -384,7 +387,7 @@ int main(int argc,char **argv){
    }
    act=ACT_NONE;
   }
-  if(act==ACT_END&&event.type==GUI_BUTTON&&scene.slot<2&&event.x>=(u32)(scene.window[scene.slot+2].r.x+scene.window[scene.slot+2].r.w-25)&&event.y<(u32)(scene.window[scene.slot+2].r.y+30)&&(clients[scene.slot].event.control&KG_INPUT_CLOSE)){
+  if(act==ACT_END&&event.type==GUI_BUTTON&&scene.slot<2&&clients[scene.slot].token&&event.x>=(u32)(scene.window[scene.slot+2].r.x+scene.window[scene.slot+2].r.w-25)&&event.y<(u32)(scene.window[scene.slot+2].r.y+30)&&(clients[scene.slot].event.control&KG_INPUT_CLOSE)){
    unsigned id=scene.slot;scene.window[id+2].open=1;scene_focus(&scene,id+2);
    KgEvent q={.type=KG_QUIT,.key=1};client_event(id,&q);act=ACT_NONE;
   }
