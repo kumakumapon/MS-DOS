@@ -14,7 +14,7 @@ int main(void){
  KwScroll s={.r={10,20,20,112},.total=100,.rows=5};
  e=(KgEvent){.type=KG_MOUSE,.x=15,.y=39,.key=1};assert(kw_scroll(&s,&e)&&s.dragging);
  e.type=KG_POINTER;e.x=-200;e.y=1000;assert(kw_scroll(&s,&e)&&s.top==95);
- e.key=0;kw_scroll(&s,&e);assert(!s.dragging);
+ e.key=0;assert(kw_scroll(&s,&e));assert(!s.dragging);
  e=(KgEvent){.type=KG_MOUSE,.x=15,.y=120,.key=1};kw_scroll(&s,&e);assert(s.top==95);
  s.total=2;s.top=0;e.y=40;kw_scroll(&s,&e);e.type=KG_POINTER;e.y=-100;kw_scroll(&s,&e);assert(!s.top);
  e=(KgEvent){.type=KG_FOCUS};kw_scroll(&s,&e);assert(!s.dragging);

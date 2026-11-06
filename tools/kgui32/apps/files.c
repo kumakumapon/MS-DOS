@@ -117,7 +117,7 @@ static int draw(void){
  diagnostics();int e=kg_present();if(!e)files_stats.frames++;return e;
 }
 int main(int argc,char **argv){
- int fault=argc>1&&argv[1][0]=='f';
+ int fault=argc>1&&k32_len(argv[1])==5&&contains(argv[1],"fault");
  int t=kg_open("Files",576,320);if(t<0){files_stats.error=-t;return 1;}
  if((k32_query()&K32_FEATURE_DIRECTORY)==0||kg_capabilities()<0||kg_subscribe(KG_INPUT_FLAGS)){kg_close();return 2;}
  list.rows=1;focus.count=6;refresh();int dirty=1,quit=0;
@@ -126,12 +126,12 @@ int main(int argc,char **argv){
   if(got<0){files_stats.error=-got;break;}
   if(enumerate())dirty=1;
   if(fault&&!loading&&!mode){
-   for(unsigned i=0;i<list.count;i++)if(entries[matches[i]].name[0]=='B'&&entries[matches[i]].name[1]=='R'){list.selected=i;open_preview();break;}
+   for(unsigned i=0;i<list.count;i++)if(k32_len(entries[matches[i]].name)==10&&contains(entries[matches[i]].name,"BROWSE.TXT")){list.selected=i;open_preview();break;}
    if(mode)*(volatile unsigned *)0x10000=1;
   }
   if(got){files_stats.events++;layout();
    if(e.type==KG_RESIZE){scroll.dragging=0;dirty=1;}
-   if(e.type==KG_FOCUS&&!e.key)scroll.dragging=0;
+   if(e.type==KG_FOCUS&&!e.key&&scroll.dragging){scroll.dragging=0;dirty=1;}
    if(message){if(kw_dialog(&e)){message=0;dirty=1;}}
    else if(kw_focus(&focus,&e))dirty=1;
    else {

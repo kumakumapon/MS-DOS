@@ -42,10 +42,10 @@ int kw_list(KwList *l,KwRect r,const KgEvent *e){
 /* Scroll position uses total-minus-visible, so the final page reaches EOF. */
 int kw_scroll(KwScroll *s,const KgEvent *e){
  if(s->r.h<48||s->r.w<12||!s->rows){s->dragging=0;return 0;}
- if(e->type==KG_FOCUS&&!e->key){s->dragging=0;return 0;}
- if(e->type==KG_RESIZE){s->dragging=0;return 0;}
+ if(e->type==KG_FOCUS&&!e->key){int changed=s->dragging;s->dragging=0;return changed;}
+ if(e->type==KG_RESIZE){int changed=s->dragging;s->dragging=0;return changed;}
  if(e->type!=KG_MOUSE&&e->type!=KG_POINTER)return 0;
- if(!(e->key&1)){s->dragging=0;return 0;}
+ if(!(e->key&1)){int changed=s->dragging;s->dragging=0;return changed;}
  int track=s->r.h-32,thumb=s->total>s->rows?(int)((unsigned)track*s->rows/s->total):track;
  if(thumb<12)thumb=12;
  if(thumb>track)thumb=track;
