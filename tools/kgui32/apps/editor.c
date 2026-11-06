@@ -4,7 +4,7 @@
 static KeDocument doc;static KpPicker picker;
 static unsigned lines[KE_BYTES+1],line_count,top,cols,rows,drag,mark,mode,pending;
 static char filename[13],clipboard[1024],load_buffer[KE_BYTES];
-static const char *message;
+static const char *message;static KwScroll editor_scroll;
 volatile struct {u32 magic,version,frames,events,bytes,hash,cursor,anchor,dirty,mode,top,heartbeat,error,history,redo,reserved;} editor_stats __attribute__((section(".data.gui_stats")))={.magic=0x3345474b,.version=3};
 static void layout(void){cols=(kg_width()-48)/8;if(cols>47)cols=47;rows=(kg_height()-80)/16;if(rows>14)rows=14;}
 static unsigned row_at(unsigned at){unsigned r=0;while(r+1<line_count&&lines[r+1]<=at)r++;return r;}
@@ -84,13 +84,15 @@ int main(int argc,char **argv){
    else if(kw_button(601,&e)||(e.type==KG_KEY&&e.key==14))quit=request(2);
    else if(kw_button(602,&e)||(e.type==KG_KEY&&e.key==15))quit=request(3);
    else if(e.type==KG_KEY){edit_key(e.key);index_lines(1);}
-   else if(e.type==KG_RESIZE){drag=0;index_lines(1);}
-   else if(e.type==KG_FOCUS&&!e.key)drag=0;
+   else if(e.type==KG_RESIZE){editor_scroll.dragging=0;drag=0;index_lines(1);}
+   else if(e.type==KG_FOCUS&&!e.key){drag=0;editor_scroll.dragging=0;}
    else if(e.type==KG_MOUSE||e.type==KG_POINTER){
-    if(!(e.key&1))drag=0;
+    editor_scroll.r=(KwRect){(int)kg_width()-28,40,20,(int)rows*16};editor_scroll.total=line_count;editor_scroll.rows=rows;editor_scroll.top=top;
+    if(kw_scroll(&editor_scroll,&e)){top=editor_scroll.top;drag=0;}
+    else if(!(e.key&1))drag=0;
     else if(drag){ke_select(&doc,ke_view(&doc)->anchor,hit(&e));}
     else if(e.type==KG_MOUSE&&kw_inside((KwRect){8,40,(int)cols*8,(int)rows*16},e.x,e.y)){unsigned at=hit(&e);ke_select(&doc,at,at);drag=1;}
-    else if(e.type==KG_MOUSE&&e.x>=(int)kg_width()-28){if(e.y<56){if(top)top--;}else if(top+rows<line_count)top++;}
+    
    }
   }
   if(dirty&&!quit){int error=draw();if(error!=-22&&error<0){editor_stats.error=-error;break;}dirty=error==-22;editor_stats.frames++;}

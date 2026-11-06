@@ -271,7 +271,7 @@ static void window(int id){
   box(x+16,y+48,46,46,color(4));box(x+24,y+56,12,28,color(7));box(x+38,y+56,12,12,color(6));box(x+38,y+72,12,12,color(3));
   text(x+78,y+48,"Your new desktop",color(0));text(x+78,y+72,"32-bit protected mode",color(10));
   button(x+18,y+116,140,"Calculator");button(x+174,y+116,140,"Clock");button(x+18,y+152,140,"DOS Shell");button(x+174,y+152,140,"Files");button(x+18,y+188,140,"Editor");
-  text(x+18,y+196,scene.action_result<0?"Both slots busy / launch failed":"F2: launcher   F10: DOS",color(10));
+  text(x+174,y+196,scene.action_result<0?"Slots full / error":"F2 / F10",color(10));
  }else{
   text(x+16,y+46,"Desktop: private context",color(0));
   text(x+16,y+70,"Application slots: 2",color(0));

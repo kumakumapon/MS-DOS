@@ -126,3 +126,5 @@ the optional image uses the existing standalone XMS driver instead.
 
 The launcher also includes **Files**, a read-only root browser with TXT preview.
 See [GUI SDK 2 / Files](BROWSER-SDK.md) for usage, interfaces and limits.
+
+SDK3 adds the temporary editor and reusable picker; see [EDITOR-SDK.md](EDITOR-SDK.md) for lifecycle, keyboard and clipboard contracts.
