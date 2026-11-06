@@ -83,7 +83,10 @@ and actual EXE parsing. `KGDIRBAD.EXE` executes 23 real CPL3 boundary checks;
 `KGDIRNO.EXE` verifies the three calls refuse a client without feature 64.
 `KGFILES.EXE fault` loads the BROWSE.TXT integration fixture into private heap
 pages, then deliberately writes to 0x10000 to test #PF cleanup. It is a diagnostic
-argument, not needed for normal use.
+argument, not needed for normal use. `KGFILES.EXE hold` retains the first
+four entries and its live directory cursor until Space, allowing deterministic
+interleaved-DTA verification while a peer performs a complete fresh search.
+The diagnostic remains event-driven and its window can be moved or closed.
 
 The first 64 bytes of Files RW memory contain `KGF2` diagnostics sampled by the
 CPU: frames/events/focus/selection/counts/top/mode/content bytes+FNV-1a hash,

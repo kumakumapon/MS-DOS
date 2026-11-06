@@ -8,7 +8,7 @@
 typedef struct {u32 magic,version,frames,events,focus,selected,entries,matches,top,mode,bytes,hash,heartbeat,error,name_hash,records;} FilesStats;
 volatile FilesStats files_stats __attribute__((section(".data.gui_stats")))={.magic=0x3246474b,.version=2};
 static K32DirEntry entries[ENTRIES],entry;
-static unsigned matches[ENTRIES],count,cursor,loading,mode,bytes,line_count,offsets[LINES],preview_top;
+static unsigned matches[ENTRIES],count,cursor,loading,holding,mode,bytes,line_count,offsets[LINES],preview_top;
 static unsigned char *contents;
 static KwInput filter;
 static KwList list;static KwFocus focus;static KwScroll scroll;
@@ -26,7 +26,7 @@ static void rebuild(void){
 static void close_cursor(void){if(cursor)k32_dir_close(cursor);cursor=loading=0;}
 static void refresh(void){close_cursor();count=0;list.selected=list.top=0;loading=1;rebuild();}
 static int enumerate(void){
- if(!loading)return 0;
+ if(!loading||(holding&&count))return 0;
  for(unsigned i=0;i<4;i++){
   int e=cursor?k32_dir_next(cursor,&entry):k32_dir_first(&entry);
   if(e<0){files_stats.error=-e;message="Cannot read A: root";close_cursor();break;}
@@ -77,7 +77,7 @@ static void open_preview(void){
 static void back(void){if(contents)k32_free(contents);contents=0;mode=0;scroll.dragging=0;focus.current=1;}
 static void diagnostics(void){
  files_stats.focus=focus.current;files_stats.selected=list.selected;files_stats.entries=count;files_stats.matches=list.count;
- files_stats.top=mode?preview_top:list.top;files_stats.mode=mode|(loading?2u:0u)|(message?4u:0u)|(scroll.dragging?8u:0u);
+ files_stats.top=mode?preview_top:list.top;files_stats.mode=mode|(loading?2u:0u)|(message?4u:0u)|(scroll.dragging?8u:0u)|(holding?16u:0u);
  files_stats.name_hash=mode?hash(filename,k32_len(filename)):list.count?hash(entries[matches[list.selected]].name,k32_len(entries[matches[list.selected]].name)):0;
  unsigned metadata=2166136261u;
  for(unsigned i=0;i<count;i++){K32DirEntry *d=&entries[i];metadata=(metadata^hash(d->name,k32_len(d->name)))*16777619;metadata=(metadata^d->bytes)*16777619;metadata=(metadata^d->attributes)*16777619;metadata=(metadata^d->date)*16777619;metadata=(metadata^d->time)*16777619;}
@@ -118,6 +118,7 @@ static int draw(void){
 }
 int main(int argc,char **argv){
  int fault=argc>1&&k32_len(argv[1])==5&&contains(argv[1],"fault");
+ holding=argc>1&&k32_len(argv[1])==4&&contains(argv[1],"hold");
  int t=kg_open("Files",576,320);if(t<0){files_stats.error=-t;return 1;}
  if((k32_query()&K32_FEATURE_DIRECTORY)==0||kg_capabilities()<0||kg_subscribe(KG_INPUT_FLAGS)){kg_close();return 2;}
  list.rows=1;focus.count=6;refresh();int dirty=1,quit=0;
@@ -132,7 +133,8 @@ int main(int argc,char **argv){
   if(got){files_stats.events++;layout();
    if(e.type==KG_RESIZE){scroll.dragging=0;dirty=1;}
    if(e.type==KG_FOCUS&&!e.key&&scroll.dragging){scroll.dragging=0;dirty=1;}
-   if(message){if(kw_dialog(&e)){message=0;dirty=1;}}
+   if(holding&&e.type==KG_KEY&&e.key==32){holding=0;dirty=1;}
+   else if(message){if(kw_dialog(&e)){message=0;dirty=1;}}
    else if(kw_focus(&focus,&e))dirty=1;
    else {
     if(e.type==KG_MOUSE&&(e.key&1)){
