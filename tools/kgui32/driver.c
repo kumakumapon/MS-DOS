@@ -69,7 +69,7 @@ static void pump(void){
  for(unsigned n=0;n<16&&key_ready();n++){
   unsigned k=key_read();gui_record.last_key=k;
   extern int kg_clients_close_guard(void);
-  if((k==KEY_F1+9&&!kg_clients_close_guard())||(k==27&&!session_focus))quit=1;
+  if(k==7||(k==KEY_F1+9&&!kg_clients_close_guard())||(k==27&&!session_focus))quit=1;
   else enqueue((GuiEvent){.type=GUI_KEY,.key=k,.x=previous.x,.y=previous.y,.buttons=previous.buttons,.ticks=input_ticks()});
  }
 }

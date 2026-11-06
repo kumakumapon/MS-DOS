@@ -73,7 +73,7 @@ static int draw(void){
 int main(int argc,char **argv){
  ke_load(&doc,"",0);if(kg_open("Editor / temporary text",576,320)<0)return 1;
  if((kg_capabilities()&KG_CAP_ALL)!=KG_CAP_ALL||kg_subscribe(KG_CAP_ALL))return 2;
- index_lines(1);if(argc>1&&argv[1][0]=='f'){load("EDITTEST.TXT");draw();*(volatile u32 *)0x10000=1;}
+ index_lines(1);if(argc>1&&k32_len(argv[1])==5&&argv[1][0]=='f'&&argv[1][1]=='a'&&argv[1][2]=='u'&&argv[1][3]=='l'&&argv[1][4]=='t'){load("EDITTEST.TXT");draw();*(volatile u32 *)0x10000=1;}
  int dirty=1,quit=0;
  while(!quit){KgEvent e;int got=kg_poll(&e);editor_stats.heartbeat++;if(got<0)break;
   if(mode==1&&kp_tick(&picker))dirty=1;

@@ -28,8 +28,8 @@ up to 47 columns and 14 visible rows, within the 40-command frame budget.
   (Esc). F10 negotiates desktop exit with all SDK3 clients. Cancellation keeps
   the desktop running; another client may already have accepted and exited.
 - F2/Ctrl+K focus Welcome. Stop/Resume/End/Again remain desktop buttons. End
-  forcefully discards the process; F2 then Esc retains the native emergency
-  desktop termination path, including for a nonresponsive desktop.
+  forcefully discards the process; Ctrl+G is a native emergency desktop stop that discards all owned tasks,
+  even if the desktop is nonresponsive. F2 then Esc also forces desktop exit.
 
 ## ABI extensions
 
@@ -37,7 +37,7 @@ Wire ABI1 layouts are unchanged. KG_CAPABILITIES now advertises bits 0..3.
 SDK1/2 subscriptions (bits motion=1, local Tab=2) keep their behavior.
 KG_SUBSCRIBE additionally accepts close=4 and editing keys=8. Subscribed editing
 clients receive Ctrl+L/P/R/E rather than desktop command interception; F2,
-Ctrl+K and F10 remain desktop controls. GUI controls still force-end/pause tasks.
+Ctrl+K and F10 remain desktop controls; Ctrl+G is reserved for native emergency stop. GUI controls still force-end/pause tasks.
 KG_QUIT event type 6 has key=1 for title X, 2 for desktop exit. An accepting
 client calls kg_close and returns; a cancelling client calls kg_cancel_close.
 A paused client must resume to answer; force End remains available.
