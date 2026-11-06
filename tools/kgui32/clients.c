@@ -75,7 +75,7 @@ int kg_clients_snapshot(u32 pointer,unsigned bytes){
  if(arena&&c->token&&owned[id]&&owned_generation[id]==c->generation)mem_copy(self,(unsigned)r,arena,id*4096,sizeof *r);
  else {*r=(KgRequest){0};}
  r->version=1;r->size=sizeof *r;r->slot=id;r->generation=c->generation;r->token=owned[id]&&owned_generation[id]==c->generation?c->token:0;
- r->revision=c->revision;r->width=c->width;r->height=c->height;
+ r->revision=c->revision;r->width=c->width;r->height=c->height;r->event.control=c->input_flags;
  for(unsigned i=0;i<32;i++)r->title[i]=c->title[i];
  return gui_copy(pointer,r,sizeof *r,1);
 }
@@ -87,7 +87,8 @@ int kg_clients_event(u32 pointer,unsigned bytes){
  if(!owned[id]||owned_generation[id]!=r->generation)return -1;
  if(c->generation!=r->generation||!c->token||c->token!=r->token)return -116;
  KgEvent v=r->event;
- if(v.type<KG_KEY||v.type>KG_FOCUS)return -22;
+ if(v.type<KG_KEY||v.type>KG_POINTER)return -22;
  if(v.type==KG_RESIZE&&(v.width<1||v.width>784||v.height<1||v.height>416))return -22;
+ if((v.type==KG_POINTER||v.type==KG_MOUSE)&&(v.x < -800||v.x>800||v.y < -600||v.y>600||v.key>7))return -22;
  v.seconds=seconds;kg_enqueue(c,&v);publish();return 0;
 }

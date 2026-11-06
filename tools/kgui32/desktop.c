@@ -11,6 +11,7 @@ static Rect clip;
 static GuiSessionView views[2];static int errors[2],editing[2],lengths[2];
 static char paths[2][128];static unsigned following[2];
 static KgRequest clients[2],client_io;
+static unsigned capture,capture_generation,capture_token;
 static void refresh_graphical(unsigned);
 static int client_event(unsigned,const KgEvent *);
 static void follow_cursor(unsigned);
@@ -69,7 +70,7 @@ static void launch(int act){
  unsigned id=0;
  while(id<2&&(views[id].state==1||views[id].state==2||views[id].state==3||(views[id].state==4&&!views[id].owned)))id++;
  if(id==2){scene.action_result=-16;scene_damage(&scene,scene.window[0].r);return;}
- const char *path=act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":"KSH.EXE";
+ const char *path=act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":"KSH.EXE";
  for(unsigned i=0;i<128;i++){paths[id][i]=path[i];if(!path[i])break;}
  errors[id]=session_command(id,GS_CREATE,0);scene.action_result=errors[id];
  if(!errors[id])scene_focus(&scene,id+2);
@@ -232,14 +233,25 @@ static void graphical(unsigned id,int x,int y,int width,int height){
  }
 }
 static void client_mouse(const GuiEvent *e){
- if(scene.active<2||e->type!=GUI_BUTTON||scene.drag||scene.resize)return;
- unsigned id=scene.active-2;if(!scene.graphical[id]||!clients[id].token||editing[id])return;
+ if(e->type!=GUI_BUTTON&&e->type!=GUI_MOTION)return;
+ if(capture){unsigned id=capture-1;GuiWindow *w=&scene.window[id+2];
+  if(scene.active!=(int)id+2||!w->open||w->hidden||editing[id]||scene.drag||scene.resize||clients[id].token!=capture_token||views[id].generation!=capture_generation)capture=0;
+ }
+ if(scene.active<2||scene.drag||scene.resize)return;
+ unsigned id=capture?capture-1:(unsigned)scene.active-2;
+ if(!scene.graphical[id]||!clients[id].token||editing[id])return;
  GuiWindow *w=&scene.window[id+2];int x=(int)e->x-w->r.x-8,y=(int)e->y-w->r.y-70;
- if(!w->open||w->hidden||x<0||y<0||x>=w->r.w-16||y>=w->r.h-104)return;
- KgEvent event={.type=KG_MOUSE,.x=x,.y=y,.key=e->buttons};
+ if(!w->open||w->hidden||(!capture&&(x<0||y<0||x>=w->r.w-16||y>=w->r.h-104)))return;
+ unsigned flags=clients[id].event.control;
+ if(e->type==GUI_MOTION&&(!(flags&KG_INPUT_MOTION)||!capture))return;
+ if(e->type==GUI_BUTTON&&(e->buttons&1)&&(flags&KG_INPUT_MOTION)){
+  capture=id+1;capture_generation=views[id].generation;capture_token=clients[id].token;
+ }
+ KgEvent event={.type=e->type==GUI_MOTION?KG_POINTER:KG_MOUSE,.x=x,.y=y,.key=e->buttons};
  KgRequest *r=&clients[id];
  for(unsigned i=0;i<r->count;i++){KgDraw *d=&r->draw[i];if(d->op==KG_BUTTON&&x>=d->x&&y>=d->y&&x-d->x<d->w&&y-d->y<d->h)event.control=d->id;}
  errors[id]=client_event(id,&event);
+ if(!(e->buttons&1))capture=0;
 }
 static void window(int id){
  GuiWindow *w=&scene.window[id];if(!w->open||w->hidden)return;
@@ -256,7 +268,7 @@ static void window(int id){
  }else if(!id){
   box(x+16,y+48,46,46,color(4));box(x+24,y+56,12,28,color(7));box(x+38,y+56,12,12,color(6));box(x+38,y+72,12,12,color(3));
   text(x+78,y+48,"Your new desktop",color(0));text(x+78,y+72,"32-bit protected mode",color(10));
-  button(x+18,y+116,140,"Calculator");button(x+174,y+116,140,"Clock");button(x+18,y+152,296,"DOS Shell");
+  button(x+18,y+116,140,"Calculator");button(x+174,y+116,140,"Clock");button(x+18,y+152,140,"DOS Shell");button(x+174,y+152,140,"Files");
   text(x+18,y+196,scene.action_result<0?"Both slots busy / launch failed":"F2: launcher   F10: DOS",color(10));
  }else{
   text(x+16,y+46,"Desktop: private context",color(0));
@@ -359,15 +371,16 @@ int main(int argc,char **argv){
   gui_state.events++;gui_state.heartbeat++;if(event.type==GUI_KEY)gui_state.last_key=event.key;
   int previous_focus=scene.active;Rect previous_rect[2]={scene.window[2].r,scene.window[3].r};
   int act;
-  if(event.type==GUI_KEY&&scene.active>=2&&editing[scene.active-2]&&event.key!=9){
+  if(event.type==GUI_KEY&&scene.active>=2&&event.key!=281&&event.key!=11&&
+     ((editing[scene.active-2]&&event.key!=9)||(event.key==9&&!editing[scene.active-2]&&(clients[scene.active-2].event.control&KG_INPUT_TAB)))){
    scene.slot=scene.active-2;scene.key=event.key;act=ACT_KEY;
   }else act=scene_event(&scene,&event);
   if(act==ACT_EXIT)return 0;
   action(act);if(event.type==GUI_TIMER)refresh();
   for(unsigned id=0;id<2;id++)if(scene.graphical[id]&&clients[id].token){
    Rect r=scene.window[id+2].r;
-   if(r.w!=previous_rect[id].w||r.h!=previous_rect[id].h){KgEvent change={.type=KG_RESIZE,.width=r.w-16,.height=r.h-104};client_event(id,&change);}
-   if(previous_focus!=scene.active&&scene.active==(int)id+2){KgEvent focus={.type=KG_FOCUS};client_event(id,&focus);}
+   if(r.w!=previous_rect[id].w||r.h!=previous_rect[id].h){capture=0;KgEvent change={.type=KG_RESIZE,.width=r.w-16,.height=r.h-104};client_event(id,&change);}
+   if(previous_focus!=scene.active&&(previous_focus==(int)id+2||scene.active==(int)id+2)){KgEvent focus={.type=KG_FOCUS,.key=scene.active==(int)id+2};client_event(id,&focus);capture=0;}
   }
   if(act==ACT_NONE)client_mouse(&event);
   input_focus();

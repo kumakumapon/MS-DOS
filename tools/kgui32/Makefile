@@ -61,10 +61,11 @@ $(BUILD)/test-sessions: test-sessions.c sessions.c gui.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-sessions.c sessions.c -o $@
 $(BUILD)/test-client-policy: test-client-policy.c client-policy.c client-policy.h sdk/protocol.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-client-policy.c client-policy.c -o $@
-test: all $(BUILD)/test-scene $(BUILD)/test-sessions $(BUILD)/test-client-policy
+test: all $(BUILD)/test-scene $(BUILD)/test-sessions $(BUILD)/test-client-policy $(BUILD)/test-widgets
 	$(BUILD)/test-scene
 	$(BUILD)/test-sessions
 	$(BUILD)/test-client-policy
+	$(BUILD)/test-widgets
 	python3 test_image.py
 .PHONY: all test
 -include $(wildcard $(BUILD)/*.d)
@@ -92,3 +93,24 @@ $(BUILD)/boundary.elf: $(BUILD)/boundary.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 $(BUILD)/KGBAD.EXE: $(BUILD)/boundary.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client
 all: $(BUILD)/KGBAD.EXE
+
+$(BUILD)/widgets.o: sdk/widgets.c sdk/widgets.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/widgets-draw.o: sdk/widgets-draw.c sdk/widgets.h sdk/kgui.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/files.elf: $(BUILD)/files.app.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KGFILES.EXE: $(BUILD)/files.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client
+all: $(BUILD)/KGFILES.EXE
+$(BUILD)/directory-test.elf: $(BUILD)/directory-test.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KGDIRBAD.EXE: $(BUILD)/directory-test.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client
+all: $(BUILD)/KGDIRBAD.EXE
+$(BUILD)/test-widgets: test-widgets.c sdk/widgets.c sdk/widgets.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror test-widgets.c sdk/widgets.c -o $@
+
+$(BUILD)/KGDIRNO.EXE: $(BUILD)/directory-test.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client
+all: $(BUILD)/KGDIRNO.EXE

@@ -1,5 +1,6 @@
 /* Single-owner services. All calls here occur with the caller CR3 and real mode. */
 #include "services.h"
+#include "directory.h"
 #include "../kgui32/sdk/protocol.h"
 extern u8 results[1024],loader_buffer[4096];
 extern u32 context[19],loader_map[1024],loader_request,xms_entry;
@@ -15,7 +16,7 @@ static unsigned key_head K32_STATE,key_count K32_STATE,escape_pending K32_STATE;
 static unsigned service_features(void){
  unsigned f=K32_FEATURES;
  #if defined(K32_HOST) && !defined(K32_GUI)
- f|=loader_plan.features&KG_FEATURE;
+ f|=loader_plan.features&(KG_FEATURE|K32_FEATURE_DIRECTORY);
  #endif
  return f;
 }
@@ -146,13 +147,44 @@ static int close_file(u32 token){
  int i=index(token);if(i<0)return i;int e=dos_close(files[i].handle);if(e)return e;
  files[i].token=0;put(820,get(820)-1);inc(836);return 0;
 }
-static int regular(const char *name){
+/* Save and restore the process DTA on every path. The directory DTA itself
+ * lives in the slot snapshot; regular-file checks use separate scratch. */
+static int find_entry(const char *name,u8 *target,int next){
  u32 a=0x2f00,old;u16 seg;
  __asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(old)::"cc","memory");
- a=0x1a00;__asm__ volatile("int $0x21":"+a"(a):"d"((u32)dta):"cc","memory");
- a=0x4e00;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"d"((u32)name),"c"(0x37):"cc","memory");int found=a!=~0u&&!(dta[21]&0x58);
- a=0x1a00;__asm__ volatile("pushw %%ds; movw %w2,%%ds; int $0x21; popw %%ds":"+a"(a):"d"(old),"r"((u32)seg):"cc","memory");return found;
+ a=0x1a00;__asm__ volatile("int $0x21":"+a"(a):"d"((u32)target):"cc","memory");
+ a=next?0x4f00:0x4e00;
+ __asm__ volatile("int $0x21; movzwl %%ax,%%eax; jc 1f; xorl %%eax,%%eax; jmp 2f; 1: negl %%eax; 2:":"+a"(a):"d"((u32)name),"c"(0x37):"cc","memory");int result=(int)a;
+ a=0x1a00;__asm__ volatile("pushw %%ds; movw %w2,%%ds; int $0x21; popw %%ds":"+a"(a):"d"(old),"r"((u32)seg):"cc","memory");return result;
 }
+static int regular(const char *name){return !find_entry(name,dta,0)&&!(dta[21]&0x58);}
+#if defined(K32_HOST) && !defined(K32_GUI)
+static u8 directory_dta[43] K32_STATE;
+static u32 directory_token K32_STATE,directory_eof K32_STATE;
+static int directory(u32 op,u32 b,u32 c,u32 d){
+ if(!(loader_plan.features&K32_FEATURE_DIRECTORY))return -38;
+ if(op!=14&&(!b||b!=directory_token))return -9;
+ if(op==16){directory_token=directory_eof=0;return 0;}
+ u32 pointer=op==14?b:c,n=op==14?c:d;
+ if(n!=sizeof(K32DirEntry))return -22;
+ if(!k32_user_range(loader_map,pointer,n,1))return -14;
+ if(op==14){directory_token=(++serial<<4)|15;directory_eof=0;}
+ int found=0;
+ while(!directory_eof){
+  int e=find_entry("A:\\*.*",directory_dta,op!=14);op=15;
+  if(e){if(e!=-18&&e!=-2)return -5;directory_eof=1;break;}
+  unsigned len=0;while(len<13&&directory_dta[30+len])len++;
+  char path[16];
+  if(!(directory_dta[21]&8)&&k32_filename((char *)directory_dta+30,len,path)){found=1;break;}
+ }
+ for(unsigned i=0;i<sizeof(K32DirEntry);i++)loader_buffer[i]=0;
+ K32DirEntry *out=(K32DirEntry *)loader_buffer;out->version=1;out->size=sizeof *out;out->cursor=directory_token;
+ if(found){out->attributes=directory_dta[21];out->time=*(u16 *)(directory_dta+22);out->date=*(u16 *)(directory_dta+24);out->bytes=*(u32 *)(directory_dta+26);
+  for(unsigned i=0;i<13;i++){out->name[i]=(char)directory_dta[30+i];if(!out->name[i])break;}
+ }
+ return transfer(pointer-K32_BASE,loader_buffer,n,1)?found:-5;
+}
+#endif
 static int open_file(u32 pointer,u32 n){
  if(!n||n>12)return -22;
  if(!k32_user_range(loader_map,pointer,n,0))return -14;
@@ -203,6 +235,7 @@ int services_dispatch(void){
  case 11:return seek_file(b,c);
  case 12:return close_file(b);
  #if defined(K32_HOST) && !defined(K32_GUI)
+ case 14:case 15:case 16:return directory(nr,b,c,d);
  case 13:{
   extern int host_graphics(void *,unsigned);
   if(!(loader_plan.features&KG_FEATURE))return -38;
@@ -218,6 +251,9 @@ int services_dispatch(void){
  }
 }
 void services_close(void){
+ #if defined(K32_HOST) && !defined(K32_GUI)
+ directory_token=directory_eof=0;
+ #endif
  for(unsigned i=0;i<K32_FILES;i++)if(files[i].token&&close_file(files[i].token))put(16,23);
  for(unsigned i=0;i<K32_ALLOCS;i++)if(heap.block[i].pages)release(heap.block[i].first);
 }

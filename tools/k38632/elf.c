@@ -12,7 +12,7 @@ int k32_plan(K32Read read,void *opaque,u32 bytes,K32Plan *out){
 #ifdef K32_GUI
  const unsigned supported=31;
 #elif defined(K32_HOST)
- const unsigned supported=47;
+ const unsigned supported=111;
 #else
  const unsigned supported=15;
 #endif

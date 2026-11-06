@@ -141,7 +141,8 @@ int scene_event(Scene *s,const GuiEvent *e){
   if(!id){
    if(inside((Rect){w->r.x+18,w->r.y+116,140,28},s->mx,s->my))return ACT_CALCULATOR;
    if(inside((Rect){w->r.x+174,w->r.y+116,140,28},s->mx,s->my))return ACT_CLOCK;
-   if(inside((Rect){w->r.x+18,w->r.y+152,296,28},s->mx,s->my))return ACT_SHELL;
+   if(inside((Rect){w->r.x+18,w->r.y+152,140,28},s->mx,s->my))return ACT_SHELL;
+   if(inside((Rect){w->r.x+174,w->r.y+152,140,28},s->mx,s->my))return ACT_FILES;
   }
   if(id==1&&inside((Rect){w->r.x+16,w->r.y+168,94,28},s->mx,s->my))return ACT_START;
   if(id==1&&inside((Rect){w->r.x+124,w->r.y+168,94,28},s->mx,s->my))return ACT_STOP;

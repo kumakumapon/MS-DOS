@@ -130,3 +130,8 @@ text-entry/menu widgets, Japanese/IME, clipboard, image surfaces, save/write
 services, more slots and larger heaps are later milestones. No Windows APIs,
 resources or binaries are used. Saved user disks and the original kernel are
 not changed.
+
+
+SDK 2 adds opt-in input, widgets and a read-only root browser without changing
+the version-1 wire layouts. See [BROWSER-SDK.md](BROWSER-SDK.md) for the controls,
+capability negotiation and directory ABI. SDK1 packages remain supported.

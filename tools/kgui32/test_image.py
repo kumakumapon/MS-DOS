@@ -37,13 +37,14 @@ class Image(unittest.TestCase):
         b=bytearray(data);struct.pack_into('<I',b,92,32)
         self.assertNotEqual(parser(True)(b)[0],0)
     def test_graphical_client_packages(self):
-        for name in ('KGCALC','KGCLOCK'):
+        for name in ('KGCALC','KGCLOCK','KGFILES','KGDIRBAD'):
             data=(ROOT/f'build/{name}.EXE').read_bytes()
             self.assertNotEqual(parser(False)(data)[0],0)
             self.assertNotEqual(parser(True)(data)[0],0)
             error,p=parser(False,True)(data);self.assertEqual(error,0)
-            self.assertEqual((p.abi,p.features),(257,39))
-            self.assertEqual(symbols('calculator.elf' if name=='KGCALC' else 'clock.elf')['calc_stats' if name=='KGCALC' else 'clock_stats'],p.rwbase)
+            self.assertEqual((p.abi,p.features),(257,103 if name in ('KGFILES','KGDIRBAD') else 39))
+            elf,stats={'KGCALC':('calculator.elf','calc_stats'),'KGCLOCK':('clock.elf','clock_stats'),'KGFILES':('files.elf','files_stats'),'KGDIRBAD':('directory-test.elf','directory_stats')}[name]
+            self.assertEqual(symbols(elf)[stats],p.rwbase)
     def test_loader_bounds_and_explicit_allocation(self):
         s=symbols('driver.elf');self.assertLess(s['__bss_end'],0xd000)
         b=(ROOT/'build/KGUILDR.EXE').read_bytes();h=struct.unpack_from('<14H',b)
@@ -55,5 +56,8 @@ class Image(unittest.TestCase):
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         with self.assertRaises(ValueError):module.package(b'',257,23)
         with self.assertRaises(ValueError):module.package(b'',257,7,True)
+        with self.assertRaises(ValueError):module.package(b'',257,64)
+        with self.assertRaises(ValueError):module.package(b'',257,87,True)
+        self.assertEqual(struct.unpack_from('<I',module.package(b'',257,103,client=True),92)[0],103)
         self.assertIn(b'KGUILDR',module.package(b'',257,23,True))
 if __name__=='__main__':unittest.main()
