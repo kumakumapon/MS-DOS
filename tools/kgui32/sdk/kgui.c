@@ -18,5 +18,7 @@ int kg_button(u32 id,int x,int y,int w,int h,const char *s){KgDraw *d=add(KG_BUT
 int kg_present(void){return call(KG_FRAME);}
 int kg_poll(KgEvent *e){int n=call(KG_POLL);if(n>=0){*e=request.event;width=request.width;height=request.height;}return n;}
 int kg_close(void){int e=call(KG_CLOSE);if(!e)token=0;return e;}
+int kg_capabilities(void){return call(KG_CAPABILITIES);}
+int kg_subscribe(unsigned flags){request.count=flags;return call(KG_SUBSCRIBE);}
 unsigned kg_width(void){return width;}
 unsigned kg_height(void){return height;}

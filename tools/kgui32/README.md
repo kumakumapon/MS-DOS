@@ -122,3 +122,7 @@ rectangle/text/button commands. Clipboard, file manager and Japanese text
 rendering remain later work. Existing KDESK retains those features. No Windows APIs, resources or
 binaries are used. An EMM386/V86 owner is incompatible with this loader;
 the optional image uses the existing standalone XMS driver instead.
+
+
+The launcher also includes **Files**, a read-only root browser with TXT preview.
+See [GUI SDK 2 / Files](BROWSER-SDK.md) for usage, interfaces and limits.

@@ -1,6 +1,7 @@
 #ifndef K32_EXTENDED_SDK_H
 #define K32_EXTENDED_SDK_H
 #include "k32.h"
+#include "../directory.h"
 #define K32_ABI_EXT 0x0101
 #define K32_FEATURE_STARTUP 1
 #define K32_FEATURE_HEAP 2
@@ -21,6 +22,9 @@ static inline int k32_open(const char *name){unsigned n=0;while(n<13&&name[n])n+
 static inline int k32_read(unsigned h,void *p,unsigned n){return k32_call4(10,h,(unsigned)p,n);}
 static inline int k32_seek(unsigned h,unsigned at){return k32_call(11,h,at);}
 static inline int k32_close(unsigned h){return k32_call(12,h,0);}
+static inline int k32_dir_first(K32DirEntry *p){return k32_call(14,(unsigned)p,sizeof *p);}
+static inline int k32_dir_next(unsigned cursor,K32DirEntry *p){return k32_call4(15,cursor,(unsigned)p,sizeof *p);}
+static inline int k32_dir_close(unsigned cursor){return k32_call(16,cursor,0);}
 static inline unsigned k32_len(const char *s){unsigned n=0;while(s[n])n++;return n;}
 static inline int k32_puts(const char *s){return k32_write(s,k32_len(s));}
 #endif

@@ -10,6 +10,8 @@ int kg_button(u32,int,int,int,int,const char *);
 int kg_present(void);
 int kg_poll(KgEvent *);
 int kg_close(void);
+int kg_capabilities(void);
+int kg_subscribe(unsigned);
 unsigned kg_width(void);
 unsigned kg_height(void);
 #endif

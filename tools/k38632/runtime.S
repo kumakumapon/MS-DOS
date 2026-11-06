@@ -853,7 +853,7 @@ loader_trap:
 gui_old_service:
 .endif
     .ifdef HOST
-    cmp eax,13
+    cmp eax,16
     .else
     cmp eax,12
     .endif
