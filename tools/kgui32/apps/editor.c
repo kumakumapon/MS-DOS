@@ -1,8 +1,9 @@
-/* Original SDK3 client. Documents are temporary; no write service is used. */
+/* Original SDK4 editor. Writes use only the bounded workspace broker. */
 #include "../sdk/editor.h"
 #include "../sdk/picker.h"
 static KeDocument doc;static KpPicker picker;
 static unsigned lines[KE_BYTES+1],line_count,top,cols,rows,drag,mark,mode,pending;
+static unsigned in_work;static K32Work revision,save_request;
 static char filename[13],clipboard[1024],load_buffer[KE_BYTES];
 static const char *message;static KwScroll editor_scroll;
 volatile struct {u32 magic,version,frames,events,bytes,hash,cursor,anchor,dirty,mode,top,heartbeat,error,history,redo,reserved;} editor_stats __attribute__((section(".data.gui_stats")))={.magic=0x3345474b,.version=3};
@@ -17,22 +18,43 @@ static void index_lines(int follow){
 static void report(void){KeVersion *v=ke_view(&doc);unsigned hash=2166136261u;for(unsigned i=0;i<v->n;i++)hash=(hash^(unsigned char)v->text[i])*16777619u;
  editor_stats.bytes=v->n;editor_stats.hash=hash;editor_stats.cursor=v->cursor;editor_stats.anchor=v->anchor;editor_stats.dirty=ke_dirty(&doc);editor_stats.mode=mode;editor_stats.top=top;editor_stats.history=doc.current;editor_stats.redo=doc.count-doc.current-1;
 }
-static void load(const char *name){
- int h=k32_open(name);if(h<0){message="Cannot open file";return;}unsigned n=0;int error=0;
+static unsigned content_hash(const char *s,unsigned n){unsigned h=2166136261u;for(unsigned i=0;i<n;i++)h=(h^(unsigned char)s[i])*16777619u;return h;}
+static void load(const char *name,unsigned work){
+ K32Work before=k32_work_name(K32_WORK_STAT,name);if(work&&k32_work(&before)<0){message="Cannot inspect workspace file";return;}
+ K32Work opened=k32_work_name(K32_WORK_OPEN,name);
+ int h=work?k32_work(&opened):k32_open(name);if(h<0){message="Cannot open file";return;}unsigned n=0;int error=0;
  while(n<KE_BYTES){int got=k32_read(h,load_buffer+n,KE_BYTES-n>4096?4096:KE_BYTES-n);if(got<0){error=got;break;}if(!got)break;n+=got;}
  if(!error&&n==KE_BYTES){char extra;int got=k32_read(h,&extra,1);if(got)error=-27;}
  int closed=k32_close(h);if(!error&&closed<0)error=closed;
+ if(work&&!error&&(!before.exists||before.length!=n||before.hash!=content_hash(load_buffer,n)))error=-116;
  if(error||ke_load(&doc,load_buffer,n)){message="Open failed: ASCII text, max 64 KiB";editor_stats.error=error?-error:22;return;}
- for(unsigned i=0;i<13;i++)filename[i]=name[i];
+ for(unsigned i=0;i<13;i++){filename[i]=name[i];if(!name[i])break;}
+ in_work=work;revision=before;
  top=0;index_lines(1);
 }
 static int perform(unsigned what){
  if(what==1)return 1;
- if(what==2){ke_load(&doc,"",0);filename[0]=0;top=0;}
+ if(what==2){ke_load(&doc,"",0);filename[0]=0;in_work=0;top=0;index_lines(1);}
  if(what==3){kp_open(&picker);mode=1;}
  return 0;
 }
 static int request(unsigned what){drag=mark=0;if(ke_dirty(&doc)){pending=what;mode=2;return 0;}return perform(what);}
+static void cancel_pending(void){if(pending==1)kg_cancel_close();pending=0;}
+static int commit_save(void){
+ KeVersion *v=ke_view(&doc);save_request.operation=K32_WORK_SAVE;save_request.data=(unsigned)v->text;save_request.bytes=v->n;
+ int e=k32_work(&save_request);mode=0;
+ if(e<0){editor_stats.error=-e;message=e==-116?"File changed: reopen or Save As":e==-28?"Disk full: document kept":e==-117?"Recovery needed: keep TMP/BAK":e==-17?"Reserved TMP exists: use another name":"Save failed: document kept";cancel_pending();return 0;}
+ for(unsigned i=0;i<13;i++){filename[i]=save_request.name[i];if(!filename[i])break;}
+ in_work=1;revision=save_request;revision.exists=1;revision.length=v->n;revision.hash=content_hash(v->text,v->n);ke_saved(&doc);editor_stats.error=0;
+ unsigned next=pending;pending=0;if(next)return perform(next);
+ if(e==1)message="Saved; old BAK retained for recovery";
+ return 0;
+}
+static int save(int as){
+ drag=mark=0;
+ if(!as&&in_work&&filename[0]){save_request=revision;return commit_save();}
+ kp_save(&picker,in_work?filename:"");mode=3;return 0;
+}
 static void copy_selection(int cut){KeVersion *v=ke_view(&doc);unsigned a=v->anchor<v->cursor?v->anchor:v->cursor,b=v->anchor>v->cursor?v->anchor:v->cursor;if(b-a>1024){message="Clipboard limit: 1024 bytes";return;}if(b==a)return;if(kg_clip_set(v->text+a,b-a)<0){message="Clipboard unavailable";return;}if(cut)ke_replace(&doc,"",0);}
 static unsigned hit(const KgEvent *e){unsigned r=top+(e->y<40?0:(unsigned)(e->y-40)/16);if(r>=line_count)return ke_view(&doc)->n;unsigned col=e->x<8?0:(unsigned)(e->x-8)/8;if(col>cols)col=cols;unsigned at=lines[r]+col,end=r+1<line_count?lines[r+1]:ke_view(&doc)->n;KeVersion *v=ke_view(&doc);if(end>lines[r]&&v->text[end-1]=='\n')end--;return at>end?end:at;}
 static void edit_key(unsigned k){
@@ -54,11 +76,12 @@ static void edit_key(unsigned k){
  char c=k==13?'\n':(char)k;if(k==13||k==9||(k>=32&&k<=126))if(ke_replace(&doc,&c,1)<0)message="Document limit: 64 KiB";
 }
 static int draw(void){
- report();if(mode==1)return kp_draw(&picker);
+ report();if(mode==1||mode==3)return kp_draw(&picker);
  unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xffffff);
- if(mode==2){kg_text(8,8,"Unsaved temporary text",0x20344a);kg_text(8,32,"Discard changes? No disk saving yet.",0x20344a);kg_button(801,8,64,100,28,"Discard");kg_button(802,120,64,100,28,"Cancel");return kg_present();}
+ if(mode==2){kg_text(8,8,"Unsaved text",0x20344a);kw_text(8,32,"Save before continuing?",(w-16)/8,0x20344a);kg_button(803,8,64,64,28,"Save");kg_button(801,80,64,80,28,"Discard");kg_button(802,8,100,80,28,"Cancel");return kg_present();}
+ if(mode==4){kw_text(8,8,"Replace workspace file?",(w-16)/8,0x20344a);kg_text(8,32,save_request.name,0x20344a);kg_button(811,8,64,100,28,"Replace");kg_button(812,8,100,100,28,"Cancel");return kg_present();}
  if(message){kw_draw_dialog(w,h,"Editor",message);return kg_present();}
- kg_button(601,8,4,64,28,"New");kg_button(602,80,4,64,28,"Open");kw_text(152,10,filename[0]?filename:"Untitled",(w-160)/8,0x20344a);
+ kg_button(601,8,4,64,28,"New");kg_button(602,80,4,64,28,"Open");if(w>=224)kg_button(603,152,4,64,28,"Save");if(w>=312)kg_button(604,224,4,80,28,"Save As");
  KeVersion *v=ke_view(&doc);unsigned a=v->anchor<v->cursor?v->anchor:v->cursor,b=v->anchor>v->cursor?v->anchor:v->cursor;
  for(unsigned i=0;i<rows&&i+top<line_count;i++){
   unsigned start=lines[i+top],end=i+top+1<line_count?lines[i+top+1]:v->n;
@@ -67,26 +90,30 @@ static int draw(void){
  }
  unsigned r=row_at(v->cursor);if(r>=top&&r<top+rows){unsigned c=v->cursor-lines[r];if(c<cols)kg_rect(8+c*8,54+(r-top)*16,8,2,0x327ac0);}
  KwScroll scroll={.r={(int)w-28,40,20,(int)rows*16},.total=line_count,.rows=rows,.top=top};kw_draw_scroll(&scroll);
- kw_text(8,h-32,ke_dirty(&doc)?"Modified / temporary text":"Temporary text / read-only disk",(w-16)/8,0x466581);
+ kw_text(8,h-32,ke_dirty(&doc)?"Modified / Ctrl S:save W:save as":in_work?filename:"Untitled / save to A: WORK",(w-16)/8,0x466581);
  kw_text(8,h-16,"Ctrl A/C/X/V Z/Y B:mark F2:launcher",(w-16)/8,0x466581);return kg_present();
 }
 int main(int argc,char **argv){
- ke_load(&doc,"",0);if(kg_open("Editor / temporary text",576,320)<0)return 1;
+ ke_load(&doc,"",0);if(kg_open("Editor / workspace TXT",576,320)<0)return 1;
  if((kg_capabilities()&KG_CAP_ALL)!=KG_CAP_ALL||kg_subscribe(KG_CAP_ALL))return 2;
- index_lines(1);if(argc>1&&k32_len(argv[1])==5&&argv[1][0]=='f'&&argv[1][1]=='a'&&argv[1][2]=='u'&&argv[1][3]=='l'&&argv[1][4]=='t'){load("EDITTEST.TXT");draw();*(volatile u32 *)0x10000=1;}
+ index_lines(1);if(!(k32_query()&K32_FEATURE_SAVE))return 2;
+ if(argc>1&&k32_len(argv[1])==5&&argv[1][0]=='f'&&argv[1][1]=='a'&&argv[1][2]=='u'&&argv[1][3]=='l'&&argv[1][4]=='t'){load("EDITTEST.TXT",0);draw();*(volatile u32 *)0x10000=1;}
  int dirty=1,quit=0;
  while(!quit){KgEvent e;int got=kg_poll(&e);editor_stats.heartbeat++;if(got<0)break;
-  if(mode==1&&kp_tick(&picker))dirty=1;
+  if((mode==1||mode==3)&&kp_tick(&picker))dirty=1;
   if(got){editor_stats.events++;dirty=1;
    /* Resize/focus apply to the document even while a modal owns input. */
    if(e.type==KG_RESIZE){editor_scroll.dragging=0;drag=0;index_lines(1);}
    if(e.type==KG_FOCUS&&!e.key){drag=0;editor_scroll.dragging=0;}
-   if(e.type==KG_QUIT){if(mode==1)kp_close(&picker);mode=0;message=0;quit=request(1);}
-   else if(mode==2){if(kw_button(801,&e)||(e.type==KG_KEY&&e.key=='d')){mode=0;quit=perform(pending);}else if(kw_button(802,&e)||(e.type==KG_KEY&&e.key==27)){mode=0;kg_cancel_close();}}
-   else if(mode==1){char name[13];int selected=kp_event(&picker,&e,name);if(selected){mode=0;if(selected>0)load(name);}}
+   if(e.type==KG_QUIT){if(mode==1||mode==3)kp_close(&picker);mode=0;message=0;pending=0;quit=request(1);}
+   else if(mode==2){if(kw_button(803,&e)||(e.type==KG_KEY&&e.key=='s')){mode=0;quit=save(0);}else if(kw_button(801,&e)||(e.type==KG_KEY&&e.key=='d')){mode=0;unsigned next=pending;pending=0;quit=perform(next);}else if(kw_button(802,&e)||(e.type==KG_KEY&&e.key==27)){mode=0;cancel_pending();}}
+   else if(mode==1||mode==3){unsigned was=mode;char name[13];int selected=kp_event(&picker,&e,name);if(selected){mode=0;if(selected<0)cancel_pending();else if(was==1)load(name,picker.work);else{save_request=k32_work_name(K32_WORK_STAT,name);int error=k32_work(&save_request);if(error<0){message="Workspace unavailable / file protected";editor_stats.error=-error;cancel_pending();}else if(save_request.exists)mode=4;else quit=commit_save();}}}
+   else if(mode==4){if(kw_button(811,&e)||(e.type==KG_KEY&&e.key=='r'))quit=commit_save();else if(kw_button(812,&e)||(e.type==KG_KEY&&e.key==27)){mode=0;cancel_pending();}}
    else if(message){if(kw_dialog(&e))message=0;}
    else if(kw_button(601,&e)||(e.type==KG_KEY&&e.key==14))quit=request(2);
    else if(kw_button(602,&e)||(e.type==KG_KEY&&e.key==15))quit=request(3);
+   else if(kw_button(603,&e)||(e.type==KG_KEY&&e.key==19))quit=save(0);
+   else if(kw_button(604,&e)||(e.type==KG_KEY&&e.key==23))quit=save(1);
    else if(e.type==KG_KEY){edit_key(e.key);index_lines(1);}
    else if(e.type==KG_MOUSE||e.type==KG_POINTER){
     editor_scroll.r=(KwRect){(int)kg_width()-28,40,20,(int)rows*16};editor_scroll.total=line_count;editor_scroll.rows=rows;editor_scroll.top=top;
@@ -100,6 +127,6 @@ int main(int argc,char **argv){
   if(dirty&&!quit){int error=draw();if(error!=-22&&error<0){editor_stats.error=-error;break;}dirty=error==-22;editor_stats.frames++;}
   k32_wait(K32_WAIT_TIME,16);
  }
- if(mode==1)kp_close(&picker);
+ if(mode==1||mode==3)kp_close(&picker);
  return kg_close()?3:0;
 }

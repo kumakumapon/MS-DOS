@@ -10,5 +10,6 @@ int main(void){
  for(unsigned i=0;i<100;i++){KeVersion *v=ke_view(&d);ke_select(&d,v->n,v->n);assert(ke_replace(&d,"x",1)==1);}
  unsigned n=ke_view(&d)->n;for(unsigned i=0;i<KE_HISTORY-1;i++)assert(ke_undo(&d,0));assert(!ke_undo(&d,0));for(unsigned i=0;i<KE_HISTORY-1;i++)assert(ke_undo(&d,1));assert(ke_view(&d)->n==n);
  memset(full,'a',sizeof full);assert(!ke_load(&d,full,sizeof full));ke_select(&d,KE_BYTES,KE_BYTES);assert(ke_replace(&d,"x",1)==-1);assert(!ke_dirty(&d));assert(ke_load(&d,"\x80",1)==-1);assert(!ke_dirty(&d));ke_select(&d,0,KE_BYTES);assert(ke_replace(&d,"",0)==1);assert(!ke_view(&d)->n);assert(ke_undo(&d,0));assert(!ke_dirty(&d));
+ ke_select(&d,0,1);assert(ke_replace(&d,"z",1)==1);assert(ke_dirty(&d));unsigned count=d.count,current=d.current;ke_saved(&d);assert(!ke_dirty(&d)&&d.count==count&&d.current==current);assert(ke_undo(&d,0)&&ke_dirty(&d));assert(ke_undo(&d,1)&&!ke_dirty(&d));
  return 0;
 }

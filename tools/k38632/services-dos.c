@@ -1,6 +1,7 @@
 /* Single-owner services. All calls here occur with the caller CR3 and real mode. */
 #include "services.h"
 #include "directory.h"
+#include "workspace.h"
 #include "../kgui32/sdk/protocol.h"
 extern u8 results[1024],loader_buffer[4096];
 extern u32 context[19],loader_map[1024],loader_request,xms_entry;
@@ -16,7 +17,7 @@ static unsigned key_head K32_STATE,key_count K32_STATE,escape_pending K32_STATE;
 static unsigned service_features(void){
  unsigned f=K32_FEATURES;
  #if defined(K32_HOST) && !defined(K32_GUI)
- f|=loader_plan.features&(KG_FEATURE|K32_FEATURE_DIRECTORY);
+ f|=loader_plan.features&(KG_FEATURE|K32_FEATURE_DIRECTORY|K32_FEATURE_SAVE);
  #endif
  return f;
 }
@@ -161,7 +162,7 @@ static int regular(const char *name){return !find_entry(name,dta,0)&&!(dta[21]&0
 #if defined(K32_HOST) && !defined(K32_GUI)
 static u8 directory_dta[43] K32_STATE;
 static u32 directory_token K32_STATE,directory_eof K32_STATE;
-static int directory(u32 op,u32 b,u32 c,u32 d){
+static int directory_at(u32 op,u32 b,u32 c,u32 d,const char *pattern){
  if(!(loader_plan.features&K32_FEATURE_DIRECTORY))return -38;
  if(op!=14&&(!b||b!=directory_token))return -9;
  if(op==16){directory_token=directory_eof=0;return 0;}
@@ -171,7 +172,7 @@ static int directory(u32 op,u32 b,u32 c,u32 d){
  if(op==14){directory_token=(++serial<<4)|15;directory_eof=0;}
  int found=0;
  while(!directory_eof){
-  int e=find_entry("A:\\*.*",directory_dta,op!=14);op=15;
+  int e=find_entry(pattern,directory_dta,op!=14);op=15;
   if(e){if(e!=-18&&e!=-2)return -5;directory_eof=1;break;}
   unsigned len=0;while(len<13&&directory_dta[30+len])len++;
   char path[16];
@@ -185,11 +186,7 @@ static int directory(u32 op,u32 b,u32 c,u32 d){
  return transfer(pointer-K32_BASE,loader_buffer,n,1)?found:-5;
 }
 #endif
-static int open_file(u32 pointer,u32 n){
- if(!n||n>12)return -22;
- if(!k32_user_range(loader_map,pointer,n,0))return -14;
- char text[12],path[16];if(!transfer(pointer-K32_BASE,text,n,0))return -5;
- if(!k32_filename(text,n,path))return -22;
+static int open_path(const char *path){
  unsigned slot=K32_FILES;for(unsigned i=0;i<K32_FILES;i++)if(!files[i].token){slot=i;break;}
  if(slot==K32_FILES)return -24;
  if(!regular(path))return -2;
@@ -200,6 +197,13 @@ static int open_file(u32 pointer,u32 n){
  if(a==~0u){dos_close(h);return -5;}
  u32 token=(++serial<<4)|(slot+1);files[slot].token=token;files[slot].handle=h;files[slot].position=0;files[slot].size=bytes;
  put(820,get(820)+1);if(get(820)>get(824))put(824,get(820));inc(832);put(864,token);return (int)token;
+}
+static int open_file(u32 pointer,u32 n){
+ if(!n||n>12)return -22;
+ if(!k32_user_range(loader_map,pointer,n,0))return -14;
+ char text[12],path[16];if(!transfer(pointer-K32_BASE,text,n,0))return -5;
+ if(!k32_filename(text,n,path))return -22;
+ return open_path(path);
 }
 static int read_file(u32 token,u32 pointer,u32 n){
  int i=index(token);if(i<0)return i;if(n>4096)return -22;
@@ -217,6 +221,61 @@ static int seek_file(u32 token,u32 at){
  if(a==~0u||((d&65535)<<16|(a&65535))!=at)return -5;
  files[i].position=at;return (int)at;
 }
+
+#if defined(K32_HOST) && !defined(K32_GUI)
+/* This service is entered only in the serialized real-mode broker, with InDOS
+ * clear. Temporarily fail critical disk errors instead of prompting in a GUI. */
+__asm__(".pushsection .text\n.code16\nwork_critical:\nmovb $3,%al\niretw\n.code16gcc\n.popsection");
+extern void work_critical(void);
+static u32 critical(int install,u32 old){
+ u32 a,b;u16 seg;
+ if(install){a=0x3524;__asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(b)::"cc","memory");old=(u32)seg<<16|(b&65535);
+  a=0x2524;__asm__ volatile("int $0x21":"+a"(a):"d"((u32)work_critical):"cc","memory");
+ }else{a=0x2524;__asm__ volatile("pushw %%ds; movw %w2,%%ds; int $0x21; popw %%ds":"+a"(a):"d"(old&65535),"r"(old>>16):"cc","memory");}
+ return old;
+}
+static int attributes(const char *path){
+ u32 a=0x4300,c=0;__asm__ volatile("int $0x21; movzwl %%ax,%%eax; jnc 1f; negl %%eax; jmp 2f; 1: movl %%ecx,%%eax; 2:":"+a"(a),"+c"(c):"d"((u32)path):"cc","memory");return (int)a;
+}
+static int work_handle K32_STATE=-1;
+static void work_owned(int h){work_handle=h;put(820,get(820)+1);if(get(820)>get(824))put(824,get(820));inc(832);}
+static int work_close(int h){int e=dos_close(h);if(e)e=dos_close(h);if(!e){work_handle=-1;put(820,get(820)-1);inc(836);}return e;}
+static int work_stat(const char *path,unsigned *bytes,unsigned *hash){
+ int attr=attributes(path);if(attr==-2)return 0;if(attr<0)return -5;
+ if(attr&0x5f)return -13; /* regular, writable, non-system/non-hidden only */
+ u32 a=0x3d00;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"d"((u32)path):"cc","memory");if(a==~0u)return -5;
+ unsigned h=a&65535,n=0,value=2166136261u;int e=0;work_owned(h);
+ for(;;){a=0x3f00;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"b"(h),"c"(4096),"d"((u32)loader_buffer):"cc","memory");
+  if(a==~0u){e=-5;break;}unsigned got=a&65535;if(got>4096||got>K32_WORK_LIMIT-n){e=-27;break;}
+  for(unsigned i=0;i<got;i++)value=(value^loader_buffer[i])*16777619u;
+  n+=got;if(got<4096)break;
+ }
+ int closed=work_close(h);if(!e)e=closed;if(e)return e;*bytes=n;*hash=value;return 1;
+}
+static int work_create(const char *path){u32 a=0x5b00;__asm__ volatile("int $0x21; movzwl %%ax,%%eax; jnc 1f; negl %%eax; 1:":"+a"(a):"c"(0),"d"((u32)path):"cc","memory");if((int)a<0)return (int)a==-80?-17:-5;work_owned((int)a);return (int)a;}
+static int work_write(int h,const void *p,unsigned n){u32 a=0x4000;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"b"(h),"c"(n),"d"((u32)p):"cc","memory");return a==~0u?-5:(int)(a&65535);}
+static int work_rename(const char *from,const char *to){u32 a=0x5600;__asm__ volatile("pushw %%es; pushw %%ds; popw %%es; int $0x21; popw %%es; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"d"((u32)from),"D"((u32)to):"cc","memory");return a==~0u?-5:0;}
+static int work_remove(const char *path){u32 a=0x4100;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"d"((u32)path):"cc","memory");return a==~0u?-5:0;}
+static int work_copy(unsigned at,void *p,unsigned n){return transfer(at-K32_BASE,p,n,0)?0:-5;}
+static int workspace(u32 pointer,u32 size){
+ if(!(loader_plan.features&K32_FEATURE_SAVE))return -38;
+ if(work_handle>=0)return -117;
+ if(size!=sizeof(K32Work))return -22;
+ if(!k32_user_range(loader_map,pointer,size,1))return -14;
+ K32Work r;if(!transfer(pointer-K32_BASE,&r,size,0))return -5;
+ int e=k32_work_request(&r);if(e)return e;
+ if(r.operation==K32_WORK_SAVE&&!k32_user_range(loader_map,r.data,r.bytes,0))return -14;
+ if(r.operation==K32_WORK_FIRST&&!k32_user_range(loader_map,r.data,r.bytes,1))return -14;
+ u32 old=critical(1,0);char path[24];
+ int attr=attributes("A:\\WORK");if(attr<0||!(attr&16)){e=-2;goto done;}
+ if(r.operation==K32_WORK_FIRST){e=directory_at(14,r.data,r.bytes,0,"A:\\WORK\\*.TXT");goto done;}
+ k32_work_path(r.name,path);
+ if(r.operation==K32_WORK_OPEN)e=open_path(path);
+ else if(r.operation==K32_WORK_STAT){e=work_stat(path,&r.length,&r.hash);if(e>=0){r.exists=e;e=transfer(pointer-K32_BASE,&r,size,1)?0:-5;}}
+ else{const K32WorkIO io={work_stat,work_create,work_write,work_close,work_rename,work_remove,work_copy};e=k32_work_save(&r,&io,loader_buffer);}
+ done:critical(0,old);return e;
+}
+#endif
 int services_dispatch(void){
  u32 nr=loader_request;loader_request=0;
  if(nr==1)return loader_write();
@@ -235,7 +294,8 @@ int services_dispatch(void){
  case 11:return seek_file(b,c);
  case 12:return close_file(b);
  #if defined(K32_HOST) && !defined(K32_GUI)
- case 14:case 15:case 16:return directory(nr,b,c,d);
+ case 14:case 15:case 16:return directory_at(nr,b,c,d,"A:\\*.*");
+ case 17:return workspace(b,c);
  case 13:{
   extern int host_graphics(void *,unsigned);
   if(!(loader_plan.features&KG_FEATURE))return -38;
@@ -253,6 +313,7 @@ int services_dispatch(void){
 void services_close(void){
  #if defined(K32_HOST) && !defined(K32_GUI)
  directory_token=directory_eof=0;
+ if(work_handle>=0)work_close(work_handle);
  #endif
  for(unsigned i=0;i<K32_FILES;i++)if(files[i].token&&close_file(files[i].token))put(16,23);
  for(unsigned i=0;i<K32_ALLOCS;i++)if(heap.block[i].pages)release(heap.block[i].first);

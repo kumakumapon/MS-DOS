@@ -42,7 +42,7 @@ class Image(unittest.TestCase):
             self.assertNotEqual(parser(False)(data)[0],0)
             self.assertNotEqual(parser(True)(data)[0],0)
             error,p=parser(False,True)(data);self.assertEqual(error,0)
-            self.assertEqual((p.abi,p.features),(257,103 if name in ('KGFILES','KGDIRBAD','KGEDIT') else 39))
+            self.assertEqual((p.abi,p.features),(257,231 if name=='KGEDIT' else 103 if name in ('KGFILES','KGDIRBAD') else 39))
             elf,stats={'KGCALC':('calculator.elf','calc_stats'),'KGCLOCK':('clock.elf','clock_stats'),'KGFILES':('files.elf','files_stats'),'KGDIRBAD':('directory-test.elf','directory_stats'),'KGEDIT':('editor.elf','editor_stats')}[name]
             self.assertEqual(symbols(elf)[stats],p.rwbase)
     def test_loader_bounds_and_explicit_allocation(self):
@@ -58,6 +58,7 @@ class Image(unittest.TestCase):
         with self.assertRaises(ValueError):module.package(b'',257,7,True)
         with self.assertRaises(ValueError):module.package(b'',257,64)
         with self.assertRaises(ValueError):module.package(b'',257,87,True)
+        with self.assertRaises(ValueError):module.package(b'',257,167,client=True)
         self.assertEqual(struct.unpack_from('<I',module.package(b'',257,103,client=True),92)[0],103)
         self.assertIn(b'KGUILDR',module.package(b'',257,23,True))
 if __name__=='__main__':unittest.main()

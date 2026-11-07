@@ -12,11 +12,12 @@ int k32_plan(K32Read read,void *opaque,u32 bytes,K32Plan *out){
 #ifdef K32_GUI
  const unsigned supported=31;
 #elif defined(K32_HOST)
- const unsigned supported=111;
+ const unsigned supported=239;
 #else
  const unsigned supported=15;
 #endif
  if((plan.abi!=256&&plan.abi!=257)||(plan.abi==256&&plan.features)||(plan.features&~supported))return 2;
+ if((plan.features&128)&&((plan.features&96)!=96))return 2;
  unsigned title=40;for(;title<72&&mz[title];title++)if(mz[title]<32||mz[title]>126)return 2;
  if(title==40||title==72||!word(mz+4)||word(mz+2)>511||word(mz+12)<word(mz+10))return 2;
  u32 load=(word(mz+4)-1u)*512+(word(mz+2)?word(mz+2):512);

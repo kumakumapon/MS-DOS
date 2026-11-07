@@ -9,5 +9,6 @@ int ke_load(KeDocument *,const char *,unsigned);
 int ke_replace(KeDocument *,const char *,unsigned);
 int ke_undo(KeDocument *,int);
 int ke_dirty(KeDocument *);
+void ke_saved(KeDocument *);
 void ke_select(KeDocument *,unsigned,unsigned);
 #endif

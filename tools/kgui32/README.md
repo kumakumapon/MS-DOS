@@ -118,8 +118,8 @@ The GUI is an experimental protected desktop client with two built-ins and
 two text-session windows. The native loop alternates bounded execution and
 real-mode drivers; it is not a permanently protected-mode kernel or a new
 MS-DOS implementation. The initial graphical SDK supports one retained canvas per client and
-rectangle/text/button commands. Clipboard, file manager and Japanese text
-rendering remain later work. Existing KDESK retains those features. No Windows APIs, resources or
+rectangle/text/button commands. Japanese text rendering and additional execution slots remain later work.
+SDK2/3/4 provide Files, guest clipboard and the ASCII editor; see the SDK links below. Existing KDESK retains those features. No Windows APIs, resources or
 binaries are used. An EMM386/V86 owner is incompatible with this loader;
 the optional image uses the existing standalone XMS driver instead.
 
@@ -128,3 +128,5 @@ The launcher also includes **Files**, a read-only root browser with TXT preview.
 See [GUI SDK 2 / Files](BROWSER-SDK.md) for usage, interfaces and limits.
 
 SDK3 adds the temporary editor and reusable picker; see [EDITOR-SDK.md](EDITOR-SDK.md) for lifecycle, keyboard and clipboard contracts.
+
+SDK4 adds bounded workspace saves and a common Save As dialog; see [SAVE-SDK.md](SAVE-SDK.md).
