@@ -144,3 +144,4 @@ $(BUILD)/save-wide.elf: $(BUILD)/save-wide.app.o $(BUILD)/crt.o $(K32)/sdk/app.l
 $(BUILD)/KGSAVE64.EXE: $(BUILD)/save-wide.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client
 all: $(BUILD)/KGSAVE64.EXE
+$(BUILD)/picker.o $(BUILD)/editor.app.o $(BUILD)/save-wide.app.o $(BUILD)/save-test.app.o: $(K32)/workspace.h $(K32)/sdk/k32x.h
