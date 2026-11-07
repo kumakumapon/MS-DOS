@@ -36,6 +36,7 @@ jobs:
           make -C tools/k38632 all test
           make -C tools/kgui32 all test
           make -C tools/display all
+          make -C ports/pc98/hdd all test
           python3 tools/filer/verify_ibm.py
         working-directory: dos
         env:

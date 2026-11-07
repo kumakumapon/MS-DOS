@@ -16,3 +16,9 @@ copies and allocation integrity, malformed/absent media, and existing regression
 Both repositories pin the same native commit. Record evidence and limitations
 in PRs and issue #31. KGUI32 HDD workspace routing, app migration and HDD-only
 boot are later phases; this change must not claim them as implemented.
+
+Implemented proof: see `hdd/README.md`. Local WebNP2 DOS4 tests verified a
+40 MB THD (41,435,136 filesystem bytes), 131073-byte create/overwrite,
+fresh-context cold boot, FAT integrity and rejected/partial I/O. The original
+DOS4 MAXSEC=1024 limit requires a separate 1024-byte logical-sector formatter.
+KGUI32 workspace routing remains a subsequent phase.
