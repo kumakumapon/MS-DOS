@@ -78,6 +78,9 @@ int main(int argc,char **argv){
  while(!quit){KgEvent e;int got=kg_poll(&e);editor_stats.heartbeat++;if(got<0)break;
   if(mode==1&&kp_tick(&picker))dirty=1;
   if(got){editor_stats.events++;dirty=1;
+   /* Resize/focus apply to the document even while a modal owns input. */
+   if(e.type==KG_RESIZE){editor_scroll.dragging=0;drag=0;index_lines(1);}
+   if(e.type==KG_FOCUS&&!e.key){drag=0;editor_scroll.dragging=0;}
    if(e.type==KG_QUIT){if(mode==1)kp_close(&picker);mode=0;message=0;quit=request(1);}
    else if(mode==2){if(kw_button(801,&e)||(e.type==KG_KEY&&e.key=='d')){mode=0;quit=perform(pending);}else if(kw_button(802,&e)||(e.type==KG_KEY&&e.key==27)){mode=0;kg_cancel_close();}}
    else if(mode==1){char name[13];int selected=kp_event(&picker,&e,name);if(selected){mode=0;if(selected>0)load(name);}}
@@ -85,15 +88,13 @@ int main(int argc,char **argv){
    else if(kw_button(601,&e)||(e.type==KG_KEY&&e.key==14))quit=request(2);
    else if(kw_button(602,&e)||(e.type==KG_KEY&&e.key==15))quit=request(3);
    else if(e.type==KG_KEY){edit_key(e.key);index_lines(1);}
-   else if(e.type==KG_RESIZE){editor_scroll.dragging=0;drag=0;index_lines(1);}
-   else if(e.type==KG_FOCUS&&!e.key){drag=0;editor_scroll.dragging=0;}
    else if(e.type==KG_MOUSE||e.type==KG_POINTER){
     editor_scroll.r=(KwRect){(int)kg_width()-28,40,20,(int)rows*16};editor_scroll.total=line_count;editor_scroll.rows=rows;editor_scroll.top=top;
     if(kw_scroll(&editor_scroll,&e)){top=editor_scroll.top;drag=0;}
     else if(!(e.key&1))drag=0;
     else if(drag){ke_select(&doc,ke_view(&doc)->anchor,hit(&e));}
     else if(e.type==KG_MOUSE&&kw_inside((KwRect){8,40,(int)cols*8,(int)rows*16},e.x,e.y)){unsigned at=hit(&e);ke_select(&doc,at,at);drag=1;}
-    
+
    }
   }
   if(dirty&&!quit){int error=draw();if(error!=-22&&error<0){editor_stats.error=-error;break;}dirty=error==-22;editor_stats.frames++;}
