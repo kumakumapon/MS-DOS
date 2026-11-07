@@ -120,10 +120,22 @@ $(BUILD)/editor-model.o: sdk/editor.c sdk/editor.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/picker.o: sdk/picker.c sdk/picker.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
-$(BUILD)/editor.elf: $(BUILD)/editor.app.o $(BUILD)/editor-model.o $(BUILD)/picker.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+$(BUILD)/editor.elf: $(BUILD)/workspace-policy.o $(BUILD)/workspace-services.o $(BUILD)/editor.app.o $(BUILD)/editor-model.o $(BUILD)/picker.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/workspace-policy.o: $(K32)/workspace.c $(K32)/workspace.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/workspace-services.o: $(K32)/services.c | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/KGEDIT.EXE: $(BUILD)/editor.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client
+	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client
 all: $(BUILD)/KGEDIT.EXE
 $(BUILD)/test-editor: test-editor.c sdk/editor.c sdk/editor.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-editor.c sdk/editor.c -o $@
+
+$(BUILD)/save-test.elf: $(BUILD)/save-test.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KGSAVEB.EXE: $(BUILD)/save-test.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client
+$(BUILD)/KGSAVENO.EXE: $(BUILD)/save-test.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client
+all: $(BUILD)/KGSAVEB.EXE $(BUILD)/KGSAVENO.EXE

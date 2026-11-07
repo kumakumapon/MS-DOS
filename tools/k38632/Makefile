@@ -20,6 +20,10 @@ test: all
 	python3 test_runtime.py
 	python3 test_elf.py
 	python3 test_services.py
+	$(MAKE) $(BUILD)/test-workspace
+	$(BUILD)/test-workspace
+$(BUILD)/test-workspace: test-workspace.c workspace.c workspace.h services.c services.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-workspace.c workspace.c services.c -o $@
 .PHONY: test
 CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -msoft-float -mno-sse -mno-mmx -Wall -Wextra -Werror
 $(BUILD)/run.o: runtime.S | $(BUILD)
@@ -91,7 +95,7 @@ $(BUILD)/host-run.o: runtime.S host-entry.S host-engine.S | $(BUILD)
 	as --32 --defsym LOADER=1 --defsym HOST=1 $< -o $@
 $(BUILD)/%.host.o: %.c services.h elf.h host.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DK32_HOST -c $< -o $@
-$(BUILD)/host.elf: $(BUILD)/manager.host.o $(BUILD)/host-resources.o $(BUILD)/host-report.o $(BUILD)/host-run.o $(BUILD)/host.host.o $(BUILD)/loader.host.o $(BUILD)/elf.host.o $(BUILD)/services.host.o $(BUILD)/services-dos.host.o $(BUILD)/libmemory.o host.ld
+$(BUILD)/host.elf: $(BUILD)/workspace.host.o $(BUILD)/manager.host.o $(BUILD)/host-resources.o $(BUILD)/host-report.o $(BUILD)/host-run.o $(BUILD)/host.host.o $(BUILD)/loader.host.o $(BUILD)/elf.host.o $(BUILD)/services.host.o $(BUILD)/services-dos.host.o $(BUILD)/libmemory.o host.ld
 	ld -m elf_i386 -T host.ld $(filter %.o,$^) -o $@
 $(BUILD)/K32HOST.EXE: $(BUILD)/host.elf ../mz/build.py Makefile
 	python3 ../mz/build.py --desktop-app "PM32 resident service" $< $@

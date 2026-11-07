@@ -42,7 +42,7 @@ class Image(unittest.TestCase):
             self.assertNotEqual(parser(False)(data)[0],0)
             self.assertNotEqual(parser(True)(data)[0],0)
             error,p=parser(False,True)(data);self.assertEqual(error,0)
-            self.assertEqual((p.abi,p.features),(257,103 if name in ('KGFILES','KGDIRBAD','KGEDIT') else 39))
+            self.assertEqual((p.abi,p.features),(257,231 if name=='KGEDIT' else 103 if name in ('KGFILES','KGDIRBAD') else 39))
             elf,stats={'KGCALC':('calculator.elf','calc_stats'),'KGCLOCK':('clock.elf','clock_stats'),'KGFILES':('files.elf','files_stats'),'KGDIRBAD':('directory-test.elf','directory_stats'),'KGEDIT':('editor.elf','editor_stats')}[name]
             self.assertEqual(symbols(elf)[stats],p.rwbase)
     def test_loader_bounds_and_explicit_allocation(self):

@@ -24,3 +24,4 @@ int ke_replace(KeDocument *d,const char *s,unsigned n){
 }
 int ke_undo(KeDocument *d,int redo){if(redo){if(d->current+1>=d->count)return 0;d->current++;}else{if(!d->current)return 0;d->current--;}return 1;}
 int ke_dirty(KeDocument *d){KeVersion *v=ke_view(d);if(v->n!=d->clean_n)return 1;for(unsigned i=0;i<v->n;i++)if(v->text[i]!=d->clean[i])return 1;return 0;}
+void ke_saved(KeDocument *d){KeVersion *v=ke_view(d);d->clean_n=v->n;for(unsigned i=0;i<=v->n;i++)d->clean[i]=v->text[i];}

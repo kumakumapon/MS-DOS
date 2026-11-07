@@ -13,7 +13,8 @@ extern void host_enter(void),host_drop_xms(void);
 K32HostMailbox host_mailbox={.signature={'K','3','2','H','O','S','T','1'},.version=1,.size=sizeof(K32HostMailbox)};
 char host_command[128];
 extern u16 host_api_kind;
-static u8 seed[7168];
+/* Keep the immutable initial task image outside the near resident segment. */
+static unsigned seed;
 static struct {u16 state,tables;u32 generation;} slots[2];
 static unsigned active,ds_segment,task_bytes,indos_segment,indos_offset;
 static unsigned csi,parameter[2],which;
@@ -87,7 +88,7 @@ static int create(unsigned id){
  unsigned snapshot=mem_alloc(task_bytes),tables=mem_alloc(16384);
  if(!snapshot||!tables){mem_free(snapshot);mem_free(tables);return 8;}
  slots[id].state=snapshot;slots[id].tables=tables;
- copy(__task_start,seed,task_bytes);active=id;
+ mem_copy(ds_segment,(unsigned)__task_start,seed,0,task_bytes);active=id;
  u32 pd=((u32)tables*16+4095)&~4095u;
  put(20,(u32)ds_segment*16);put(24,pd);put(44,host_mailbox.owner);put(56,ticks()|1);put(492,~0u);put(504,(unsigned)results);
  copy(host_command,host_mailbox.path,128);host_command[127]=0;
@@ -129,8 +130,9 @@ int host_install(void){
  a=0x6200;__asm__ volatile("int $0x21":"+a"(a),"=b"(bx)::"cc","memory");host_mailbox.owner=bx;
  a=0x6700;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"b"(40):"cc","memory");if(a==~0u)return 1;
  a=0x3400;__asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(bx)::"cc","memory");indos_segment=seg;indos_offset=bx&65535;
- task_bytes=(unsigned)(__task_end-__task_start);if(task_bytes>sizeof seed)return 1;
- copy(seed,__task_start,task_bytes);host_mailbox.cookie=ticks()|1;host_mailbox.ready=1;manager_init(ds_segment);return 0;
+ task_bytes=(unsigned)(__task_end-__task_start);if(task_bytes>7168)return 1;
+ seed=mem_alloc(task_bytes);if(!seed)return 1;
+ mem_copy(seed,0,ds_segment,(unsigned)__task_start,task_bytes);host_mailbox.cookie=ticks()|1;host_mailbox.ready=1;manager_init(ds_segment);return 0;
 }
 unsigned host_occupied(void){return (slots[0].state?1u:0)|(slots[1].state?2u:0);}
 void host_dispatch(void){
