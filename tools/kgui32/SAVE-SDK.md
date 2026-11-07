@@ -10,8 +10,9 @@ saved files use LF. Saving retains selection, cursor and Undo/Redo history.
   Enter an ASCII 8.3 name ending in `.TXT`, then Enter or Save. Tab moves
   between filter, list, filename, Save and Cancel. A selected list row fills
   the filename; Enter in the list also selects it. An existing destination requires Replace (R) or Cancel (Esc).
-- **Open / Ctrl+O** starts in the read-only A: root. Work switches to
-  `A:\WORK`; Root switches back. Ctrl+W toggles Root/Work inside Open. Filtering, list navigation and Open work in
+- **Open / Ctrl+O** starts in Work when a supported HDD is present, otherwise
+  in the read-only A: root. Work selects the broker's workspace (normally
+  `B:\WORK` on HDD, `A:\WORK` without HDD); Root selects A:. Ctrl+W toggles Root/Work inside Open. Filtering, list navigation and Open work in
   either location. Root files can be edited, but Save As writes only to Work.
 - X, F10, New and Open offer **Save (S), Discard (D), Cancel (Esc)** for a
   modified document. Canceling either a save picker or replacement also cancels
@@ -20,11 +21,20 @@ saved files use LF. Saving retains selection, cursor and Undo/Redo history.
   `File changed`; reopen it or explicitly Save As. It is never silently replaced.
 - End / Ctrl+G remain forceful operations that discard unsaved changes.
 
-Writes are restricted to writable, ordinary `.TXT` files in the **existing**
-`A:\WORK` directory. The generated KGUI32 disk provisions an empty Work directory.
-Available capacity depends on free FD space; replacing a file needs additional
-space for the new temporary copy. The size limit is not a free-space guarantee.
-Root boot files, EXEs, devices, paths, other drives, hidden/system/read-only
+Writes are restricted to writable, ordinary `.TXT` files in the selected
+`WORK` directory. The generated FD and marked FAT16 HDD provision empty Work
+directories. The guest broker identifies KHD98 through DOS's DPB and its resident
+versioned geometry record; applications cannot choose a drive. Without a supported
+HDD it retains A:. It may create a missing WORK on a recognized HDD through DOS,
+but never formats or repairs a volume. An unavailable WORK on a recognized HDD
+returns an error on that HDD rather than silently saving to A:.
+
+The picker shows the destination, HDD/FD, DOS free space and cluster-rounded
+temporary data requirement. Capacity is a snapshot; another task or directory
+expansion may consume it before the save. The broker rechecks space and all actual
+writes/closes. An overwrite needs space for the complete new copy while the old
+file remains allocated. The size limit is not a free-space guarantee.
+Root boot files, EXEs, devices, paths, application-selected drives, hidden/system/read-only
 files and arbitrary subdirectories are outside the write API. No mkdir/delete
 or arbitrary write-handle API is exposed. SDK1–3 calls and wire layouts retain
 their contracts. General Japanese/IME, host clipboard and extra slots are later
@@ -41,7 +51,7 @@ reject save-enabled client packages. There is no new privileged I/O in clients.
 INT30h **17**, EBX=RW `K32Work`, ECX=64; EAX=result. The 64-byte version-1
 request has u32 version/size/operation/flags, name[16], then u32 data/bytes/
 exists/length/hash/reserved[3]. Flags/reserved must be zero. `sdk/k32x.h`
-provides `k32_work`, `k32_work_name` and `k32_work_first`.
+provides `k32_work`, `k32_work_name`, `k32_work_first` and `k32_work_info`.
 
 | Operation | Request / result |
 | --- | --- |
@@ -49,6 +59,16 @@ provides `k32_work`, `k32_work_name` and `k32_work_first`.
 | 2 OPEN | Name; returns the existing owned read-only handle token; use read/seek/close. |
 | 3 FIRST | data=RW K32DirEntry, bytes=64; enumerates Work TXT files. Use existing NEXT/CLOSE. |
 | 4 SAVE | Name, data=readable document, bytes<=65536, expected exists/length/hash; returns 0 committed, 1 committed with old backup retained. |
+| 5 INFO | data=RW K32WorkInfo, bytes=64; name/exists/length/hash zero. Returns 0 after copying information, including a workspace error. Optional extension; old hosts return -38. |
+
+`K32WorkInfo` version 1 is 64 bytes: u32 version/size/flags/drive; char root[16];
+u32 sector_bytes/cluster_sectors/free_clusters/total_clusters/free_bytes/total_bytes/
+max_bytes; i32 error. Drive is zero-based (A=0). Flags are HDD=1, FD=2, READY=4.
+The selected drive and root remain meaningful when READY is clear; inspect error
+before treating capacity as usable. The picker falls back to the legacy A: label
+only when INFO itself is unsupported. Feature bit 128 and the other operations'
+wire layouts are unchanged. Existing root-directory calls remain A: read-only;
+Files-to-HDD navigation is a later stage. See [HDD-WORKSPACE.md](HDD-WORKSPACE.md).
 
 Stat before asking to replace; preserve that revision until SAVE. A new name
 requires exists=0. On Open, compare the read bytes against STAT before adopting
@@ -84,8 +104,9 @@ old BAK could not be removed; retain it and resolve it before the next overwrite
 
 **DOS rename is not power-loss atomic.** A reset between the two renames can
 leave TXT absent and BAK/TMP present. First export the disk for backup. From DOS,
-inspect `DIR A:\WORK`; if `NAME.TXT` is absent and `NAME.BAK` is the wanted old
-document, use `REN A:\WORK\NAME.BAK NAME.TXT`. Inspect/export TMP separately;
+inspect `DIR B:\WORK` (substitute the displayed workspace drive); if `NAME.TXT`
+is absent and `NAME.BAK` is the wanted old document, use
+`REN B:\WORK\NAME.BAK NAME.TXT`. Inspect/export TMP separately;
 do not blindly delete either recovery file. This is recovery of interrupted
 saves, not a claim of transactional FAT durability through arbitrary power loss.
 
@@ -100,3 +121,8 @@ writing. WebNP2 `verify-kgui32-save.mjs` validates real files/FAT allocation,
 Save/Save As/cancel/conflicts, cold boot of exported bytes, full disk, peer
 progress and complete cleanup on PEGC/Cirrus; legacy suites retain whole-disk
 invariance when no saving is requested.
+
+`verify-kgui32-hdd-workspace.mjs` adds the real HDD broker/picker, 64 KiB create
+and three overwrites, independent FAT16 validation and cold boot, peer conflict,
+full disk, actual short write after directory expansion, protected files, blocked
+WORK, missing/foreign HDD, legacy HDD provisioning and a real BIOS write fault.

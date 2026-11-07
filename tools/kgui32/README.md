@@ -130,3 +130,5 @@ See [GUI SDK 2 / Files](BROWSER-SDK.md) for usage, interfaces and limits.
 SDK3 adds the temporary editor and reusable picker; see [EDITOR-SDK.md](EDITOR-SDK.md) for lifecycle, keyboard and clipboard contracts.
 
 SDK4 adds bounded workspace saves and a common Save As dialog; see [SAVE-SDK.md](SAVE-SDK.md).
+The optional workspace information operation routes those calls to the verified
+data HDD, with an explicit FD fallback; see [HDD-WORKSPACE.md](HDD-WORKSPACE.md).

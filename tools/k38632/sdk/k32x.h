@@ -29,6 +29,7 @@ static inline int k32_dir_close(unsigned cursor){return k32_call(16,cursor,0);}
 static inline int k32_work(K32Work *r){return k32_call(17,(unsigned)r,sizeof *r);}
 static inline K32Work k32_work_name(unsigned op,const char *name){K32Work r={.version=1,.size=sizeof(K32Work),.operation=op};for(unsigned i=0;i<15&&name[i];i++)r.name[i]=name[i];return r;}
 static inline int k32_work_first(K32DirEntry *p){K32Work r={.version=1,.size=sizeof r,.operation=K32_WORK_FIRST,.data=(unsigned)p,.bytes=sizeof *p};return k32_work(&r);}
+static inline int k32_work_info(K32WorkInfo *p){K32Work r={.version=1,.size=sizeof r,.operation=K32_WORK_INFO,.data=(unsigned)p,.bytes=sizeof *p};return k32_work(&r);}
 static inline unsigned k32_len(const char *s){unsigned n=0;while(s[n])n++;return n;}
 static inline int k32_puts(const char *s){return k32_write(s,k32_len(s));}
 #endif

@@ -21,6 +21,9 @@ static unsigned service_features(void){
  #endif
  return f;
 }
+#if defined(K32_HOST) && !defined(K32_GUI)
+static void workspace_start(void);
+#endif
 static u32 get(unsigned at){return *(u32 *)(results+at);}
 static void put(unsigned at,u32 n){*(u32 *)(results+at)=n;}
 static void inc(unsigned at){put(at,get(at)+1);}
@@ -72,6 +75,9 @@ static void pte(unsigned i,u32 value){
 }
 int services_start(void){
  if(loader_plan.abi!=257)return 0;
+ #if defined(K32_HOST) && !defined(K32_GUI)
+ if(loader_plan.features&K32_FEATURE_SAVE)workspace_start();
+ #endif
  u32 end=K32_BASE;
  for(unsigned i=0;i<loader_plan.count;i++){K32Segment *s=&loader_plan.segment[i];u32 at=(s->address+s->memsz+4095)&~4095u;if(at>end)end=at;}
  k32_heap_init(&heap,end,K32_INFO);
@@ -237,6 +243,51 @@ static u32 critical(int install,u32 old){
 static int attributes(const char *path){
  u32 a=0x4300,c=0;__asm__ volatile("int $0x21; movzwl %%ax,%%eax; jnc 1f; negl %%eax; jmp 2f; 1: movl %%ecx,%%eax; 2:":"+a"(a),"+c"(c):"d"((u32)path):"cc","memory");return (int)a;
 }
+static K32WorkInfo work_info K32_STATE;
+static u8 work_byte(u32 p){u8 c;__asm__ volatile("pushw %%es; movw %w1,%%es; movb %%es:(%2),%0; popw %%es":"=q"(c):"r"(p>>4),"r"(p&15):"memory");return c;}
+static u16 work_word(u32 p){return work_byte(p)|(u16)work_byte(p+1)<<8;}
+static u32 work_dword(u32 p){return work_word(p)|(u32)work_word(p+2)<<16;}
+/* Identify the resident driver's record through DOS's actual DPB. A label or
+ * arbitrary file on another disk is not sufficient to select a write target. */
+static int work_hdd(unsigned drive){
+ u32 a=0x3200,b;u16 segment;
+ __asm__ volatile("pushw %%ds; int $0x21; movw %%ds,%1; popw %%ds":"+a"(a),"=c"(segment),"=b"(b):"d"(drive+1):"cc","memory");
+ if(a&255)return 0;
+ u32 dpb=(u32)segment*16+(b&65535);if(dpb<0x500||dpb>0x9ffe0)return 0;
+ u32 pointer=work_dword(dpb+19),driver=(pointer>>16)*16+(pointer&65535);
+ if(driver<0x500||driver>0x9ffad)return 0;
+ u32 p=driver+18;const char *signature="KHDDIOP1";
+ for(unsigned i=0;i<8;i++)if(work_byte(p+i)!=(u8)signature[i])return 0;
+ return work_word(p+8)==1&&work_word(p+10)==64&&work_word(p+12)==1&&work_word(p+50)==drive&&
+  work_dword(p+16)==40524&&work_dword(p+20)==264&&work_dword(p+24)==162360;
+}
+static int work_ready(void){
+ int attr=attributes(work_info.root);
+ if(attr==-2&&(work_info.flags&K32_WORK_HDD)){
+  u32 a=0x3900;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"d"((u32)work_info.root):"cc","memory");
+  if(a==~0u)return -5;
+  attr=attributes(work_info.root);
+ }
+ if(attr<0)return attr==-2?-2:-5;
+ if(!(attr&16))return -20;
+ return attr&0x4f?-13:0;
+}
+static int work_space(unsigned *free,unsigned *cluster){
+ u32 a=0x3600,b,c,d=work_info.drive+1;
+ __asm__ volatile("int $0x21":"+a"(a),"=b"(b),"=c"(c),"+d"(d)::"cc","memory");
+ if((a&65535)==65535)return -5;
+ int e=k32_work_space(&work_info,a&65535,b&65535,c&65535,d&65535);if(e)return e;
+ *free=work_info.free_bytes;*cluster=work_info.sector_bytes*work_info.cluster_sectors;return 0;
+}
+static void workspace_start(void){
+ work_info=(K32WorkInfo){.version=1,.size=sizeof work_info,.flags=K32_WORK_FD,.max_bytes=K32_WORK_LIMIT};
+ const char *root="A:\\WORK";for(unsigned i=0;i<8;i++)work_info.root[i]=root[i];
+ u32 old=critical(1,0);
+ for(unsigned drive=1;drive<26;drive++)if(work_hdd(drive)){work_info.drive=drive;work_info.root[0]='A'+drive;work_info.flags=K32_WORK_HDD;break;}
+ work_info.error=work_ready();unsigned free,cluster;if(!work_info.error)work_info.error=work_space(&free,&cluster);
+ if(!work_info.error)work_info.flags|=K32_WORK_READY;
+ critical(0,old);
+}
 static int work_handle K32_STATE=-1;
 static void work_owned(int h){work_handle=h;put(820,get(820)+1);if(get(820)>get(824))put(824,get(820));inc(832);}
 static int work_close(int h){int e=dos_close(h);if(e)e=dos_close(h);if(!e){work_handle=-1;put(820,get(820)-1);inc(836);}return e;}
@@ -259,20 +310,26 @@ static int work_remove(const char *path){u32 a=0x4100;__asm__ volatile("int $0x2
 static int work_copy(unsigned at,void *p,unsigned n){return transfer(at-K32_BASE,p,n,0)?0:-5;}
 static int workspace(u32 pointer,u32 size){
  if(!(loader_plan.features&K32_FEATURE_SAVE))return -38;
- if(work_handle>=0)return -117;
  if(size!=sizeof(K32Work))return -22;
  if(!k32_user_range(loader_map,pointer,size,1))return -14;
  K32Work r;if(!transfer(pointer-K32_BASE,&r,size,0))return -5;
  int e=k32_work_request(&r);if(e)return e;
+ if(work_handle>=0&&r.operation!=K32_WORK_INFO)return -117;
  if(r.operation==K32_WORK_SAVE&&!k32_user_range(loader_map,r.data,r.bytes,0))return -14;
- if(r.operation==K32_WORK_FIRST&&!k32_user_range(loader_map,r.data,r.bytes,1))return -14;
+ if((r.operation==K32_WORK_FIRST||r.operation==K32_WORK_INFO)&&!k32_user_range(loader_map,r.data,r.bytes,1))return -14;
  u32 old=critical(1,0);char path[24];
- int attr=attributes("A:\\WORK");if(attr<0||!(attr&16)){e=-2;goto done;}
- if(r.operation==K32_WORK_FIRST){e=directory_at(14,r.data,r.bytes,0,"A:\\WORK\\*.TXT");goto done;}
- k32_work_path(r.name,path);
+ e=work_ready();
+ if(r.operation==K32_WORK_INFO){
+  unsigned free,cluster;int space=work_space(&free,&cluster);work_info.error=work_handle>=0?-117:e?e:space;
+  work_info.flags&=~K32_WORK_READY;if(!work_info.error)work_info.flags|=K32_WORK_READY;
+  e=transfer(r.data-K32_BASE,&work_info,sizeof work_info,1)?0:-5;goto done;
+ }
+ if(e)goto done;
+ if(r.operation==K32_WORK_FIRST){char pattern[]="A:\\WORK\\*.TXT";pattern[0]='A'+work_info.drive;e=directory_at(14,r.data,r.bytes,0,pattern);goto done;}
+ k32_work_path_at(work_info.drive,r.name,path);
  if(r.operation==K32_WORK_OPEN)e=open_path(path);
  else if(r.operation==K32_WORK_STAT){e=work_stat(path,&r.length,&r.hash);if(e>=0){r.exists=e;e=transfer(pointer-K32_BASE,&r,size,1)?0:-5;}}
- else{const K32WorkIO io={work_stat,work_create,work_write,work_close,work_rename,work_remove,work_copy};e=k32_work_save(&r,&io,loader_buffer);}
+ else{const K32WorkIO io={work_stat,work_create,work_write,work_close,work_rename,work_remove,work_copy,work_space};e=k32_work_save_at(work_info.drive,&r,&io,loader_buffer);}
  done:critical(0,old);return e;
 }
 #endif

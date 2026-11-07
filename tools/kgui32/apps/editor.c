@@ -4,9 +4,10 @@
 static KeDocument doc;static KpPicker picker;
 static unsigned lines[KE_BYTES+1],line_count,top,cols,rows,drag,mark,mode,pending;
 static unsigned in_work;static K32Work revision,save_request;
+static K32WorkInfo destination;
 static char filename[13],clipboard[1024],load_buffer[KE_BYTES];
 static const char *message;static KwScroll editor_scroll;
-volatile struct {u32 magic,version,frames,events,bytes,hash,cursor,anchor,dirty,mode,top,heartbeat,error,history,redo,reserved;} editor_stats __attribute__((section(".data.gui_stats")))={.magic=0x3345474b,.version=3};
+volatile struct {u32 magic,version,frames,events,bytes,hash,cursor,anchor,dirty,mode,top,heartbeat,error,history,redo,workspace;} editor_stats __attribute__((section(".data.gui_stats")))={.magic=0x3345474b,.version=4};
 static void layout(void){cols=(kg_width()-48)/8;if(cols>47)cols=47;rows=(kg_height()-80)/16;if(rows>14)rows=14;}
 static unsigned row_at(unsigned at){unsigned r=0;while(r+1<line_count&&lines[r+1]<=at)r++;return r;}
 static void index_lines(int follow){
@@ -16,7 +17,7 @@ static void index_lines(int follow){
  unsigned max=line_count>rows?line_count-rows:0;if(top>max)top=max;
 }
 static void report(void){KeVersion *v=ke_view(&doc);unsigned hash=2166136261u;for(unsigned i=0;i<v->n;i++)hash=(hash^(unsigned char)v->text[i])*16777619u;
- editor_stats.bytes=v->n;editor_stats.hash=hash;editor_stats.cursor=v->cursor;editor_stats.anchor=v->anchor;editor_stats.dirty=ke_dirty(&doc);editor_stats.mode=mode;editor_stats.top=top;editor_stats.history=doc.current;editor_stats.redo=doc.count-doc.current-1;
+ editor_stats.bytes=v->n;editor_stats.hash=hash;editor_stats.cursor=v->cursor;editor_stats.anchor=v->anchor;editor_stats.dirty=ke_dirty(&doc);editor_stats.mode=mode;editor_stats.top=top;editor_stats.history=doc.current;editor_stats.redo=doc.count-doc.current-1;editor_stats.workspace=destination.flags|(destination.drive<<8);
 }
 static unsigned content_hash(const char *s,unsigned n){unsigned h=2166136261u;for(unsigned i=0;i<n;i++)h=(h^(unsigned char)s[i])*16777619u;return h;}
 static void load(const char *name,unsigned work){
@@ -30,6 +31,7 @@ static void load(const char *name,unsigned work){
  if(error||ke_load(&doc,load_buffer,n)){message="Open failed: ASCII text, max 64 KiB";editor_stats.error=error?-error:22;return;}
  for(unsigned i=0;i<13;i++){filename[i]=name[i];if(!name[i])break;}
  in_work=work;revision=before;
+ kp_workspace_info(&destination);
  top=0;index_lines(1);
 }
 static int perform(unsigned what){
@@ -42,7 +44,7 @@ static int request(unsigned what){drag=mark=0;if(ke_dirty(&doc)){pending=what;mo
 static void cancel_pending(void){if(pending==1)kg_cancel_close();pending=0;}
 static int commit_save(void){
  KeVersion *v=ke_view(&doc);save_request.operation=K32_WORK_SAVE;save_request.data=(unsigned)v->text;save_request.bytes=v->n;
- int e=k32_work(&save_request);mode=0;
+ int e=k32_work(&save_request);mode=0;kp_workspace_info(&destination);
  if(e<0){editor_stats.error=-e;message=e==-116?"File changed: reopen or Save As":e==-28?"Disk full: document kept":e==-117?"Recovery needed: keep TMP/BAK":e==-17?"Reserved TMP exists: use another name":"Save failed: document kept";cancel_pending();return 0;}
  for(unsigned i=0;i<13;i++){filename[i]=save_request.name[i];if(!filename[i])break;}
  in_work=1;revision=save_request;revision.exists=1;revision.length=v->n;revision.hash=content_hash(v->text,v->n);ke_saved(&doc);editor_stats.error=0;
@@ -53,7 +55,7 @@ static int commit_save(void){
 static int save(int as){
  drag=mark=0;
  if(!as&&in_work&&filename[0]){save_request=revision;return commit_save();}
- kp_save(&picker,in_work?filename:"");mode=3;return 0;
+ kp_save_size(&picker,in_work?filename:"",ke_view(&doc)->n);mode=3;return 0;
 }
 static void copy_selection(int cut){KeVersion *v=ke_view(&doc);unsigned a=v->anchor<v->cursor?v->anchor:v->cursor,b=v->anchor>v->cursor?v->anchor:v->cursor;if(b-a>1024){message="Clipboard limit: 1024 bytes";return;}if(b==a)return;if(kg_clip_set(v->text+a,b-a)<0){message="Clipboard unavailable";return;}if(cut)ke_replace(&doc,"",0);}
 static unsigned hit(const KgEvent *e){unsigned r=top+(e->y<40?0:(unsigned)(e->y-40)/16);if(r>=line_count)return ke_view(&doc)->n;unsigned col=e->x<8?0:(unsigned)(e->x-8)/8;if(col>cols)col=cols;unsigned at=lines[r]+col,end=r+1<line_count?lines[r+1]:ke_view(&doc)->n;KeVersion *v=ke_view(&doc);if(end>lines[r]&&v->text[end-1]=='\n')end--;return at>end?end:at;}
@@ -90,13 +92,16 @@ static int draw(void){
  }
  unsigned r=row_at(v->cursor);if(r>=top&&r<top+rows){unsigned c=v->cursor-lines[r];if(c<cols)kg_rect(8+c*8,54+(r-top)*16,8,2,0x327ac0);}
  KwScroll scroll={.r={(int)w-28,40,20,(int)rows*16},.total=line_count,.rows=rows,.top=top};kw_draw_scroll(&scroll);
- kw_text(8,h-32,ke_dirty(&doc)?"Modified / Ctrl S:save W:save as":in_work?filename:"Untitled / save to A: WORK",(w-16)/8,0x466581);
+ char status[64];unsigned n=0;const char *parts[]={ke_dirty(&doc)?"Modified / ":"",destination.root," / ",filename[0]?filename:"Untitled",!in_work&&filename[0]?" (Save As)":""};
+ for(unsigned i=0;i<5;i++)for(unsigned j=0;parts[i][j]&&n<sizeof status-1;j++)status[n++]=parts[i][j];
+ status[n]=0;kw_text(8,h-32,status,(w-16)/8,0x466581);
  kw_text(8,h-16,"Ctrl A/C/X/V Z/Y B:mark F2:launcher",(w-16)/8,0x466581);return kg_present();
 }
 int main(int argc,char **argv){
  ke_load(&doc,"",0);if(kg_open("Editor / workspace TXT",576,320)<0)return 1;
  if((kg_capabilities()&KG_CAP_ALL)!=KG_CAP_ALL||kg_subscribe(KG_CAP_ALL))return 2;
  index_lines(1);if(!(k32_query()&K32_FEATURE_SAVE))return 2;
+ kp_workspace_info(&destination);
  if(argc>1&&k32_len(argv[1])==5&&argv[1][0]=='f'&&argv[1][1]=='a'&&argv[1][2]=='u'&&argv[1][3]=='l'&&argv[1][4]=='t'){load("EDITTEST.TXT",0);draw();*(volatile u32 *)0x10000=1;}
  int dirty=1,quit=0;
  while(!quit){KgEvent e;int got=kg_poll(&e);editor_stats.heartbeat++;if(got<0)break;

@@ -2,6 +2,13 @@ BUILD ?= build
 CFLAGS = -m16 -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -Wall -Wextra -Werror
 all: $(BUILD)/KHD98.SYS
 all: $(BUILD)/HDDTEST.EXE
+all: $(BUILD)/HDDFLT.COM
+$(BUILD)/failwrite.o: failwrite.S | $(BUILD)
+	as --32 $< -o $@
+$(BUILD)/failwrite.elf: $(BUILD)/failwrite.o failwrite.ld
+	ld -m elf_i386 -T failwrite.ld $< -o $@
+$(BUILD)/HDDFLT.COM: $(BUILD)/failwrite.elf
+	objcopy -O binary $< $@
 $(BUILD):
 	mkdir -p $@
 $(BUILD)/entry.o: driver.S | $(BUILD)

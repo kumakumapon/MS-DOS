@@ -78,5 +78,12 @@ real DOS file operations, independently parses both FATs and directory/file
 contents from the downloaded THD, and boots a fresh browser context for
 retention. See that repository's `docs/pc98-hdd-proof.md` for the exact commands.
 
-HDD-only boot, generic existing disks, KGUI32 workspace routing, app migration,
-and concurrent writable sharing are **not implemented** in this proof.
+KGUI32 now uses this marked data-volume contract for its workspace; see
+[HDD-WORKSPACE.md](../../../tools/kgui32/HDD-WORKSPACE.md). HDD-only boot, generic
+existing disks, app migration and concurrent writable sharing remain later work.
+
+`HDDFLT.COM` is a test-only TSR for disposable browser fixtures. It chains INT1Bh
+and denies exactly the first HDD physical write (AX=0500h, AH=60h/CF set), leaving
+FD functions unaffected. The normal AUTOEXEC never executes it. The dedicated
+HDD workspace E2E loads it only into a cloned FD to test real DOS error handling;
+restart the machine afterwards rather than using that diagnostic boot for work.

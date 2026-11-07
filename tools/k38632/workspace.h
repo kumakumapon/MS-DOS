@@ -3,7 +3,15 @@
 #define K32_WORKSPACE_H
 #define K32_FEATURE_SAVE 128u
 #define K32_WORK_LIMIT 65536u
-enum {K32_WORK_STAT=1,K32_WORK_OPEN,K32_WORK_FIRST,K32_WORK_SAVE};
+enum {K32_WORK_STAT=1,K32_WORK_OPEN,K32_WORK_FIRST,K32_WORK_SAVE,K32_WORK_INFO};
+enum {K32_WORK_HDD=1,K32_WORK_FD=2,K32_WORK_READY=4};
+typedef struct {
+ unsigned version,size,flags,drive; /* drive is zero-based, selected by broker */
+ char root[16];
+ unsigned sector_bytes,cluster_sectors,free_clusters,total_clusters;
+ unsigned free_bytes,total_bytes,max_bytes;int error;
+} K32WorkInfo;
+_Static_assert(sizeof(K32WorkInfo)==64,"workspace information contract");
 typedef struct {
  unsigned version,size,operation,flags;
  char name[16];
@@ -18,10 +26,14 @@ typedef struct {
  int (*rename)(const char *,const char *);
  int (*remove)(const char *);
  int (*copy)(unsigned,void *,unsigned);
+ int (*space)(unsigned *,unsigned *); /* free bytes and allocation unit */
 } K32WorkIO;
 int k32_work_path(const char *,char [24]);
+int k32_work_path_at(unsigned,const char *,char [24]);
+int k32_work_space(K32WorkInfo *,unsigned,unsigned,unsigned,unsigned);
 int k32_work_request(const K32Work *);
 /* 0 committed; 1 committed with backup retained; negative = failure.
  * -117 means recovery files may remain. Never silently remove old backups. */
 int k32_work_save(const K32Work *,const K32WorkIO *,unsigned char [4096]);
+int k32_work_save_at(unsigned,const K32Work *,const K32WorkIO *,unsigned char [4096]);
 #endif
