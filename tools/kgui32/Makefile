@@ -139,3 +139,8 @@ $(BUILD)/KGSAVEB.EXE: $(BUILD)/save-test.elf $(K32)/package.py
 $(BUILD)/KGSAVENO.EXE: $(BUILD)/save-test.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client
 all: $(BUILD)/KGSAVEB.EXE $(BUILD)/KGSAVENO.EXE
+$(BUILD)/save-wide.elf: $(BUILD)/save-wide.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KGSAVE64.EXE: $(BUILD)/save-wide.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client
+all: $(BUILD)/KGSAVE64.EXE

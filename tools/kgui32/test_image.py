@@ -58,6 +58,7 @@ class Image(unittest.TestCase):
         with self.assertRaises(ValueError):module.package(b'',257,7,True)
         with self.assertRaises(ValueError):module.package(b'',257,64)
         with self.assertRaises(ValueError):module.package(b'',257,87,True)
+        with self.assertRaises(ValueError):module.package(b'',257,167,client=True)
         self.assertEqual(struct.unpack_from('<I',module.package(b'',257,103,client=True),92)[0],103)
         self.assertIn(b'KGUILDR',module.package(b'',257,23,True))
 if __name__=='__main__':unittest.main()

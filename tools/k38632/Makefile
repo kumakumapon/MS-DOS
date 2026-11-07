@@ -130,3 +130,4 @@ $(BUILD)/XARRAY32.EXE: $(BUILD)/xarray.ext.elf package.py
 apps: $(BUILD)/XARRAY32.EXE
 
 $(BUILD)/host.host.o $(BUILD)/services-dos.host.o $(BUILD)/services-dos.o: ../kgui32/sdk/protocol.h
+$(BUILD)/workspace.host.o $(BUILD)/services-dos.host.o: workspace.h

@@ -5,7 +5,7 @@ from pathlib import Path
 import struct
 
 def package(elf,abi=256,features=0,gui=False,client=False):
-    if abi not in (256,257) or features&~(31 if gui else 239 if client else 15) or (abi==256 and features) or (gui and not features&16) or (client and (gui or not features&32)):raise ValueError("unsupported ABI/features")
+    if abi not in (256,257) or features&~(31 if gui else 239 if client else 15) or (features&128 and features&96!=96) or (abi==256 and features) or (gui and not features&16) or (client and (gui or not features&32)):raise ValueError("unsupported ABI/features")
     header=bytearray(96)
     # DOS loads only this short stub, never the ELF overlay into conventional RAM.
     code=bytes.fromhex('0e1fba1000b409cd21b8014ccd219090')+(b'Use KGUILDR KGUI32.EXE\r\n$' if gui else b'Start this app in KGUI32\r\n$' if client else b'Use K32RUN APP32.EXE\r\n$')

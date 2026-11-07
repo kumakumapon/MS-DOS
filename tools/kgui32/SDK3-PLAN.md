@@ -1,6 +1,7 @@
 # SDK3 / protected graphical editor
 
-Status: design checkpoint; implementation and acceptance pending.
+Status: implementation and acceptance completed in both repositories #43.
+Preserved below as the original SDK3 scope; SDK4 adds workspace saving.
 
 Scope: bounded multiline ASCII editing, selection, guest clipboard, undo/redo,
 shared read-only A: root file picker, cancellable close requests and opt-in key
