@@ -382,7 +382,7 @@ int main(int argc,char **argv){
   if(event.type==GUI_KEY||event.type==GUI_BUTTON)refresh();
   int act;
   if(event.type==GUI_KEY&&scene.active>=2&&event.key!=281&&event.key!=11&&event.key!=289&&
-     ((editing[scene.active-2]&&event.key!=9)||(!editing[scene.active-2]&&event.key!=289&&((event.key==9&&(clients[scene.active-2].event.control&KG_INPUT_TAB))||((clients[scene.active-2].event.control&KG_INPUT_KEYS)&&event.key!=9))))){
+     ((editing[scene.active-2]&&event.key!=9)||(!editing[scene.active-2]&&clients[scene.active-2].token&&event.key!=289&&((event.key==9&&(clients[scene.active-2].event.control&KG_INPUT_TAB))||((clients[scene.active-2].event.control&KG_INPUT_KEYS)&&event.key!=9))))){
    scene.slot=scene.active-2;scene.key=event.key;act=ACT_KEY;
   }else act=scene_event(&scene,&event);
   if(act==ACT_EXIT){

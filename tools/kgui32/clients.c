@@ -49,7 +49,7 @@ void kg_dispatch(void){
  p.result=-22;
  if(p.version!=1||p.size!=sizeof p||p.slot>=2)goto done;
  unsigned id=p.slot;
- if(!p.operation){if(client[id].generation==p.generation){client[id].token=0;client[id].revision++;client[id].head=client[id].count=0;}p.result=0;goto done;}
+ if(!p.operation){if(client[id].generation==p.generation){client[id].token=0;client[id].input_flags=0;client[id].revision++;client[id].head=client[id].count=0;}p.result=0;goto done;}
  if(p.operation!=1||p.bytes!=sizeof(KgRequest)||p.request>65536-sizeof(KgRequest))goto done;
  if(!owned[id]||owned_generation[id]!=p.generation){p.result=-1;goto done;}
  KgRequest *r=(KgRequest *)loader_buffer;
