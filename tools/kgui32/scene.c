@@ -53,6 +53,7 @@ static void next_visible(Scene *s){
  for(int n=3;n>=0;n--){int id=s->order[n];if(s->window[id].open&&!s->window[id].hidden){s->active=id;scene_damage(s,covered(&s->window[id]));return;}}
  s->active=0;
 }
+void scene_close(Scene *s,int id){GuiWindow *w=&s->window[id];w->open=0;scene_damage(s,covered(w));if(s->active==id)next_visible(s);}
 static void move(Scene *s,int id,int x,int y){
  GuiWindow *w=&s->window[id];scene_damage(s,covered(w));
  w->r.x=clamp(x,8,s->width-w->r.w-8);w->r.y=clamp(y,40,s->height-32-w->r.h-8);
@@ -71,6 +72,7 @@ int scene_event(Scene *s,const GuiEvent *e){
   return ACT_NONE;
  }
  if(e->type==GUI_KEY){
+  if(e->key==289)return ACT_EXIT;
   if(e->key==11||e->key==281){scene_focus(s,0);return ACT_NONE;}
   if(e->key==9){
    int id=(s->active+1)%4;
@@ -143,6 +145,7 @@ int scene_event(Scene *s,const GuiEvent *e){
    if(inside((Rect){w->r.x+174,w->r.y+116,140,28},s->mx,s->my))return ACT_CLOCK;
    if(inside((Rect){w->r.x+18,w->r.y+152,140,28},s->mx,s->my))return ACT_SHELL;
    if(inside((Rect){w->r.x+174,w->r.y+152,140,28},s->mx,s->my))return ACT_FILES;
+   if(inside((Rect){w->r.x+18,w->r.y+188,140,28},s->mx,s->my))return ACT_EDITOR;
   }
   if(id==1&&inside((Rect){w->r.x+16,w->r.y+168,94,28},s->mx,s->my))return ACT_START;
   if(id==1&&inside((Rect){w->r.x+124,w->r.y+168,94,28},s->mx,s->my))return ACT_STOP;

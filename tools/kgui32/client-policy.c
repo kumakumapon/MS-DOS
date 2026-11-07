@@ -2,9 +2,9 @@
 #include "client-policy.h"
 static int ascii(const char *p,unsigned n){for(unsigned i=0;i<n;i++){if(!p[i])return 1;if((u8)p[i]<32||(u8)p[i]>126)return 0;}return 0;}
 int kg_validate(const KgRequest *r,unsigned width,unsigned height){
- if(r->version!=1||r->size!=sizeof *r||r->operation<KG_OPEN||r->operation>KG_SUBSCRIBE)return -22;
+ if(r->version!=1||r->size!=sizeof *r||r->operation<KG_OPEN||r->operation>KG_CANCEL_CLOSE)return -22;
  if(r->operation==KG_OPEN)return r->width<160||r->width>640||r->height<80||r->height>400||!r->title[0]||!ascii(r->title,32)?-22:0;
- if(r->operation==KG_SUBSCRIBE&&(r->count&~KG_INPUT_FLAGS))return -22;
+ if(r->operation==KG_SUBSCRIBE&&(r->count&~KG_CAP_ALL))return -22;
  if(r->operation!=KG_FRAME)return 0;
  if(r->count>KG_COMMANDS)return -22;
  for(unsigned i=0;i<r->count;i++){
@@ -35,8 +35,10 @@ int kg_policy(KgClient *c,KgRequest *r,u32 generation,u32 *serial,unsigned width
   r->token=c->token;r->width=c->width;r->height=c->height;return (int)c->token;
  }
  if(c->generation!=generation||!c->token||c->token!=r->token)return -116;
- if(r->operation==KG_CAPABILITIES)return KG_INPUT_FLAGS;
+ if(r->operation==KG_CAPABILITIES)return KG_CAP_ALL;
  if(r->operation==KG_SUBSCRIBE){c->input_flags=r->count;c->revision++;return 0;}
+ if(r->operation==KG_CANCEL_CLOSE){if(!(c->input_flags&KG_INPUT_CLOSE))return -22;c->cancelled++;c->revision++;return 0;}
+ if(r->operation==KG_CLIP_SET||r->operation==KG_CLIP_GET)return r->count>1024?-22:0;
  if(r->operation==KG_CLOSE){c->input_flags=0;c->token=0;c->head=c->count=0;c->revision++;return 0;}
  if(r->operation==KG_FRAME){c->revision++;return 0;}
  r->event=(KgEvent){0};

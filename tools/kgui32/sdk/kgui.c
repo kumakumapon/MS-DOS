@@ -22,3 +22,7 @@ int kg_capabilities(void){return call(KG_CAPABILITIES);}
 int kg_subscribe(unsigned flags){request.count=flags;return call(KG_SUBSCRIBE);}
 unsigned kg_width(void){return width;}
 unsigned kg_height(void){return height;}
+
+int kg_clip_set(const char *s,unsigned n){if(n>1024)return -22;for(unsigned i=0;i<n;i++)((char *)request.draw)[i]=s[i];request.count=n;return call(KG_CLIP_SET);}
+int kg_clip_get(char *s,unsigned n){if(n>1024)n=1024;request.count=n;int e=call(KG_CLIP_GET);if(e>0)for(int i=0;i<e;i++)s[i]=((char *)request.draw)[i];return e;}
+int kg_cancel_close(void){return call(KG_CANCEL_CLOSE);}

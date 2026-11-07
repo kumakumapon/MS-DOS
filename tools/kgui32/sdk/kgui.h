@@ -12,6 +12,9 @@ int kg_poll(KgEvent *);
 int kg_close(void);
 int kg_capabilities(void);
 int kg_subscribe(unsigned);
+int kg_clip_set(const char *,unsigned);
+int kg_clip_get(char *,unsigned);
+int kg_cancel_close(void);
 unsigned kg_width(void);
 unsigned kg_height(void);
 #endif

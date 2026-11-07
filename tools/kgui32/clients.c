@@ -9,7 +9,7 @@ extern int gui_copy(u32,void *,unsigned,int);
 extern void kg_gate(void);
 extern u32 kg_old_vector;extern u16 kg_sender_segment,kg_sender_offset;
 static KgClient client[2];static unsigned arena,self,host_segment,installed;
-static u32 serial,seconds,last_clock;
+static u32 serial,seconds,last_clock,clip_bytes;
 volatile struct {
  char signature[8];u32 version,size,owner,arena,old_vector,vector,ready,requests,rejected;
  u32 generation[2],token[2],revision[2],events[2],dropped[2];
@@ -28,7 +28,7 @@ int kg_clients_start(void){
  __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(a),"=c"(es),"=D"(di):"b"(b):"edx","esi","cc","memory");
  if((a&65535)!=0x390d)return 0;
  host_segment=es;__asm__ volatile("movw %%ds,%w0":"=r"(self));
- arena=mem_alloc(8192);if(!arena)return -12;mem_fill(arena,0,8192,0);
+ arena=mem_alloc(12288);if(!arena)return -12;mem_fill(arena,0,12288,0);
  a=0x352f;__asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(es),"=b"(b)::"edx","esi","edi","cc","memory");kg_old_vector=(u32)es<<16|(b&65535);
  a=0x252f;__asm__ volatile("int $0x21":"+a"(a):"d"((u32)kg_gate):"ebx","ecx","esi","edi","cc","memory");installed=1;
  kg_producer.owner=self;kg_producer.arena=arena;kg_producer.old_vector=kg_old_vector;kg_producer.vector=(u32)self<<16|(unsigned)kg_gate;kg_producer.ready=1;
@@ -49,7 +49,7 @@ void kg_dispatch(void){
  p.result=-22;
  if(p.version!=1||p.size!=sizeof p||p.slot>=2)goto done;
  unsigned id=p.slot;
- if(!p.operation){if(client[id].generation==p.generation){client[id].token=0;client[id].revision++;client[id].head=client[id].count=0;}p.result=0;goto done;}
+ if(!p.operation){if(client[id].generation==p.generation){client[id].token=0;client[id].input_flags=0;client[id].revision++;client[id].head=client[id].count=0;}p.result=0;goto done;}
  if(p.operation!=1||p.bytes!=sizeof(KgRequest)||p.request>65536-sizeof(KgRequest))goto done;
  if(!owned[id]||owned_generation[id]!=p.generation){p.result=-1;goto done;}
  KgRequest *r=(KgRequest *)loader_buffer;
@@ -57,6 +57,8 @@ void kg_dispatch(void){
  extern volatile GuiDriverRecord gui_record;
  p.result=kg_policy(&client[id],r,p.generation,&serial,gui_record.width,gui_record.height);
  if(p.result>=0){
+  if(r->operation==KG_CLIP_SET){clip_bytes=r->count;mem_copy(arena,8192,self,(unsigned)r->draw,clip_bytes);}
+  if(r->operation==KG_CLIP_GET){unsigned n=r->count<clip_bytes?r->count:clip_bytes;mem_copy(self,(unsigned)r->draw,arena,8192,n);p.result=n;}
   if(r->operation==KG_FRAME)mem_copy(arena,id*4096,self,(unsigned)r,sizeof *r);
   if(r->operation==KG_OPEN)mem_fill(arena,id*4096,sizeof *r,0);
   r->slot=id;r->generation=p.generation;r->revision=client[id].revision;r->event.seconds=seconds;
@@ -75,7 +77,7 @@ int kg_clients_snapshot(u32 pointer,unsigned bytes){
  if(arena&&c->token&&owned[id]&&owned_generation[id]==c->generation)mem_copy(self,(unsigned)r,arena,id*4096,sizeof *r);
  else {*r=(KgRequest){0};}
  r->version=1;r->size=sizeof *r;r->slot=id;r->generation=c->generation;r->token=owned[id]&&owned_generation[id]==c->generation?c->token:0;
- r->revision=c->revision;r->width=c->width;r->height=c->height;r->event.control=c->input_flags;
+ r->revision=c->revision;r->width=c->width;r->height=c->height;r->event.control=c->input_flags;r->event.key=c->cancelled;
  for(unsigned i=0;i<32;i++)r->title[i]=c->title[i];
  return gui_copy(pointer,r,sizeof *r,1);
 }
@@ -87,8 +89,10 @@ int kg_clients_event(u32 pointer,unsigned bytes){
  if(!owned[id]||owned_generation[id]!=r->generation)return -1;
  if(c->generation!=r->generation||!c->token||c->token!=r->token)return -116;
  KgEvent v=r->event;
- if(v.type<KG_KEY||v.type>KG_POINTER)return -22;
+ if(v.type<KG_KEY||v.type>KG_QUIT)return -22;
  if(v.type==KG_RESIZE&&(v.width<1||v.width>784||v.height<1||v.height>416))return -22;
  if((v.type==KG_POINTER||v.type==KG_MOUSE)&&(v.x < -800||v.x>800||v.y < -600||v.y>600||v.key>7))return -22;
  v.seconds=seconds;kg_enqueue(c,&v);publish();return 0;
 }
+
+int kg_clients_close_guard(void){for(unsigned i=0;i<2;i++)if(client[i].token&&(client[i].input_flags&KG_INPUT_CLOSE))return 1;return 0;}

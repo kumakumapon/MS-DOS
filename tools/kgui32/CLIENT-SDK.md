@@ -135,3 +135,5 @@ not changed.
 SDK 2 adds opt-in input, widgets and a read-only root browser without changing
 the version-1 wire layouts. See [BROWSER-SDK.md](BROWSER-SDK.md) for the controls,
 capability negotiation and directory ABI. SDK1 packages remain supported.
+
+SDK3 adds the temporary editor and reusable picker; see [EDITOR-SDK.md](EDITOR-SDK.md) for lifecycle, keyboard and clipboard contracts.

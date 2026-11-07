@@ -61,11 +61,12 @@ $(BUILD)/test-sessions: test-sessions.c sessions.c gui.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-sessions.c sessions.c -o $@
 $(BUILD)/test-client-policy: test-client-policy.c client-policy.c client-policy.h sdk/protocol.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-client-policy.c client-policy.c -o $@
-test: all $(BUILD)/test-scene $(BUILD)/test-sessions $(BUILD)/test-client-policy $(BUILD)/test-widgets
+test: all $(BUILD)/test-scene $(BUILD)/test-sessions $(BUILD)/test-client-policy $(BUILD)/test-widgets $(BUILD)/test-editor
 	$(BUILD)/test-scene
 	$(BUILD)/test-sessions
 	$(BUILD)/test-client-policy
 	$(BUILD)/test-widgets
+	$(BUILD)/test-editor
 	python3 test_image.py
 .PHONY: all test
 -include $(wildcard $(BUILD)/*.d)
@@ -114,3 +115,15 @@ $(BUILD)/test-widgets: test-widgets.c sdk/widgets.c sdk/widgets.h | $(BUILD)
 $(BUILD)/KGDIRNO.EXE: $(BUILD)/directory-test.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client
 all: $(BUILD)/KGDIRNO.EXE
+
+$(BUILD)/editor-model.o: sdk/editor.c sdk/editor.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/picker.o: sdk/picker.c sdk/picker.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/editor.elf: $(BUILD)/editor.app.o $(BUILD)/editor-model.o $(BUILD)/picker.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KGEDIT.EXE: $(BUILD)/editor.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client
+all: $(BUILD)/KGEDIT.EXE
+$(BUILD)/test-editor: test-editor.c sdk/editor.c sdk/editor.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-editor.c sdk/editor.c -o $@

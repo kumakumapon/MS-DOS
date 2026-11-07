@@ -11,6 +11,8 @@ static Rect clip;
 static GuiSessionView views[2];static int errors[2],editing[2],lengths[2];
 static char paths[2][128];static unsigned following[2];
 static KgRequest clients[2],client_io;
+static unsigned exit_pending;
+static u32 close_generation[2],close_token[2],close_cancel[2];
 static unsigned capture,capture_generation,capture_token;
 static void refresh_graphical(unsigned);
 static int client_event(unsigned,const KgEvent *);
@@ -49,6 +51,10 @@ static int client_event(unsigned id,const KgEvent *e){
 static void refresh_graphical(unsigned id){
  client_io=(KgRequest){.version=1,.size=sizeof client_io,.slot=id};
  if(k32_call(GUI_CLIENT_VIEW,(u32)&client_io,sizeof client_io))return;
+ if(close_token[id]){
+  if(close_generation[id]!=views[id].generation||close_generation[id]!=client_io.generation||close_cancel[id]!=client_io.event.key||(client_io.token&&client_io.token!=close_token[id]))close_token[id]=0;
+  else if(!client_io.token){scene_close(&scene,id+2);close_token[id]=0;capture=0;}
+ }
  unsigned yes=views[id].owned&&views[id].kind==1&&client_io.generation==views[id].generation&&client_io.revision;
  scene.graphical[id]=yes;
  if(yes&&client_io.token&&(clients[id].token!=client_io.token||clients[id].generation!=client_io.generation)){
@@ -58,6 +64,7 @@ static void refresh_graphical(unsigned id){
   if(w->r.y<40)w->r.y=40;
   scene_focus(&scene,id+2);scene_damage(&scene,w->r);
  }
+ if(exit_pending&&clients[id].event.key!=client_io.event.key)exit_pending=0;
  if(clients[id].revision!=client_io.revision||clients[id].generation!=client_io.generation||clients[id].token!=client_io.token){
   if(yes&&scene.window[id+2].open&&!scene.window[id+2].hidden)scene_window_damage(&scene,id+2,scene.window[id+2].r);
   clients[id]=client_io;
@@ -70,7 +77,7 @@ static void launch(int act){
  unsigned id=0;
  while(id<2&&(views[id].state==1||views[id].state==2||views[id].state==3||(views[id].state==4&&!views[id].owned)))id++;
  if(id==2){scene.action_result=-16;scene_damage(&scene,scene.window[0].r);return;}
- const char *path=act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":"KSH.EXE";
+ const char *path=act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":"KSH.EXE";
  for(unsigned i=0;i<128;i++){paths[id][i]=path[i];if(!path[i])break;}
  errors[id]=session_command(id,GS_CREATE,0);scene.action_result=errors[id];
  if(!errors[id])scene_focus(&scene,id+2);
@@ -268,8 +275,8 @@ static void window(int id){
  }else if(!id){
   box(x+16,y+48,46,46,color(4));box(x+24,y+56,12,28,color(7));box(x+38,y+56,12,12,color(6));box(x+38,y+72,12,12,color(3));
   text(x+78,y+48,"Your new desktop",color(0));text(x+78,y+72,"32-bit protected mode",color(10));
-  button(x+18,y+116,140,"Calculator");button(x+174,y+116,140,"Clock");button(x+18,y+152,140,"DOS Shell");button(x+174,y+152,140,"Files");
-  text(x+18,y+196,scene.action_result<0?"Both slots busy / launch failed":"F2: launcher   F10: DOS",color(10));
+  button(x+18,y+116,140,"Calculator");button(x+174,y+116,140,"Clock");button(x+18,y+152,140,"DOS Shell");button(x+174,y+152,140,"Files");button(x+18,y+188,140,"Editor");
+  text(x+174,y+196,scene.action_result<0?"Slots full / error":"F2 / F10",color(10));
  }else{
   text(x+16,y+46,"Desktop: private context",color(0));
   text(x+16,y+70,"Application slots: 2",color(0));
@@ -370,13 +377,27 @@ int main(int argc,char **argv){
   if(!got){k32_wait(K32_WAIT_TIME,16);continue;}
   gui_state.events++;gui_state.heartbeat++;if(event.type==GUI_KEY)gui_state.last_key=event.key;
   int previous_focus=scene.active;Rect previous_rect[2]={scene.window[2].r,scene.window[3].r};
+  /* A child may OPEN/SUBSCRIBE between timer events. Route input against
+   * its current generation/token, never the ended root's cached canvas. */
+  if(event.type==GUI_KEY||event.type==GUI_BUTTON)refresh();
   int act;
-  if(event.type==GUI_KEY&&scene.active>=2&&event.key!=281&&event.key!=11&&
-     ((editing[scene.active-2]&&event.key!=9)||(event.key==9&&!editing[scene.active-2]&&(clients[scene.active-2].event.control&KG_INPUT_TAB)))){
+  if(event.type==GUI_KEY&&scene.active>=2&&event.key!=281&&event.key!=11&&event.key!=289&&
+     ((editing[scene.active-2]&&event.key!=9)||(!editing[scene.active-2]&&clients[scene.active-2].token&&event.key!=289&&((event.key==9&&(clients[scene.active-2].event.control&KG_INPUT_TAB))||((clients[scene.active-2].event.control&KG_INPUT_KEYS)&&event.key!=9))))){
    scene.slot=scene.active-2;scene.key=event.key;act=ACT_KEY;
   }else act=scene_event(&scene,&event);
-  if(act==ACT_EXIT)return 0;
+  if(act==ACT_EXIT){
+   exit_pending=1;
+   for(unsigned id=0;id<2;id++)if(clients[id].token&&(clients[id].event.control&KG_INPUT_CLOSE)){
+    KgEvent q={.type=KG_QUIT,.key=2};client_event(id,&q);
+   }
+   act=ACT_NONE;
+  }
+  if(act==ACT_END&&event.type==GUI_BUTTON&&scene.slot<2&&clients[scene.slot].token&&event.x>=(u32)(scene.window[scene.slot+2].r.x+scene.window[scene.slot+2].r.w-25)&&event.y<(u32)(scene.window[scene.slot+2].r.y+30)&&(clients[scene.slot].event.control&KG_INPUT_CLOSE)){
+   unsigned id=scene.slot;scene.window[id+2].open=1;scene_focus(&scene,id+2);
+   KgEvent q={.type=KG_QUIT,.key=1};if(!client_event(id,&q)){close_generation[id]=views[id].generation;close_token[id]=clients[id].token;close_cancel[id]=clients[id].event.key;}act=ACT_NONE;
+  }
   action(act);if(event.type==GUI_TIMER)refresh();
+  if(exit_pending){unsigned pending=0;for(unsigned id=0;id<2;id++)if(clients[id].token&&(clients[id].event.control&KG_INPUT_CLOSE))pending=1;if(!pending)return 0;}
   for(unsigned id=0;id<2;id++)if(scene.graphical[id]&&clients[id].token){
    Rect r=scene.window[id+2].r;
    if(r.w!=previous_rect[id].w||r.h!=previous_rect[id].h){capture=0;KgEvent change={.type=KG_RESIZE,.width=r.w-16,.height=r.h-104};client_event(id,&change);}
