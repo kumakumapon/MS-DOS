@@ -9,9 +9,9 @@ saved files use LF. Saving retains selection, cursor and Undo/Redo history.
 - **Save As / Ctrl+W** opens the reusable picker, with a filename input.
   Enter an ASCII 8.3 name ending in `.TXT`, then Enter or Save. Tab moves
   between filter, list, filename, Save and Cancel. A selected list row fills
-  the filename. An existing destination requires Replace (R) or Cancel (Esc).
+  the filename; Enter in the list also selects it. An existing destination requires Replace (R) or Cancel (Esc).
 - **Open / Ctrl+O** starts in the read-only A: root. Work switches to
-  `A:\WORK`; Root switches back. Filtering, list navigation and Open work in
+  `A:\WORK`; Root switches back. Ctrl+W toggles Root/Work inside Open. Filtering, list navigation and Open work in
   either location. Root files can be edited, but Save As writes only to Work.
 - X, F10, New and Open offer **Save (S), Discard (D), Cancel (Esc)** for a
   modified document. Canceling either a save picker or replacement also cancels

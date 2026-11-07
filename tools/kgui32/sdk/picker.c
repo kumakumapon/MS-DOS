@@ -9,16 +9,16 @@ int kp_tick(KpPicker *p){if(!p->loading)return 0;for(unsigned i=0;i<4;i++){K32Di
 static void layout(KpPicker *p){p->list.rows=(kg_height()-(p->saving?128:96))/16;kw_reveal(&p->list);p->scroll.r=(KwRect){(int)kg_width()-28,44,20,(int)p->list.rows*16};p->scroll.total=p->list.count;p->scroll.rows=p->list.rows;p->scroll.top=p->list.top;}
 int kp_event(KpPicker *p,const KgEvent *e,char name[13]){
  layout(p);if(e->type==KG_KEY&&e->key==27){kp_close(p);return -1;}
- if(kw_button(703,e)&&!p->saving){unsigned work=!p->work;kp_close(p);kp_open(p);p->work=work;return 0;}
+ if(!p->saving&&(kw_button(703,e)||(e->type==KG_KEY&&e->key==23))&&(k32_query()&K32_FEATURE_SAVE)){unsigned work=!p->work;kp_close(p);kp_open(p);p->work=work;return 0;}
  if(kw_focus(&p->focus,e))return 0;
  if(e->type==KG_MOUSE&&(e->key&1)){if(p->saving&&e->y>=(int)kg_height()-80&&e->y<(int)kg_height()-48)p->focus.current=2;else if(e->y<40)p->focus.current=0;else if(e->y<(int)kg_height()-(p->saving?80:48))p->focus.current=1;}
  if(p->focus.current==0&&kw_input(&p->filter,e)==2){p->list.selected=p->list.top=0;rebuild(p);}
  if(p->saving&&p->focus.current==2)kw_input(&p->name,e);
  if(p->focus.current==1)kw_list(&p->list,(KwRect){8,44,(int)kg_width()-40,(int)p->list.rows*16},e);
- if(p->saving&&p->focus.current==1&&p->list.count&&(e->type==KG_MOUSE||(e->type==KG_KEY&&e->key>=256&&e->key<=263))){K32DirEntry *d=&p->entries[p->matches[p->list.selected]];p->name=(KwInput){0};for(unsigned i=0;i<12&&d->name[i];i++)p->name.text[p->name.length++]=d->name[i];p->name.cursor=p->name.length;}
+ if(p->saving&&p->focus.current==1&&p->list.count&&(e->type==KG_MOUSE||(e->type==KG_KEY&&(e->key==13||(e->key>=256&&e->key<=263))))){K32DirEntry *d=&p->entries[p->matches[p->list.selected]];p->name=(KwInput){0};for(unsigned i=0;i<12&&d->name[i];i++)p->name.text[p->name.length++]=d->name[i];p->name.cursor=p->name.length;}
  if(kw_scroll(&p->scroll,e))p->list.top=p->scroll.top;
  if(kw_button(702,e)||(e->type==KG_KEY&&e->key==13&&p->focus.current==(p->saving?4u:3u))){kp_close(p);return -1;}
- if(p->saving&&(kw_button(701,e)||(e->type==KG_KEY&&e->key==13&&(p->focus.current==2||p->focus.current==3)))){char path[24];if(k32_work_path(p->name.text,path)){p->error=-22;return 0;}for(unsigned i=0;i<13;i++){name[i]=path[8+i];if(!name[i])break;}kp_close(p);return 1;}
+ if(p->saving&&(kw_button(701,e)||(e->type==KG_KEY&&e->key==13&&(p->focus.current==1||p->focus.current==2||p->focus.current==3)))){char path[24];if(k32_work_path(p->name.text,path)){p->error=-22;return 0;}for(unsigned i=0;i<13;i++){name[i]=path[8+i];if(!name[i])break;}kp_close(p);return 1;}
  if(!p->saving&&!p->loading&&(kw_button(701,e)||(e->type==KG_KEY&&e->key==13&&(p->focus.current==1||p->focus.current==2)))&&p->list.count){K32DirEntry *d=&p->entries[p->matches[p->list.selected]];if(d->attributes&16){p->error=-21;return 0;}for(unsigned i=0;i<13;i++)name[i]=d->name[i];kp_close(p);return 1;}return 0;
 }
 int kp_draw(KpPicker *p){layout(p);unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kw_text(8,4,p->saving?"Save As / A: WORK / TXT":p->work?"Open / A: WORK / TXT":"Open / A: root / read only",(w-16)/8,0x20344a);kw_draw_input((KwRect){8,20,(int)w-20,24},&p->filter,p->focus.current==0);

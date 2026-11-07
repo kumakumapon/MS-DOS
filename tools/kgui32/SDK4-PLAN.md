@@ -1,6 +1,6 @@
 # SDK4: workspace saving
 
-Implementation in progress. Follow SDK3 with an opt-in, bounded real-mode file
+Implementation: follow SDK3 with an opt-in, bounded real-mode file
 broker, Editor Save / Save As and a reusable save picker. Retain SDK1–3 ABI,
 two mixed slots / 4 MiB per app, the separate GUI and 16 MiB configuration.
 
@@ -22,3 +22,5 @@ fault/End cleanup, independent apps and all existing regression suites. Compare
 actual FAT chains and file contents and protect unrelated/boot files. Run npm
 test/build, both PR CIs, then merge MS-DOS, wait for main CI, merge WebNP2 and
 verify deployment, as explicitly requested by the user.
+
+Acceptance evidence and merge status are tracked in [MS-DOS #44](https://github.com/kumakumapon/MS-DOS/pull/44) and [WebNP2 #44](https://github.com/kumakumapon/webnp2/pull/44).
