@@ -171,10 +171,14 @@ cleanup:
  mem_free(scratch);mem_free(tables);scratch=tables=0;
  gui_record.scratch=gui_record.tables=0;gui_record.graphics=0;
  if(get(16)&&!gui_record.error)gui_record.error=get(16);
- gui_record.state=get(12)==4?4:gui_record.error?6:3;
- gui_record.ready=0;gui_record.busy=0;
 done:
+ /* Terminal status is a publication boundary for external observers. In
+  * particular, the final DOS allocation query must finish before ready is
+  * cleared; otherwise a successful exit can expose largest_after == 0. */
  gui_record.largest_after=largest();
+ gui_record.state=get(12)==4?4:gui_record.error?6:3;
+ gui_record.completed=1;
+ gui_record.ready=0;gui_record.busy=0;
  p_output(gui_record.error?"KGUI32 REFUSED/FAILED\r\n":gui_record.state==4?"KGUI32 FAULT: resources reclaimed\r\n":"KGUI32 DONE: resources reclaimed\r\n");
  return gui_record.error||gui_record.state==4?1:0;
 }
