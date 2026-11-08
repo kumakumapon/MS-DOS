@@ -43,10 +43,9 @@ int loader_open(void){
  while(loader_args.arg[0][length]){name[length]=loader_args.arg[0][length];length++;}
  name[length]=0;
  for(unsigned i=0;i<=length;i++)results[704+i]=(u8)name[i];
- u32 a=0x3d00;
- __asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"d"((u32)name):"cc","memory");
- if(a==~0u)return 1;
- file=a&65535;put(604,1);
+ int opened=k32_app_open(name);if(opened<0)return 1;
+ file=opened;put(604,1);
+ u32 a;
  a=0x4202;u32 d=0;
  __asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a),"+d"(d):"b"(file),"c"(0):"cc","memory");
  if(a==~0u){loader_close();return 1;}size=(d&65535)<<16|(a&65535);

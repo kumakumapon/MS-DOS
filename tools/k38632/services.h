@@ -10,6 +10,7 @@ enum {K32_INFO=0xbfd000,K32_ALLOCS=64,K32_FILES=8};
 typedef struct {u32 argc;char arg[8][64];u32 budget;} K32Args;
 typedef struct {u32 first,pages;} K32Allocation;
 typedef struct {u32 base,limit;K32Allocation block[K32_ALLOCS];} K32Heap;
+int k32_app_open(const char *path);
 int k32_arguments(const u8 *tail,unsigned n,K32Args *out);
 int k32_filename(const char *in,unsigned n,char out[16]);
 void k32_heap_init(K32Heap *h,u32 base,u32 limit);

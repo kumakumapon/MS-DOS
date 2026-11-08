@@ -2,6 +2,7 @@
  * V86 ABI1 stays available. PM32 and V86 share slots, policy and lifecycle here.
  */
 #include "manager.h"
+#include "services.h"
 #include "../window/hardware.h"
 #include "../k386/runtime.h"
 extern K32HostMailbox host_mailbox;
@@ -96,7 +97,7 @@ static void adopt(void){
 static int pm_image(const char *command){
  char path[128];unsigned n=0,at=0;int quote=0;while(command[at]==' ')at++;
  for(;command[at]&&n<127;at++){char c=command[at];if(c=='"'){quote=!quote;continue;}if(!quote&&c==' ')break;path[n++]=c;}path[n]=0;
- unsigned a=0x3d00;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"d"((u32)path):"cc","memory");if(a==~0u)return 0;unsigned h=a&65535;u8 b[96];
+ int opened=k32_app_open(path);if(opened<0)return 0;unsigned h=opened;u8 b[96];unsigned a;
  /* DOS recognizes devices even with extensions (CON.COM). Never issue a
   * header read on a character device; leave its rejection to the V86 policy. */
  unsigned device=0;a=0x4400;
