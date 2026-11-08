@@ -21,7 +21,7 @@ typedef struct {
  u32 owner,cookie,state,error,width,height,bpp,presents,events,rejected,unknown,
      graphics,runtime,appmask,quanta,rect[4],input_lost,owned_workers,
      worker_generation[2],worker_counter[2],worker_state[2],largest_before,largest_after,
-     scratch,tables,framebuffer,last_key,reserved[27];
+     scratch,tables,framebuffer,last_key,completed,reserved[26];
 } GuiDriverRecord;
 _Static_assert(sizeof(GuiInfo)==96,"GUI info ABI");
 _Static_assert(sizeof(GuiEvent)==48,"GUI event ABI");
