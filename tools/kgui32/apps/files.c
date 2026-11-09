@@ -10,6 +10,7 @@ volatile FilesStats files_stats __attribute__((section(".data.gui_stats")))={.ma
 static K32DirEntry entries[ENTRIES],entry;
 static unsigned matches[ENTRIES],count,cursor,loading,holding,mode,bytes,line_count,offsets[LINES],preview_top;
 static unsigned char *contents;
+static unsigned work,edit_pending;static K32WorkInfo destination;
 static KwInput filter;
 static KwList list;static KwFocus focus;static KwScroll scroll;
 static const char *message;static char filename[13];
@@ -28,8 +29,8 @@ static void refresh(void){close_cursor();count=0;list.selected=list.top=0;loadin
 static int enumerate(void){
  if(!loading||(holding&&count))return 0;
  for(unsigned i=0;i<4;i++){
-  int e=cursor?k32_dir_next(cursor,&entry):k32_dir_first(&entry);
-  if(e<0){files_stats.error=-e;message="Cannot read A: root";close_cursor();break;}
+  int e=cursor?k32_dir_next(cursor,&entry):work?k32_work_first(&entry):k32_dir_first(&entry);
+  if(e<0){files_stats.error=-e;message=work?"Cannot read Work":"Cannot read A: root";close_cursor();break;}
   cursor=entry.cursor;
   if(!e){close_cursor();break;}
   if(count==ENTRIES){message="Root entry limit reached";close_cursor();break;}
@@ -63,7 +64,8 @@ static void open_preview(void){
  unsigned n=k32_len(d->name);
  if(n<4||d->name[n-4]!='.'||upper(d->name[n-3])!='T'||upper(d->name[n-2])!='X'||upper(d->name[n-1])!='T'){message="Select a TXT file to preview";return;}
  if(d->bytes>TEXT_BYTES){message="Preview limit: 128 KiB";return;}
- int h=k32_open(d->name);if(h<0){message="Cannot open this file";return;}
+ K32Work opened=k32_work_name(K32_WORK_OPEN,d->name);
+ int h=work?k32_work(&opened):k32_open(d->name);if(h<0){message="Cannot open this file";return;}
  contents=k32_alloc(d->bytes?d->bytes:1);bytes=0;
  int error=contents?0:-12;
  while(!error&&bytes<d->bytes){unsigned n=d->bytes-bytes;if(n>4096)n=4096;int got=k32_read(h,contents+bytes,n);if(got<=0){error=got?got:-5;break;}bytes+=got;}
@@ -75,9 +77,22 @@ static void open_preview(void){
  preview_lines();preview_top=0;mode=1;focus.current=1;scroll.dragging=0;
 }
 static void back(void){if(contents)k32_free(contents);contents=0;mode=0;scroll.dragging=0;focus.current=1;}
+static void switch_root(void){
+ back();close_cursor();work=!work;files_stats.error=0;
+ if(work){int e=k32_work_info(&destination);if(e<0||destination.error){message="Workspace unavailable";files_stats.error=e<0?-e:-destination.error;count=list.count=0;return;}}
+ refresh();
+}
+static void edit_selected(void){
+ if(edit_pending){message="Editor request pending";return;}
+ if(loading||!list.count){message="Select a TXT file";return;}
+ K32DirEntry *d=&entries[matches[list.selected]];unsigned n=k32_len(d->name);
+ if((d->attributes&16)||n<5||d->name[n-4]!='.'||upper(d->name[n-3])!='T'||upper(d->name[n-2])!='X'||upper(d->name[n-1])!='T'){message="Select a TXT file";return;}
+ if(d->bytes>65536){message="Editor limit: 64 KiB";return;}
+ int e=kg_edit_document(d->name,work);if(e<0){files_stats.error=-e;message="Editor request rejected";}else{edit_pending=1;files_stats.error=0;}
+}
 static void diagnostics(void){
  files_stats.focus=focus.current;files_stats.selected=list.selected;files_stats.entries=count;files_stats.matches=list.count;
- files_stats.top=mode?preview_top:list.top;files_stats.mode=mode|(loading?2u:0u)|(message?4u:0u)|(scroll.dragging?8u:0u)|(holding?16u:0u);
+ files_stats.top=mode?preview_top:list.top;files_stats.mode=(work?32u:0u)|(edit_pending?64u:0u)|mode|(loading?2u:0u)|(message?4u:0u)|(scroll.dragging?8u:0u)|(holding?16u:0u);
  files_stats.name_hash=mode?hash(filename,k32_len(filename)):list.count?hash(entries[matches[list.selected]].name,k32_len(entries[matches[list.selected]].name)):0;
  unsigned metadata=2166136261u;
  for(unsigned i=0;i<count;i++){K32DirEntry *d=&entries[i];metadata=(metadata^hash(d->name,k32_len(d->name)))*16777619;metadata=(metadata^d->bytes)*16777619;metadata=(metadata^d->attributes)*16777619;metadata=(metadata^d->date)*16777619;metadata=(metadata^d->time)*16777619;}
@@ -85,7 +100,8 @@ static void diagnostics(void){
 }
 static int draw(void){
  layout();unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
- kg_text(8,8,mode?filename:"A: root / read only",0x20344a);
+ kg_text(8,8,mode?filename:work?destination.root:"A: root / read only",0x20344a);
+ kg_button(104,w-168,4,76,26,work?"Root":"Work");kg_button(105,w-88,4,80,26,"Editor");
  if(mode)kg_text(8,30,"TXT preview / 40 columns",0x466581);
  else {kg_text(8,32,"Filter",0x466581);kw_draw_input((KwRect){64,24,(int)w-76,26},&filter,focus.current==0);}
  kg_rect(8,52,w-40,list.rows*16,0xffffff);
@@ -112,7 +128,7 @@ static int draw(void){
   if(focus.current==i+2)kg_rect(x-1,y-1,bw+2,30,0x327ac0);
   kg_button(100+i,x,y,bw,28,labels[i]);
  }
- char n[11];number(n,mode?bytes:list.count);kg_text(8,h-16,n,0x466581);kw_text(64,h-16,loading?"Loading...":"Tab: controls / F2: launcher",(w-72)/8,0x466581);
+ char n[11];number(n,mode?bytes:list.count);kg_text(8,h-16,n,0x466581);kw_text(64,h-16,loading?"Loading...":"Ctrl W:root O:Editor",(w-72)/8,0x466581);
  /* A modal uses its own frame, keeping even a maximized canvas inside the
   * 40-command ABI budget rather than silently losing its OK button. */
  if(message){kg_begin();kg_rect(0,0,w,h,0xb4c2d0);kw_draw_dialog(w,h,"Files",message);}
@@ -123,11 +139,12 @@ int main(int argc,char **argv){
  holding=argc>1&&k32_len(argv[1])==4&&contains(argv[1],"hold");
  int t=kg_open("Files",576,320);if(t<0){files_stats.error=-t;return 1;}
  if((k32_query()&K32_FEATURE_DIRECTORY)==0||kg_capabilities()<0||kg_subscribe(KG_INPUT_FLAGS)){kg_close();return 2;}
- list.rows=1;focus.count=6;refresh();int dirty=1,quit=0;
+ list.rows=1;focus.count=8;refresh();int dirty=1,quit=0;
  while(!quit){
   KgEvent e;int got=kg_poll(&e);files_stats.heartbeat++;
   if(got<0){files_stats.error=-got;break;}
   if(enumerate())dirty=1;
+  if(edit_pending){int result=kg_edit_status();if(result!=-11){edit_pending=0;dirty=1;files_stats.error=result<0?-result:0;if(result<0)message=result==-16?"Both slots in use: close a task":"Cannot start Editor";}}
   if(fault&&!loading&&!mode){
    for(unsigned i=0;i<list.count;i++)if(k32_len(entries[matches[i]].name)==10&&contains(entries[matches[i]].name,"BROWSE.TXT")){list.selected=i;open_preview();break;}
    if(mode)*(volatile unsigned *)0x10000=1;
@@ -143,6 +160,7 @@ int main(int argc,char **argv){
      if(!mode&&kw_inside((KwRect){64,24,(int)kg_width()-76,26},e.x,e.y))focus.current=0;
      if(kw_inside((KwRect){8,52,(int)kg_width()-40,(int)list.rows*16},e.x,e.y))focus.current=1;
      if(e.control>=100&&e.control<=103)focus.current=e.control-98;
+     if(e.control==104||e.control==105)focus.current=e.control-98;
      dirty=1;
     }
     if(kw_scroll(&scroll,&e)){if(mode)preview_top=scroll.top;else {list.top=scroll.top;if(list.selected<list.top||list.selected>=list.top+list.rows)list.selected=list.top;}dirty=1;}
@@ -160,9 +178,13 @@ int main(int argc,char **argv){
      }
     }
     unsigned command=0;
-    if(e.type==KG_MOUSE&&(e.key&1)&&e.control>=100&&e.control<=103)command=e.control-99;
+    if(e.type==KG_MOUSE&&(e.key&1)&&e.control>=100&&e.control<=105)command=e.control-99;
     if(e.type==KG_KEY&&e.key==13)command=focus.current>=2?focus.current-1:focus.current==1&&!mode?1:0;
     if(e.type==KG_KEY&&e.key==27&&mode)command=1;
+    if(e.type==KG_KEY&&e.key==23)command=5;
+    if(e.type==KG_KEY&&e.key==15)command=6;
+    if(command==5){switch_root();dirty=1;}
+    if(command==6){edit_selected();dirty=1;}
     if(command==1){if(mode)back();else open_preview();dirty=1;}
     if(command==2){if(mode)back();else refresh();dirty=1;}
     if(command==3){message="A: root / read only / SDK 2";dirty=1;}

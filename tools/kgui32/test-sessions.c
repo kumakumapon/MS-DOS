@@ -4,11 +4,12 @@
 #include <string.h>
 #include "gui.h"
 #include "../window/k386_client.h"
+u8 loader_buffer[4096];
 unsigned owned[2],manager=1,session_focus;u32 owned_generation[2];
 static GuiSessionCommand request;static GuiSessionView snapshot;
 static unsigned states[2],generation[2],kinds[2],last_command,last_key,calls,fail;
 static char launched[128];
-extern int gui_session(u32,unsigned),gui_snapshot(u32,unsigned);
+extern int gui_session(u32,unsigned),gui_snapshot(u32,unsigned),gui_open_document(unsigned,u32,unsigned,const char *);
 int gui_copy(u32 p,void *v,unsigned n,int write){
  if(p==99)return -14;
  if(write){assert(n==sizeof snapshot);memcpy(&snapshot,v,n);}
@@ -56,5 +57,16 @@ int main(void){
  assert(op(GS_PAUSE)==-1);assert(gui_snapshot(1,sizeof snapshot)==0&&!snapshot.owned);
  request.key=2;assert(op(GS_FOCUS)==0&&session_focus==3);
  request.key=0;assert(op(GS_FOCUS)==0&&!session_focus);
+ owned[0]=1;owned_generation[0]=generation[0]=9;states[0]=1;owned[1]=0;generation[1]=4;states[1]=2;
+ count=calls;assert(gui_open_document(0,9,1,"NOTE.TXT")==-16&&calls==count&&states[1]==2);
+ states[1]=3;assert(gui_open_document(0,9,1,"NOTE.TXT")==-16&&calls==count);
+ states[1]=4;assert(gui_open_document(0,9,1,"NOTE.TXT")==-16&&calls==count);
+ states[1]=0;assert(gui_open_document(0,8,1,"NOTE.TXT")==-116&&calls==count);
+ assert(gui_open_document(0,9,2,"NOTE.TXT")==-22&&calls==count);
+ assert(gui_open_document(0,9,1,"../NOTE.TXT")==-22&&calls==count);
+ assert(!gui_open_document(0,9,1,"note.txt")&&!strcmp(launched,"KGEDIT.EXE work NOTE.TXT")&&owned[1]&&owned_generation[1]==5);
+ assert(states[0]==1&&generation[0]==9);states[1]=0;
+ assert(!gui_open_document(0,9,0,"A.TXT")&&!strcmp(launched,"KGEDIT.EXE root A.TXT"));
+ owned[0]=0;count=calls;assert(gui_open_document(0,9,1,"NOTE.TXT")==-116&&calls==count);
  return 0;
 }

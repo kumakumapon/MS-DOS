@@ -26,3 +26,6 @@ unsigned kg_height(void){return height;}
 int kg_clip_set(const char *s,unsigned n){if(n>1024)return -22;for(unsigned i=0;i<n;i++)((char *)request.draw)[i]=s[i];request.count=n;return call(KG_CLIP_SET);}
 int kg_clip_get(char *s,unsigned n){if(n>1024)n=1024;request.count=n;int e=call(KG_CLIP_GET);if(e>0)for(int i=0;i<e;i++)s[i]=((char *)request.draw)[i];return e;}
 int kg_cancel_close(void){return call(KG_CANCEL_CLOSE);}
+
+int kg_edit_document(const char *name,unsigned work){copy(request.title,name,sizeof request.title);request.count=work;return call(KG_EDIT_DOCUMENT);}
+int kg_edit_status(void){return call(KG_EDIT_STATUS);}

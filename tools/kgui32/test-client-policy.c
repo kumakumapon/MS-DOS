@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 #include "client-policy.h"
+#include "document.h"
 static KgRequest request;static KgClient client;static u32 serial;
 static void open_window(void){request=(KgRequest){.version=1,.size=sizeof request,.operation=KG_OPEN,.width=328,.height=200};strcpy(request.title,"Application");}
 int main(void){
@@ -33,7 +34,16 @@ int main(void){
  request.operation=KG_CANCEL_CLOSE;assert(kg_policy(&client,&request,7,&serial,640,400)==-22);
  request.operation=KG_SUBSCRIBE;request.count=KG_CAP_ALL;assert(!kg_policy(&client,&request,7,&serial,640,400));
  request.operation=KG_CANCEL_CLOSE;assert(!kg_policy(&client,&request,7,&serial,640,400)&&client.cancelled==1);
- request.operation=KG_CLOSE;assert(!kg_policy(&client,&request,7,&serial,640,400));assert(!client.token&&!client.count);
+ char command[64];assert(!kg_document_command(1,"note.txt",command)&&!strcmp(command,"KGEDIT.EXE work NOTE.TXT"));
+ const char *invalid[]={"../A.TXT","A:NOTE.TXT","NUL.TXT","COM1.TXT","A.EXE","A..TXT","LONGERNAM.TXT","A*.TXT"};
+ for(unsigned i=0;i<sizeof invalid/sizeof *invalid;i++)assert(kg_document_command(0,invalid[i],command)==-22);
+ assert(kg_document_command(2,"A.TXT",command)==-22);
+ request.operation=KG_EDIT_DOCUMENT;request.count=1;strcpy(request.title,"NOTE.TXT");request.token=999;assert(kg_policy(&client,&request,7,&serial,640,400)==-116);request.token=1;
+ assert(!kg_policy(&client,&request,7,&serial,640,400)&&client.edit_pending&&client.edit_namespace==1);
+ assert(kg_policy(&client,&request,7,&serial,640,400)==-16);request.operation=KG_EDIT_STATUS;assert(kg_policy(&client,&request,7,&serial,640,400)==-11);
+ client.edit_pending=0;client.edit_result=-16;assert(kg_policy(&client,&request,7,&serial,640,400)==-16);
+ client.edit_pending=1;
+ request.operation=KG_CLOSE;assert(!kg_policy(&client,&request,7,&serial,640,400));assert(!client.token&&!client.count&&!client.edit_pending);
  request.operation=KG_POLL;assert(kg_policy(&client,&request,7,&serial,640,400)==-116);
  open_window();assert(kg_policy(&client,&request,8,&serial,800,600)==2);assert(client.generation==8&&request.token==2);
  return 0;
