@@ -1,13 +1,17 @@
 /* Real-mode session broker. Commands cannot address another GUI/owner or a
  * recycled slot. Snapshot copies never expose a live monitor pointer. */
 #include "gui.h"
+#include "document.h"
 #include "../window/hardware.h"
 #include "../window/k386_client.h"
 extern int gui_copy(u32,void *,unsigned,int);
 extern unsigned owned[2],manager,session_focus;
 extern u32 owned_generation[2];
 static char commands[2][128];
-static GuiSessionView view;
+/* Shared wire scratch: snapshot copies never schedule or call DOS. */
+extern u8 loader_buffer[4096];
+#define view (*(GuiSessionView *)loader_buffer)
+_Static_assert(sizeof(GuiSessionView)<=4096,"session wire scratch capacity");
 static unsigned live(unsigned s){return s==1||s==2||s==3;}
 static int launch(unsigned id,const char *path){
  int e=k386_command(K386_CREATE,id,0,path);if(e)return -e;
@@ -15,6 +19,17 @@ static int launch(unsigned id,const char *path){
  owned[id]=1;owned_generation[id]=u.generation;
  for(unsigned i=0;i<128;i++){commands[id][i]=path[i];if(!path[i])break;}
  return 0;
+}
+int gui_open_document(unsigned requestor,u32 generation,unsigned work,const char *name){
+ char command[64];int e=kg_document_command(work,name,command);if(e)return e;
+ if(!manager||requestor>=2||!owned[requestor]||owned_generation[requestor]!=generation)return -116;
+ K386Usage owner;if(!k386_usage(requestor,&owner)||owner.generation!=generation||!live(k386_word(requestor,0)))return -116;
+ for(unsigned id=0;id<2;id++)if(id!=requestor){
+  unsigned state=k386_word(id,0);K386Usage u;if(!k386_usage(id,&u))return -5;
+  if(live(state)||(state==4&&(!owned[id]||owned_generation[id]!=u.generation)))continue;
+  return launch(id,command);
+ }
+ return -16;
 }
 int gui_session(u32 pointer,unsigned bytes){
  GuiSessionCommand r;

@@ -15,6 +15,8 @@ int kg_subscribe(unsigned);
 int kg_clip_set(const char *,unsigned);
 int kg_clip_get(char *,unsigned);
 int kg_cancel_close(void);
+int kg_edit_document(const char *,unsigned);
+int kg_edit_status(void);
 unsigned kg_width(void);
 unsigned kg_height(void);
 #endif

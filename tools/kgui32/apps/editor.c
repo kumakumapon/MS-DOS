@@ -1,6 +1,7 @@
 /* Original SDK4 editor. Writes use only the bounded workspace broker. */
 #include "../sdk/editor.h"
 #include "../sdk/picker.h"
+#include "../document.h"
 static KeDocument doc;static KpPicker picker;
 static unsigned lines[KE_BYTES+1],line_count,top,cols,rows,drag,mark,mode,pending;
 static unsigned in_work;static K32Work revision,save_request;
@@ -103,6 +104,12 @@ int main(int argc,char **argv){
  index_lines(1);if(!(k32_query()&K32_FEATURE_SAVE))return 2;
  kp_workspace_info(&destination);
  if(argc>1&&k32_len(argv[1])==5&&argv[1][0]=='f'&&argv[1][1]=='a'&&argv[1][2]=='u'&&argv[1][3]=='l'&&argv[1][4]=='t'){load("EDITTEST.TXT",0);draw();*(volatile u32 *)0x10000=1;}
+ if(argc>1){
+  unsigned work=argc==3&&k32_len(argv[1])==4&&argv[1][0]=='w'&&argv[1][1]=='o'&&argv[1][2]=='r'&&argv[1][3]=='k';
+  unsigned root=argc==3&&k32_len(argv[1])==4&&argv[1][0]=='r'&&argv[1][1]=='o'&&argv[1][2]=='o'&&argv[1][3]=='t';char command[64];
+  if((!root&&!work)||kg_document_command(work,argv[2],command)){message="Invalid document request";editor_stats.error=22;}
+  else load(argv[2],work);
+ }
  int dirty=1,quit=0;
  while(!quit){KgEvent e;int got=kg_poll(&e);editor_stats.heartbeat++;if(got<0)break;
   if((mode==1||mode==3)&&kp_tick(&picker))dirty=1;

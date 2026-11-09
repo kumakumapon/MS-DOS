@@ -124,7 +124,8 @@ binaries are used. An EMM386/V86 owner is incompatible with this loader;
 the optional image uses the existing standalone XMS driver instead.
 
 
-The launcher also includes **Files**, a read-only root browser with TXT preview.
+The launcher also includes **Files**, with read-only root and Work TXT preview,
+and selection-to-Editor launch; see [Files / Editor integration](FILES-EDITOR.md).
 See [GUI SDK 2 / Files](BROWSER-SDK.md) for usage, interfaces and limits.
 
 SDK3 adds the temporary editor and reusable picker; see [EDITOR-SDK.md](EDITOR-SDK.md) for lifecycle, keyboard and clipboard contracts.

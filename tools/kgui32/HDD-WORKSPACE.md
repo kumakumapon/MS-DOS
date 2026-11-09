@@ -57,6 +57,6 @@ failure using a dedicated disposable-image TSR. No host FAT mutation occurs
 while the guest runs. See WebNP2's `docs/kgui32-hdd-workspace.md` for commands.
 
 HDD application loading and the coordinated compact-FD distribution are described
-in [HDD-APPS.md](HDD-APPS.md). Files navigation, recovery UI, generic disks and
-HDD-only boot remain separate follow-up stages. Power-loss atomicity is not guaranteed;
+in [HDD-APPS.md](HDD-APPS.md). Files Work browsing and Editor launch are described in [FILES-EDITOR.md](FILES-EDITOR.md).
+Recovery UI, generic disks and HDD-only boot remain separate follow-up stages. Power-loss atomicity is not guaranteed;
 export backups and follow [SAVE-SDK.md](SAVE-SDK.md)'s TMP/BAK recovery procedure.

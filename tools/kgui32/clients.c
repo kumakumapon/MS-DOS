@@ -17,7 +17,14 @@ volatile struct {
 static void publish(void){
  for(unsigned i=0;i<2;i++){kg_producer.generation[i]=client[i].generation;kg_producer.token[i]=client[i].token;kg_producer.revision[i]=client[i].revision;kg_producer.events[i]=client[i].received;kg_producer.dropped[i]=client[i].dropped;}
 }
+extern int gui_open_document(unsigned,u32,unsigned,const char *);
 void kg_clients_tick(void){
+ /* This tick is outside INT 2F: DOS/EXEC are allowed only at this boundary. */
+ for(unsigned id=0;id<2;id++)if(client[id].edit_pending){
+  KgClient *c=&client[id];c->edit_pending=0;
+  c->edit_result=!c->token||!owned[id]||owned_generation[id]!=c->generation?-116:gui_open_document(id,c->generation,c->edit_namespace,c->edit_name);
+ }
+
  u32 now=input_ticks();if(last_clock&&((now-last_clock)&0xffffff)<30720)return;last_clock=now;
  unsigned a=0x2c00,c=0,d=0;__asm__ volatile("int $0x21":"+a"(a),"=c"(c),"=d"(d)::"ebx","esi","edi","cc","memory");
  seconds=((c>>8)&255)*3600+(c&255)*60+((d>>8)&255);
@@ -49,7 +56,7 @@ void kg_dispatch(void){
  p.result=-22;
  if(p.version!=1||p.size!=sizeof p||p.slot>=2)goto done;
  unsigned id=p.slot;
- if(!p.operation){if(client[id].generation==p.generation){client[id].token=0;client[id].input_flags=0;client[id].revision++;client[id].head=client[id].count=0;}p.result=0;goto done;}
+ if(!p.operation){if(client[id].generation==p.generation){client[id].edit_pending=0;client[id].token=0;client[id].input_flags=0;client[id].revision++;client[id].head=client[id].count=0;}p.result=0;goto done;}
  if(p.operation!=1||p.bytes!=sizeof(KgRequest)||p.request>65536-sizeof(KgRequest))goto done;
  if(!owned[id]||owned_generation[id]!=p.generation){p.result=-1;goto done;}
  KgRequest *r=(KgRequest *)loader_buffer;
