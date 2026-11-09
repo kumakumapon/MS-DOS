@@ -57,9 +57,9 @@ $(BUILD)/KGPROOF.COM: $(BUILD)/proof.elf
 	objcopy -O binary $< $@
 $(BUILD)/test-scene: test-scene.c scene.c scene.h gui.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-scene.c scene.c -o $@
-$(BUILD)/test-sessions: test-sessions.c sessions.c document.c document.h gui.h | $(BUILD)
+$(BUILD)/test-sessions: test-sessions.c sessions.c document.c document.h $(K32)/services.c $(K32)/services.h gui.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-sessions.c sessions.c document.c $(K32)/services.c -o $@
-$(BUILD)/test-client-policy: test-client-policy.c client-policy.c document.c document.h client-policy.h sdk/protocol.h | $(BUILD)
+$(BUILD)/test-client-policy: test-client-policy.c client-policy.c document.c document.h $(K32)/services.c $(K32)/services.h client-policy.h sdk/protocol.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-client-policy.c client-policy.c document.c $(K32)/services.c -o $@
 test: all $(BUILD)/test-scene $(BUILD)/test-sessions $(BUILD)/test-client-policy $(BUILD)/test-widgets $(BUILD)/test-editor
 	$(BUILD)/test-scene

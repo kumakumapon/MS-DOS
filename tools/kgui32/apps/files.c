@@ -1,4 +1,4 @@
-/* Independent, read-only root browser. Directory/preview share one canvas. */
+/* Independent root/Work browser with a deferred, owned Editor launch. */
 #include "../sdk/kgui.h"
 #include "../sdk/widgets.h"
 #define ENTRIES 192
@@ -25,7 +25,7 @@ static void rebuild(void){
  kw_reveal(&list);
 }
 static void close_cursor(void){if(cursor)k32_dir_close(cursor);cursor=loading=0;}
-static void refresh(void){close_cursor();count=0;list.selected=list.top=0;loading=1;rebuild();}
+static void refresh(void){close_cursor();files_stats.error=0;count=0;list.selected=list.top=0;loading=1;rebuild();}
 static int enumerate(void){
  if(!loading||(holding&&count))return 0;
  for(unsigned i=0;i<4;i++){
@@ -41,8 +41,10 @@ static int enumerate(void){
 static void layout(void){
  unsigned h=kg_height(),w=kg_width();
  list.rows=(h-104)/16;if(list.rows<1)list.rows=1;
+ /* Reserve commands for all eight controls at maximum canvas height. */
+ if(list.rows>18)list.rows=18;
  if(!mode)kw_reveal(&list);
- unsigned rows=(h-104)/16;if(!rows)rows=1;
+ unsigned rows=list.rows;
  unsigned total=mode?line_count:list.count,top=mode?preview_top:list.top;
  unsigned max=total>rows?total-rows:0;if(top>max)top=max;
  if(mode)preview_top=top;else list.top=top;
@@ -101,6 +103,7 @@ static void diagnostics(void){
 static int draw(void){
  layout();unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
  kg_text(8,8,mode?filename:work?destination.root:"A: root / read only",0x20344a);
+ if(focus.current>=6)kg_rect(w-(focus.current==6?169:89),3,focus.current==6?78:82,28,0x327ac0);
  kg_button(104,w-168,4,76,26,work?"Root":"Work");kg_button(105,w-88,4,80,26,"Editor");
  if(mode)kg_text(8,30,"TXT preview / 40 columns",0x466581);
  else {kg_text(8,32,"Filter",0x466581);kw_draw_input((KwRect){64,24,(int)w-76,26},&filter,focus.current==0);}
@@ -187,7 +190,7 @@ int main(int argc,char **argv){
     if(command==6){edit_selected();dirty=1;}
     if(command==1){if(mode)back();else open_preview();dirty=1;}
     if(command==2){if(mode)back();else refresh();dirty=1;}
-    if(command==3){message="A: root / read only / SDK 2";dirty=1;}
+    if(command==3){message="Root: read only / Work: Editor";dirty=1;}
     if(command==4)quit=1;
    }
   }
