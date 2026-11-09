@@ -103,8 +103,8 @@ static void diagnostics(void){
 static int draw(void){
  layout();unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
  kg_text(8,8,mode?filename:work?destination.root:"A: root / read only",0x20344a);
- if(focus.current>=6)kg_rect(w-(focus.current==6?169:89),3,focus.current==6?78:82,28,0x327ac0);
- kg_button(104,w-168,4,76,26,work?"Root":"Work");kg_button(105,w-88,4,80,26,"Editor");
+ if(focus.current>=6)kg_rect(w-(focus.current==6?169:89),1,focus.current==6?78:82,22,0x327ac0);
+ kg_button(104,w-168,2,76,20,work?"Root":"Work");kg_button(105,w-88,2,80,20,"Editor");
  if(mode)kg_text(8,30,"TXT preview / 40 columns",0x466581);
  else {kg_text(8,32,"Filter",0x466581);kw_draw_input((KwRect){64,24,(int)w-76,26},&filter,focus.current==0);}
  kg_rect(8,52,w-40,list.rows*16,0xffffff);
