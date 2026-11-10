@@ -1,7 +1,8 @@
 /* Real CPL3 negative requests: no filesystem mutation or forged DOS handle. */
 #include "../../k38632/sdk/k32x.h"
 volatile struct {unsigned magic,version,checks,error,reserved[12];} recovery_stats __attribute__((section(".data.gui_stats")))={.magic=0x3552474b,.version=1};
-static void check(int actual,int expected){recovery_stats.checks++;if(actual!=expected)recovery_stats.error++;}
+static void check(int actual,int expected){recovery_stats.checks++;if(actual!=expected){if(!recovery_stats.error){recovery_stats.reserved[0]=recovery_stats.checks;recovery_stats.reserved[1]=actual;recovery_stats.reserved[2]=expected;}recovery_stats.error++;}}
+static const K32RecoveryRestore readonly_restore={.expected={.version=1,.size=64},.destination="UNUSED.TXT"};
 int main(void){
  K32Work r=k32_work_name(K32_WORK_REC_INFO,"MISSING.TXT");K32RecoveryInfo info;
  r.data=(unsigned)&info;r.bytes=sizeof info;
@@ -17,7 +18,9 @@ int main(void){
  check(info.file[0].exists|info.file[1].exists|info.file[2].exists,0);
  check(k32_recovery_open("MISSING.TXT",1),-2);check(k32_recovery_open("MISSING.TXT",2),-2);check(k32_recovery_open("MISSING.TXT",3),-22);
  K32RecoveryRestore restore={.expected=info,.destination="UNUSED.TXT"};
- r=k32_work_name(K32_WORK_REC_RESTORE_BAK,"MISSING.TXT");r.bytes=sizeof restore;r.data=0x800000;check(k32_work(&r),-14);
+ r=k32_work_name(K32_WORK_REC_RESTORE_BAK,"MISSING.TXT");r.bytes=sizeof restore;r.data=0x10000;check(k32_work(&r),-14);
+ /* Restore payload is input-only: valid RO data must be accepted. */
+ r.data=(unsigned)&readonly_restore;check(k32_work(&r),-2);
  r.data=0xbfffc0;check(k32_work(&r),-14);
  r.data=(unsigned)&restore;check(k32_work(&r),-2);
  restore.expected.version=2;check(k32_work(&r),-22);restore.expected.version=1;
