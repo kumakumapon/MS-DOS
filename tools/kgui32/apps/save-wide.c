@@ -20,7 +20,7 @@ int main(int argc,char **argv){
   bad.bytes--;check(k32_work(&bad)==-22);bad.bytes++;
   bad.data=0x10000;check(k32_work(&bad)==-14);bad.data=(unsigned)&info;
   bad.name[15]='X';check(k32_work(&bad)==-22);bad.name[15]=0;
-  bad.flags=1;check(k32_work(&bad)==-22);bad.flags=0;
+  bad.flags=2;check(k32_work(&bad)==-22);bad.flags=0;
   if(info_only)return wide_stats.error?5:0;
  }
  for(unsigned i=0;i<sizeof text;i++)text[i]=i%79==78?'\n':'A'+i%26;

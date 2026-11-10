@@ -348,8 +348,8 @@ static int workspace(u32 pointer,u32 size){
  K32Work r;if(!transfer(pointer-K32_BASE,&r,size,0))return -5;
  int e=k32_work_request(&r);if(e)return e;
  if(work_handle>=0&&r.operation!=K32_WORK_INFO)return -117;
- if(r.operation==K32_WORK_SAVE&&!k32_user_range(loader_map,r.data,r.bytes,0))return -14;
- if((r.operation==K32_WORK_FIRST||r.operation==K32_WORK_INFO)&&!k32_user_range(loader_map,r.data,r.bytes,1))return -14;
+ if((r.operation==K32_WORK_SAVE||r.operation==K32_WORK_REC_RESTORE_TMP||r.operation==K32_WORK_REC_RESTORE_BAK)&&!k32_user_range(loader_map,r.data,r.bytes,0))return -14;
+ if((r.operation==K32_WORK_FIRST||r.operation==K32_WORK_INFO||r.operation==K32_WORK_REC_INFO||r.operation==K32_WORK_REC_FIRST_TMP||r.operation==K32_WORK_REC_FIRST_BAK)&&!k32_user_range(loader_map,r.data,r.bytes,1))return -14;
  u32 old=critical(1,0);char path[24];
  e=work_ready();
  if(r.operation==K32_WORK_INFO){
@@ -358,7 +358,19 @@ static int workspace(u32 pointer,u32 size){
   e=transfer(r.data-K32_BASE,&work_info,sizeof work_info,1)?0:-5;goto done;
  }
  if(e)goto done;
- if(r.operation==K32_WORK_FIRST){char pattern[]="A:\\WORK\\*.TXT";pattern[0]='A'+work_info.drive;e=directory_at(14,r.data,r.bytes,0,pattern);goto done;}
+ if(r.operation==K32_WORK_FIRST||r.operation==K32_WORK_REC_FIRST_TMP||r.operation==K32_WORK_REC_FIRST_BAK){
+  char pattern[]="A:\\WORK\\*.TXT";pattern[0]='A'+work_info.drive;
+  const char *ext=r.operation==K32_WORK_REC_FIRST_TMP?"TMP":r.operation==K32_WORK_REC_FIRST_BAK?"BAK":"TXT";
+  for(unsigned i=0;i<3;i++)pattern[10+i]=ext[i];
+  e=directory_at(14,r.data,r.bytes,0,pattern);goto done;
+ }
+ if(r.operation>=K32_WORK_REC_INFO){
+  const K32WorkIO io={work_stat,work_create,work_write,work_close,work_rename,work_remove,work_copy,work_space};
+  if(r.operation==K32_WORK_REC_INFO){K32RecoveryInfo info;e=k32_recovery_info_at(work_info.drive,r.name,&info,&io);if(!e)e=transfer(r.data-K32_BASE,&info,sizeof info,1)?0:-5;}
+  else if(r.operation==K32_WORK_REC_RESTORE_TMP||r.operation==K32_WORK_REC_RESTORE_BAK){K32RecoveryRestore restore;if(!transfer(r.data-K32_BASE,&restore,sizeof restore,0))e=-5;else e=k32_recovery_restore_at(work_info.drive,r.name,r.operation-K32_WORK_REC_RESTORE_TMP+1,&restore,&io);}
+  else{unsigned kind=r.operation-K32_WORK_REC_OPEN_TMP+1,bytes,hash;e=k32_work_variant_at(work_info.drive,r.name,kind,path);if(!e){e=work_stat(path,&bytes,&hash);if(e>=0)e=e?open_path(path):-2;}}
+  goto done;
+ }
  k32_work_path_at(work_info.drive,r.name,path);
  if(r.operation==K32_WORK_OPEN)e=open_path(path);
  else if(r.operation==K32_WORK_STAT){e=work_stat(path,&r.length,&r.hash);if(e>=0){r.exists=e;e=transfer(pointer-K32_BASE,&r,size,1)?0:-5;}}

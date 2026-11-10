@@ -97,6 +97,7 @@ static void begin_run(unsigned id){
  editing[id]=1;lengths[id]=0;paths[id][0]=0;
  GuiWindow *w=&scene.window[id+2];scene_damage(&scene,(Rect){w->r.x+8,w->r.y+70,w->r.w-16,72});
 }
+static unsigned key_modifiers;
 static void action(int act){
  unsigned id=scene.slot;
  if(act>=ACT_CALCULATOR){launch(act);return;}
@@ -120,7 +121,7 @@ static void action(int act){
  }else {
   unsigned op=act==ACT_KEY?GS_KEY:act==ACT_END?GS_END:act==ACT_PAUSE?GS_PAUSE:act==ACT_RESUME?GS_RESUME:GS_RESTART;
   if(act==ACT_KEY&&scene.graphical[id]){
-   if(clients[id].token){KgEvent event={.type=KG_KEY,.key=scene.key};errors[id]=client_event(id,&event);}
+   if(clients[id].token){KgEvent event={.type=KG_KEY,.key=scene.key,.control=key_modifiers};errors[id]=client_event(id,&event);}
   }else errors[id]=session_command(id,op,scene.key);
   if(act==ACT_KEY&&!scene.graphical[id])following[id]=3;
   if(act==ACT_RESTART&&!errors[id])scene.scroll_x[id]=scene.scroll_y[id]=0;
@@ -375,7 +376,7 @@ int main(int argc,char **argv){
   GuiEvent event;int got=k32_call(GUI_EVENT,(u32)&event,sizeof event);
   if(got<0){gui_state.error=7;return 7;}
   if(!got){k32_wait(K32_WAIT_TIME,16);continue;}
-  gui_state.events++;gui_state.heartbeat++;if(event.type==GUI_KEY)gui_state.last_key=event.key;
+  gui_state.events++;gui_state.heartbeat++;key_modifiers=event.type==GUI_KEY?event.buttons:0;if(event.type==GUI_KEY)gui_state.last_key=event.key;
   int previous_focus=scene.active;Rect previous_rect[2]={scene.window[2].r,scene.window[3].r};
   /* A child may OPEN/SUBSCRIBE between timer events. Route input against
    * its current generation/token, never the ended root's cached canvas. */

@@ -120,7 +120,7 @@ $(BUILD)/editor-model.o: sdk/editor.c sdk/editor.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/picker.o: sdk/picker.c sdk/picker.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
-$(BUILD)/editor.elf: $(BUILD)/document.app.o $(BUILD)/workspace-policy.o $(BUILD)/workspace-services.o $(BUILD)/editor.app.o $(BUILD)/editor-model.o $(BUILD)/picker.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+$(BUILD)/editor.elf: $(BUILD)/recovery.o $(BUILD)/document.app.o $(BUILD)/workspace-policy.o $(BUILD)/workspace-services.o $(BUILD)/editor.app.o $(BUILD)/editor-model.o $(BUILD)/picker.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/workspace-policy.o: $(K32)/workspace.c $(K32)/workspace.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
@@ -150,3 +150,14 @@ $(BUILD)/document.o: document.c document.h | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/document.app.o: document.c document.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
+
+$(BUILD)/recovery.o: sdk/recovery.c sdk/recovery.h sdk/kgui.h sdk/widgets.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+
+$(BUILD)/recovery-test.elf: $(BUILD)/recovery-test.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KGRECNEG.EXE: $(BUILD)/recovery-test.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client
+$(BUILD)/KGRECNON.EXE: $(BUILD)/recovery-test.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client
+all: $(BUILD)/KGRECNEG.EXE $(BUILD)/KGRECNON.EXE

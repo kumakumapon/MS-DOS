@@ -11,7 +11,7 @@ int main(void){
  check(k32_call(17,0xbffff0,sizeof r),-14);
  r.version=2;check(k32_work(&r),-22);r.version=1;
  r.reserved[1]=1;check(k32_work(&r),-22);r.reserved[1]=0;
- r.flags=1;check(k32_work(&r),-22);r.flags=0;
+ r.flags=2;check(k32_work(&r),-22);r.flags=0;
  r.operation=99;check(k32_work(&r),-38);
  const char *bad[]={"../IO.SYS","IO.SYS","CON.TXT","A:BAD.TXT","A\\B.TXT","AUTOEXEC.BAT","ONE.TXT ",".TXT"};
  for(unsigned i=0;i<sizeof bad/sizeof *bad;i++){r=k32_work_name(K32_WORK_SAVE,bad[i]);check(k32_work(&r),-22);}

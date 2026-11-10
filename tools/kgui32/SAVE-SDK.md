@@ -3,7 +3,7 @@
 Use the separate KGUI32 image, 16 MiB RAM, Welcome > Editor (`KGEDIT.EXE`).
 Existing KDESK and the original DOS kernel remain separate and unchanged.
 Documents remain ASCII, at most 65,536 bytes. Open normalizes CRLF to LF;
-saved files use LF. Saving retains selection, cursor and Undo/Redo history.
+Save uses the selected LF/CRLF format; see [RECOVERY-SDK.md](RECOVERY-SDK.md). Saving retains selection, cursor and Undo/Redo history.
 
 - **Save / Ctrl+S** saves the current workspace file, or opens Save As.
 - **Save As / Ctrl+W** opens the reusable picker, with a filename input.
@@ -68,7 +68,7 @@ The selected drive and root remain meaningful when READY is clear; inspect error
 before treating capacity as usable. The picker falls back to the legacy A: label
 only when INFO itself is unsupported. Feature bit 128 and the other operations'
 wire layouts are unchanged. Existing root-directory calls remain A: read-only;
-Files-to-HDD navigation is a later stage. See [HDD-WORKSPACE.md](HDD-WORKSPACE.md).
+Files Work navigation is available; see [FILES-EDITOR.md](FILES-EDITOR.md). See [HDD-WORKSPACE.md](HDD-WORKSPACE.md).
 
 Stat before asking to replace; preserve that revision until SAVE. A new name
 requires exists=0. On Open, compare the read bytes against STAT before adopting

@@ -133,3 +133,6 @@ SDK3 adds the temporary editor and reusable picker; see [EDITOR-SDK.md](EDITOR-S
 SDK4 adds bounded workspace saves and a common Save As dialog; see [SAVE-SDK.md](SAVE-SDK.md).
 The optional workspace information operation routes those calls to the verified
 data HDD, with an explicit FD fallback; see [HDD-WORKSPACE.md](HDD-WORKSPACE.md).
+
+Work recovery and Editor Find/Replace, Shift selection, LF/CRLF and viewport
+controls are described in [RECOVERY-SDK.md](RECOVERY-SDK.md).

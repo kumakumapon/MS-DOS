@@ -37,6 +37,17 @@ static Mouse events[16];
 static unsigned event_head, event_count;
 static int graphics_active;static u16 keys[128];
 static unsigned key_head, key_count;
+#ifdef KGUI32_DRIVER
+static u8 key_mods[128],last_key_mods;
+static unsigned bios_modifiers(void){unsigned a=0x0200;__asm__ volatile("int $0x18":"+a"(a)::"ebx","ecx","edx","cc","memory");return ((a&1)?1u:0u)|((a&16)?2u:0u)|((a&8)?4u:0u);}
+#endif
+unsigned key_modifiers(void){
+#ifdef KGUI32_DRIVER
+ return last_key_mods;
+#else
+ return 0;
+#endif
+}
 static void mouse_pump(void);
 static Mouse read_raw(void);
 static int bios_key_ready(void);
@@ -451,6 +462,9 @@ static void mouse_pump(void) {
     /* Paints take longer than a BIOS key-buffer slot. Collect input while
      * drawing, then let the desktop apply a batch before its next repaint. */
     if (graphics_active) while (key_count < 128 && bios_key_ready()) {
+        #ifdef KGUI32_DRIVER
+        key_mods[(key_head + key_count) & 127] = bios_modifiers();
+#endif
         keys[(key_head + key_count) & 127] = p_key(); key_count++;
     }
     if (!mouse_active) return;
@@ -484,7 +498,15 @@ static int bios_key_ready(void) {
 }
 int key_ready(void) { return key_count || bios_key_ready(); }
 int key_read(void) {
-    if (!key_count) return p_key();
+    if (!key_count) {
+#ifdef KGUI32_DRIVER
+        last_key_mods=bios_modifiers();
+#endif
+        return p_key();
+    }
+#ifdef KGUI32_DRIVER
+    last_key_mods=key_mods[key_head];
+#endif
     int result = keys[key_head]; key_head = (key_head + 1) & 127; key_count--;
     return result;
 }
