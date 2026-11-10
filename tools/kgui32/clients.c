@@ -97,6 +97,7 @@ int kg_clients_event(u32 pointer,unsigned bytes){
  if(c->generation!=r->generation||!c->token||c->token!=r->token)return -116;
  KgEvent v=r->event;
  if(v.type<KG_KEY||v.type>KG_QUIT)return -22;
+ if(v.type==KG_KEY&&(v.control&~7u))return -22;
  if(v.type==KG_RESIZE&&(v.width<1||v.width>784||v.height<1||v.height>416))return -22;
  if((v.type==KG_POINTER||v.type==KG_MOUSE)&&(v.x < -800||v.x>800||v.y < -600||v.y>600||v.key>7))return -22;
  v.seconds=seconds;kg_enqueue(c,&v);publish();return 0;

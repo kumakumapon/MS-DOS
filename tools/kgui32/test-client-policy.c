@@ -23,8 +23,8 @@ int main(void){
  assert(kg_policy(&client,&request,7,&serial,640,400)==1&&request.event.key=='7');assert(kg_policy(&client,&request,7,&serial,640,400)==0);
  e=(KgEvent){.type=KG_RESIZE,.width=360,.height=200};kg_enqueue(&client,&e);e.width=400;kg_enqueue(&client,&e);assert(client.count==1&&client.width==400);
  for(unsigned i=0;i<20;i++){e=(KgEvent){.type=KG_KEY,.key=i};kg_enqueue(&client,&e);}assert(client.count==16&&client.dropped==5);
- request.operation=KG_CAPABILITIES;assert(kg_policy(&client,&request,7,&serial,640,400)==KG_CAP_ALL);
- request.operation=KG_SUBSCRIBE;request.count=16;assert(kg_policy(&client,&request,7,&serial,640,400)==-22);
+ request.operation=KG_CAPABILITIES;assert(kg_policy(&client,&request,7,&serial,640,400)==KG_CAP_SUPPORTED);
+ request.operation=KG_SUBSCRIBE;request.count=32;assert(kg_policy(&client,&request,7,&serial,640,400)==-22);
  request.count=3;assert(!kg_policy(&client,&request,7,&serial,640,400)&&client.input_flags==3);
  client.count=0;e=(KgEvent){.type=KG_POINTER,.x=1};kg_enqueue(&client,&e);e.x=2;kg_enqueue(&client,&e);assert(client.count==1&&client.event[client.head].x==2);
  for(int i=0;i<13;i++){e.type=KG_KEY;kg_enqueue(&client,&e);}e.type=KG_POINTER;kg_enqueue(&client,&e);assert(client.count==14);e.type=KG_MOUSE;e.key=0;kg_enqueue(&client,&e);assert(client.count==15);
@@ -46,5 +46,9 @@ int main(void){
  request.operation=KG_CLOSE;assert(!kg_policy(&client,&request,7,&serial,640,400));assert(!client.token&&!client.count&&!client.edit_pending);
  request.operation=KG_POLL;assert(kg_policy(&client,&request,7,&serial,640,400)==-116);
  open_window();assert(kg_policy(&client,&request,8,&serial,800,600)==2);assert(client.generation==8&&request.token==2);
+ request=(KgRequest){.version=1,.size=sizeof request,.operation=KG_SUBSCRIBE,.token=2,.count=KG_CAP_SUPPORTED};
+ assert(!kg_policy(&client,&request,8,&serial,800,600));client.count=client.head=0;
+ e=(KgEvent){.type=KG_KEY,.key=259,.control=KG_MOD_SHIFT};kg_enqueue(&client,&e);assert(client.event[0].control==KG_MOD_SHIFT);
+ request.count=KG_CAP_ALL;assert(!kg_policy(&client,&request,8,&serial,800,600));client.count=client.head=0;kg_enqueue(&client,&e);assert(client.event[0].control==0);
  return 0;
 }

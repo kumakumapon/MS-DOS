@@ -66,5 +66,34 @@ int main(void){
  r=reset(0);r.bytes=1;free_bytes=4095;assert(k32_work_save_at(1,&r,&hdd,buffer)==-28);assert(locate("B:\\WORK\\NOTE.TMP")==-1);
  r=reset(0);r.bytes=0;free_bytes=0;assert(!k32_work_save_at(1,&r,&hdd,buffer));
  r=reset(0);cluster_bytes=0;assert(k32_work_save_at(1,&r,&hdd,buffer)==-5);
+ /* Recovery inspects all three revisions and only moves an explicitly chosen
+  * TMP/BAK to an unused TXT name. Every failing I/O boundary preserves all data. */
+ r=reset(1);fs[1].live=1;strcpy(fs[1].name,"A:\\WORK\\NOTE.BAK");memcpy(fs[1].data,"backup",6);fs[1].n=6;
+ fs[2].live=1;strcpy(fs[2].name,"A:\\WORK\\NOTE.TMP");memcpy(fs[2].data,"draft",5);fs[2].n=5;
+ K32RecoveryInfo state;assert(!k32_recovery_info_at(0,"NOTE.TXT",&state,&io));
+ assert(state.version==1&&state.size==64&&state.file[0].length==3&&state.file[1].length==5&&state.file[2].length==6);
+ K32RecoveryRestore restore={.expected=state};strcpy(restore.destination,"SAFE.TXT");
+ calls=0;assert(!k32_recovery_restore_at(0,"NOTE.TXT",2,&restore,&io));int boundaries=calls;
+ assert(locate("A:\\WORK\\NOTE.BAK")==-1&&locate("A:\\WORK\\SAFE.TXT")==1);
+ assert(fs[0].n==3&&!memcmp(fs[0].data,"old",3)&&fs[2].n==5&&!memcmp(fs[2].data,"draft",5));
+ for(int at=1;at<=boundaries;at++){
+  strcpy(fs[1].name,"A:\\WORK\\NOTE.BAK");calls=0;fail=at;fail2=0;
+  assert(k32_recovery_restore_at(0,"NOTE.TXT",2,&restore,&io)<0);
+  assert(locate("A:\\WORK\\NOTE.BAK")==1&&fs[1].n==6&&!memcmp(fs[1].data,"backup",6));
+  assert(locate("A:\\WORK\\SAFE.TXT")==-1&&fs[0].n==3&&fs[2].n==5);
+ }
+ fail=fail2=0;calls=0;strcpy(restore.destination,"NOTE.TXT");assert(k32_recovery_restore_at(0,"NOTE.TXT",2,&restore,&io)==-17);
+ strcpy(restore.destination,"SAFE.TXT");restore.expected.file[1].hash++;assert(k32_recovery_restore_at(0,"NOTE.TXT",2,&restore,&io)==-116);restore.expected=state;
+ strcpy(restore.destination,"../A.TXT");calls=0;assert(k32_recovery_restore_at(0,"NOTE.TXT",2,&restore,&io)==-22&&calls==0);
+ strcpy(restore.destination,"SAFE.TXT");assert(k32_recovery_restore_at(0,"NOTE.TXT",0,&restore,&io)==-22&&calls==0);
+ restore.expected.reserved[0]=1;assert(k32_recovery_restore_at(0,"NOTE.TXT",2,&restore,&io)==-22&&calls==0);restore.expected=state;
+ fs[0].live=0;assert(!k32_recovery_info_at(0,"NOTE.TXT",&restore.expected,&io));strcpy(restore.destination,"NOTE.TXT");
+ assert(!k32_recovery_restore_at(0,"NOTE.TXT",1,&restore,&io));assert(locate("A:\\WORK\\NOTE.TMP")==-1&&fs[2].n==5);
+ /* CRLF is optional and strict, including a CR/LF split across copy chunks. */
+ r=reset(0);r.bytes=4097;r.flags=K32_WORK_CRLF;document[4095]='\r';document[4096]='\n';
+ assert(!k32_work_save(&r,&io,buffer));assert(fs[0].n==4097&&!memcmp(fs[0].data,document,4097));
+ r=reset(0);r.bytes=2;r.flags=K32_WORK_CRLF;document[0]='\r';document[1]='x';assert(k32_work_save(&r,&io,buffer)==-22&&!fs[0].live);
+ r=reset(0);r.bytes=1;r.flags=K32_WORK_CRLF;document[0]='\n';assert(k32_work_save(&r,&io,buffer)==-22&&!fs[0].live);
+ r=reset(0);r.bytes=1;r.flags=K32_WORK_CRLF;document[0]='\r';assert(k32_work_save(&r,&io,buffer)==-22&&!fs[0].live);
  puts("workspace: names, full 64 KiB, empty files, conflict, short writes and every transaction failure passed");return 0;
 }

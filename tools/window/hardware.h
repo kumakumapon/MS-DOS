@@ -43,6 +43,7 @@ void mouse_position_set(int x, int y);
 int mouse_queued(void);
 int key_ready(void);
 int key_read(void);
+unsigned key_modifiers(void);
 void input_poll(void);
 void input_idle(void);
 u32 input_ticks(void);

@@ -30,6 +30,10 @@ static inline int k32_work(K32Work *r){return k32_call(17,(unsigned)r,sizeof *r)
 static inline K32Work k32_work_name(unsigned op,const char *name){K32Work r={.version=1,.size=sizeof(K32Work),.operation=op};for(unsigned i=0;i<15&&name[i];i++)r.name[i]=name[i];return r;}
 static inline int k32_work_first(K32DirEntry *p){K32Work r={.version=1,.size=sizeof r,.operation=K32_WORK_FIRST,.data=(unsigned)p,.bytes=sizeof *p};return k32_work(&r);}
 static inline int k32_work_info(K32WorkInfo *p){K32Work r={.version=1,.size=sizeof r,.operation=K32_WORK_INFO,.data=(unsigned)p,.bytes=sizeof *p};return k32_work(&r);}
+static inline int k32_recovery_info(const char *name,K32RecoveryInfo *p){K32Work r=k32_work_name(K32_WORK_REC_INFO,name);r.data=(unsigned)p;r.bytes=sizeof *p;return k32_work(&r);}
+static inline int k32_recovery_first(unsigned kind,K32DirEntry *p){if(kind<1||kind>2)return -22;K32Work r={.version=1,.size=sizeof r,.operation=K32_WORK_REC_FIRST_TMP+kind-1,.data=(unsigned)p,.bytes=sizeof *p};return k32_work(&r);}
+static inline int k32_recovery_open(const char *name,unsigned kind){if(kind>2)return -22;K32Work r=k32_work_name(kind?K32_WORK_REC_OPEN_TMP+kind-1:K32_WORK_OPEN,name);return k32_work(&r);}
+static inline int k32_recovery_restore(const char *name,unsigned kind,K32RecoveryRestore *p){if(kind<1||kind>2)return -22;K32Work r=k32_work_name(K32_WORK_REC_RESTORE_TMP+kind-1,name);r.data=(unsigned)p;r.bytes=sizeof *p;return k32_work(&r);}
 static inline unsigned k32_len(const char *s){unsigned n=0;while(s[n])n++;return n;}
 static inline int k32_puts(const char *s){return k32_write(s,k32_len(s));}
 #endif

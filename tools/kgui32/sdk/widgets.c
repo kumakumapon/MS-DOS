@@ -1,7 +1,7 @@
 #include "widgets.h"
 static unsigned limit(unsigned top,unsigned total,unsigned rows){unsigned max=total>rows?total-rows:0;return top>max?max:top;}
 int kw_inside(KwRect r,int x,int y){return x>=r.x&&y>=r.y&&x-r.x<r.w&&y-r.y<r.h;}
-int kw_focus(KwFocus *f,const KgEvent *e){if(e->type!=KG_KEY||e->key!=9||!f->count)return 0;f->current=(f->current+1)%f->count;return 1;}
+int kw_focus(KwFocus *f,const KgEvent *e){if(e->type!=KG_KEY||e->key!=9||!f->count)return 0;f->current=(f->current+((e->control&KG_MOD_SHIFT)?f->count-1:1))%f->count;return 1;}
 int kw_input(KwInput *v,const KgEvent *e){
  if(e->type!=KG_KEY)return 0;
  unsigned k=e->key;

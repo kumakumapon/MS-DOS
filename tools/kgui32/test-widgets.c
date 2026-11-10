@@ -7,7 +7,7 @@ int main(void){
  assert(!strcmp(input.text,"ab")&&input.cursor==1);e.key=264;kw_input(&input,&e);assert(!strcmp(input.text,"a"));
  e.key=8;kw_input(&input,&e);assert(!input.length&&!input.cursor&&!input.text[0]);
  for(int i=0;i<80;i++){e.key='x';kw_input(&input,&e);}assert(input.length==63&&input.text[63]==0);
- KwFocus f={.count=3};e.key=9;assert(kw_focus(&f,&e)&&f.current==1);kw_focus(&f,&e);kw_focus(&f,&e);assert(!f.current);
+ KwFocus f={.count=3};e.key=9;assert(kw_focus(&f,&e)&&f.current==1);kw_focus(&f,&e);kw_focus(&f,&e);assert(!f.current);e.control=KG_MOD_SHIFT;kw_focus(&f,&e);assert(f.current==2);e.control=0;
  KwList l={.count=100,.rows=5};e.key=263;kw_list(&l,(KwRect){0,0,80,80},&e);assert(l.selected==5&&l.top==1);
  e.key=261;kw_list(&l,(KwRect){0,0,80,80},&e);assert(l.selected==99&&l.top==95);
  l.count=0;kw_reveal(&l);assert(!l.selected&&!l.top);
