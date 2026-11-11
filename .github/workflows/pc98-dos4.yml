@@ -31,6 +31,7 @@ jobs:
         working-directory: dos
       - run: |
           python3 ports/pc98/dos4.py --dosbox /usr/bin/dosbox --jwasm .work/pc98-tools/JWasm/GccUnixR/jwasm
+          python3 ports/pc98/hdd/oem.py --dosbox /usr/bin/dosbox --jwasm .work/pc98-tools/JWasm/GccUnixR/jwasm
           python3 -m unittest discover -s ports/pc98 -p 'test_*.py'
           python3 -m unittest discover -s tools/dos4 -p 'test_*.py'
           make -C tools/filer test

@@ -867,6 +867,13 @@ RE_INIT PROC FAR
 RE_INIT ENDP
     db (1024 - (($-start) MOD 1024)) MOD 1024 dup(0)
 bounce db 1024 dup(0)
+IFDEF HDD_BOOT
+    ; KHD98 offsets are relative to this module's own segment. Its generated
+    ; resident image also reserves the private stack and zero-initialized BSS.
+    ALIGN 16
+hdd_module LABEL BYTE
+    INCLUDE HDDDRV.INC
+ENDIF
 resident_end LABEL BYTE
 initialize:
     cld
@@ -889,6 +896,19 @@ init_links:
     mov si,[si]
     cmp si,OFFSET diskdev
     jne init_links
+IFDEF HDD_BOOT
+    cmp bootdrive,80h
+    jne init_fd
+    ; Booted SASI unit 0 becomes DOS A:. No second alias is registered.
+    mov ax,OFFSET hdd_module
+    mov cl,4
+    shr ax,cl
+    mov dx,cs
+    add ax,dx
+    mov WORD PTR clockdev,0
+    mov WORD PTR clockdev+2,ax
+init_fd:
+ENDIF
     mov ah,0ah
     xor al,al
     int 18h

@@ -243,7 +243,7 @@ static int app_open(const char *input){
  for(unsigned attempt=0;attempt<27;attempt++){
   if(attempt){
    if(!bare||h!=-2)break;
-   unsigned drive=attempt-1;if(!drive||!work_hdd(drive))continue;
+   unsigned drive=attempt-1;if(!work_hdd(drive))continue;
    const char *prefix="A:\\APPS\\";unsigned at=0;
    for(;prefix[at];at++){path[at]=prefix[at];}path[0]='A'+drive;
    for(unsigned i=3;root[i];i++){path[at++]=root[i];}path[at]=0;
@@ -290,7 +290,7 @@ static void workspace_start(void){
  work_info=(K32WorkInfo){.version=1,.size=sizeof work_info,.flags=K32_WORK_FD,.max_bytes=K32_WORK_LIMIT};
  const char *root="A:\\WORK";for(unsigned i=0;i<8;i++)work_info.root[i]=root[i];
  u32 old=critical(1,0);
- for(unsigned drive=1;drive<26;drive++)if(work_hdd(drive)){work_info.drive=drive;work_info.root[0]='A'+drive;work_info.flags=K32_WORK_HDD;break;}
+ for(unsigned drive=0;drive<26;drive++)if(work_hdd(drive)){work_info.drive=drive;work_info.root[0]='A'+drive;work_info.flags=K32_WORK_HDD;break;}
  work_info.error=work_ready();unsigned free,cluster;if(!work_info.error)work_info.error=work_space(&free,&cluster);
  if(!work_info.error)work_info.flags|=K32_WORK_READY;
  critical(0,old);

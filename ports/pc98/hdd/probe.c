@@ -15,7 +15,7 @@ static int open(const char *s,unsigned mode){u32 a=mode?0x3c00:0x3d00;__asm__ vo
 static int close(int h){u32 a=0x3e00;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"b"(h):"cc","memory");return a==~0u?-1:0;}
 static int transfer(int h,unsigned n,int writing){u32 a=writing?0x4000:0x3f00;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"b"(h),"c"(n),"d"((u32)buffer):"cc","memory");return a==~0u?-1:(int)(a&65535);}
 static int locate(void){
- for(unsigned d=2;d<=5;d++){
+ for(unsigned d=1;d<=5;d++){
   u32 a=0x3600,b,c,e=d;__asm__ volatile("int $0x21":"+a"(a),"=b"(b),"=c"(c),"+d"(e)::"cc","memory");
   if((a&65535)==65535||(a&65535)!=4||(c&65535)!=1024||(e&65535)!=10116)continue;
   path[0]='A'+d-1;int h=open(path,0);if(h<0)continue;int n=transfer(h,8,0),closed=close(h);if(n!=8||closed||buffer[0]!='K'||buffer[1]!='H'||buffer[2]!='D'||buffer[3]!='P'||buffer[4]!='R'||buffer[5]!='O'||buffer[6]!='O'||buffer[7]!='F')continue;

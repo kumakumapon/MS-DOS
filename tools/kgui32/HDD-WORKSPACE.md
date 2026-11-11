@@ -1,5 +1,9 @@
 # HDD workspace: broker, Editor and shared picker
 
+This records the original FD+companion-HDD routing. The broker now also verifies
+DOS A: for the [standalone HDD boot profile](../../ports/pc98/hdd/BOOT.md);
+that profile uses A:\WORK with the HDD flag and no second volume alias.
+
 This extends SDK4; it does not change the original DOS kernel or the KGUI32
 execution model. GUI and clients still run as isolated CPL3 PM32 programs with
 two 4 MiB application slots and a separate 4 MiB GUI allocation (16 MiB machine).
@@ -28,7 +32,7 @@ HDD proof: 41,435,136 data bytes, initially 41,426,944 free after HDD.ID and WOR
 The earlier proof volume is accepted; DOS creates WORK only when absent, without
 altering existing files. A file named WORK or protected/unavailable directory is
 an explicit HDD error. Unsupported/missing media leaves the FD path usable.
-No generic HDD formatter, partition editor or HDD-only boot is introduced.
+This original routing stage introduced no generic formatter or partition editor.
 
 Save/Open take names only, and INFO has no target selector. Root browsing remains
 read-only A:. The document limit is 64 KiB ASCII; each save uses temporary space

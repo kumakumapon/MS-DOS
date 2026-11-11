@@ -8,7 +8,10 @@ remain denied; private CON/NUL and console output retain their existing behavior
 
 ## Use and distribution
 
-In webnp2's normal KGUI32 compact-FD + APPS-HDD profile, choose DOS Shell.
+In webnp2's standalone HDD profile the boot root and verified HDD are A:.
+Choose DOS Shell and use `CD \APPS` or `TYPE A:\WORK\NOTE.TXT`.
+See [standalone HDD boot](../../ports/pc98/hdd/BOOT.md).
+In the compatibility compact-FD + APPS-HDD profile, choose DOS Shell.
 Use the displayed HDD letter (normally B:), for example `B:`, `CD \APPS`,
 `DIR`, or `TYPE B:\WORK\NOTE.TXT`. A root DOS application can be launched with
 an explicit verified HDD path. A missing bare FD-root program may resolve under
@@ -18,8 +21,8 @@ E2E suite adds DOS programs/data only to private copies of marked test volumes.
 
 The explicit full-FD profile still works without HDD. The existing KDESK/386
 FD profile remains an FD-only boot configuration; its shared broker can use the
-HDD when a verified KHD98 driver is installed. Arbitrary HDD formats and HDD-only
-boot are separate features. No automatic upgrade of a user's saved disk occurs.
+HDD when a verified KHD98 driver is installed. Arbitrary HDD formats remain
+outside this profile. No automatic upgrade of a user's saved disk occurs.
 
 ## DOS contracts
 

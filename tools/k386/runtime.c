@@ -53,7 +53,7 @@ static void mapping(unsigned id){
 }
 static int live_drive(const K386Drives *d,unsigned drive){
  if(k386_drive_slot(d,drive)<0)return 15;
- return drive&&!fd_hdd_verified(drive)?15:0;
+ return drive==d->hdd&&!fd_hdd_verified(drive)?15:0;
 }
 static int disk_path(unsigned id,const char *input,char *out,int wild){
  K386Drives *d=&runtime[id].drives;int e=k386_drive_path(d,input,out,wild);
@@ -75,7 +75,7 @@ static int file_length(int h,k32 *length) {
 static int prepare(const K386Drives *dirs,const char *name,int root,int *handle,K386Image *plan,char *path) {
     int error=k386_drive_path(dirs,name,path,0);if(!error)error=live_drive(dirs,path[0]-'A');if(error)return error;
     int h=regular_open(path);
-    if(root&&h==-2&&dirs->hdd){
+    if(root&&h==-2&&dirs->hdd<26){
         int bare=1;for(unsigned i=0;name[i];i++)if(name[i]==':'||name[i]=='/'||name[i]=='\\')bare=0;
         if(bare){char leaf[13];fd_text(leaf,path+3,sizeof leaf);fd_text(path,"A:\\APPS\\",128);path[0]='A'+dirs->hdd;fd_text(path+8,leaf,120);
             error=live_drive(dirs,dirs->hdd);if(error)return error;h=regular_open(path);if(h==-3)h=-2;}
@@ -153,7 +153,7 @@ static int start_inner(unsigned id,const char *command){
     char name[128],path[128];k8 tail[128]={0};int at=0;
     while(command[at]&&command[at]!=' '&&at<127){name[at]=command[at];at++;}name[at]=0;
     int n=0;while(command[at]&&n<126)tail[1+n++]=command[at++];if(command[at])return 3;tail[0]=n;tail[n+1]=13;
-    unsigned hdd=0;for(unsigned drive=1;drive<26;drive++)if(fd_hdd_verified(drive)){hdd=drive;break;}
+    unsigned hdd=K386_NO_HDD;for(unsigned drive=0;drive<26;drive++)if(fd_hdd_verified(drive)){hdd=drive;break;}
     K386Drives dirs;k386_drives_init(&dirs,hdd);
     K386Image plan;int h,error=prepare(&dirs,name,1,&h,&plan,path);if(error)return error;
     char directory[128];fd_text(directory,path,sizeof directory);fd_parent(directory);
@@ -205,7 +205,7 @@ static void broker_inner(unsigned id){
     int result=0;unsigned handle=f->ebx&65535;char path[128];f->eflags&=~1u;
     if(s->request==KX_REQUEST){s->request=xmem_service(id,p->psp,f,transfer)?KX_REQUEST:0;return;}
     if(s->request==0x0e){unsigned drive=f->edx&255;result=-live_drive(&r->drives,drive);
-        if(!result){r->drives.current=drive;result=r->drives.hdd?r->drives.hdd+1:1;}
+        if(!result){r->drives.current=drive;result=r->drives.hdd<26?r->drives.hdd+1:1;}
     }else if(s->request==0x47){unsigned drive=(f->edx&255)?(f->edx&255)-1:r->drives.current;
         result=-live_drive(&r->drives,drive);if(!result){int slot=k386_drive_slot(&r->drives,drive);const char *cwd=r->drives.cwd[slot];
             unsigned n=fd_len(cwd+3)+1;result=put(id,(f->ds&65535)*16+(f->esi&65535),cwd+3,n)?0:-13;}
