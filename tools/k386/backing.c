@@ -49,11 +49,6 @@ int backing_write(const K386Backing *p,k32 at,const void *in,unsigned n) {
     return 1;
 }
 int backing_copy(const K386Backing *p,k32 to,k32 from,unsigned count){return to<=K386_BACKING&&from<=K386_BACKING&&count<=K386_BACKING-to&&count<=K386_BACKING-from&&!(count&1)&&move(p->handle,p->offset+from,p->handle,p->offset+to,count);}
-int backing_zero(const K386Backing *p,k32 at,k32 count) {
-    static const k8 zero[1024]={0};
-    while(count){unsigned n=count>sizeof zero?sizeof zero:count;if(!backing_write(p,at,zero,n))return 0;at+=n;count-=n;}
-    return 1;
-}
 
 /* Application blocks stay unlocked and are reachable only through the broker. */
 #include "xmem.h"

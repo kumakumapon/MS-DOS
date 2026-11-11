@@ -5,7 +5,9 @@ static void output(const char *s){p_output(s);}
 static void number(u32 n){char text[12];fd_number(text,n);output(text);}
 static int same(const char *a,const char *b){return !fd_cmp(a,b);}
 static void prompt(void) {
-    char cwd[68]="A:\\";unsigned a=0x4700,d=0,i=(unsigned)(cwd+3);
+    char cwd[68]="A:\\";unsigned a=0x1900;
+    __asm__ volatile("int $0x21":"+a"(a)::"cc","memory");cwd[0]='A'+(a&255);
+    a=0x4700;unsigned d=0,i=(unsigned)(cwd+3);
     __asm__ volatile("int $0x21":"+a"(a):"d"(d),"S"(i):"cc","memory");
     cwd[67]=0;output(cwd);output(">");
 }
@@ -59,7 +61,9 @@ int main(void) {
         while(*args==' ')args++;
         if(!command[0])continue;
         if(same(command,"EXIT"))return 0;
-        if(same(command,"HELP"))output("VER DIR TYPE CD ECHO CLS TIME EXIT\r\nKDESK/386 EXE apps: NAME [arguments]\r\nFiles are read-only; four process levels\r\n");
+        if(command[0]>='A'&&command[0]<='Z'&&command[1]==':'&&!command[2]&&!args[0]){
+            unsigned a=0x0e00,d=command[0]-'A';__asm__ volatile("int $0x21; jnc 1f; neg %%eax; 1:":"+a"(a):"d"(d):"cc","memory");if((int)a<0)output("Drive unavailable\r\n");
+        }else if(same(command,"HELP"))output("VER DIR TYPE CD A:/HDD: ECHO CLS TIME EXIT\r\nKDESK/386 EXE apps: NAME [arguments]\r\nFiles are read-only; four process levels\r\n");
         else if(same(command,"VER"))output("MS-DOS 4.00 / K386 guest shell\r\n");
         else if(same(command,"ECHO")){output(args);output("\r\n");}
         else if(same(command,"DIR"))list(args);

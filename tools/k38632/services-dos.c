@@ -228,35 +228,9 @@ static int seek_file(u32 token,u32 at){
  files[i].position=at;return (int)at;
 }
 
-static u8 work_byte(u32 p){u8 c;__asm__ volatile("pushw %%es; movw %w1,%%es; movb %%es:(%2),%0; popw %%es":"=q"(c):"r"(p>>4),"r"(p&15):"memory");return c;}
-static u16 work_word(u32 p){return work_byte(p)|(u16)work_byte(p+1)<<8;}
-static u32 work_dword(u32 p){return work_word(p)|(u32)work_word(p+2)<<16;}
-/* Identify the resident driver's record through DOS's actual DPB. A label or
- * arbitrary file on another disk is not sufficient to select a write target. */
-static int work_hdd(unsigned drive){
- u32 a=0x3200,b;u16 segment;
- __asm__ volatile("pushw %%ds; int $0x21; movw %%ds,%1; popw %%ds":"+a"(a),"=c"(segment),"=b"(b):"d"(drive+1):"cc","memory");
- if(a&255)return 0;
- u32 dpb=(u32)segment*16+(b&65535);if(dpb<0x500||dpb>0x9ffe0)return 0;
- u32 pointer=work_dword(dpb+19),driver=(pointer>>16)*16+(pointer&65535);
- if(driver<0x500||driver>0x9ffad)return 0;
- u32 p=driver+18;const char *signature="KHDDIOP1";
- for(unsigned i=0;i<8;i++)if(work_byte(p+i)!=(u8)signature[i])return 0;
- return work_word(p+8)==1&&work_word(p+10)==64&&work_word(p+12)==1&&work_word(p+50)==drive&&
-  work_dword(p+16)==40524&&work_dword(p+20)==264&&work_dword(p+24)==162360;
-}
-
-/* This service is entered only in the serialized real-mode broker, with InDOS
- * clear. Temporarily fail critical disk errors instead of prompting in a GUI. */
-__asm__(".pushsection .text\n.code16\nwork_critical:\nmovb $3,%al\niretw\n.code16gcc\n.popsection");
-extern void work_critical(void);
-static u32 critical(int install,u32 old){
- u32 a,b;u16 seg;
- if(install){a=0x3524;__asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(b)::"cc","memory");old=(u32)seg<<16|(b&65535);
-  a=0x2524;__asm__ volatile("int $0x21":"+a"(a):"d"((u32)work_critical):"cc","memory");
- }else{a=0x2524;__asm__ volatile("pushw %%ds; movw %w2,%%ds; int $0x21; popw %%ds":"+a"(a):"d"(old&65535),"r"(old>>16):"cc","memory");}
- return old;
-}
+#include "../filer/verified-disk.h"
+#define work_hdd fd_hdd_verified
+#define critical fd_disk_critical
 /* Shared by classification and the full ELF loader. Never change DOS CWD.
  * A missing bare-name FD file may resolve on the verified data HDD only. */
 static int app_open(const char *input){

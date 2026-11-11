@@ -134,7 +134,9 @@ the former 4096-byte truncation prevented COMMAND loading its transient area.
 Real DOS is entered only after leaving protected mode, with an InDOS guard and
 the resident PSP selected. Host calls are serialized. Read/seek/close, private
 cwd, attributes, date/time, FCB parsing and directory search use copied data.
-Host paths are canonical ASCII A: disk paths. Other drives, host devices,
+Host paths are canonical ASCII paths on A: or the DPB-verified KHD98 volume.
+Each VM owns its default drive and per-drive directories; host DOS state stays
+unchanged. See [HDD-READONLY.md](HDD-READONLY.md). Unverified drives, host devices,
 file creation/write/delete/rename and attribute changes remain denied. This
 explicit restriction prevents concurrent FAT12 writes, not general DOS/BIOS
 compatibility. DTA reserved continuation bytes must match the broker-issued

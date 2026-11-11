@@ -6,6 +6,7 @@
 #include "xmem.h"
 #include "../window/hardware.h"
 #include "../filer/filer.h"
+#include "../filer/verified-disk.h"
 K386Runtime runtime[2];
 K386Diagnostics k386_diagnostics={.signature={'K','3','8','6','D','O','S','1'},.version=2,.size=sizeof(K386Diagnostics)};
 static k8 host_dta[43];
@@ -38,7 +39,7 @@ void k386_clock(unsigned id){
     }
     if(r->timer_pending&&r->process.vif&&v->state==K386_WAITING)v->state=K386_RUNNING;
 }
-static void close_token(k16 token){if(token&&token<0xff00)p_close(token-1);}
+static void close_token(k16 token){if(token&&token<0xff00){unsigned old=fd_disk_critical(1,0);p_close(token-1);fd_disk_critical(0,old);}}
 static void close_files(unsigned id){for(int i=0;i<K386_HANDLES;i++){close_token(sessions[id].handles[i]);sessions[id].handles[i]=0;}}
 static int duplicate(k16 token){if(!token)return 0;if(token>=0xff00)return token;unsigned a=0x4500,b=token-1;__asm__ volatile("int $0x21; jnc 1f; neg %%eax; 1:":"+a"(a):"b"(b):"cc","memory");return (int)a<0?(int)a:(int)(a&65535)+1;}
 static int inherit(unsigned id,k16 *out){for(int i=0;i<K386_HANDLES;i++)out[i]=0;for(int i=0;i<K386_HANDLES;i++){int n=duplicate(sessions[id].handles[i]);if(n<0){for(int j=0;j<i;j++)close_token(out[j]);return -n;}out[i]=n;}return 0;}
@@ -50,25 +51,19 @@ static void mapping(unsigned id){
     for(k32 i=0;i<1024;i++){physical32(pd+4096+i*4,i*4096+3);physical32(pd+8192+i*4,i*4096+3);}
     sessions[id].pd=pd;k386_mailbox.view[id].cr3=pd;
 }
-/* Reject real devices even with extensions. Paths passed to host DOS are absolute. */
-static int disk_path(unsigned id,const char *input,char *out,int wild) {
-    char name[128];int n=0,last=0;
-    if(!input[0])return 3;
-    if(input[1]==':'&&(input[0]!='A'&&input[0]!='a'))return 15;
-    if(input[1]==':'&&input[2]!='\\'&&input[2]!='/')input+=2;
-    for(;input[n]&&n<127;n++){char c=input[n];if(c=='\\'||c=='/')last=n+1;name[n]=(c=='*'||c=='?')?'X':c;}
-    if(input[n]||!n)return 3;
-    name[n]=0;
-    for(int i=0;i<n;i++)if((input[i]=='*'||input[i]=='?')&&(!wild||i<last))return 3;
-    if(fd_path(out,runtime[id].cwd[0]?runtime[id].cwd:"A:\\",name)||out[0]!='A')return 3;
-    for(int i=3;out[i];) {
-        char stem[9];int at=0;
-        while(out[i]&&out[i]!='\\'){if(out[i]=='.'){while(out[i]&&out[i]!='\\')i++;break;}if(at<8)stem[at++]=out[i];i++;}
-        stem[at]=0;if(!fd_cmp(stem,"COM0")||!fd_cmp(stem,"LPT0"))return 5;
-        if(out[i])i++;
-    }
-    if(wild){int at=fd_len(out)-(n-last);for(int i=last;i<n;i++)if(input[i]=='*'||input[i]=='?')out[at+i-last]=input[i];}
-    return 0;
+static int live_drive(const K386Drives *d,unsigned drive){
+ if(k386_drive_slot(d,drive)<0)return 15;
+ return drive&&!fd_hdd_verified(drive)?15:0;
+}
+static int disk_path(unsigned id,const char *input,char *out,int wild){
+ K386Drives *d=&runtime[id].drives;int e=k386_drive_path(d,input,out,wild);
+ return e?e:live_drive(d,out[0]-'A');
+}
+static int regular_open(const char *path){
+ int h=p_open(path);if(h<0)return h;unsigned a=0x4400,device;
+ __asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a),"=d"(device):"b"(h):"cc","memory");
+ if(a!=~0u&&!(device&128))return h;
+ p_close(h);return -5;
 }
 static int file_length(int h,k32 *length) {
     unsigned a=0x4202,b=h,c=0,d=0;
@@ -77,9 +72,15 @@ static int file_length(int h,k32 *length) {
     *length=((d&65535)<<16)|(a&65535);return p_seek(h,0)<0?11:0;
 }
 /* Validate headers and every relocation before replacing an existing VM. */
-static int prepare(unsigned id,const char *name,int *handle,K386Image *plan,char *path) {
-    int error=disk_path(id,name,path,0);if(error)return error;
-    int h=p_open(path);if(h<0)return -h;
+static int prepare(const K386Drives *dirs,const char *name,int root,int *handle,K386Image *plan,char *path) {
+    int error=k386_drive_path(dirs,name,path,0);if(!error)error=live_drive(dirs,path[0]-'A');if(error)return error;
+    int h=regular_open(path);
+    if(root&&h==-2&&dirs->hdd){
+        int bare=1;for(unsigned i=0;name[i];i++)if(name[i]==':'||name[i]=='/'||name[i]=='\\')bare=0;
+        if(bare){char leaf[13];fd_text(leaf,path+3,sizeof leaf);fd_text(path,"A:\\APPS\\",128);path[0]='A'+dirs->hdd;fd_text(path+8,leaf,120);
+            error=live_drive(dirs,dirs->hdd);if(error)return error;h=regular_open(path);if(h==-3)h=-2;}
+    }
+    if(h<0)return -h;
     k32 size;k8 header[96]={0};error=file_length(h,&size);
     if(!error){int n=p_read(h,header,sizeof header);error=n<0?-n:k386_image(header,size,plan);
         if(!error){int kind=kapp_header(header,n);if(kind<0)error=11;else if(kind==KAPP_DESKTOP)error=50;}}
@@ -93,16 +94,24 @@ static int prepare(unsigned id,const char *name,int *handle,K386Image *plan,char
     *handle=h;return 0;
 }
 static int environment(unsigned id,k16 source,k16 owner,const char *path,k16 *segment){
-    unsigned n=0;int found=0;
+    unsigned n=0;int found=0;unsigned previous=1;
     if(source){
         k32 base=(k32)source*16;if(base>=K386_RAM-2048)return 10;
-        for(unsigned at=0;at<2048&&!found;at+=128){if(!get(id,base+at,transfer+at,128))return 8;for(unsigned j=at?at:1;j<at+128;j++)if(!transfer[j]&&!transfer[j-1]){n=j+1;found=1;break;}}
+        for(unsigned at=0;at<2048&&!found;at+=128){if(!get(id,base+at,transfer,128))return 8;
+            for(unsigned j=0;j<128;j++){if(!transfer[j]&&!previous){n=at+j+1;found=1;break;}previous=transfer[j];}}
         if(!found)return 10;
     }else{static const char defaults[]="COMSPEC=A:\\COMMAND.COM\0PATH=A:\\\0PROMPT=$P$G\0\0";n=sizeof defaults-1;for(unsigned i=0;i<n;i++)transfer[i]=defaults[i];}
-    unsigned length=n+2+fd_len(path)+1;transfer[n]=1;transfer[n+1]=0;fd_text((char *)transfer+n+2,path,sizeof transfer-n-2);
-    *segment=arena_alloc(&runtime[id].arena,(length+15)/16,owner,0);
-    return !*segment||!put(id,(k32)*segment*16,transfer,length)?8:0;
+    unsigned length=n+2+fd_len(path)+1;
+    *segment=arena_alloc(&runtime[id].arena,(length+15)/16,owner,0);if(!*segment)return 8;
+    k32 destination=(k32)*segment*16;
+    if(source){for(unsigned at=0;at<n;){unsigned chunk=n-at;if(chunk>sizeof transfer)chunk=sizeof transfer;
+        if(!get(id,(k32)source*16+at,transfer,chunk)||!put(id,destination+at,transfer,chunk))return 8;
+        at+=chunk;}}
+    else if(!put(id,destination,transfer,n))return 8;
+    transfer[0]=1;transfer[1]=0;fd_text((char *)transfer+2,path,sizeof transfer-2);
+    return put(id,destination+n,transfer,length-n)?0:8;
 }
+
 static int load_program(unsigned id,int h,const K386Image *p,const k8 *tail,const char *path,k16 env,int root){
     K386Runtime *r=&runtime[id];K386Session *s=&sessions[id];K386View *v=&k386_mailbox.view[id];
     k16 psp=arena_alloc(&r->arena,p->required,0xffff,root&&p->required<=0x2000?0x8000:0);
@@ -138,16 +147,20 @@ static int load_program(unsigned id,int h,const K386Image *p,const k8 *tail,cons
     arenas(id);jft(id);snapshot(id);return 0;
 }
 static void discard(unsigned id){xmem_release(id,0);K386Runtime *r=&runtime[id];close_files(id);for(unsigned d=0;d<r->depth;d++)for(int i=0;i<K386_HANDLES;i++)close_token(r->parent[d].handles[i]);r->depth=0;}
-int k386_start(unsigned id,const char *command){
+static int start_inner(unsigned id,const char *command){
     int length=0;while(length<128&&command[length])length++;if(!length||length==128)return 3;
     while(*command==' ')command++;
     char name[128],path[128];k8 tail[128]={0};int at=0;
     while(command[at]&&command[at]!=' '&&at<127){name[at]=command[at];at++;}name[at]=0;
     int n=0;while(command[at]&&n<126)tail[1+n++]=command[at++];if(command[at])return 3;tail[0]=n;tail[n+1]=13;
-    K386Image plan;int h,error=prepare(id,name,&h,&plan,path);if(error)return error;
+    unsigned hdd=0;for(unsigned drive=1;drive<26;drive++)if(fd_hdd_verified(drive)){hdd=drive;break;}
+    K386Drives dirs;k386_drives_init(&dirs,hdd);
+    K386Image plan;int h,error=prepare(&dirs,name,1,&h,&plan,path);if(error)return error;
+    char directory[128];fd_text(directory,path,sizeof directory);fd_parent(directory);
+    error=k386_drive_cwd(&dirs,directory);if(error){p_close(h);return error;}dirs.current=path[0]-'A';
     K386Runtime *r=&runtime[id];K386Session *s=&sessions[id];K386View *v=&k386_mailbox.view[id];
     if(!r->backing.handle&&!backing_new(&r->backing)){p_close(h);return 8;}
-    discard(id);r->process=(K386Process){0};arena_init(&r->arena);r->timer_armed=r->timer_pending=r->timer_owner=0;r->clock=r->accumulator=0;s->head=s->count=0;
+    discard(id);r->drives=dirs;r->process=(K386Process){0};arena_init(&r->arena);r->timer_armed=r->timer_pending=r->timer_owner=0;r->clock=r->accumulator=0;s->head=s->count=0;
     *v=(K386View){0};v->state=K386_ENDED;
     if(!backing_zero(&r->backing,0,K386_BACKING)){p_close(h);return 8;}
     k8 bios[256];mem_copy(resident(),(unsigned)bios,0,0x400,256);put(id,0x400,bios,256);
@@ -155,9 +168,11 @@ int k386_start(unsigned id,const char *command){
     transfer[0]=128;transfer[1]=0;for(unsigned i=0;i<128;i++)transfer[i+2]=i+128;put(id,0x8000,transfer,130);
     static const k8 dbcs[]={0x81,0x9f,0xe0,0xfc,0,0};put(id,0x8200,dbcs,sizeof dbcs);
     putword(id,0x8240,sizeof dbcs);put(id,0x8242,dbcs,sizeof dbcs);
-    for(unsigned i=0;i<4000;i++)transfer[i]=0;
-    for(unsigned i=0;i<2000;i++){transfer[i*2]=' ';v->screen[i]=' ';}put(id,0xa0000,transfer,4000);
-    for(unsigned i=0;i<2000;i++){transfer[i*2]=0xe1;transfer[i*2+1]=0;}put(id,0xa2000,transfer,4000);
+    for(unsigned i=0;i<2000;i++)v->screen[i]=' ';
+    for(unsigned plane=0;plane<2;plane++){
+        for(unsigned i=0;i<sizeof transfer;i+=2){transfer[i]=plane?0xe1:' ';transfer[i+1]=0;}
+        for(unsigned at=0;at<4000;){unsigned n=4000-at;if(n>sizeof transfer)n=sizeof transfer;put(id,0xa0000+plane*0x2000+at,transfer,n);at+=n;}
+    }
     for(int i=0;i<5;i++)s->handles[i]=0xff01+i;
     mapping(id);error=load_program(id,h,&plan,tail,path,0,1);p_close(h);return error;
 }
@@ -173,26 +188,31 @@ static void restore_parent(unsigned id,int status){
 }
 void k386_reap(unsigned id){K386Runtime *r=&runtime[id];K386View *v=&k386_mailbox.view[id];if(v->state!=K386_ENDED&&v->state!=K386_FAULTED)return;if(r->depth)restore_parent(id,v->state==K386_FAULTED?0x200|(v->fault&255):v->exit_code);else{close_files(id);xmem_release(id,r->process.psp);}}
 void k386_release(unsigned id){discard(id);backing_free(&runtime[id].backing);runtime[id]=(K386Runtime){0};sessions[id]=(K386Session){0};}
-static int attributes(const char *path,k16 *attrs){if(!fd_cmp(path,"A:\\")){*attrs=0x10;return 0;}unsigned a=0x4300,c=0,d=(unsigned)path;__asm__ volatile("int $0x21; jc 1f; xor %%eax,%%eax; jmp 2f; 1: neg %%eax; 2:":"+a"(a),"+c"(c):"d"(d):"cc","memory");*attrs=c;return (int)a;}
+static int attributes(const char *path,k16 *attrs){if(fd_len(path)==3){*attrs=0x10;return 0;}unsigned a=0x4300,c=0,d=(unsigned)path;__asm__ volatile("int $0x21; jc 1f; xor %%eax,%%eax; jmp 2f; 1: neg %%eax; 2:":"+a"(a),"+c"(c):"d"(d):"cc","memory");*attrs=c;return (int)a;}
 static int directory(unsigned id,int next,const char *path){
     K386Runtime *r=&runtime[id];K386Process *p=&r->process;K386Session *s=&sessions[id];unsigned a=0x2f00,b; k16 seg;
     k32 at=(p->dta>>16)*16+(p->dta&65535);if(!get(id,at,host_dta,43))return -13;
-    if(next){if(!p->search_valid)return -18;for(int i=0;i<21;i++)if(host_dta[i]!=p->search[i])return -18;}
+    if(next){if(!p->search_valid)return -18;if(live_drive(&r->drives,p->search_drive))return -15;for(int i=0;i<21;i++)if(host_dta[i]!=p->search[i])return -18;}
     __asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(b)::"cc","memory");
     unsigned set=0x1a00,d=(unsigned)host_dta;__asm__ volatile("int $0x21":"+a"(set):"d"(d):"cc","memory");
     a=next?0x4f00:0x4e00;unsigned c=s->frame.ecx&0x37;d=(unsigned)path;
     __asm__ volatile("int $0x21; jc 1f; xor %%eax,%%eax; jmp 2f; 1: neg %%eax; 2:":"+a"(a):"c"(c),"d"(d):"cc","memory");int result=(int)a;
-    p->search_valid=!result;if(!result)for(int i=0;i<21;i++)p->search[i]=host_dta[i];put(id,at,host_dta,43);
+    p->search_valid=!result;if(!result&&!next)p->search_drive=path[0]-'A';if(!result)for(int i=0;i<21;i++)p->search[i]=host_dta[i];put(id,at,host_dta,43);
     set=0x1a00;d=b&65535;__asm__ volatile("pushw %%ds; movw %w2,%%ds; int $0x21; popw %%ds":"+a"(set):"d"(d),"r"(seg):"cc","memory");return result;
 }
-void k386_broker(unsigned id){
+static void broker_inner(unsigned id){
     K386Session *s=&sessions[id];K386Frame *f=&s->frame;K386Runtime *r=&runtime[id];K386Process *p=&r->process;
     int result=0;unsigned handle=f->ebx&65535;char path[128];f->eflags&=~1u;
     if(s->request==KX_REQUEST){s->request=xmem_service(id,p->psp,f,transfer)?KX_REQUEST:0;return;}
-    if(s->request==0x4b){
+    if(s->request==0x0e){unsigned drive=f->edx&255;result=-live_drive(&r->drives,drive);
+        if(!result){r->drives.current=drive;result=r->drives.hdd?r->drives.hdd+1:1;}
+    }else if(s->request==0x47){unsigned drive=(f->edx&255)?(f->edx&255)-1:r->drives.current;
+        result=-live_drive(&r->drives,drive);if(!result){int slot=k386_drive_slot(&r->drives,drive);const char *cwd=r->drives.cwd[slot];
+            unsigned n=fd_len(cwd+3)+1;result=put(id,(f->ds&65535)*16+(f->esi&65535),cwd+3,n)?0:-13;}
+    }else if(s->request==0x4b){
         char name[128];k8 tail[128];for(int i=0;i<128;i++){name[i]=transfer[i];tail[i]=transfer[128+i];}k16 env=word(transfer+256);
         int h,error;K386Image plan;if(r->depth==K386_DEPTH-1)result=-8;
-        else if((error=prepare(id,name,&h,&plan,path)))result=-error;
+        else if((error=prepare(&r->drives,name,0,&h,&plan,path)))result=-error;
         else{
             k16 handles[K386_HANDLES];error=inherit(id,handles);
             if(!error){
@@ -233,10 +253,10 @@ void k386_broker(unsigned id){
         else if(!fd_cmp((char *)transfer,"NUL")){s->handles[at]=0xff06;result=at;}
         else if(f->eax&3)result=-5;
         else if((result=disk_path(id,(char *)transfer,path,0)))result=-result;
-        else{result=p_open(path);if(result>=0){s->handles[at]=result+1;result=at;}}
+        else{result=regular_open(path);if(result>=0){s->handles[at]=result+1;result=at;}}
         jft(id);
     }else if(s->request==0x4e||s->request==0x4f){if(s->request==0x4e&&(result=disk_path(id,(char *)transfer,path,1)))result=-result;else result=directory(id,s->request==0x4f,path);
-    }else if(s->request==0x3b||s->request==0x43){if((result=disk_path(id,(char *)transfer,path,0)))result=-result;else{k16 attrs;result=attributes(path,&attrs);if(!result){if(s->request==0x3b){if(!(attrs&0x10)||fd_len(path)>66)result=-3;else fd_text(r->cwd,path,sizeof r->cwd);}else f->ecx=attrs;}}}
+    }else if(s->request==0x3b||s->request==0x43){if((result=disk_path(id,(char *)transfer,path,0)))result=-result;else{k16 attrs;result=attributes(path,&attrs);if(!result){if(s->request==0x3b){if(!(attrs&0x10))result=-3;else result=-k386_drive_cwd(&r->drives,path);}else f->ecx=attrs;}}}
     else if(s->request==0x2a||s->request==0x2c){unsigned a=(unsigned)s->request<<8,c,d;__asm__ volatile("int $0x21":"+a"(a),"=c"(c),"=d"(d)::"ebx","cc","memory");f->eax=a&65535;f->ecx=c&65535;f->edx=d&65535;s->request=0;return;}
     else if(handle>=K386_HANDLES||!s->handles[handle])result=-6;
     else if(s->request==0x3e){close_token(s->handles[handle]);s->handles[handle]=0;jft(id);}
@@ -254,3 +274,7 @@ void k386_broker(unsigned id){
     }
     if(result<0){f->eax=-result;f->eflags|=1;}else f->eax=result;s->request=0;
 }
+
+/* All disk service paths execute in the serialized real-mode boundary. */
+int k386_start(unsigned id,const char *command){unsigned old=fd_disk_critical(1,0);int e=start_inner(id,command);fd_disk_critical(0,old);return e;}
+void k386_broker(unsigned id){unsigned old=fd_disk_critical(1,0);broker_inner(id);fd_disk_critical(0,old);}
