@@ -1,5 +1,8 @@
 # K386 compatibility and verification record
 
+V86 read-only HDD drives and private current directories are implemented; see
+[HDD-READONLY.md](HDD-READONLY.md) for the supported profile and contracts.
+
 Merged PRs #16-18 provide the experimental guest PM/V86 runtime and DOS process
 support. The resource-control continuation follows in MS-DOS #19 and webnp2 #19.
 These PRs record the exact source pins, CI/browser results and remaining work.
