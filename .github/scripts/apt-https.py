@@ -4,9 +4,34 @@ from pathlib import Path
 import re
 import sys
 from urllib.parse import unquote, urlsplit
+from urllib.request import urlopen
 
 
-def configure(root: Path) -> None:
+UBUNTU_MIRRORS = (
+    "https://archive.ubuntu.com/ubuntu/",
+    "https://mirror.math.princeton.edu/pub/ubuntu/",
+    "https://mirrors.mit.edu/ubuntu/",
+)
+
+
+def available_mirror(suite: str, open_url=urlopen) -> str:
+    if not re.fullmatch(r"[a-z]+", suite):
+        raise ValueError("Expected an Ubuntu suite name")
+    for mirror in UBUNTU_MIRRORS:
+        try:
+            with open_url(mirror + "dists/" + suite + "/InRelease", timeout=5) as response:
+                if response.status == 200 and response.read(64).startswith(
+                    b"-----BEGIN PGP SIGNED MESSAGE-----"
+                ):
+                    return mirror
+        except (OSError, ValueError):
+            continue
+    raise RuntimeError("No Ubuntu HTTPS mirror is reachable; refusing stale indexes")
+
+
+def configure(root: Path, ubuntu_mirror: str = UBUNTU_MIRRORS[0]) -> None:
+    if ubuntu_mirror not in UBUNTU_MIRRORS:
+        raise ValueError("Expected a configured Ubuntu HTTPS mirror")
     sources = {root / "sources.list"}
     sources.update((root / "sources.list.d").glob("*.list"))
     sources.update((root / "sources.list.d").glob("*.sources"))
@@ -34,15 +59,24 @@ def configure(root: Path) -> None:
                 mirror = root / mirror.relative_to("/etc/apt")
             pending.append(mirror)
         updated = original.replace(b"http://", b"https://")
-        # The Azure archive's HTTPS endpoint fails on some runners. Use the
-        # official Ubuntu HTTPS archive for the same suites and signing keys.
-        updated = updated.replace(
-            b"https://azure.archive.ubuntu.com/", b"https://archive.ubuntu.com/"
-        )
+        # Keep suites, components and Signed-By intact. APT still authenticates
+        # InRelease and package hashes with the runner's Ubuntu archive keys.
+        for host in ("archive.ubuntu.com", "azure.archive.ubuntu.com", "security.ubuntu.com"):
+            updated = updated.replace(
+                ("https://" + host + "/ubuntu/").encode(), ubuntu_mirror.encode()
+            ).replace(
+                ("https://" + host + "/ubuntu").encode(), ubuntu_mirror.rstrip("/").encode()
+            )
         if updated != original:
             source.write_bytes(updated)
             print(f"Enabled HTTPS: {source}")
 
 
 if __name__ == "__main__":
-    configure(Path(sys.argv[1]) if len(sys.argv) > 1 else Path("/etc/apt"))
+    root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("/etc/apt")
+    mirror = UBUNTU_MIRRORS[0]
+    if root == Path("/etc/apt"):
+        release = dict(line.split("=", 1) for line in Path("/etc/os-release").read_text().splitlines() if "=" in line)
+        mirror = available_mirror(release["VERSION_CODENAME"].strip('"'))
+        print("Selected Ubuntu HTTPS mirror:", mirror)
+    configure(root, mirror)

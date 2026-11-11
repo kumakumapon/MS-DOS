@@ -20,9 +20,13 @@ jobs:
         with:
           node-version: '22'
       - name: Use HTTPS for Ubuntu sources and actual mirror lists
+        timeout-minutes: 1
         run: sudo python3 dos/.github/scripts/apt-https.py
       - name: Install PC-98 build and validation dependencies
-        run: sudo apt-get update && sudo apt-get install -y dosbox qemu-system-x86
+        timeout-minutes: 4
+        run: |
+          sudo apt-get -o APT::Update::Error-Mode=any -o Acquire::Retries=0 update
+          sudo apt-get -o Acquire::Retries=0 install -y dosbox qemu-system-x86
       - run: python3 ports/pc98/toolchain.py
         working-directory: dos
       - run: |
