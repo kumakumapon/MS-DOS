@@ -47,6 +47,7 @@ int main(void){
  if(mode[0]=='H'||mode[0]=='X'){
   v86_hdd_stats.stage=5;p_output("V86 HDD HANDLE HELD\r\n");p_key();
   if(mode[0]=='X')__asm__ volatile("pushw %%es; movw $0xf000,%%ax; movw %%ax,%%es; movb $1,%%es:0; popw %%es":::"eax","memory");
+  check(drive()==own,drive());check(!cwd(0,directory)&&!fd_cmp(directory,"APPS"),directory[0]);
   check(!p_close(h),h);return report("V86 HDD HOLD PASS\r\n");
  }
  unsigned offset=0,hash=2166136261u;int n;
@@ -54,11 +55,11 @@ int main(void){
  check(n==0,n);check(offset==70001,offset);v86_hdd_stats.bytes=offset;v86_hdd_stats.hash=hash;
  check(p_seek(h,65535)>=0,0);n=p_read(h,buffer,5);check(n==5&&buffer[0]==65535%251&&buffer[4]==65539%251,n);
  check(p_seek(h,70000)>=0,0);check(duplicate(h,10)>=0,10);check(!p_close(h),h);
- check(path_call(0x3d01,path,0)==-5,1);check(path_call(0x3d02,path,0)==-5,2);
+ check(path_call(0x3d01,"OPEN.TXT",0)==-5,1);check(path_call(0x3d02,"OPEN.TXT",0)==-5,2);
  const unsigned denied[]={0x3900,0x3a00,0x3c00,0x4100,0x4301,0x5b00};
- for(unsigned i=0;i<sizeof denied/sizeof *denied;i++){int e=path_call(denied[i],path,0);check(e==-5,e);}
+ for(unsigned i=0;i<sizeof denied/sizeof *denied;i++){int e=path_call(denied[i],denied[i]==0x4100||denied[i]==0x4301?"OPEN.TXT":"DENIED.TXT",0);check(e==-5,e);}
  unsigned a=0x4000;__asm__ volatile("int $0x21; movzwl %%ax,%%eax; jnc 1f; negl %%eax; 1:":"+a"(a):"b"(10),"c"(1),"d"((unsigned)buffer):"cc","memory");check((int)a==-5,a);
- a=0x5600;__asm__ volatile("pushw %%es; pushw %%ds; popw %%es; int $0x21; popw %%es; movzwl %%ax,%%eax; jnc 1f; negl %%eax; 1:":"+a"(a):"d"((unsigned)path),"D"((unsigned)path):"cc","memory");check((int)a==-5,a);
+ a=0x5600;__asm__ volatile("pushw %%es; pushw %%ds; popw %%es; int $0x21; popw %%es; movzwl %%ax,%%eax; jnc 1f; negl %%eax; 1:":"+a"(a):"d"((unsigned)"OPEN.TXT"),"D"((unsigned)"DENIED.TXT"):"cc","memory");check((int)a==-5,a);
  const char *bad[]={"NUL.TXT","COM1.EXE","COM0.TXT","LPT0.TXT","Z:\\X.TXT","*.BIN","A:BAD:NAME"};
  for(unsigned i=0;i<sizeof bad/sizeof *bad;i++){int e=p_open(bad[i]);check(e<0,e);if(e>=0)p_close(e);}
  check(select_drive(own==25?24:25)==-15,25);check(drive()==own,drive());
