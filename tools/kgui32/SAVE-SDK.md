@@ -103,7 +103,10 @@ the old complete contents in BAK. Return 1 means the new TXT committed but the
 old BAK could not be removed; retain it and resolve it before the next overwrite.
 
 **DOS rename is not power-loss atomic.** A reset between the two renames can
-leave TXT absent and BAK/TMP present. First export the disk for backup. From DOS,
+leave TXT absent and BAK/TMP present. Editor Tools > Recovery inspects the three
+variants and explicitly moves a selected candidate to an unused TXT name while
+retaining the live document; see [RECOVERY-SDK.md](RECOVERY-SDK.md).
+The following DOS commands are an alternative for manual recovery. From DOS,
 inspect `DIR B:\WORK` (substitute the displayed workspace drive); if `NAME.TXT`
 is absent and `NAME.BAK` is the wanted old document, use
 `REN B:\WORK\NAME.BAK NAME.TXT`. Inspect/export TMP separately;
