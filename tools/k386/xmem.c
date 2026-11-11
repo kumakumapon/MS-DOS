@@ -47,9 +47,9 @@ int xmem_service(unsigned id,k16 owner,K386Frame *f,k8 *buffer){
         if(!error){
             if(!b)error=6;
             else{
-                for(unsigned i=0;i<KX_CHUNK;i++)buffer[i]=0;
+                for(unsigned i=0;i<K386_TRANSFER;i++)buffer[i]=0;
                 unsigned budget=KX_ZERO_SLICE;
-                while(b->initialized<b->bytes&&budget){unsigned n=b->bytes-b->initialized;if(n>KX_CHUNK)n=KX_CHUNK;
+                while(b->initialized<b->bytes&&budget){unsigned n=b->bytes-b->initialized;if(n>K386_TRANSFER)n=K386_TRANSFER;
                     if(!xmem_write(b->handle,b->initialized,buffer,n)){
                         k386_xmem.pending[id]=0;if(drop(id,b))b->owner=0;error=8;break;
                     }
@@ -63,8 +63,11 @@ int xmem_service(unsigned id,k16 owner,K386Frame *f,k8 *buffer){
         k32 n=f->ecx,off=f->edi&65535,at=(f->es&65535)*16+off;
         if(!b||b->initialized!=b->bytes)error=6;
         else if(n>KX_CHUNK||off+n>0x10000||at>=0xa0000||n>0xa0000-at||f->esi>b->bytes||n>b->bytes-f->esi)error=87;
-        else if(op==KX_READ){if(!xmem_read(b->handle,f->esi,buffer,n)||!xmem_guest(id,at,buffer,n,1))error=8;}
-        else if(!xmem_guest(id,at,buffer,n,0)||!xmem_write(b->handle,f->esi,buffer,n))error=8;
+        else for(unsigned done=0;done<n&&!error;){unsigned chunk=n-done;if(chunk>K386_TRANSFER)chunk=K386_TRANSFER;
+            if(op==KX_READ){if(!xmem_read(b->handle,f->esi+done,buffer,chunk)||!xmem_guest(id,at+done,buffer,chunk,1))error=8;}
+            else if(!xmem_guest(id,at+done,buffer,chunk,0)||!xmem_write(b->handle,f->esi+done,buffer,chunk))error=8;
+            done+=chunk;
+        }
     }else error=1;
     f->eax=error;if(error)f->eflags|=1;return 0;
 }

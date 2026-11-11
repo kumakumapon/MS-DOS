@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-static unsigned char *store[64],guest[2][0xa0000],bounce[KX_CHUNK];
+static unsigned char *store[64],guest[2][0xa0000],bounce[K386_TRANSFER];
 static unsigned sizes[64],next=1,writes,fail_new,fail_write,fail_free;
 int xmem_new(k16 kb,k16 *h){if(fail_new)return 0;assert(next<64);*h=next++;sizes[*h]=kb*1024;store[*h]=malloc(sizes[*h]);assert(store[*h]);memset(store[*h],0xcd,sizes[*h]);return 1;}
 int xmem_free(k16 h){assert(h&&store[h]);if(fail_free)return 0;free(store[h]);store[h]=0;return 1;}
@@ -22,6 +22,11 @@ int main(void){
     for(unsigned i=0;i<5;i++)guest[0][0x20005+i]=0x31+i;
     f=frame(KX_WRITE,a);f.esi=65535;f.ecx=5;assert(!run(0,0x8000,&f));
     memset(guest[0]+0x20005,0,5);f.ebx=KX_READ;assert(!run(0,0x8000,&f));for(unsigned i=0;i<5;i++)assert(guest[0][0x20005+i]==0x31+i);
+    /* Public 4 KiB transfers cross the smaller resident scratch boundary. */
+    for(unsigned i=0;i<KX_CHUNK;i++)guest[0][0x20005+i]=i*17;
+    f=frame(KX_WRITE,a);f.ecx=KX_CHUNK;f.esi=65535;assert(!run(0,0x8000,&f));
+    memset(guest[0]+0x20005,0,KX_CHUNK);f.ebx=KX_READ;assert(!run(0,0x8000,&f));
+    for(unsigned i=0;i<KX_CHUNK;i++)assert(guest[0][0x20005+i]==(unsigned char)(i*17));
     f=frame(KX_READ,a);f.ecx=1;assert(run(1,0x8000,&f)==6);assert(run(0,0x7000,&f)==6);
     f=frame(KX_FREE,a);assert(run(1,0x8000,&f)==6&&run(0,0x7000,&f)==6);
     f=frame(KX_READ,a);f.ecx=1;f.esi=1024*1024;assert(run(0,0x8000,&f)==87);

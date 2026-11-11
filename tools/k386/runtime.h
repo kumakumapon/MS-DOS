@@ -3,10 +3,11 @@
 #include "abi.h"
 #include "backing.h"
 #include "arena.h"
+#include "drives.h"
 typedef struct {
     K386Frame frame;
     k32 dta;
-    k16 probe,psp,vif,last_exit,search_valid,handles[K386_HANDLES];
+    k16 probe,psp,vif,last_exit,search_valid,search_drive,handles[K386_HANDLES];
     k8 search[21];
     char program[16];
 } K386Process;
@@ -15,7 +16,7 @@ typedef struct {
     K386Arena arena;
     K386Process process,parent[K386_DEPTH-1];
     k16 depth;
-    char cwd[128];
+    K386Drives drives;
     k32 clock,accumulator,timer_count;
     k16 timer_owner,timer_armed,timer_pending;
 } K386Runtime;

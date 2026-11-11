@@ -6,7 +6,7 @@
 K386Mailbox k386_mailbox={{'K','3','8','6','A','B','I','1'},1,sizeof(K386Mailbox),1,0,0,0,0,0,{0},{{0}}};
 K386Session sessions[2];
 k32 monitor_base,page_directory[2],selected,saved_cr0,saved_cr3;
-k8 transfer[4096];
+k8 transfer[K386_TRANSFER];
 static k16 tables;
 static k16 ds_segment,owner_psp,indos_segment,indos_offset;
 static void usage(unsigned id){

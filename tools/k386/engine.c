@@ -133,8 +133,8 @@ static int service(K386Frame *f,k8 number) {
         while((c=input())>=0){if(c==13){write8(ptr+1,s->line_count);write8(ptr+2+s->line_count,13);s->line_count=0;output('\r');output('\n');return 0;}if(c==8){if(s->line_count){s->line_count--;output(8);output(' ');output(8);}}else if(c>=32&&(k32)s->line_count+1<n){write8(ptr+2+s->line_count++,c);output(c);}}
         v->state=K386_WAITING;return 2;
     case 0x0b:f->eax=(f->eax&0xff00)|(s->count?255:0);break;
-    case 0x0e:if((f->edx&255)!=0)error(f,15);else f->eax=1;break;
-    case 0x19:f->eax&=0xff00;break;
+    case 0x0e:s->request=0x0e;return 1;
+    case 0x19:f->eax=(f->eax&0xff00)|runtime[selected].drives.current;break;
     case 0x1a:
         if(!address(f->ds,f->edx,43))error(f,13);else r->dta=(f->ds<<16)|(f->edx&65535);break;
     case 0x2f:f->es=r->dta>>16;f->ebx=r->dta&65535;break;
@@ -179,12 +179,13 @@ static int service(K386Frame *f,k8 number) {
         else if(c==6||c==7)f->eax=(f->eax&0xff00)|((c==7||s->count)?255:0);
         else error(f,1);
         break;
-    case 0x47:
-        if((f->edx&255)>1){error(f,15);break;}
-        n=0;while(runtime[selected].cwd[0]&&runtime[selected].cwd[n+3]&&n<124)n++;
-        ptr=address(f->ds,f->esi,n+1);if(!ptr){error(f,13);break;}
-        for(k32 i=0;i<=n;i++)write8(ptr+i,runtime[selected].cwd[0]?runtime[selected].cwd[i+3]:0);
-        break;
+    case 0x47: {
+        K386Drives *dirs=&runtime[selected].drives;unsigned drive=(f->edx&255)?(f->edx&255)-1:dirs->current;
+        int slot=drive==0?0:dirs->hdd&&drive==dirs->hdd?1:-1;if(slot<0){error(f,15);break;}
+        const char *cwd=dirs->cwd[slot];n=0;while(cwd[n+3]&&n<64)n++;
+        if(!address(f->ds,f->esi,n+1)){error(f,13);break;}
+        s->request=0x47;return 1;
+    }
     case 0x4d:f->eax=r->last_exit;r->last_exit=0;break;
     case 0x50:if((f->ebx&65535)!=r->psp)error(f,5);break;
     case 0x51:case 0x62:f->ebx=r->psp;break;

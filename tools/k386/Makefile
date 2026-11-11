@@ -29,7 +29,13 @@ $(BUILD)/resources.o: resources.c resources.h abi.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -c $< -o $@
 $(BUILD)/report.o: report.c resources.h abi.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -c $< -o $@
-$(BUILD)/monitor.elf: $(BUILD)/transition.o $(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/loader.o $(BUILD)/backing.o $(BUILD)/arena.o $(BUILD)/engine.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/resources.o $(BUILD)/report.o monitor.ld
+$(BUILD)/verified-disk.o: ../filer/verified-disk.c ../filer/verified-disk.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/drives.o: drives.c drives.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/zero.o: zero.c backing.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/monitor.elf: $(BUILD)/zero.o $(BUILD)/verified-disk.o $(BUILD)/drives.o $(BUILD)/transition.o $(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/loader.o $(BUILD)/backing.o $(BUILD)/arena.o $(BUILD)/engine.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/resources.o $(BUILD)/report.o monitor.ld
 	ld -m elf_i386 --gc-sections -T monitor.ld $(filter %.o,$^) -o $@
 $(BUILD)/K386.EXE: $(BUILD)/monitor.elf ../mz/build.py
 	python3 ../mz/build.py $< $@
@@ -78,11 +84,13 @@ $(BUILD)/loader-test: loader_test.c loader.c loader.h abi.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror loader_test.c loader.c -o $@
 $(BUILD)/resources-test: resources_test.c resources.c resources.h abi.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror resources_test.c resources.c -o $@
-test: $(BUILD)/loader-test $(BUILD)/arena-test $(BUILD)/resources-test $(BUILD)/xmem-test
+test: $(BUILD)/loader-test $(BUILD)/arena-test $(BUILD)/resources-test $(BUILD)/xmem-test $(BUILD)/drives-test $(BUILD)/zero-test
 	$(BUILD)/loader-test
 	$(BUILD)/arena-test
 	$(BUILD)/resources-test
 	$(BUILD)/xmem-test
+	$(BUILD)/drives-test
+	$(BUILD)/zero-test
 .PHONY: test
 
 all: $(BUILD)/INTWAIT.COM $(BUILD)/KRESCHK.COM
@@ -256,3 +264,19 @@ test: k38632-test
 k38632-test: ../k38632/build/K32RUN.EXE
 	$(MAKE) -C ../k38632 test
 .PHONY: k38632-test
+
+$(BUILD)/drives-test: drives_test.c drives.c drives.h ../filer/core.c | $(BUILD)
+	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined -ffunction-sections -fdata-sections drives_test.c drives.c ../filer/core.c -Wl,--gc-sections -o $@
+$(BUILD)/zero-test: zero_test.c zero.c backing.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined zero_test.c zero.c -o $@
+
+$(BUILD)/hdd-stats.o: hdd-stats.S | $(BUILD)
+	as --32 $< -o $@
+$(BUILD)/hdd-test.o: hdd-test.c sdk.h ../filer/filer.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/hdd-test.app.elf: $(BUILD)/hdd-test.o $(BUILD)/app-c-start.o $(BUILD)/hdd-stats.o $(BUILD)/app-dos.o $(BUILD)/core.o app.ld
+	ld -m elf_i386 --gc-sections -T app.ld $(filter %.o,$^) -o $@
+$(BUILD)/VDOS.EXE: $(BUILD)/hdd-test.app.elf ../mz/build.py
+	python3 ../mz/build.py --k386-app 'V86 HDD read-only probe' $< $@
+all: $(BUILD)/VDOS.EXE
+$(BUILD)/monitor.o $(BUILD)/engine.o $(BUILD)/runtime.o: drives.h

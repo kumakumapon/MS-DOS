@@ -38,7 +38,9 @@ $(BUILD)/elf.o: elf.c elf.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -c $< -o $@
 $(BUILD)/libmemory.o: ../window/memory.c | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -c $< -o $@
-$(BUILD)/run.elf: $(BUILD)/run.o $(BUILD)/loader.o $(BUILD)/elf.o $(BUILD)/services.o $(BUILD)/services-dos.o $(BUILD)/libmemory.o runtime.ld
+$(BUILD)/verified-disk.o: ../filer/verified-disk.c ../filer/verified-disk.h | $(BUILD)
+	$(CC) -m16 $(CFLAGS) -ffunction-sections -fdata-sections -c $< -o $@
+$(BUILD)/run.elf: $(BUILD)/verified-disk.o $(BUILD)/run.o $(BUILD)/loader.o $(BUILD)/elf.o $(BUILD)/services.o $(BUILD)/services-dos.o $(BUILD)/libmemory.o runtime.ld
 	ld -m elf_i386 -T runtime.ld $(filter %.o,$^) -o $@
 $(BUILD)/K32RUN.EXE: $(BUILD)/run.elf ../mz/build.py
 	python3 ../mz/build.py $< $@
@@ -95,7 +97,7 @@ $(BUILD)/host-run.o: runtime.S host-entry.S host-engine.S | $(BUILD)
 	as --32 --defsym LOADER=1 --defsym HOST=1 $< -o $@
 $(BUILD)/%.host.o: %.c services.h elf.h host.h | $(BUILD)
 	$(CC) -m16 $(CFLAGS) -DK32_HOST -c $< -o $@
-$(BUILD)/host.elf: $(BUILD)/workspace.host.o $(BUILD)/manager.host.o $(BUILD)/host-resources.o $(BUILD)/host-report.o $(BUILD)/host-run.o $(BUILD)/host.host.o $(BUILD)/loader.host.o $(BUILD)/elf.host.o $(BUILD)/services.host.o $(BUILD)/services-dos.host.o $(BUILD)/libmemory.o host.ld
+$(BUILD)/host.elf: $(BUILD)/verified-disk.o $(BUILD)/workspace.host.o $(BUILD)/manager.host.o $(BUILD)/host-resources.o $(BUILD)/host-report.o $(BUILD)/host-run.o $(BUILD)/host.host.o $(BUILD)/loader.host.o $(BUILD)/elf.host.o $(BUILD)/services.host.o $(BUILD)/services-dos.host.o $(BUILD)/libmemory.o host.ld
 	ld -m elf_i386 -T host.ld $(filter %.o,$^) -o $@
 $(BUILD)/K32HOST.EXE: $(BUILD)/host.elf ../mz/build.py Makefile
 	python3 ../mz/build.py --desktop-app "PM32 resident service" $< $@
