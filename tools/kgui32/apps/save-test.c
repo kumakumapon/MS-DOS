@@ -11,7 +11,7 @@ int main(int argc,char **argv){
   for(unsigned i=0;i<sizeof bad/sizeof *bad;i++){
    for(unsigned n=0;n<sizeof invalid_text;n++)invalid_text[n]='x';
    invalid_text[4095]=bad[i][0];invalid_text[4096]=bad[i][1];
-   r=k32_work_name(K32_WORK_SAVE,"JPREJECT.TXT");r.data=(u32)invalid_text;r.bytes=bad[i][1]?4097:4096;
+   r=k32_work_name(K32_WORK_SAVE,"JPREJECT.TXT");r.data=(unsigned)invalid_text;r.bytes=bad[i][1]?4097:4096;
    check(k32_work(&r),-22);
   }
   return save_stats.error?1:0;
