@@ -55,7 +55,7 @@ PM32 programs keep their existing APIs and feature mask 15.
 | --- | --- |
 | kg_open(title,w,h) | Create one managed canvas, return positive opaque token. Read actual dimensions with kg_width/height. |
 | kg_begin() | Reset this application's pending drawing list. |
-| kg_rect / kg_text / kg_button | Append bounded RGB fill, ASCII text or labelled button commands. Button IDs are app-defined integers. |
+| kg_rect / kg_text / kg_button | Append bounded RGB fill, Shift-JIS text or labelled button commands. Button IDs are app-defined integers. See JAPANESE.md. |
 | kg_present() | Submit the complete retained frame in one call, up to 40 commands. |
 | kg_poll(event) | Return 1 for an event, 0 for none, negative error; always refresh viewport and seconds-of-day. |
 | kg_close() | Release this application's canvas/token. Process return releases remaining private resources. |
@@ -124,7 +124,10 @@ stop/resume/minimize, negative requests, write #PF and exact restart, GUI+DOS,
 vector/arena/conventional/XMS cleanup and full FAT12 preservation on PEGC and
 Cirrus. Existing text-session, GUI foundation, legacy and array tests remain.
 
-This is one graphical canvas per application in two mixed slots, with ASCII
+The preceding sections record the original client SDK baseline. Current widgets,
+clipboard, Editor/Work saves and graphical Shift-JIS are described in
+[EDITOR-SDK.md](EDITOR-SDK.md), [SAVE-SDK.md](SAVE-SDK.md) and [JAPANESE.md](JAPANESE.md).
+The original baseline was one graphical canvas per application in two mixed slots, with ASCII
 8x16 text, RGB fills/buttons and read-only files. Multiple windows per client,
 text-entry/menu widgets, Japanese/IME, clipboard, image surfaces, save/write
 services, more slots and larger heaps are later milestones. No Windows APIs,

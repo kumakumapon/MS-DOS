@@ -1,6 +1,7 @@
 #include "kgui.h"
+#include "text.h"
 static KgRequest request;static unsigned token,width,height;
-static void copy(char *to,const char *from,unsigned n){unsigned i=0;for(;i+1<n&&from[i];i++)to[i]=from[i];to[i]=0;}
+static void copy(char *to,const char *from,unsigned n){unsigned i=0;while(from[i]){unsigned k=kt_unit(from+i,from[i+1]?2:1);if(!k)k=1;if(k>=n-i)break;for(unsigned j=0;j<k;j++)to[i+j]=from[i+j];i+=k;}to[i]=0;}
 static int call(unsigned op){request.version=1;request.size=sizeof request;request.operation=op;request.token=token;return k32_call(13,(u32)&request,sizeof request);}
 int kg_open(const char *title,unsigned w,unsigned h){
  if(!(k32_query()&KG_FEATURE))return -38;

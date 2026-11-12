@@ -1,10 +1,11 @@
 /* No DOS, physical pointers or rendering. Shared with native policy tests. */
 #include "client-policy.h"
 #include "document.h"
-static int ascii(const char *p,unsigned n){for(unsigned i=0;i<n;i++){if(!p[i])return 1;if((u8)p[i]<32||(u8)p[i]>126)return 0;}return 0;}
+#include "sdk/text.h"
+static int text(const char *p,unsigned n){return kt_cstr(p,n)>=0;}
 int kg_validate(const KgRequest *r,unsigned width,unsigned height){
  if(r->version!=1||r->size!=sizeof *r||r->operation<KG_OPEN||r->operation>KG_EDIT_STATUS)return -22;
- if(r->operation==KG_OPEN)return r->width<160||r->width>640||r->height<80||r->height>400||!r->title[0]||!ascii(r->title,32)?-22:0;
+ if(r->operation==KG_OPEN)return r->width<160||r->width>640||r->height<80||r->height>400||!r->title[0]||!text(r->title,32)?-22:0;
  if(r->operation==KG_SUBSCRIBE&&(r->count&~KG_CAP_SUPPORTED))return -22;
  if(r->operation==KG_EDIT_DOCUMENT){char command[64];return kg_document_command(r->count,r->title,command);}
  if(r->operation!=KG_FRAME)return 0;
@@ -13,11 +14,11 @@ int kg_validate(const KgRequest *r,unsigned width,unsigned height){
   const KgDraw *d=&r->draw[i];
   if(d->op<KG_RECT||d->op>KG_BUTTON||d->x<0||d->y<0||(unsigned)d->x>=width||(unsigned)d->y>=height||d->color>0xffffff)return -22;
   if(d->op==KG_TEXT){
-   if(!ascii(d->text,48)||height-(unsigned)d->y<16)return -22;
+   if(!text(d->text,48)||height-(unsigned)d->y<16)return -22;
    unsigned n=0;while(d->text[n])n++;if(n>(width-(unsigned)d->x)/8)return -22;
   }else {
    if(d->w<=0||d->h<=0||(unsigned)d->w>width-(unsigned)d->x||(unsigned)d->h>height-(unsigned)d->y)return -22;
-   if(d->op==KG_BUTTON){if(d->w<12||d->h<18||!ascii(d->text,48))return -22;unsigned n=0;while(d->text[n])n++;if(n>(unsigned)(d->w-4)/8)return -22;}
+   if(d->op==KG_BUTTON){if(d->w<12||d->h<18||!text(d->text,48))return -22;unsigned n=0;while(d->text[n])n++;if(n>(unsigned)(d->w-4)/8)return -22;}
   }
  }
  return 0;

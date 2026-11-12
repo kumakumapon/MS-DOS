@@ -1,4 +1,5 @@
 #include "recovery.h"
+#include "text.h"
 static void copy(char *to,const char *from){unsigned i=0;for(;i<12&&from[i];i++)to[i]=from[i];to[i]=0;}
 static int same(const char *a,const char *b){unsigned i=0;for(;a[i]&&a[i]==b[i];i++);return a[i]==b[i];}
 static unsigned hash(const char *p,unsigned n){unsigned h=2166136261u;while(n--)h=(h^(unsigned char)*p++)*16777619u;return h;}
@@ -29,7 +30,7 @@ static void layout(KrRecovery *r){
 }
 static void index_preview(KrRecovery *r){
  r->lines=r->top=0;unsigned col=0,start=1;
- for(unsigned at=0;at<r->bytes;at++){unsigned c=r->preview[at];if(c=='\r')continue;if(start){r->offsets[r->lines++]=at;start=0;}if(c=='\n'||++col==r->cols){start=1;col=0;}}
+ for(unsigned at=0;at<r->bytes;){unsigned c=(unsigned char)r->preview[at];if(c=='\r'){at++;continue;}unsigned n=kt_next(r->preview,r->bytes,at)-at;if(c!='\n'&&col+n>r->cols){start=1;col=0;}if(start){r->offsets[r->lines++]=at;start=0;}if(c=='\n'){start=1;col=0;}else {col+=n;if(col==r->cols){start=1;col=0;}}at+=n;}
 }
 static void preview(KrRecovery *r,unsigned kind){
  r->kind=kind;r->preview_valid=0;r->bytes=r->lines=r->top=0;r->error=0;
@@ -39,7 +40,7 @@ static void preview(KrRecovery *r,unsigned kind){
  while(r->bytes<v.length){unsigned n=v.length-r->bytes;if(n>4096)n=4096;int got=k32_read(h,r->preview+r->bytes,n);if(got<=0){r->error=got?got:-5;break;}r->bytes+=got;}
  int closed=k32_close(h);if(!r->error&&closed<0)r->error=closed;
  if(!r->error&&(r->bytes!=v.length||hash(r->preview,r->bytes)!=v.hash))r->error=-116;
- if(!r->error)for(unsigned i=0;i<r->bytes;i++){unsigned c=(unsigned char)r->preview[i];if(c!='\r'&&c!='\n'&&c!='\t'&&(c<32||c>126)){r->error=-22;break;}}
+ if(!r->error&&!kt_valid(r->preview,r->bytes,KT_LINES|KT_CRLF))r->error=-22;
  if(r->error){r->bytes=0;return;}
  r->preview_valid=1;index_preview(r);
 }
@@ -88,7 +89,7 @@ int kr_event(KrRecovery *r,const KgEvent *e){
  }
  return 0;
 }
-static const char *error_text(int e){return e==-116?"Changed: Back then Refresh":e==-17?"Destination exists: use another TXT":e==-13?"Protected file: original kept":e==-27?"Over 64 KiB: original kept":e==-22?"Use ASCII text / valid 8.3 TXT":e==-2?"Candidate missing":e?"I/O error: original kept":0;}
+static const char *error_text(int e){return e==-116?"Changed: Back then Refresh":e==-17?"Destination exists: use another TXT":e==-13?"Protected file: original kept":e==-27?"Over 64 KiB: original kept":e==-22?"Use Shift-JIS / valid 8.3 TXT":e==-2?"Candidate missing":e?"I/O error: original kept":0;}
 int kr_draw(KrRecovery *r){
  layout(r);unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
  kg_text(8,4,r->mode?"Work recovery / inspect":"Work recovery / TMP and BAK",0x20344a);
@@ -106,7 +107,7 @@ int kr_draw(KrRecovery *r){
   for(unsigned i=0;i<3;i++)kg_button(851+i,8+i*((w-16)/3),24,(w-24)/3,24,r->info.file[i].error?bad[i]:r->info.file[i].exists?label[i]:absent[i]);
   for(unsigned row=0;row<r->rows&&row+r->top<r->lines;row++){
    unsigned at=r->offsets[row+r->top],n=0;char line[48];
-   while(at<r->bytes&&n<r->cols&&r->preview[at]!='\n'){char c=r->preview[at++];if(c!='\r')line[n++]=c=='\t'?' ':c;}line[n]=0;kg_text(8,52+row*16,line,0x20344a);
+   while(at<r->bytes&&n<r->cols&&r->preview[at]!='\n'){char c=r->preview[at];if(c=='\r'){at++;continue;}unsigned k=kt_next(r->preview,r->bytes,at)-at;if(k>r->cols-n)break;for(unsigned j=0;j<k;j++)line[n++]=c=='\t'?' ':r->preview[at+j];at+=k;}line[n]=0;kg_text(8,52+row*16,line,0x20344a);
   }
   kg_text(8,h-102,"Save as",0x20344a);kw_draw_input((KwRect){88,(int)h-108,(int)w-96,24},&r->name,r->focus.current==1);
   kg_button(860,8,h-76,104,28,"Restore");kg_button(861,120,h-76,72,28,"Back");kg_button(862,200,h-76,72,28,"Close");

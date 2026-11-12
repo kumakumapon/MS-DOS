@@ -1,6 +1,7 @@
 /* Original SDK4 transaction policy; same implementation in DOS and fault tests. */
 #include "services.h"
 #include "workspace.h"
+#include "../filer/sjis.h"
 int k32_work_path_at(unsigned drive,const char *name,char path[24]){
  if(drive>25)return -22;
  unsigned n=0;while(n<16&&name[n])n++;
@@ -42,18 +43,20 @@ int k32_work_save_at(unsigned drive,const K32Work *r,const K32WorkIO *io,unsigne
  temp[dot+1]='T';temp[dot+2]='M';temp[dot+3]='P';
  backup[dot+1]='B';backup[dot+2]='A';backup[dot+3]='K';
  /* Validate the entire user document before any filesystem mutation. */
- unsigned pending_cr=0;
+ unsigned pending_cr=0,pending_lead=0;
  for(unsigned at=0;at<r->bytes;){unsigned n=r->bytes-at;if(n>4096)n=4096;
   if((e=io->copy(r->data+at,buffer,n)))return e;
   for(unsigned i=0;i<n;i++){
    unsigned c=buffer[i];
+   if(pending_lead){if(!sjis_trail(c))return -22;pending_lead=0;continue;}
    if(r->flags&K32_WORK_CRLF){if((pending_cr&&c!='\n')||(c=='\n'&&!pending_cr))return -22;pending_cr=c=='\r';}
    else if(c=='\r')return -22;
-   if(c!='\n'&&c!='\t'&&!(c=='\r'&&(r->flags&K32_WORK_CRLF))&&(c<32||c>126))return -22;
+   if(sjis_lead(c)){pending_lead=1;continue;}
+   if(c!='\n'&&c!='\t'&&!(c=='\r'&&(r->flags&K32_WORK_CRLF))&&!((c>=32&&c<=126)||(c>=0xa1&&c<=0xdf)))return -22;
   }
   at+=n;
  }
- if(pending_cr)return -22;
+ if(pending_cr||pending_lead)return -22;
  unsigned length=0,hash=0;int exists=io->stat(target,&length,&hash);
  if(exists<0)return exists;
  if((unsigned)exists!=r->exists||(exists&&(length!=r->length||hash!=r->hash)))return -116;

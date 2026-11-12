@@ -17,6 +17,11 @@ int main(void){
  request.count=41;assert(kg_validate(&request,344,200)==-22);request.count=1;
  request.draw[0]=(KgDraw){.op=KG_TEXT,.x=336,.y=184};strcpy(request.draw[0].text,"A");assert(!kg_validate(&request,344,200));strcpy(request.draw[0].text,"AB");assert(kg_validate(&request,344,200)==-22);
  memset(request.draw[0].text,'X',48);assert(kg_validate(&request,344,200)==-22);
+ request.draw[0]=(KgDraw){.op=KG_TEXT,.x=328,.y=184};memcpy(request.draw[0].text,"\x93\xfa",3);assert(!kg_validate(&request,344,200));
+ request.draw[0].x=336;assert(kg_validate(&request,344,200)==-22);request.draw[0].x=0;
+ memcpy(request.draw[0].text,"\x81\x7f",3);assert(kg_validate(&request,344,200)==-22);
+ memcpy(request.draw[0].text,"\x81",2);assert(kg_validate(&request,344,200)==-22);
+ memcpy(request.draw[0].text,"\xb6\xc5",3);assert(!kg_validate(&request,344,200));
  request.draw[0]=(KgDraw){.op=KG_BUTTON,.x=0,.y=0,.w=20,.h=24};strcpy(request.draw[0].text,"ABC");assert(kg_validate(&request,344,200)==-22);
  request.version=2;assert(kg_validate(&request,344,200)==-22);request.version=1;request.size--;assert(kg_validate(&request,344,200)==-22);
  KgEvent e={.type=KG_KEY,.key='7'};kg_enqueue(&client,&e);request=(KgRequest){.version=1,.size=sizeof request,.operation=KG_POLL,.token=1};

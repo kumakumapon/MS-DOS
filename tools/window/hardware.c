@@ -595,6 +595,17 @@ void gfx_stop(void) {
     out(0xa8, saved_index); out(0x6a, saved_mode ? 1 : 0); bios(0x0c00, 0);
 }
 #ifdef KGUI32_DRIVER
+#include "../kgui32/sdk/text.h"
+int gfx_glyph_copy(unsigned code,u8 bitmap[32]){
+    unsigned columns=kt_glyph(code);if(!columns)return 0;
+    unsigned cg=columns==2?sjis_vram(code>>8,code&255)&0x7fff:code;
+    out(0xa1,cg>>8);out(0xa3,cg);
+    for(unsigned half=0;half<2;half++)for(unsigned row=0;row<16;row++){
+        if(half>=columns){bitmap[half*16+row]=0;continue;}
+        out(0xa5,row+(columns==2&&!half?32:0));bitmap[half*16+row]=in(0xa9);
+    }
+    out(0xa1,0);out(0xa3,0);out(0xa5,0);return columns;
+}
 int gfx_font_copy(unsigned segment){
     if(!fonts_ready||!font_segment)return 0;
     mem_copy(segment,0,font_segment,0,95*16);return 1;

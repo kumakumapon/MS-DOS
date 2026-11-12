@@ -16,7 +16,9 @@ other explicit choice. The document model uses LF internally. Format changes
 participate in dirty state and Undo/Redo. Save serializes the chosen format,
 checks the serialized 64 KiB bound before mutation, displays the encoded temp
 space requirement and records the raw on-disk revision. Mixed LF/CRLF opens as
-LF; bare CR and non-ASCII input are rejected without replacing the document.
+LF; bare CR and malformed Shift-JIS are rejected without replacing the document.
+See [JAPANESE.md](JAPANESE.md) for whole-character movement/search, Japanese
+previews and the bounded guest clipboard input to Find/Replace.
 
 The document viewport uses up to 92 columns and 21 rows at the largest canvas.
 Long rows use multiple bounded text commands. Dense long-line views reduce the

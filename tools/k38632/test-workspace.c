@@ -95,5 +95,16 @@ int main(void){
  r=reset(0);r.bytes=2;r.flags=K32_WORK_CRLF;document[0]='\r';document[1]='x';assert(k32_work_save(&r,&io,buffer)==-22&&!fs[0].live);
  r=reset(0);r.bytes=1;r.flags=K32_WORK_CRLF;document[0]='\n';assert(k32_work_save(&r,&io,buffer)==-22&&!fs[0].live);
  r=reset(0);r.bytes=1;r.flags=K32_WORK_CRLF;document[0]='\r';assert(k32_work_save(&r,&io,buffer)==-22&&!fs[0].live);
- puts("workspace: names, full 64 KiB, empty files, conflict, short writes and every transaction failure passed");return 0;
+ /* A pair crossing the 4096-byte broker copy boundary is still one character.
+  * Incomplete/invalid sequences are rejected before any filesystem operation. */
+ r=reset(0);document[4095]=0x93;document[4096]=0xfa;document[65534]=0x96;document[65535]=0x7b;
+ assert(!k32_work_save(&r,&io,buffer)&&fs[0].n==65536&&!memcmp(fs[0].data,document,65536));
+ r=reset(0);r.bytes=4099;r.flags=K32_WORK_CRLF;document[4095]=0x93;document[4096]=0xfa;document[4097]='\r';document[4098]='\n';
+ assert(!k32_work_save(&r,&io,buffer)&&fs[0].n==4099);
+ const unsigned char malformed[][2]={{0x81,0},{0x81,0x7f},{0x81,'0'},{0x80,'x'},{0xa0,'x'},{0xf0,0x40}};
+ for(unsigned i=0;i<sizeof malformed/sizeof *malformed;i++){
+  r=reset(1);r.bytes=4095+(malformed[i][1]?2:1);document[4095]=malformed[i][0];if(malformed[i][1])document[4096]=malformed[i][1];
+  assert(k32_work_save(&r,&io,buffer)==-22&&calls<=2&&!opened);old_survives();assert(locate("A:\\WORK\\NOTE.TMP")==-1);
+ }
+ puts("workspace: names, full 64 KiB, Shift-JIS boundaries, conflict and every transaction failure passed");return 0;
 }

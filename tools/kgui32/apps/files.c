@@ -1,6 +1,7 @@
 /* Independent root/Work browser with a deferred, owned Editor launch. */
 #include "../sdk/kgui.h"
 #include "../sdk/widgets.h"
+#include "../sdk/text.h"
 #define ENTRIES 192
 #define TEXT_BYTES (128*1024)
 #define LINES TEXT_BYTES /* even a file consisting entirely of newlines */
@@ -53,10 +54,13 @@ static void layout(void){
 static void number(char *s,unsigned n){char rev[10];unsigned i=0,k=0;do{rev[k++]=(char)('0'+n%10);n/=10;}while(n);while(k)s[i++]=rev[--k];s[i]=0;}
 static void preview_lines(void){
  line_count=0;unsigned col=0;int new_line=1;
- for(unsigned at=0;at<bytes;at++){
-  unsigned c=contents[at];if(c=='\r')continue;
+ for(unsigned at=0;at<bytes;){
+  unsigned c=contents[at];if(c=='\r'){at++;continue;}
+  unsigned size=kt_next((const char *)contents,bytes,at)-at;
+  if(c!='\n'&&col+size>40){new_line=1;col=0;}
   if(new_line){if(line_count==LINES)break;offsets[line_count++]=at;new_line=0;}
-  if(c=='\n'){new_line=1;col=0;}else if(++col==40){new_line=1;col=0;}
+  if(c=='\n'){new_line=1;col=0;}else {col+=size;if(col==40){new_line=1;col=0;}}
+  at+=size;
  }
 }
 static void open_preview(void){
@@ -73,7 +77,7 @@ static void open_preview(void){
  while(!error&&bytes<d->bytes){unsigned n=d->bytes-bytes;if(n>4096)n=4096;int got=k32_read(h,contents+bytes,n);if(got<=0){error=got?got:-5;break;}bytes+=got;}
  int closed=k32_close(h);if(!error&&closed<0)error=closed;
  if(error){if(contents)k32_free(contents);contents=0;message="Preview read failed";files_stats.error=-error;return;}
- for(unsigned i=0;i<bytes;i++)if(contents[i]<32&&contents[i]!='\r'&&contents[i]!='\n'&&contents[i]!='\t'){k32_free(contents);contents=0;message="Binary content is not supported";return;}
+ if(!kt_valid((const char *)contents,bytes,KT_LINES|KT_CRLF)){k32_free(contents);contents=0;message="Select valid Shift-JIS text";return;}
  for(unsigned i=0;i<13;i++)filename[i]=d->name[i];
  files_stats.hash=hash(contents,bytes);files_stats.bytes=bytes;
  preview_lines();preview_top=0;mode=1;focus.current=1;scroll.dragging=0;
@@ -111,7 +115,7 @@ static int draw(void){
  if(mode){
   for(unsigned row=0;row<scroll.rows&&row+preview_top<line_count;row++){
    char line[41];unsigned at=offsets[row+preview_top],i=0;
-   while(at<bytes&&i<40&&contents[at]!='\n'){unsigned c=contents[at++];if(c=='\r')continue;line[i++]=c=='\t'?' ':c>=32&&c<=126?(char)c:'?';}line[i]=0;
+   while(at<bytes&&i<40&&contents[at]!='\n'){unsigned c=contents[at];if(c=='\r'){at++;continue;}unsigned n=kt_next((const char *)contents,bytes,at)-at;if(n>40-i)break;for(unsigned j=0;j<n;j++)line[i++]=c=='\t'?' ':contents[at+j];at+=n;}line[i]=0;
    kw_text(12,52+row*16,line,(w-48)/8,0x20344a);
   }
  }else {

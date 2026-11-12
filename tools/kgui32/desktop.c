@@ -2,10 +2,13 @@
  * execute only in CPL3 protected mode. No physical VRAM or I/O mapping. */
 #include "scene.h"
 #include "sdk/protocol.h"
+#include "sdk/text.h"
 #include "../k38632/sdk/k32x.h"
 typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,presents,last_key,heartbeat,error;} GuiState;
 volatile GuiState gui_state __attribute__((used,section(".data.gui_state")))={.magic=0x3147554b,.version=1};
 static GuiInfo info;static Scene scene;static u8 font[95*16];
+static struct {u32 code;u8 bitmap[32];} glyph_cache[128];
+static unsigned glyph_slot;
 static u8 framebuffer[800*600*2],packed[800*600*2];
 static Rect clip;
 static GuiSessionView views[2];static int errors[2],editing[2],lengths[2];
@@ -158,16 +161,26 @@ static void box(int x,int y,int w,int h,u32 c){
   }
  }
 }
+static const u8 *glyph(unsigned code){
+ for(unsigned i=0;i<128;i++)if(glyph_cache[i].code==code)return glyph_cache[i].bitmap;
+ unsigned i=glyph_slot++%128;GuiGlyph r={.version=1,.size=sizeof r,.code=code};
+ if(k32_call(GUI_FONT,(u32)&r,sizeof r)||r.columns!=kt_glyph(code)){
+  for(unsigned j=0;j<32;j++)r.bitmap[j]=font[('?' -32)*16+j%16];
+ }
+ glyph_cache[i].code=code;for(unsigned j=0;j<32;j++)glyph_cache[i].bitmap[j]=r.bitmap[j];return glyph_cache[i].bitmap;
+}
 static void text(int x,int y,const char *s,u32 c){
- for(;*s;s++,x+=8){unsigned ch=(u8)*s;if(ch<32||ch>126)ch='?';
-  if(ch==' ')continue;
-  if(x+8<=clip.x||x>=clip.x+clip.w||y+16<=clip.y||y>=clip.y+clip.h)continue;
+ for(;*s;){unsigned cells=kt_unit(s,s[1]?2:1),ch=(u8)*s;
+  if(!cells){cells=1;ch='?';}
+  unsigned code=cells==2?(ch<<8)|(u8)s[1]:ch;const u8 *bits_data;
+  s+=cells;int origin=x;x+=cells*8;
+  if(ch==' '||x<=clip.x||origin>=clip.x+clip.w||y+16<=clip.y||y>=clip.y+clip.h)continue;
+  bits_data=code>=32&&code<=126?font+(code-32)*16:glyph(code);
   for(int row=0;row<16;row++){
    int yy=y+row;if(yy<clip.y||yy>=clip.y+clip.h)continue;
-   u8 bits=font[(ch-32)*16+row];if(!bits)continue;
    u8 *line=framebuffer+yy*info.pitch;
-   for(int col=0;col<8;col++)if((bits&(128>>col))&&x+col>=clip.x&&x+col<clip.x+clip.w){
-    if(info.bpp==1)line[x+col]=(u8)c;else ((u16 *)line)[x+col]=(u16)c;
+   for(unsigned col=0;col<cells*8;col++)if((bits_data[col/8*16+row]&(128>>(col%8)))&&origin+(int)col>=clip.x&&origin+(int)col<clip.x+clip.w){
+    if(info.bpp==1)line[origin+col]=(u8)c;else ((u16 *)line)[origin+col]=(u16)c;
    }
   }
  }
@@ -356,6 +369,15 @@ static int negative(void){
  p=(GuiPresent){0x10000,0,0,16,16,16*info.bpp};
  if(k32_call(GUI_PRESENT,(u32)&p,sizeof p)!=-14)return 4;
  if(k32_call(GUI_EVENT,0x10000,sizeof(GuiEvent))!=-14)return 5;
+ GuiGlyph g={.version=1,.size=sizeof g,.code=0x93fa};
+ if(k32_call(GUI_FONT,0x10000,sizeof g)!=-14)return 6;
+ if(k32_call(GUI_FONT,(u32)&g,sizeof g)||g.columns!=2)return 7;
+ g.columns=0;g.code=0x80;if(k32_call(GUI_FONT,(u32)&g,sizeof g)!=-22)return 8;
+ g.code=0x817f;if(k32_call(GUI_FONT,(u32)&g,sizeof g)!=-22)return 9;
+ g.code=0x10093fa;if(k32_call(GUI_FONT,(u32)&g,sizeof g)!=-22)return 10;
+ g.code=0x93fa;g.version=2;if(k32_call(GUI_FONT,(u32)&g,sizeof g)!=-22)return 11;
+ static const GuiGlyph ro={.version=1,.size=sizeof(GuiGlyph),.code=0x93fa};
+ if(k32_call(GUI_FONT,(u32)&ro,sizeof ro)!=-14)return 12;
  return 0;
 }
 int main(int argc,char **argv){

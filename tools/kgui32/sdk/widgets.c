@@ -1,23 +1,32 @@
 #include "widgets.h"
+#include "text.h"
 static unsigned limit(unsigned top,unsigned total,unsigned rows){unsigned max=total>rows?total-rows:0;return top>max?max:top;}
 int kw_inside(KwRect r,int x,int y){return x>=r.x&&y>=r.y&&x-r.x<r.w&&y-r.y<r.h;}
 int kw_focus(KwFocus *f,const KgEvent *e){if(e->type!=KG_KEY||e->key!=9||!f->count)return 0;f->current=(f->current+((e->control&KG_MOD_SHIFT)?f->count-1:1))%f->count;return 1;}
+int kw_insert(KwInput *v,const char *s,unsigned n){
+ if(v->length>=KW_INPUT_BYTES||n>KW_INPUT_BYTES-1-v->length||!kt_valid(s,n,0))return 0;
+ if(!n)return 0;
+ for(unsigned i=v->length+1;i>v->cursor;i--)v->text[i+n-1]=v->text[i-1];
+ for(unsigned i=0;i<n;i++)v->text[v->cursor+i]=s[i];
+ v->cursor+=n;v->length+=n;return 2;
+}
 int kw_input(KwInput *v,const KgEvent *e){
  if(e->type!=KG_KEY)return 0;
  unsigned k=e->key;
- if(k==258){if(v->cursor)v->cursor--;return 1;}
- if(k==259){if(v->cursor<v->length)v->cursor++;return 1;}
+ if(k==258){v->cursor=kt_prev(v->text,v->length,v->cursor);return 1;}
+ if(k==259){v->cursor=kt_next(v->text,v->length,v->cursor);return 1;}
  if(k==260){v->cursor=0;return 1;}
  if(k==261){v->cursor=v->length;return 1;}
  if(k==8||k==264){
-  if(k==8){if(!v->cursor)return 0;v->cursor--;}
+  unsigned end=v->cursor;
+  if(k==8){if(!v->cursor)return 0;v->cursor=kt_prev(v->text,v->length,v->cursor);}
   else if(v->cursor==v->length)return 0;
-  for(unsigned i=v->cursor;i<v->length;i++)v->text[i]=v->text[i+1];
-  v->length--;return 2;
+  else end=kt_next(v->text,v->length,v->cursor);
+  unsigned n=end-v->cursor;for(unsigned i=v->cursor;i+n<=v->length;i++)v->text[i]=v->text[i+n];
+  v->length-=n;return 2;
  }
- if(k<32||k>126||v->length==KW_INPUT_BYTES-1)return 0;
- for(unsigned i=v->length+1;i>v->cursor;i--)v->text[i]=v->text[i-1];
- v->text[v->cursor++]=(char)k;v->length++;return 2;
+ if(k>255)return 0;
+ char c=k;return kw_insert(v,&c,1);
 }
 void kw_reveal(KwList *l){
  if(!l->rows)l->rows=1;
