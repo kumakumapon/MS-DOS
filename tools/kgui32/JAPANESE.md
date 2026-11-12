@@ -24,7 +24,7 @@ host clipboard or Japanese composition input in this stage.
 
 ## Drawing boundary
 
-The existing `GuiDraw`/`KgRequest`/event wire sizes and calls 64–72 are unchanged.
+The existing `KgDraw`/`KgRequest`/event wire sizes and calls 64–72 are unchanged.
 Text and button commands remain NUL-terminated arrays of 48 bytes; the last byte
 is reserved for NUL. Half-width characters use 8×16 pixels and a pair uses 16×16.
 Validation accounts for the encoded cell width before rendering. A clipped or

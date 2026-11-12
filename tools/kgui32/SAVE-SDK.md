@@ -51,7 +51,10 @@ reject save-enabled client packages. There is no new privileged I/O in clients.
 
 INT30h **17**, EBX=RW `K32Work`, ECX=64; EAX=result. The 64-byte version-1
 request has u32 version/size/operation/flags, name[16], then u32 data/bytes/
-exists/length/hash/reserved[3]. Flags/reserved must be zero. `sdk/k32x.h`
+exists/length/hash/reserved[3]. Reserved fields must be zero. Flags are zero
+except SAVE may set `K32_WORK_CRLF=1` for strict CRLF; LF saves use zero.
+The complete encoded document is validated before mutation, including CR/LF
+and Shift-JIS pairs split across 4096-byte copies. `sdk/k32x.h`
 provides `k32_work`, `k32_work_name`, `k32_work_first` and `k32_work_info`.
 
 | Operation | Request / result |
