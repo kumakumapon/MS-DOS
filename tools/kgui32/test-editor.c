@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 #include "sdk/editor.h"
+#include "sdk/text.h"
 static KeDocument d;static char full[KE_BYTES];
 int main(void){
  assert(!ke_load(&d,"A\r\nB",4));assert(!strcmp(ke_view(&d)->text,"A\nB"));assert(!ke_dirty(&d));
@@ -33,5 +34,28 @@ int main(void){
  memset(full,'\n',sizeof full);assert(!ke_load(&d,full,sizeof full));assert(ke_set_eol(&d,1)==1);
  assert(ke_serialize(&d,serialized,sizeof serialized)==-27&&ke_dirty(&d));
  assert(ke_load(&d,"bare\r",5)==-1&&ke_view(&d)->n==KE_BYTES);
+ /* Trail bytes may look like ASCII punctuation. They must not become cursor
+  * positions, search matches, replacement targets, or clipped draw fragments. */
+ const char jp[]="A\x93\xfa\x96\x7b\x8c\xea\xb6\xc5\n";
+ assert(!ke_load(&d,jp,sizeof jp-1)&&!ke_dirty(&d));
+ ke_select(&d,2,6);assert(ke_view(&d)->anchor==1&&ke_view(&d)->cursor==5);
+ assert(kt_next(jp,sizeof jp-1,1)==3&&kt_prev(jp,sizeof jp-1,3)==1);
+ assert(ke_find(&d,"{",1,0,1)==0);assert(!ke_replace_all(&d,"{",1,"X",1));
+ assert(ke_find(&d,"\x96\x7b",2,2,1)==1&&ke_view(&d)->anchor==3&&ke_view(&d)->cursor==5);
+ assert(ke_replace(&d,"J",1)==1);assert(ke_undo(&d,0)&&!ke_dirty(&d));
+ assert(ke_set_eol(&d,1)==1);assert(ke_serialize(&d,serialized,sizeof serialized)==(int)sizeof jp);
+ assert(!memcmp(serialized,jp,sizeof jp-2)&&serialized[sizeof jp-2]=='\r'&&serialized[sizeof jp-1]=='\n');
+ const char *bad_sjis[]={"\x80","\xa0","\xfd","\x81","\x81\x7f","\x81\x30","\xf0\x40"};
+ unsigned saved_n=ke_view(&d)->n;count=d.count;
+ for(unsigned i=0;i<sizeof bad_sjis/sizeof *bad_sjis;i++){
+  unsigned n=strlen(bad_sjis[i]);assert(ke_load(&d,bad_sjis[i],n)==-1&&ke_view(&d)->n==saved_n&&d.count==count);
+  assert(ke_replace(&d,bad_sjis[i],n)==-1&&d.count==count);
+  assert(ke_find(&d,bad_sjis[i],n,0,1)==-22);
+ }
+ char wide[50];memset(wide,'a',46);wide[46]='\x93';wide[47]='\xfa';wide[48]='X';wide[49]=0;
+ assert(kt_prefix(wide,49,47)==46&&kt_prefix(wide+46,3,2)==2);
+ assert(kt_glyph(0x93fa)==2&&kt_glyph(0xb6)==1&&!kt_glyph(0x817f)&&!kt_glyph(0x10093fa));
+ assert(!ke_load(&d,"\x93\xfa\x93\xfa",4));assert(ke_replace_all(&d,"\x93\xfa",2,"\xb6",1)==2);
+ assert(ke_view(&d)->n==2&&!memcmp(ke_view(&d)->text,"\xb6\xb6",2));assert(ke_undo(&d,0)&&!ke_dirty(&d));
  return 0;
 }

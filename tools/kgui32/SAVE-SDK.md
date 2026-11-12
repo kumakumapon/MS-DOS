@@ -2,7 +2,8 @@
 
 Use the separate KGUI32 image, 16 MiB RAM, Welcome > Editor (`KGEDIT.EXE`).
 Existing KDESK and the original DOS kernel remain separate and unchanged.
-Documents remain ASCII, at most 65,536 bytes. Open normalizes CRLF to LF;
+Documents use ASCII/JIS X 0201 kana/JIS X 0208 Shift-JIS, at most 65,536 bytes.
+See [JAPANESE.md](JAPANESE.md). Open normalizes CRLF to LF;
 Save uses the selected LF/CRLF format; see [RECOVERY-SDK.md](RECOVERY-SDK.md). Saving retains selection, cursor and Undo/Redo history.
 
 - **Save / Ctrl+S** saves the current workspace file, or opens Save As.
@@ -12,7 +13,7 @@ Save uses the selected LF/CRLF format; see [RECOVERY-SDK.md](RECOVERY-SDK.md). S
   the filename; Enter in the list also selects it. An existing destination requires Replace (R) or Cancel (Esc).
 - **Open / Ctrl+O** starts in Work when a supported HDD is present, otherwise
   in the read-only A: root. Work selects the broker's workspace (normally
-  `B:\WORK` on HDD, `A:\WORK` without HDD); Root selects A:. Ctrl+W toggles Root/Work inside Open. Filtering, list navigation and Open work in
+  `A:\WORK` on standalone HDD, `B:\WORK` on paired FD/HDD, or `A:\WORK` on FD); Root selects A:. Ctrl+W toggles Root/Work inside Open. Filtering, list navigation and Open work in
   either location. Root files can be edited, but Save As writes only to Work.
 - X, F10, New and Open offer **Save (S), Discard (D), Cancel (Esc)** for a
   modified document. Canceling either a save picker or replacement also cancels
@@ -37,7 +38,7 @@ file remains allocated. The size limit is not a free-space guarantee.
 Root boot files, EXEs, devices, paths, application-selected drives, hidden/system/read-only
 files and arbitrary subdirectories are outside the write API. No mkdir/delete
 or arbitrary write-handle API is exposed. SDK1–3 calls and wire layouts retain
-their contracts. General Japanese/IME, host clipboard and extra slots are later
+their contracts. Japanese composition/IME, host clipboard and extra slots are later
 work. The browser's existing disk persistence/export saves the modified image;
 export a copy before resetting it to the bundled original.
 
@@ -86,7 +87,7 @@ keyboard prompt; the original INT24 vector is restored on every return.
 
 ## Failure and recovery contract
 
-SAVE validates ASCII before mutation and checks the current revision. It creates
+SAVE validates Shift-JIS (including pairs split across copy chunks) before mutation and checks the current revision. It creates
 `NAME.TMP` exclusively, checks each write and close, renames an existing target
 to `NAME.BAK`, then publishes TMP as TXT. Publication failure attempts rollback.
 An existing TMP or BAK is never truncated or silently deleted. Temporary handles

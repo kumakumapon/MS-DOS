@@ -22,7 +22,7 @@ test: all
 	python3 test_services.py
 	$(MAKE) $(BUILD)/test-workspace
 	$(BUILD)/test-workspace
-$(BUILD)/test-workspace: test-workspace.c workspace.c workspace.h services.c services.h | $(BUILD)
+$(BUILD)/test-workspace: test-workspace.c workspace.c workspace.h services.c services.h ../filer/sjis.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-workspace.c workspace.c services.c -o $@
 .PHONY: test
 CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -msoft-float -mno-sse -mno-mmx -Wall -Wextra -Werror

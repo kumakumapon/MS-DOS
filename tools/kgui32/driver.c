@@ -9,6 +9,7 @@ extern K32Plan loader_plan;extern K32Args loader_args;
 extern int loader_open(void),services_dispatch(void),services_wait(void),host_acquire(void);
 extern void loader_close(void),services_close(void),host_enter(void),host_drop_xms(void);
 extern int gui_copy(u32,void *,unsigned,int),gui_copy_far(u32,unsigned,unsigned),gfx_font_copy(unsigned);
+extern int gfx_glyph_copy(unsigned,u8 [32]);
 extern void gfx_driver_release(void);
 char host_command[128];
 volatile GuiDriverRecord gui_record={.signature={'K','G','3','2','D','R','V','1'},.version=1,.size=sizeof(GuiDriverRecord)};
@@ -117,6 +118,11 @@ static int dispatch(void){
  case GUI_FONT:
   error=-22;if(c==95*16&&gfx_font_copy(scratch)){
    u8 font[95*16];mem_copy(segment,(unsigned)font,scratch,0,sizeof font);error=gui_copy(b,font,sizeof font,1);
+  }else if(c==sizeof(GuiGlyph)){
+   GuiGlyph r;error=gui_copy(b,&r,sizeof r,0);if(error)break;
+   if(r.version!=1||r.size!=sizeof r||r.columns){error=-22;break;}
+   extern u32 loader_map[1024];if(!k32_user_range(loader_map,b,sizeof r,1)){error=-14;break;}
+   r.columns=gfx_glyph_copy(r.code,r.bitmap);error=r.columns?gui_copy(b,&r,sizeof r,1):-22;
   }break;
  case GUI_PROOF:error=b==1?start_workers():b==2?(stop_workers(),0):-22;break;
  case GUI_SESSION:error=gui_session(b,c);break;

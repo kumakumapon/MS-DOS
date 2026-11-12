@@ -12,6 +12,7 @@ typedef struct {unsigned current,count;} KwFocus;
 int kw_inside(KwRect,int,int);
 int kw_focus(KwFocus *,const KgEvent *);
 int kw_input(KwInput *,const KgEvent *);
+int kw_insert(KwInput *,const char *,unsigned);
 void kw_reveal(KwList *);
 int kw_list(KwList *,KwRect,const KgEvent *);
 int kw_scroll(KwScroll *,const KgEvent *);

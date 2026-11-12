@@ -2,6 +2,7 @@
 
 Status: SDK3 implemented, validated and merged in both repositories #43.
 SDK4 supersedes the temporary/read-only editor behavior; see [SAVE-SDK.md](SAVE-SDK.md).
+Current Japanese text support is documented in [JAPANESE.md](JAPANESE.md).
 The remainder records the SDK3 baseline. Use the separate KGUI32 image with
 16 MiB RAM; Welcome > Editor or Run > KGEDIT.EXE. Each editor is a CPL3 client
 in one of the two 4 MiB mixed slots; the desktop remains separate.

@@ -7,6 +7,8 @@ text-session windows. Window composition, focus, resizing, viewport scrolling
 and input routing execute in the CPL3 GUI. The first graphical-client SDK and separate calculator/clock EXEs are
 available through the Welcome launcher. See [CLIENT-SDK.md](CLIENT-SDK.md)
 and [SESSIONS.md](SESSIONS.md) for the client and text-session contracts.
+Graphical Japanese text and Editor Shift-JIS reading/writing are described in
+[JAPANESE.md](JAPANESE.md); Japanese composition/IME is a later stage.
 
 ## Build and run
 
@@ -82,7 +84,7 @@ fields from `gui.h`:
 | 64 INFO | Copy a 96-byte versioned GuiInfo to writable user memory. |
 | 65 EVENT | Copy one 48-byte GuiEvent, return 1; return 0 when none is ready. |
 | 66 PRESENT | Read a 24-byte GuiPresent, validate rectangle/pitch/entire readable source range, copy packed rows and present damage. |
-| 67 FONT | Copy 95×16 bytes of PC-98 CGROM ASCII glyphs to writable user memory. |
+| 67 FONT | Copy the original 95×16-byte ASCII table, or read one validated CG-ROM glyph through a 48-byte GuiGlyph request. See JAPANESE.md. |
 | 68 PROOF | Action 1 starts two diagnostic workers, 2 stops loader-owned generations. |
 | 69 SESSION | Read a 152-byte versioned command; validate slot, operation, generation and ownership before touching the monitor. |
 | 70 SNAPSHOT | Read a versioned header and copy a 2080-byte session view including an 80x25 screen to writable user memory. |

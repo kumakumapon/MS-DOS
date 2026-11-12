@@ -14,6 +14,10 @@ enum {GUI_MOTION=1,GUI_BUTTON=2,GUI_KEY=3,GUI_TIMER=4};
 typedef struct {u32 magic,version,size,width,height,bpp,pitch,features,colors[16];} GuiInfo;
 typedef struct {u32 sequence,type,x,y,buttons,key,ticks,states[2],counters[2],lost;} GuiEvent;
 typedef struct {u32 pixels,x,y,width,height,pitch;} GuiPresent;
+/* GUI_FONT accepts this bounded in/out request in addition to the original
+ * 1520-byte ASCII table. Only the dedicated desktop can request CG-ROM data. */
+typedef struct {u32 version,size,code,columns;u8 bitmap[32];} GuiGlyph;
+_Static_assert(sizeof(GuiGlyph)==48,"CG-ROM glyph ABI");
 /* Debugger producer, not an application interface. busy/ready guard the native
  * record. CPU samples are produced by actual protected execution. */
 typedef struct {

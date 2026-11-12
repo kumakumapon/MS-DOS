@@ -3,6 +3,7 @@
 #include "../sdk/picker.h"
 #include "../document.h"
 #include "../sdk/recovery.h"
+#include "../sdk/text.h"
 static KeDocument doc;static KpPicker picker;static KrRecovery recovery;
 static KwInput find_text,replace_text;static KwFocus find_focus;static unsigned replacing,recovery_suggested;
 static const char *notice,*find_note;
@@ -15,7 +16,7 @@ volatile struct {u32 magic,version,frames,events,bytes,hash,cursor,anchor,dirty,
 static void layout(void){cols=(kg_width()-48)/8;if(cols>92)cols=92;rows=(kg_height()-80)/16;if(rows>21)rows=21;}
 static void budget_rows(void){
  KeVersion *v=ke_view(&doc);unsigned used=0,limit=rows,actual=0;
- for(unsigned row=0;row<limit;row++){unsigned cost=0;if(row+top<line_count){unsigned a=lines[row+top],b=row+top+1<line_count?lines[row+top+1]:v->n;if(b>a&&v->text[b-1]=='\n')b--;cost=(b-a+46)/47;}
+ for(unsigned row=0;row<limit;row++){unsigned cost=0;if(row+top<line_count){unsigned a=lines[row+top],b=row+top+1<line_count?lines[row+top+1]:v->n;if(b>a&&v->text[b-1]=='\n')b--;while(a<b){a+=kt_prefix(v->text+a,b-a,47);cost++;}}
   if(used+cost>KG_COMMANDS-16)break;
   used+=cost;actual++;}
  rows=actual?actual:1;
@@ -23,7 +24,11 @@ static void budget_rows(void){
 static unsigned row_at(unsigned at){unsigned r=0;while(r+1<line_count&&lines[r+1]<=at)r++;return r;}
 static void index_lines(int follow){
  layout();KeVersion *v=ke_view(&doc);unsigned col=0;line_count=1;lines[0]=0;
- for(unsigned i=0;i<v->n;i++){if(v->text[i]=='\n'||++col==cols){lines[line_count++]=i+1;col=0;}}
+ for(unsigned i=0;i<v->n;){unsigned n=kt_next(v->text,v->n,i)-i;
+  if(v->text[i]=='\n'){i++;lines[line_count++]=i;col=0;continue;}
+  if(col+n>cols){lines[line_count++]=i;col=0;}
+  i+=n;col+=n;if(col==cols){lines[line_count++]=i;col=0;}
+ }
  unsigned r=row_at(v->cursor);
  for(unsigned pass=0;pass<22;pass++){layout();budget_rows();unsigned old=top;if(follow){if(r<top)top=r;if(r>=top+rows)top=r-rows+1;}
   unsigned max=line_count>rows?line_count-rows:0;if(top>max)top=max;if(top==old)break;}
@@ -41,7 +46,7 @@ static void load(const char *name,unsigned work){
  if(!error&&n==KE_BYTES){char extra;int got=k32_read(h,&extra,1);if(got)error=-27;}
  int closed=k32_close(h);if(!error&&closed<0)error=closed;
  if(work&&!error&&(!before.exists||before.length!=n||before.hash!=content_hash(load_buffer,n)))error=-116;
- if(error||ke_load(&doc,load_buffer,n)){message="Open failed: ASCII text, max 64 KiB";editor_stats.error=error?-error:22;return;}
+ if(error||ke_load(&doc,load_buffer,n)){message="Open failed: Shift-JIS, max 64 KiB";editor_stats.error=error?-error:22;return;}
  for(unsigned i=0;i<13;i++){filename[i]=name[i];if(!name[i])break;}
  in_work=work;revision=before;
  kp_workspace_info(&destination);
@@ -74,7 +79,7 @@ static int save(int as){
  kp_save_size(&picker,in_work?filename:"",bytes);mode=3;return 0;
 }
 static void copy_selection(int cut){KeVersion *v=ke_view(&doc);unsigned a=v->anchor<v->cursor?v->anchor:v->cursor,b=v->anchor>v->cursor?v->anchor:v->cursor;if(b-a>1024){message="Clipboard limit: 1024 bytes";return;}if(b==a)return;if(kg_clip_set(v->text+a,b-a)<0){message="Clipboard unavailable";return;}if(cut)ke_replace(&doc,"",0);}
-static unsigned hit(const KgEvent *e){unsigned r=top+(e->y<40?0:(unsigned)(e->y-40)/16);if(r>=line_count)return ke_view(&doc)->n;unsigned col=e->x<8?0:(unsigned)(e->x-8)/8;if(col>cols)col=cols;unsigned at=lines[r]+col,end=r+1<line_count?lines[r+1]:ke_view(&doc)->n;KeVersion *v=ke_view(&doc);if(end>lines[r]&&v->text[end-1]=='\n')end--;return at>end?end:at;}
+static unsigned hit(const KgEvent *e){unsigned r=top+(e->y<40?0:(unsigned)(e->y-40)/16);if(r>=line_count)return ke_view(&doc)->n;unsigned col=e->x<8?0:(unsigned)(e->x-8)/8;if(col>cols)col=cols;unsigned at=lines[r]+col,end=r+1<line_count?lines[r+1]:ke_view(&doc)->n;KeVersion *v=ke_view(&doc);if(end>lines[r]&&v->text[end-1]=='\n')end--;return kt_floor(v->text,v->n,at>end?end:at);}
 static void edit_key(unsigned k,unsigned modifiers){
  KeVersion *v=ke_view(&doc);unsigned at=v->cursor,r=row_at(at),col=at-lines[r];
  if(k==1){ke_select(&doc,0,v->n);return;}
@@ -83,15 +88,15 @@ static void edit_key(unsigned k,unsigned modifiers){
  if(k==22){int n=kg_clip_get(clipboard,sizeof clipboard);if(n>0&&ke_replace(&doc,clipboard,n)<0)message="Paste rejected: text or size limit";return;}
  if(k==26||k==25){ke_undo(&doc,k==25);return;}
  if(k>=256&&k<=263){
-  if(k==258&&at)at--;
-  if(k==259&&at<v->n)at++;
+  if(k==258)at=kt_prev(v->text,v->n,at);
+  if(k==259)at=kt_next(v->text,v->n,at);
   if(k==260)at=lines[r];
   if(k==261){at=r+1<line_count?lines[r+1]:v->n;if(at>lines[r]&&v->text[at-1]=='\n')at--;}
   if(k==256||k==257||k==262||k==263){unsigned step=k>=262?rows:1;r=(k==256||k==262)?(r>step?r-step:0):(r+step<line_count?r+step:line_count-1);at=lines[r]+col;unsigned end=r+1<line_count?lines[r+1]:v->n;if(end>lines[r]&&v->text[end-1]=='\n')end--;if(at>end)at=end;}
   ke_select(&doc,(mark||(modifiers&KG_MOD_SHIFT))?v->anchor:at,at);return;
  }
- if(k==8||k==264){if(v->anchor==v->cursor){if(k==8&&v->cursor)v->anchor--;else if(k==264&&v->cursor<v->n)v->anchor++;}ke_replace(&doc,"",0);return;}
- char c=k==13?'\n':(char)k;if(k==13||k==9||(k>=32&&k<=126))if(ke_replace(&doc,&c,1)<0)message="Document limit: 64 KiB";
+ if(k==8||k==264){if(v->anchor==v->cursor)v->anchor=k==8?kt_prev(v->text,v->n,v->cursor):kt_next(v->text,v->n,v->cursor);ke_replace(&doc,"",0);return;}
+ char c=k==13?'\n':(char)k;if(k==13||k==9||(k>=32&&k<=126)||(k>=0xa1&&k<=0xdf))if(ke_replace(&doc,&c,1)<0)message="Document limit: 64 KiB";
 }
 static void search_open(unsigned replace){replacing=replace;find_focus=(KwFocus){.count=replace?6:3};find_note=0;mode=5;drag=mark=0;}
 static int search_next(void){KeVersion *v=ke_view(&doc);int e=ke_find(&doc,find_text.text,find_text.length,v->cursor,1);if(e>0){index_lines(1);notice="Found / F3: next / Ctrl H: replace";}else find_note=e<0?"Enter a nonempty search":"Not found";return e;}
@@ -100,6 +105,7 @@ static void search_event(const KgEvent *e){
  if(e->type==KG_KEY&&e->key==27){mode=0;return;}
  if(kw_focus(&find_focus,e))return;
  if(e->type==KG_MOUSE&&(e->key&1)){if(e->y>=32&&e->y<58)find_focus.current=0;if(replacing&&e->y>=76&&e->y<102)find_focus.current=1;}
+ if(e->type==KG_KEY&&e->key==22&&(find_focus.current==0||(replacing&&find_focus.current==1))){int n=kg_clip_get(clipboard,sizeof clipboard);if(n>0&&!kw_insert(find_focus.current?&replace_text:&find_text,clipboard,n))find_note="Paste needs single-line Shift-JIS / max 63 bytes";return;}
  if(!find_focus.current)kw_input(&find_text,e);
  if(replacing&&find_focus.current==1)kw_input(&replace_text,e);
  unsigned action=0;
@@ -147,7 +153,7 @@ static int draw(void){
  selection_rects(a,b);
  for(unsigned i=0;i<rows&&i+top<line_count;i++){
   unsigned start=lines[i+top],end=i+top+1<line_count?lines[i+top+1]:v->n;if(end>start&&v->text[end-1]=='\n')end--;
-  for(unsigned part=0;start+part<end;part+=47){char text[48];unsigned n=0;while(start+part+n<end&&n<47){char c=v->text[start+part+n];text[n++]=c=='\t'?' ':c;}text[n]=0;kg_text(8+part*8,40+i*16,text,0x20344a);}
+  for(unsigned part=0;start+part<end;){char text[48];unsigned n=kt_prefix(v->text+start+part,end-start-part,47);for(unsigned j=0;j<n;j++){char c=v->text[start+part+j];text[j]=c=='\t'?' ':c;}text[n]=0;kg_text(8+part*8,40+i*16,text,0x20344a);part+=n;}
  }
  unsigned r=row_at(v->cursor);if(r>=top&&r<top+rows){unsigned c=v->cursor-lines[r];if(c<cols)kg_rect(8+c*8,54+(r-top)*16,8,2,0x327ac0);}
  KwScroll scroll={.r={(int)w-28,40,20,(int)rows*16},.total=line_count,.rows=rows,.top=top};kw_draw_scroll(&scroll);
