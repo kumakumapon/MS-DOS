@@ -41,7 +41,7 @@ int main(void){
   if(mode[2]=='N'){int e=select_drive(1);check(e==-15,e);check(!drive(),drive());}
   return report("V86 FD READ PASS\r\n");
  }
- unsigned own=drive();check(own>0&&own<26,own);if(!own||own>25)return report("unused");path[0]='A'+own;
+ unsigned own=drive();check(own<26,own);if(own>25)return report("unused");path[0]='A'+own;
  check(!cwd(0,directory)&&!fd_cmp(directory,"APPS"),directory[0]);
  int h=p_open("VDATA.BIN");check(h>=0,h);if(h<0)return report("unused");
  if(mode[0]=='H'||mode[0]=='X'){

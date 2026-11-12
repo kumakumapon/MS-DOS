@@ -3,6 +3,11 @@ CFLAGS = -m16 -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protec
 all: $(BUILD)/KHD98.SYS
 all: $(BUILD)/HDDTEST.EXE
 all: $(BUILD)/HDDFLT.COM
+all: $(BUILD)/boot1.bin $(BUILD)/boot2.bin
+$(BUILD)/boot%.o: boot%.S | $(BUILD)
+	as --32 $< -o $@
+$(BUILD)/boot%.bin: $(BUILD)/boot%.o
+	ld -m elf_i386 -Ttext 0 --oformat binary $< -o $@
 $(BUILD)/failwrite.o: failwrite.S | $(BUILD)
 	as --32 $< -o $@
 $(BUILD)/failwrite.elf: $(BUILD)/failwrite.o failwrite.ld
@@ -28,7 +33,8 @@ $(BUILD)/probe.elf: $(BUILD)/probe.o $(BUILD)/probe-start.o $(BUILD)/fault.o ../
 $(BUILD)/HDDTEST.EXE: $(BUILD)/probe.elf ../../../tools/mz/build.py
 	python3 ../../../tools/mz/build.py $< $@
 .PHONY: all test
-test: $(BUILD)/policy-test
+test: $(BUILD)/policy-test $(BUILD)/boot1.bin $(BUILD)/boot2.bin
 	$(BUILD)/policy-test
+	python3 -m unittest discover -s . -p 'test_boot*.py'
 $(BUILD)/policy-test: policy-test.c policy.c policy.h | $(BUILD)
 	$(CC) -std=c99 -Wall -Wextra -Werror -fsanitize=undefined,address -g policy-test.c policy.c -o $@

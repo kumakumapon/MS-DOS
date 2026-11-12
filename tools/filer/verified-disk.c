@@ -4,7 +4,7 @@ static unsigned char byte(unsigned p){unsigned char c;__asm__ volatile("pushw %%
 static unsigned word(unsigned p){return byte(p)|(unsigned)byte(p+1)<<8;}
 static unsigned dword(unsigned p){return word(p)|word(p+2)<<16;}
 int fd_hdd_verified(unsigned drive){
- if(!drive||drive>25)return 0;
+ if(drive>25)return 0;
  unsigned a=0x3200,b;unsigned short segment;
  __asm__ volatile("pushw %%ds; int $0x21; movw %%ds,%1; popw %%ds":"+a"(a),"=c"(segment),"=b"(b):"d"(drive+1):"cc","memory");
  if(a&255)return 0;

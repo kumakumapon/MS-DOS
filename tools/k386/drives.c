@@ -2,10 +2,10 @@
 #include "../filer/filer.h"
 static unsigned upper(unsigned c){return c>='a'&&c<='z'?c-32:c;}
 void k386_drives_init(K386Drives *d,unsigned hdd){
- *d=(K386Drives){0};d->hdd=hdd<26?hdd:0;
- fd_text(d->cwd[0],"A:\\",68);if(d->hdd){fd_text(d->cwd[1],"A:\\",68);d->cwd[1][0]='A'+d->hdd;}
+ *d=(K386Drives){0};d->hdd=hdd<26?hdd:K386_NO_HDD;
+ fd_text(d->cwd[0],"A:\\",68);if(d->hdd>0&&d->hdd<26){fd_text(d->cwd[1],"A:\\",68);d->cwd[1][0]='A'+d->hdd;}
 }
-int k386_drive_slot(const K386Drives *d,unsigned drive){return drive==0?0:d->hdd&&drive==d->hdd?1:-1;}
+int k386_drive_slot(const K386Drives *d,unsigned drive){return drive==0?0:d->hdd<26&&drive==d->hdd?1:-1;}
 int k386_drive_path(const K386Drives *d,const char *input,char out[128],int wild){
  char name[128];unsigned drive=d->current;int n=0,last=0;
  if(!input[0])return 3;

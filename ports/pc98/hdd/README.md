@@ -79,8 +79,10 @@ contents from the downloaded THD, and boots a fresh browser context for
 retention. See that repository's `docs/pc98-hdd-proof.md` for the exact commands.
 
 KGUI32 now uses this marked data-volume contract for its workspace; see
-[HDD-WORKSPACE.md](../../../tools/kgui32/HDD-WORKSPACE.md). HDD-only boot, generic
-existing disks, app migration and concurrent writable sharing remain later work.
+[HDD-WORKSPACE.md](../../../tools/kgui32/HDD-WORKSPACE.md). App distribution is
+described in [HDD-APPS.md](../../../tools/kgui32/HDD-APPS.md), and the separate
+standalone HDD profile in [BOOT.md](BOOT.md). Generic existing disks and
+concurrent writable sharing remain outside these profiles.
 
 `HDDFLT.COM` is a test-only TSR for disposable browser fixtures. It chains INT1Bh
 and denies exactly the first HDD physical write (AX=0500h, AH=60h/CF set), leaving

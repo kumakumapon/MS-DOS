@@ -12,7 +12,8 @@ Retain the complete legacy FD as the explicit standalone compatibility choice.
 Stage 3 did not include HDD IPL, V86 drive expansion, Files navigation or
 recovery UI. Files navigation and recovery were subsequently added in #49/#50;
 V86 read-only HDD drive support is described in
-[HDD-READONLY.md](../k386/HDD-READONLY.md). HDD-only boot remains separate work.
+[HDD-READONLY.md](../k386/HDD-READONLY.md). The subsequent standalone HDD boot
+profile is described in [BOOT.md](../../ports/pc98/hdd/BOOT.md).
 
 Both the mixed manager's classification and the PM32 loader must use the same
 bounded application open routine. Bare 8.3 names retain FD-root precedence,
