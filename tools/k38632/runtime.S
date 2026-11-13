@@ -126,7 +126,7 @@ budget_ready:
     and eax,0xfffff000
     cmp eax,0x100000
     jb allocation_error
-    cmp eax,0x1000000-0x400000
+    cmp eax,0x2000000-0x400000
     ja allocation_error
     mov DWORD PTR results+28,eax
 .ifdef LOADER
@@ -530,9 +530,12 @@ identity:
 .ifdef LOADER
     xor ecx,ecx
 map_external:
-    mov eax,DWORD PTR loader_map[ecx*4]
+    movzx eax,BYTE PTR loader_map[ecx]
     test eax,eax
     jz external_pte
+    mov edx,ecx
+    shl edx,12
+    add eax,edx
     add eax,DWORD PTR results+28
 external_pte:
     mov DWORD PTR es:[edi+8192+ecx*4],eax

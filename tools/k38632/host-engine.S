@@ -34,7 +34,7 @@ host_acquire:
     and eax,0xfffff000
     cmp eax,0x100000
     jb host_allocation_error
-    cmp eax,0xc00000
+    cmp eax,0x1c00000
     ja host_allocation_error
     mov DWORD PTR results+28,eax
     call loader_prepare

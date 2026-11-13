@@ -6,9 +6,9 @@
 #include "../window/k386_client.h"
 extern int gui_copy(u32,void *,unsigned,int);
 extern int gui_output_range(u32,unsigned);
-extern unsigned owned[2],manager,session_focus;
-extern u32 owned_generation[2];
-static char commands[2][128];
+extern unsigned owned[4],manager,session_focus;
+extern u32 owned_generation[4];
+static char commands[4][128];
 /* Shared wire scratch: snapshot copies never schedule or call DOS. */
 extern u8 loader_buffer[4096];
 #define view (*(GuiSessionView *)loader_buffer)
@@ -23,9 +23,9 @@ static int launch(unsigned id,const char *path){
 }
 int gui_open_document(unsigned requestor,u32 generation,unsigned work,const char *name){
  char command[64];int e=kg_document_command(work,name,command);if(e)return e;
- if(!manager||requestor>=2||!owned[requestor]||owned_generation[requestor]!=generation)return -116;
+ if(!manager||requestor>=k386_capacity()||!owned[requestor]||owned_generation[requestor]!=generation)return -116;
  K386Usage owner;if(!k386_usage(requestor,&owner)||owner.generation!=generation||!live(k386_word(requestor,0)))return -116;
- for(unsigned id=0;id<2;id++)if(id!=requestor){
+ for(unsigned id=0;id<k386_capacity();id++)if(id!=requestor){
   unsigned state=k386_word(id,0);K386Usage u;if(!k386_usage(id,&u))return -5;
   if(live(state)||(state==4&&(!owned[id]||owned_generation[id]!=u.generation)))continue;
   return launch(id,command);
@@ -36,11 +36,11 @@ int gui_session(u32 pointer,unsigned bytes){
  GuiSessionCommand r;
  if(bytes!=sizeof r)return -22;
  int e=gui_copy(pointer,&r,sizeof r,0);if(e)return e;
- if(r.version!=1||r.size!=sizeof r||r.slot>=2||r.operation<1||r.operation>8||r.operation==7)return -22;
+ if(r.version!=1||r.size!=sizeof r||r.slot>=k386_capacity()||r.operation<1||r.operation>8||r.operation==7)return -22;
  if(r.operation==GS_FOCUS&&!r.key){session_focus=0;return 0;}
  /* The GUI command editor may receive Escape even with no owned task. This
   * affects GUI input only and grants no monitor operation. F10 always exits. */
- if(r.operation==GS_FOCUS&&r.key==2){session_focus=3;return 0;}
+ if(r.operation==GS_FOCUS&&r.key==2){session_focus=5;return 0;}
  if(!manager)return -38;
  unsigned id=r.slot,s=k386_word(id,0);K386Usage u;
  if(!k386_usage(id,&u))return -5;
@@ -78,7 +78,7 @@ int gui_snapshot(u32 pointer,unsigned bytes){
  u32 header[4];if(bytes!=sizeof view&&bytes!=sizeof(GuiTerminalView))return -22;
  int e=gui_copy(pointer,header,sizeof header,0);if(e)return e;
  if(header[0]==2){
-  if(bytes!=sizeof(GuiTerminalView)||header[1]!=bytes||header[2]>=2)return -22;
+  if(bytes!=sizeof(GuiTerminalView)||header[1]!=bytes||header[2]>=k386_capacity())return -22;
   if(!manager)return -38;
   if(!gui_output_range(pointer,bytes))return -14;
   unsigned id=header[2];K386Usage u;
@@ -100,7 +100,7 @@ int gui_snapshot(u32 pointer,unsigned bytes){
   return gui_copy(pointer,out,sizeof out,1);
  }
  if(bytes!=sizeof view)return -22;
- if(header[0]!=1||header[1]!=sizeof view||header[2]>=2)return -22;
+ if(header[0]!=1||header[1]!=sizeof view||header[2]>=k386_capacity())return -22;
  unsigned id=header[2];view=(GuiSessionView){.version=1,.size=sizeof view,.slot=id};
  if(manager){
   K386Usage u;if(!k386_usage(id,&u))return -5;

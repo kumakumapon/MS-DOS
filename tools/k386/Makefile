@@ -25,30 +25,30 @@ $(BUILD)/K386CPU.COM: $(BUILD)/probe.elf
 .PHONY: all
 CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -ffunction-sections -fdata-sections -Wall -Wextra -Werror
 all: $(BUILD)/K386.EXE
-$(BUILD)/monitor.o: monitor.c abi.h runtime.h resources.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/monitor.o: monitor.c abi.h runtime.h resources.h extended.h | $(BUILD)
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/engine.o: engine.c abi.h runtime.h backing.h arena.h | $(BUILD)
 	$(CC) -m32 $(CFLAGS) -c $< -o $@
 $(BUILD)/transition.o: monitor.S | $(BUILD)
 	as --32 $< -o $@
 $(BUILD)/memory.o: ../window/memory.c | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/dos.o: ../filer/dos.c | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -DPC98 -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -DPC98 -c $< -o $@
 $(BUILD)/runtime.o: runtime.c abi.h runtime.h loader.h arena.h backing.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/loader.o: loader.c loader.h abi.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -c $< -o $@
 $(BUILD)/resources.o: resources.c resources.h abi.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -c $< -o $@
 $(BUILD)/report.o: report.c resources.h abi.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -c $< -o $@
 $(BUILD)/verified-disk.o: ../filer/verified-disk.c ../filer/verified-disk.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/drives.o: drives.c drives.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/zero.o: zero.c backing.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/monitor.elf: $(BUILD)/zero.o $(BUILD)/verified-disk.o $(BUILD)/drives.o $(BUILD)/transition.o $(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/loader.o $(BUILD)/backing.o $(BUILD)/arena.o $(BUILD)/engine.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/resources.o $(BUILD)/report.o monitor.ld
 	ld -m elf_i386 --gc-sections -T monitor.ld $(filter %.o,$^) -o $@
 $(BUILD)/K386.EXE: $(BUILD)/monitor.elf ../mz/build.py
@@ -67,7 +67,7 @@ $(BUILD)/FAULT.COM: $(BUILD)/fault.sample.o com.ld
 	objcopy -O binary $(BUILD)/fault.elf $@
 all: $(BUILD)/K386TEST.COM
 $(BUILD)/check.o: check.c abi.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/start.o: ../filer/start.s | $(BUILD)
 	as --32 $< -o $@
 $(BUILD)/check.elf: $(BUILD)/check.o $(BUILD)/start.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o ../filer/com.ld
@@ -76,7 +76,7 @@ $(BUILD)/K386TEST.COM: $(BUILD)/check.elf
 	objcopy -O binary $< $@
 
 $(BUILD)/core.o: ../filer/core.c | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 all: $(BUILD)/KFILE.COM
 $(BUILD)/KFILE.COM: $(BUILD)/filecheck.sample.o com.ld
 	ld -m elf_i386 -T com.ld $< -o $(BUILD)/filecheck.elf
@@ -112,16 +112,16 @@ $(BUILD)/INTWAIT.COM: $(BUILD)/interrupt.sample.o com.ld
 	ld -m elf_i386 -T com.ld $< -o $(BUILD)/interrupt.elf
 	objcopy -O binary $(BUILD)/interrupt.elf $@
 $(BUILD)/resourcecheck.o: resourcecheck.c resources.h abi.h ../window/k386_client.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/resource-client.o: ../window/k386_client.c ../window/k386_client.h resources.h abi.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/resourcecheck.elf: $(BUILD)/resourcecheck.o $(BUILD)/resource-client.o $(BUILD)/start.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o ../filer/com.ld
 	ld -m elf_i386 --gc-sections -T ../filer/com.ld $(filter %.o,$^) -o $@
 $(BUILD)/KRESCHK.COM: $(BUILD)/resourcecheck.elf
 	objcopy -O binary $< $@
 all: $(BUILD)/KSH.COM
 $(BUILD)/shell.o: shell.c ../filer/filer.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/shell.elf: $(BUILD)/shell.o $(BUILD)/start.o $(BUILD)/dos.o $(BUILD)/core.o ../filer/com.ld
 	ld -m elf_i386 --gc-sections -T ../filer/com.ld $(filter %.o,$^) -o $@
 $(BUILD)/KSH.COM: $(BUILD)/shell.elf
@@ -143,9 +143,9 @@ $(BUILD)/KEYCHK.COM: $(BUILD)/keycheck.sample.o com.ld
 	objcopy -O binary $(BUILD)/keycheck.elf $@
 
 $(BUILD)/backing.o: backing.c backing.h abi.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -c $< -o $@
 $(BUILD)/arena.o: arena.c arena.h abi.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -c $< -o $@
 $(BUILD)/arena-test: arena.c arena_test.c arena.h abi.h | $(BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror arena.c arena_test.c -o $@
 
@@ -178,9 +178,9 @@ $(BUILD)/app-start.o: app-start.S | $(BUILD)
 $(BUILD)/app-c-start.o: app-start.S | $(BUILD)
 	$(CC) -m16 -DKAPP_C -c -x assembler-with-cpp $< -o $@
 $(BUILD)/app-dos.o: ../filer/dos.c | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -DPC98 -DDOS_MZ -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -DPC98 -DDOS_MZ -c $< -o $@
 $(BUILD)/app.o: app.c app.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -c $< -o $@
 $(BUILD)/monitor.elf: $(BUILD)/app.o
 $(BUILD)/%.app.o: %.S | $(BUILD)
 	as --32 --defsym K386_APP=1 $< -o $@
@@ -213,7 +213,7 @@ $(BUILD)/shell.app.elf: $(BUILD)/shell.o $(BUILD)/app-c-start.o $(BUILD)/app-dos
 $(BUILD)/KSH.EXE: $(BUILD)/shell.app.elf ../mz/build.py
 	python3 ../mz/build.py --k386-app 'KDESK/386 shell' $< $@
 $(BUILD)/hello.o: hello.c sdk.h ../filer/filer.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/hello.app.elf: $(BUILD)/hello.o $(BUILD)/app-c-start.o $(BUILD)/app-dos.o $(BUILD)/core.o app.ld
 	ld -m elf_i386 --gc-sections -T app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KHELLO.EXE: $(BUILD)/hello.app.elf ../mz/build.py
@@ -228,15 +228,15 @@ app-test: $(BUILD)/app-test
 $(BUILD)/runtime.o: app.h
 
 $(BUILD)/xmem.o: xmem.c xmem.h abi.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -c $< -o $@
 $(BUILD)/monitor.elf: $(BUILD)/xmem.o
 $(BUILD)/runtime.o $(BUILD)/engine.o $(BUILD)/backing.o $(BUILD)/monitor.o: xmem.h
 
 all: $(BUILD)/XMEM.EXE $(BUILD)/XCHILD.EXE
 $(BUILD)/xmemcheck.o: xmemcheck.c sdk.h ../filer/filer.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/xmemchild.o: xmemchild.c sdk.h ../filer/filer.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/xmemcheck.elf: $(BUILD)/xmemcheck.o $(BUILD)/app-c-start.o $(BUILD)/app-dos.o $(BUILD)/core.o app.ld
 	ld -m elf_i386 --gc-sections -T app.ld $(filter %.o,$^) -o $@
 $(BUILD)/xmemchild.elf: $(BUILD)/xmemchild.o $(BUILD)/app-c-start.o $(BUILD)/app-dos.o $(BUILD)/core.o app.ld
@@ -258,9 +258,9 @@ xarray-test: $(BUILD)/xarray-test
 
 all: $(BUILD)/XARRAY.EXE
 $(BUILD)/xarray.o: xarray.c xarray.h sdk.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -DXARRAY_KAPP -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -DXARRAY_KAPP -c $< -o $@
 $(BUILD)/xarraycheck.o: xarraycheck.c xarray.h sdk.h ../filer/filer.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -DXARRAY_KAPP -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -DXARRAY_KAPP -c $< -o $@
 $(BUILD)/xarraycheck.elf: $(BUILD)/xarraycheck.o $(BUILD)/xarray.o $(BUILD)/app-c-start.o $(BUILD)/app-dos.o $(BUILD)/core.o app.ld
 	ld -m elf_i386 --gc-sections -T app.ld $(filter %.o,$^) -o $@
 $(BUILD)/XARRAY.EXE: $(BUILD)/xarraycheck.elf ../mz/build.py
@@ -287,10 +287,24 @@ $(BUILD)/zero-test: zero_test.c zero.c backing.h | $(BUILD)
 $(BUILD)/hdd-stats.o: hdd-stats.S | $(BUILD)
 	as --32 $< -o $@
 $(BUILD)/hdd-test.o: hdd-test.c sdk.h ../filer/filer.h | $(BUILD)
-	$(CC) -m16 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/hdd-test.app.elf: $(BUILD)/hdd-test.o $(BUILD)/app-c-start.o $(BUILD)/hdd-stats.o $(BUILD)/app-dos.o $(BUILD)/core.o app.ld
 	ld -m elf_i386 --gc-sections -T app.ld $(filter %.o,$^) -o $@
 $(BUILD)/VDOS.EXE: $(BUILD)/hdd-test.app.elf ../mz/build.py
 	python3 ../mz/build.py --k386-app 'V86 HDD read-only probe' $< $@
 all: $(BUILD)/VDOS.EXE
 $(BUILD)/monitor.o $(BUILD)/engine.o $(BUILD)/runtime.o: drives.h
+
+$(BUILD)/bank.o: bank.c bank.h | $(BUILD)
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/extended.o: extended.c extended.h bank.h runtime.h | $(BUILD)
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
+$(BUILD)/monitor.elf: $(BUILD)/bank.o $(BUILD)/extended.o
+
+all: kxms32-all
+kxms32-all:
+	$(MAKE) -C ../kxms32 all
+test: kxms32-test
+kxms32-test:
+	$(MAKE) -C ../kxms32 test
+.PHONY: kxms32-all kxms32-test

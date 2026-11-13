@@ -4,7 +4,8 @@ K32Args loader_args K32_STATE;
 extern u8 results[1024];
 extern u32 xms_entry;
 extern int services_start(void);
-u32 loader_map[1024] K32_STATE,loader_entry K32_STATE,loader_rwbase K32_STATE,loader_rwbytes K32_STATE,loader_request K32_STATE,loader_length K32_STATE;
+u8 loader_map[1024] K32_STATE;
+u32 loader_entry K32_STATE,loader_rwbase K32_STATE,loader_rwbytes K32_STATE,loader_request K32_STATE,loader_length K32_STATE;
 u8 loader_buffer[4096];
 K32Plan loader_plan K32_STATE;
 #define plan loader_plan
@@ -56,10 +57,10 @@ int loader_open(void){
  put(476,plan.rwbase);put(488,plan.rwbytes);put(584,plan.entry);put(588,plan.count);put(592,plan.rwbase);put(596,plan.rwbytes);
  for(unsigned i=0;i<plan.count;i++){
   K32Segment *s=&plan.segment[i];unsigned firstpage=(s->address-K32_BASE)/4096,pages=(s->memsz+4095)/4096;
-  for(unsigned j=0;j<pages;j++)loader_map[firstpage+j]=((firstpage+j)*4096)|((s->flags&2)?7:5);
+  for(unsigned j=0;j<pages;j++)loader_map[firstpage+j]=(s->flags&2)?7:5;
  }
- loader_map[1023]=0x3ff007;
- if(plan.abi==257)loader_map[1021]=0x3fd005;
+ loader_map[1023]=7;
+ if(plan.abi==257)loader_map[1021]=5;
  return 0;
 }
 static int move(u32 at,unsigned bytes){

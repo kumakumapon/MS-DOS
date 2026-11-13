@@ -17,6 +17,7 @@ L.k32_heap_init.argtypes=[c.POINTER(Heap),U,U]
 L.k32_heap_find.argtypes=[c.POINTER(Heap),U,c.POINTER(U),c.POINTER(U),c.POINTER(U)]
 L.k32_heap_release.argtypes=[c.POINTER(Heap),U,c.POINTER(U)]
 L.k32_user_range.argtypes=[c.POINTER(U),U,U,c.c_int]
+L.k32_user_access.argtypes=[c.POINTER(c.c_uint8),U,U,c.c_int]
 class Services(unittest.TestCase):
  def test_arguments(self):
   a=Args();s=b' /T ARGS32.EXE "two words" three'
@@ -53,4 +54,11 @@ class Services(unittest.TestCase):
   m=(U*1024)();m[0]=5;m[1]=0x1007;m[1021]=0x3fd005;m[1023]=0x3ff007
   for at,n,write,ok in [(0x800000,4096,0,1),(0x800000,1,1,0),(0x800fff,2,0,1),(0x801fff,2,1,0),(0xbfd000,4096,0,1),(0xbfd000,1,1,0),(0xbfffff,2,0,0),(0xffffffff,2,1,0),(0x10000,1,0,0),(0xffffffff,0,1,1)]:
    self.assertEqual(L.k32_user_range(m,at,n,write),ok,(at,n,write))
+ def test_compact_permissions_match_hardware_ptes(self):
+  rng=random.Random(38632);pt=(U*1024)();flags=(c.c_uint8*1024)()
+  for i in range(1024):
+   access=rng.choice([0,0,5,7]);flags[i]=access;pt[i]=(i*4096|access) if access else 0
+  cases=[(0x800000,1,0),(0xbfffff,2,1),(0xffffffff,2,1),(0x10000,1,0),(0xffffffff,0,1)]
+  cases += [(rng.randrange(0x7ff000,0xc01000),rng.randrange(0,20000),rng.randrange(2)) for _ in range(10000)]
+  for at,n,write in cases:self.assertEqual(L.k32_user_access(flags,at,n,write),L.k32_user_range(pt,at,n,write),(at,n,write))
 if __name__=='__main__':unittest.main()

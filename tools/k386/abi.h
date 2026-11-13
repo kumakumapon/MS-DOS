@@ -38,6 +38,7 @@ typedef struct {
 } K386Session;
 extern K386Mailbox k386_mailbox;
 extern K386Session sessions[2];
+extern unsigned api_slot_bias;
 extern k32 monitor_base,page_directory[2],selected,saved_cr0,saved_cr3;
 extern k8 transfer[K386_TRANSFER];
 void pm_run(void);

@@ -53,7 +53,7 @@ class ElfValidation(unittest.TestCase):
             if len(fields)==3:symbols[fields[2]]=int(fields[0],16)
         self.assertLess(symbols['__bss_end'],0xd000)
         self.assertEqual(module[symbols['results']:symbols['results']+8],b'K32RUN01')
-        self.assertLessEqual(symbols['loader_map']+4096,symbols['__bss_end'])
+        self.assertLessEqual(symbols['loader_map']+1024,symbols['__bss_end'])
         self.assertLessEqual(symbols['loader_buffer']+4096,symbols['__bss_end'])
     def test_host_private_state_and_stack_bounds(self):
         symbols={line.split()[2]:int(line.split()[0],16) for line in subprocess.check_output(['nm','-n',str(ROOT/'build/host.elf')],text=True).splitlines() if len(line.split())==3}

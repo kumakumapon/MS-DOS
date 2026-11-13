@@ -107,7 +107,7 @@ static int service(K386Frame *f,k8 number) {
         if((f->eax&65535)==0xd389){s->request=KX_REQUEST;return 1;}
         if((f->eax&65535)==0xd388&&(f->ebx&65535)<=1){
             int yield=(f->ebx&65535)==1;
-            f->eax=0x388d;f->ebx=0x0100;f->ecx=1;f->edx=selected+1;
+            f->eax=0x388d;f->ebx=0x0100;f->ecx=1;f->edx=selected+api_slot_bias+1;
             f->eflags&=~1u;return yield;
         }
         if((f->eax&65535)==0x122e&&(f->edx&255)<6){

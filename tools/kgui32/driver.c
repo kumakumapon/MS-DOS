@@ -16,44 +16,44 @@ volatile GuiDriverRecord gui_record={.signature={'K','G','3','2','D','R','V','1'
 static GuiInfo info;static GuiEvent queue[32];
 static unsigned head,count,segment,scratch,tables,started,quit;
 static u32 last_schedule,last_timer;
-unsigned manager,owned[2],session_focus;u32 owned_generation[2];
+static unsigned expanded_here;
+unsigned manager,owned[4],session_focus;u32 owned_generation[4];
 extern int gui_session(u32,unsigned),gui_snapshot(u32,unsigned),kg_clients_start(void),kg_clients_snapshot(u32,unsigned),kg_clients_event(u32,unsigned);
 extern void kg_clients_close(void),kg_clients_tick(void);
 static Mouse previous;
 static u32 get(unsigned at){return *(u32 *)(results+at);}
 static void put(unsigned at,u32 n){*(u32 *)(results+at)=n;}
 static unsigned largest(void){unsigned a=0x4800,b=65535;__asm__ volatile("int $0x21":"+a"(a),"+b"(b)::"cc","memory");return b&65535;}
-int gui_output_range(u32 at,unsigned n){extern u32 loader_map[1024];return k32_user_range(loader_map,at,n,1);}
+int gui_output_range(u32 at,unsigned n){extern u8 loader_map[1024];return k32_user_access(loader_map,at,n,1);}
 void host_physical32(u32 at,u32 value){for(unsigned i=0;i<4;i++)mem_put(at>>4,(at&15)+i,value>>(i*8));}
 int host_write(const void *p,unsigned n){(void)p;return (int)n;}
 static void workers(void){
- for(unsigned id=0;id<2;id++){
-  K386Usage u;
-  if(manager&&k386_usage(id,&u)){
-   if(owned[id]&&owned_generation[id]!=u.generation)owned[id]=0;
-   gui_record.worker_generation[id]=u.generation;
-  }
-  gui_record.worker_counter[id]=manager?k386_counter(id):0;
-  gui_record.worker_state[id]=manager?k386_word(id,0):0;
+ gui_record.owned_workers=gui_record.appmask=0;
+ for(unsigned id=0;id<k386_capacity();id++){
+  K386Usage u;unsigned generation=0;
+  if(manager&&k386_usage(id,&u)){if(owned[id]&&owned_generation[id]!=u.generation)owned[id]=0;generation=u.generation;}
+  unsigned counter=manager?k386_counter(id):0,state=manager?k386_word(id,0):0;
+  if(id<2){gui_record.worker_generation[id]=generation;gui_record.worker_counter[id]=counter;gui_record.worker_state[id]=state;}
+  else{gui_record.reserved[2+id-2]=generation;gui_record.reserved[4+id-2]=counter;gui_record.reserved[6+id-2]=state;}
+  gui_record.owned_workers|=owned[id]<<id;gui_record.appmask|=(state!=0)<<id;
  }
- if(session_focus&&session_focus<=2&&!owned[session_focus-1])session_focus=0;
- gui_record.owned_workers=owned[0]|owned[1]<<1;
- gui_record.appmask=(gui_record.worker_state[0]!=0)|(gui_record.worker_state[1]!=0)<<1;
+ gui_record.reserved[1]=k386_capacity();
+ if(session_focus&&session_focus<=k386_capacity()&&!owned[session_focus-1])session_focus=0;
 }
 static void stop_workers(void){
- for(unsigned id=0;id<2;id++)if(owned[id]){
+ for(unsigned id=0;id<k386_capacity();id++)if(owned[id]){
   K386Usage u;if(k386_usage(id,&u)&&u.generation==owned_generation[id])k386_command(K386_END,id,0,0);
   owned[id]=0;
  }workers();
 }
 static int start_workers(void){
  if(!manager)return -38;
- if(owned[0]||owned[1])return 0;
- for(unsigned id=0;id<2;id++){unsigned s=k386_word(id,0);if(s==K386_RUNNING||s==K386_WAITING||s==K386_STOPPED)return -16;}
- for(unsigned id=0;id<2;id++){
+ for(unsigned id=0;id<k386_capacity();id++)if(owned[id])return 0;
+ for(unsigned id=0;id<k386_capacity();id++){unsigned s=k386_word(id,0);if(s==K386_RUNNING||s==K386_WAITING||s==K386_STOPPED)return -16;}
+ for(unsigned id=0;id<k386_capacity();id++){
   if(k386_command(K386_CREATE,id,0,id?"COUNT32.EXE 2":"COUNT32.EXE 1")){stop_workers();return -12;}
   K386Usage u;if(!k386_usage(id,&u)){stop_workers();return -5;}
-  owned[id]=1;owned_generation[id]=u.generation;gui_record.worker_generation[id]=u.generation;
+  owned[id]=1;owned_generation[id]=u.generation;
  }workers();return 0;
 }
 static void enqueue(GuiEvent e){
@@ -76,13 +76,15 @@ static void pump(void){
  }
 }
 static int event(u32 pointer,unsigned bytes){
- if(bytes!=sizeof(GuiEvent))return -22;
- GuiEvent e={.type=GUI_TIMER,.x=previous.x,.y=previous.y,.buttons=previous.buttons,.ticks=input_ticks()};
- if(count)e=queue[head];else if(((e.ticks-last_timer)&0xffffff)<30720)return 0;
- e.sequence=gui_record.events+1;workers();
- for(unsigned id=0;id<2;id++){e.states[id]=gui_record.worker_state[id];e.counters[id]=gui_record.worker_counter[id];}e.lost=gui_record.input_lost;
- int error=gui_copy(pointer,&e,sizeof e,1);if(error)return error;
- if(count){head=(head+1)%32;count--;}else last_timer=e.ticks;
+ if(bytes!=sizeof(GuiEvent)&&bytes!=sizeof(GuiEvent4))return -22;
+ GuiEvent4 extended={.base={.type=GUI_TIMER,.x=previous.x,.y=previous.y,.buttons=previous.buttons,.ticks=input_ticks()}};
+ GuiEvent *e=&extended.base;
+ if(count)*e=queue[head];else if(((e->ticks-last_timer)&0xffffff)<30720)return 0;
+ e->sequence=gui_record.events+1;workers();
+ for(unsigned id=0;id<2;id++){e->states[id]=gui_record.worker_state[id];e->counters[id]=gui_record.worker_counter[id];extended.extra_states[id]=gui_record.reserved[6+id];extended.extra_counters[id]=gui_record.reserved[4+id];}
+ e->lost=gui_record.input_lost;
+ int error=gui_copy(pointer,&extended,bytes,1);if(error)return error;
+ if(count){head=(head+1)%32;count--;}else last_timer=e->ticks;
  gui_record.events++;return 1;
 }
 static int present(u32 pointer,unsigned bytes){
@@ -90,7 +92,7 @@ static int present(u32 pointer,unsigned bytes){
  int error=gui_copy(pointer,&r,sizeof r,0);if(error)return error;
  if(!r.width||!r.height||r.x>=info.width||r.y>=info.height||r.width>info.width-r.x||r.height>info.height-r.y||r.pitch!=r.width*info.bpp)return -22;
  u32 length=r.pitch*r.height;
- extern u32 loader_map[1024];if(!k32_user_range(loader_map,r.pixels,length,0))return -14;
+ extern u8 loader_map[1024];if(!k32_user_access(loader_map,r.pixels,length,0))return -14;
  gui_record.framebuffer=r.pixels;gui_record.rect[0]=r.x;gui_record.rect[1]=r.y;gui_record.rect[2]=r.width;gui_record.rect[3]=r.height;
  gfx_target(1);unsigned rows=32768/r.pitch;
  for(unsigned y=0;y<r.height;){
@@ -122,7 +124,7 @@ static int dispatch(void){
   }else if(c==sizeof(GuiGlyph)){
    GuiGlyph r;error=gui_copy(b,&r,sizeof r,0);if(error)break;
    if(r.version!=1||r.size!=sizeof r||r.columns){error=-22;break;}
-   extern u32 loader_map[1024];if(!k32_user_range(loader_map,b,sizeof r,1)){error=-14;break;}
+   extern u8 loader_map[1024];if(!k32_user_access(loader_map,b,sizeof r,1)){error=-14;break;}
    r.columns=gfx_glyph_copy(r.code,r.bitmap);error=r.columns?gui_copy(b,&r,sizeof r,1):-22;
   }break;
  case GUI_PROOF:error=b==1?start_workers():b==2?(stop_workers(),0):-22;break;
@@ -152,9 +154,9 @@ int gui_main(void){
  if(!tables||!scratch){gui_record.error=8;goto cleanup;}
  put(24,((u32)tables*16+4095)&~4095u);
  if(host_acquire()){gui_record.error=get(16);goto cleanup;}
- manager=k386_probe();gfx_highcolor(1);gfx_start();started=1;
+ manager=k386_probe();if(manager&&k386_capacity()==2&&!k386_capacity_request(4))expanded_here=1;gfx_highcolor(1);gfx_start();started=1;
  if(gfx_colors()<256){gui_record.error=11;goto cleanup;}
- info=(GuiInfo){.magic=0x3149474b,.version=1,.size=sizeof info,.width=gfx_width(),.height=gfx_height(),.bpp=gfx_colors()>256?2:1,.features=1};info.pitch=info.width*info.bpp;
+ info=(GuiInfo){.magic=0x3149474b,.version=1,.size=sizeof info,.width=gfx_width(),.height=gfx_height(),.bpp=gfx_colors()>256?2:1,.features=1|(k386_capacity()==4?GUI_FOUR_SLOTS:0)};info.pitch=info.width*info.bpp;
  for(unsigned i=0;i<16;i++)info.colors[i]=gfx_rgb(i);
  gui_record.width=info.width;gui_record.height=info.height;gui_record.bpp=info.bpp;gui_record.graphics=1;gui_record.ready=1;
  if(kg_clients_start()){gui_record.error=12;goto cleanup;}
@@ -172,7 +174,7 @@ int gui_main(void){
  }
  if(quit){put(12,5);put(68,65);}
 cleanup:
- gui_record.busy=1;stop_workers();kg_clients_close();services_close();loader_close();
+ gui_record.busy=1;stop_workers();kg_clients_close();if(expanded_here){if(k386_capacity_request(2))gui_record.error=14;expanded_here=0;}services_close();loader_close();
  if(initialized&&tables){mem_fill(get(24)>>4,0,12288,0);put(464,1);put(948,1);}
  host_drop_xms();
  if(started){gfx_stop();gfx_driver_release();p_finish();}

@@ -53,6 +53,8 @@ host_install_failed:
 host_api:
     cmp ax,0xd393
     je host_occupancy_query
+    cmp ax,0xd392
+    je host_extended_api
     cmp ax,0xd391
     je host_manager_api
     cmp ax,0xd390
@@ -63,6 +65,22 @@ host_api:
     mov es,ax
     mov di,OFFSET host_mailbox
     mov ax,0x390d
+    iretw
+host_extended_api:
+    test bx,bx
+    jnz host_extended_dispatch
+    mov ax,cs
+    mov es,ax
+    mov di,OFFSET k32_extended
+    mov ax,0x392d
+    iretw
+host_extended_dispatch:
+    cmp WORD PTR cs:host_entry_busy,0
+    jne host_extended_busy
+    mov WORD PTR cs:host_api_kind,2
+    jmp host_dispatch_api
+host_extended_busy:
+    mov WORD PTR cs:k32_extended+14,5
     iretw
 host_manager_api:
     test bx,bx
@@ -102,7 +120,6 @@ host_raw_dispatch:
     cmp WORD PTR cs:host_entry_busy,0
     jne host_raw_busy
     mov WORD PTR cs:host_api_kind,0
-    jmp host_dispatch_api
     jmp host_dispatch_api
 host_manager_busy:
     mov WORD PTR cs:k32_manager+14,5
@@ -147,7 +164,7 @@ host_api_kind: .word 0
 host_old_int: .long 0
 host_caller_ss: .word 0
 host_caller_esp: .long 0
-host_ready_text: .ascii "K32HOST READY: two PM32 task slots\r\n$"
+host_ready_text: .ascii "K32HOST READY: PM32 service / D392 expandable slots\r\n$"
 host_fail_text: .ascii "K32HOST unavailable: real mode / XMS required\r\n$"
 .section .text
 .code16

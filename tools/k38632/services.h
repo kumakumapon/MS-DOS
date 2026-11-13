@@ -16,5 +16,6 @@ int k32_filename(const char *in,unsigned n,char out[16]);
 void k32_heap_init(K32Heap *h,u32 base,u32 limit);
 int k32_heap_find(K32Heap *h,u32 bytes,unsigned *slot,u32 *address,u32 *pages);
 int k32_heap_release(K32Heap *h,u32 address,unsigned *slot);
+int k32_user_access(const u8 *map,u32 at,u32 n,int write);
 int k32_user_range(const u32 *map,u32 at,u32 n,int write);
 #endif

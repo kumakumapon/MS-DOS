@@ -3,6 +3,8 @@
 #include "../k386/abi.h"
 #include "../k386/resources.h"
 int k386_probe(void);
+unsigned k386_capacity(void);
+int k386_capacity_request(unsigned);
 unsigned k386_kind(unsigned id);
 int k386_restart(unsigned id);
 int k386_command(unsigned command,unsigned id,unsigned key,const char *path);

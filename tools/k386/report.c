@@ -8,8 +8,8 @@ int resource_describe(unsigned id,unsigned age){
     static const char *reasons[]={"None","Exited","Fault","Paused","CPU limit","Interrupted","Ended"};
     static const char *events[]={"","Start","Exit","Fault","Pause","Resume","CPU limit","Interrupt","End","Priority","Budget"};
     K386Resources *r=&k386_resources;
-    if(id>=K386_SESSIONS||(age&&age>=r->count))return 87;
-    K386Usage *u=&r->usage[id];char *row=r->report[0];
+    if(id>=resource_slots||(age&&age>=r->count))return 87;
+    K386Usage *u=resource_usage(id);char *row=r->report[0];
     for(unsigned i=0;i<6;i++)r->report[i][0]=0;
     add(row,"ID ");number(row,u->generation);add(row,"  ");add(row,u->program);
     add(row,"  Priority: ");add(row,priorities[u->priority<=K386_HIGH?u->priority:K386_NORMAL]);

@@ -20,6 +20,9 @@ _Static_assert(sizeof(GuiTerminalView)==8032,"terminal snapshot ABI v2");
 enum {GUI_MOTION=1,GUI_BUTTON=2,GUI_KEY=3,GUI_TIMER=4};
 typedef struct {u32 magic,version,size,width,height,bpp,pitch,features,colors[16];} GuiInfo;
 typedef struct {u32 sequence,type,x,y,buttons,key,ticks,states[2],counters[2],lost;} GuiEvent;
+typedef struct {GuiEvent base;u32 extra_states[2],extra_counters[2];} GuiEvent4;
+_Static_assert(sizeof(GuiEvent4)==64,"extended event ABI");
+enum {GUI_FOUR_SLOTS=16};
 typedef struct {u32 pixels,x,y,width,height,pitch;} GuiPresent;
 /* GUI_FONT accepts this bounded in/out request in addition to the original
  * 1520-byte ASCII table. Only the dedicated desktop can request CG-ROM data. */
