@@ -30,6 +30,11 @@ _start:
     mov di,8*160
     mov WORD PTR es:[di],'V'
     mov WORD PTR es:[di+0x2000],0xf1
+    mov di,10*160+7*2
+    mov WORD PTR es:[di],0xfc26
+    mov WORD PTR es:[di+2],0
+    mov WORD PTR es:[di+0x2000],0xe1
+    mov WORD PTR es:[di+0x2002],0xe1
     mov dx,OFFSET ready
     call puts
 wait:

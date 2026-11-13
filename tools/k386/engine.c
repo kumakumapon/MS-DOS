@@ -299,6 +299,7 @@ void kernel_finish(void) {
     K386View *v=&k386_mailbox.view[selected];
     k32 hash=2166136261u;
     for(k32 i=0;i<2000;i++){k32 c=read16(0xa0000+i*2),a=read16(0xa2000+i*2);hash=(hash^c)*16777619u;hash=(hash^a)*16777619u;v->screen[i]=c;}
+    hash=(hash^(v->row*80+v->column))*16777619u;
     int changed=hash!=runtime[selected].text_hash;runtime[selected].text_hash=hash;
     if(changed)v->flags++;
     v->counter=readn((k32)runtime[selected].process.psp*16+runtime[selected].process.probe,4);
