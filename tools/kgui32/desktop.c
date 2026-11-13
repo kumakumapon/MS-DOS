@@ -41,7 +41,7 @@ static void refresh(void){
   if(k32_call(GUI_SNAPSHOT,(u32)&v,sizeof v))continue;
   GuiWindow *w=&scene.window[id+2];
   if(v.kind||!v.owned){terminal_valid[id]=0;}
-  else if(!terminal_valid[id]||terminals[id].generation!=v.generation||terminals[id].revision!=v.text_revision){
+  else if(!terminal_valid[id]||terminals[id].generation!=v.generation||terminals[id].revision!=v.text_revision||terminals[id].state!=v.state){
    terminal_stage=(GuiTerminalView){.version=2,.size=sizeof terminal_stage,.slot=id,.generation=v.generation};
    if(!k32_call(GUI_SNAPSHOT,(u32)&terminal_stage,sizeof terminal_stage)){
     if(w->open&&!w->hidden)for(unsigned r=0;r<25;r++){int changed=!terminal_valid[id]||terminals[id].generation!=v.generation;
