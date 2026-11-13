@@ -99,4 +99,15 @@ static void clients(int width,int height){
  mouse(&s,GUI_BUTTON,r.x+100,r.y+100,0);
  assert(!s.resize&&s.window[3].r.h==208);
 }
-int main(void){check(640,400);check(800,600);sessions(640,400);sessions(800,600);clients(640,400);clients(800,600);return 0;}
+static void four(int width,int height){
+ Scene s;scene_init(&s,width,height);scene_slots(&s,4);assert(s.slots==4&&s.window[1].r.h==272);
+ for(int i=0;i<4;i++){
+  GuiEvent e={.type=GUI_BUTTON,.x=width-360+i*56+24,.y=15,.buttons=1};assert(scene_event(&s,&e)==ACT_NEW&&s.slot==i&&s.active==i+2&&s.order[5]==i+2);
+  e.buttons=0;scene_event(&s,&e);
+ }
+ for(int i=0;i<4;i++){int step=(width-300)/4;mouse(&s,GUI_BUTTON,300+i*step+20,height-16,1);mouse(&s,GUI_BUTTON,300+i*step+20,height-16,0);assert(s.active==i+2);}
+ GuiEvent4 timer={.base={.type=GUI_TIMER,.states={1,2},.counters={10,20}},.extra_states={3,4},.extra_counters={30,40}};
+ assert(scene_event4(&s,&timer)==ACT_NONE&&s.states[3]==4&&s.counters[2]==30);
+ scene_focus(&s,5);key(&s,16);assert(s.slot==3);scene_close(&s,5);assert(s.active!=5&&!s.window[5].open);
+}
+int main(void){four(640,400);four(800,600);check(640,400);check(800,600);sessions(640,400);sessions(800,600);clients(640,400);clients(800,600);return 0;}

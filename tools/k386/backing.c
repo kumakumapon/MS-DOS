@@ -26,7 +26,7 @@ int backing_new(K386Backing *p) {
     k16 handle=d;p->handle=handle;
     if(call(12,&b,&d,0)!=1){unsigned h=handle;call(10,&b,&h,0);*p=(K386Backing){0};return 0;}
     k32 raw=(k32)d<<16|b;p->physical=(raw+4095)&~4095u;p->offset=p->physical-raw;
-    if(raw<0x100000||p->physical>0x1000000-K386_BACKING){backing_free(p);return 0;}
+    if(raw<0x100000||p->physical>0x2000000-K386_BACKING){backing_free(p);return 0;}
     return 1;
 }
 static int move(k16 from,k32 at,k16 to,k32 target,unsigned n) {

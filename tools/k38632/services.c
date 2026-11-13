@@ -67,3 +67,13 @@ int k32_user_range(const u32 *map,u32 at,u32 n,int write){
  for(unsigned i=first;i<=last;i++)if((map[i]&flags)!=flags)return 0;
  return 1;
 }
+
+/* Private compact permissions; real PTE addresses are derived from their page
+ * index. This metadata is never a user ABI and cannot encode aliases. */
+int k32_user_access(const u8 *map,u32 at,u32 n,int write){
+ if(!n)return 1;
+ if(at<K32_BASE||at>=0xc00000||n>0xc00000-at)return 0;
+ unsigned first=(at-K32_BASE)/4096,last=(at+n-1-K32_BASE)/4096,flags=write?7:5;
+ for(unsigned i=first;i<=last;i++)if((map[i]&flags)!=flags)return 0;
+ return 1;
+}

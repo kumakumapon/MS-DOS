@@ -5,11 +5,13 @@
 #include "gui.h"
 #include "../window/k386_client.h"
 u8 loader_buffer[4096];
-unsigned owned[2],manager=1,session_focus;u32 owned_generation[2];
+unsigned owned[4],manager=1,session_focus;u32 owned_generation[4];
 static GuiSessionCommand request;static GuiSessionView snapshot;
 static GuiTerminalView terminal_request,terminal_result;static unsigned terminal_test,bad_chunk;
-static unsigned states[2],generation[2],kinds[2],last_command,last_key,calls,fail;
+static unsigned states[4],generation[4],kinds[4],last_command,last_key,calls,fail;
 static char launched[128];
+static unsigned capacity=2;
+unsigned k386_capacity(void){return capacity;}
 extern int gui_session(u32,unsigned),gui_snapshot(u32,unsigned),gui_open_document(unsigned,u32,unsigned,const char *);
 int gui_copy(u32 p,void *v,unsigned n,int write){
  if(p==99)return -14;
@@ -61,7 +63,7 @@ int main(void){
  assert(gui_snapshot(1,sizeof snapshot)==0&&snapshot.owned&&snapshot.generation==2&&snapshot.counter==42&&snapshot.screen[1999]=='A');
  generation[0]=3;assert(op(GS_END)==-116&&!owned[0]);request.generation=3;
  assert(op(GS_PAUSE)==-1);assert(gui_snapshot(1,sizeof snapshot)==0&&!snapshot.owned);
- request.key=2;assert(op(GS_FOCUS)==0&&session_focus==3);
+ request.key=2;assert(op(GS_FOCUS)==0&&session_focus==5);
  request.key=0;assert(op(GS_FOCUS)==0&&!session_focus);
  owned[0]=1;owned_generation[0]=generation[0]=9;states[0]=1;owned[1]=0;generation[1]=4;states[1]=2;
  count=calls;assert(gui_open_document(0,9,1,"NOTE.TXT")==-16&&calls==count&&states[1]==2);
@@ -80,6 +82,16 @@ int main(void){
  owned[0]=0;assert(gui_snapshot(1,sizeof terminal_request)==-1);owned[0]=1;kinds[0]=1;assert(gui_snapshot(1,sizeof terminal_request)==-38);kinds[0]=0;
  assert(gui_snapshot(201,sizeof terminal_request)==-14);bad_chunk=1;assert(gui_snapshot(1,sizeof terminal_request)==-116);bad_chunk=0;
  terminal_request.version=3;assert(gui_snapshot(1,sizeof terminal_request)==-22);terminal_request.version=2;terminal_request.slot=2;assert(gui_snapshot(1,sizeof terminal_request)==-22);terminal_request.slot=0;
- manager=0;assert(gui_snapshot(1,sizeof terminal_request)==-38);
+ capacity=4;terminal_test=0;memset(states,0,sizeof states);memset(owned,0,sizeof owned);
+ request=(GuiSessionCommand){.version=1,.size=sizeof request,.slot=3,.operation=GS_CREATE};strcpy(request.path,"COUNT32.EXE 4");
+ assert(!op(GS_CREATE)&&owned[3]&&owned_generation[3]==1);request.generation=1;request.key=1;
+ assert(!op(GS_FOCUS)&&session_focus==4);request.key=2;assert(!op(GS_FOCUS)&&session_focus==5);
+ request.key=0;assert(!op(GS_PAUSE)&&states[3]==3);request.generation=0;count=calls;assert(op(GS_END)==-116&&calls==count&&states[3]==3);
+ request.generation=1;assert(!op(GS_END));assert(!op(GS_RESTART)&&generation[3]==2);request.generation=1;assert(op(GS_KEY)==-116);
+ owned[0]=1;owned_generation[0]=generation[0]=99;states[0]=states[1]=states[2]=1;owned[1]=owned[2]=0;
+ count=calls;assert(gui_open_document(0,99,1,"A.TXT")==-16&&calls==count);states[3]=0;
+ assert(!gui_open_document(0,99,1,"A.TXT")&&owned[3]&&generation[3]==3&&states[1]==1&&states[2]==1&&!owned[1]&&!owned[2]);
+ request.slot=4;assert(op(GS_CREATE)==-22);
+ terminal_test=1;terminal_request.slot=0;manager=0;assert(gui_snapshot(1,sizeof terminal_request)==-38);
  return 0;
 }

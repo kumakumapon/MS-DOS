@@ -9,4 +9,10 @@ typedef struct {
  char signature[8];u16 version,size,ready,error,command,session,key,busy,owner,reserved;
  u32 cookie;char path[128];K32HostView task[2];u8 failure[1024];
 } K32HostMailbox;
+typedef struct {u16 state,tables;u32 generation;} K32HostSlot;
+extern unsigned host_slot_bias;
+int host_operate(unsigned,unsigned);
+int host_bank_capacity(unsigned);
+u32 host_task_address(unsigned);
+void host_task_read(unsigned,unsigned,void *,unsigned);
 #endif

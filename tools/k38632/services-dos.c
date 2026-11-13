@@ -4,7 +4,8 @@
 #include "workspace.h"
 #include "../kgui32/sdk/protocol.h"
 extern u8 results[1024],loader_buffer[4096];
-extern u32 context[19],loader_map[1024],loader_request,xms_entry;
+extern u32 context[19],loader_request,xms_entry;
+extern u8 loader_map[1024];
 extern K32Plan loader_plan;
 extern K32Args loader_args;
 extern int loader_write(void);
@@ -53,17 +54,17 @@ static int transfer(u32 at,void *buffer,unsigned n,int write){
 /* Only the dedicated GUI loader exports these copies. Ordinary app hosts do
  * not acquire GUI services or a pointer to the hardware transfer buffer. */
 int gui_copy(u32 at,void *buffer,unsigned n,int write){
- if(!k32_user_range(loader_map,at,n,write))return -14;
+ if(!k32_user_access(loader_map,at,n,write))return -14;
  return transfer(at-K32_BASE,buffer,n,write)?0:-5;
 }
 int gui_copy_far(u32 at,unsigned segment,unsigned n){
- if(!n||n>32768||(n&1)||!k32_user_range(loader_map,at,n,0))return -14;
+ if(!n||n>32768||(n&1)||!k32_user_access(loader_map,at,n,0))return -14;
  u16 h=*(u16 *)(results+40);u32 base=get(28)-get(32);
  return raw_move(h,base+at-K32_BASE,0,(u32)segment<<16,n)?0:-5;
 }
 #endif
 static void pte(unsigned i,u32 value){
- loader_map[i]=value;
+ loader_map[i]=value&7;
  #ifdef K32_HOST
  if(get(24)){
   extern void host_physical32(u32,u32);host_physical32(get(24)+8192+i*4,value?get(28)+value:0);
@@ -174,7 +175,7 @@ static int directory_at(u32 op,u32 b,u32 c,u32 d,const char *pattern){
  if(op==16){directory_token=directory_eof=0;return 0;}
  u32 pointer=op==14?b:c,n=op==14?c:d;
  if(n!=sizeof(K32DirEntry))return -22;
- if(!k32_user_range(loader_map,pointer,n,1))return -14;
+ if(!k32_user_access(loader_map,pointer,n,1))return -14;
  if(op==14){directory_token=(++serial<<4)|15;directory_eof=0;}
  int found=0;
  while(!directory_eof){
@@ -206,14 +207,14 @@ static int open_path(const char *path){
 }
 static int open_file(u32 pointer,u32 n){
  if(!n||n>12)return -22;
- if(!k32_user_range(loader_map,pointer,n,0))return -14;
+ if(!k32_user_access(loader_map,pointer,n,0))return -14;
  char text[12],path[16];if(!transfer(pointer-K32_BASE,text,n,0))return -5;
  if(!k32_filename(text,n,path))return -22;
  return open_path(path);
 }
 static int read_file(u32 token,u32 pointer,u32 n){
  int i=index(token);if(i<0)return i;if(n>4096)return -22;
- if(!k32_user_range(loader_map,pointer,n,1))return -14;
+ if(!k32_user_access(loader_map,pointer,n,1))return -14;
  if(!n)return 0;
  u32 a=0x3f00;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"b"(files[i].handle),"c"(n),"d"((u32)loader_buffer):"cc","memory");
  if(a==~0u)return -5;
@@ -318,12 +319,12 @@ static int work_copy(unsigned at,void *p,unsigned n){return transfer(at-K32_BASE
 static int workspace(u32 pointer,u32 size){
  if(!(loader_plan.features&K32_FEATURE_SAVE))return -38;
  if(size!=sizeof(K32Work))return -22;
- if(!k32_user_range(loader_map,pointer,size,1))return -14;
+ if(!k32_user_access(loader_map,pointer,size,1))return -14;
  K32Work r;if(!transfer(pointer-K32_BASE,&r,size,0))return -5;
  int e=k32_work_request(&r);if(e)return e;
  if(work_handle>=0&&r.operation!=K32_WORK_INFO)return -117;
- if((r.operation==K32_WORK_SAVE||r.operation==K32_WORK_REC_RESTORE_TMP||r.operation==K32_WORK_REC_RESTORE_BAK)&&!k32_user_range(loader_map,r.data,r.bytes,0))return -14;
- if((r.operation==K32_WORK_FIRST||r.operation==K32_WORK_INFO||r.operation==K32_WORK_REC_INFO||r.operation==K32_WORK_REC_FIRST_TMP||r.operation==K32_WORK_REC_FIRST_BAK)&&!k32_user_range(loader_map,r.data,r.bytes,1))return -14;
+ if((r.operation==K32_WORK_SAVE||r.operation==K32_WORK_REC_RESTORE_TMP||r.operation==K32_WORK_REC_RESTORE_BAK)&&!k32_user_access(loader_map,r.data,r.bytes,0))return -14;
+ if((r.operation==K32_WORK_FIRST||r.operation==K32_WORK_INFO||r.operation==K32_WORK_REC_INFO||r.operation==K32_WORK_REC_FIRST_TMP||r.operation==K32_WORK_REC_FIRST_BAK)&&!k32_user_access(loader_map,r.data,r.bytes,1))return -14;
  u32 old=critical(1,0);char path[24];
  e=work_ready();
  if(r.operation==K32_WORK_INFO){
@@ -376,7 +377,7 @@ int services_dispatch(void){
   extern int host_graphics(void *,unsigned);
   if(!(loader_plan.features&KG_FEATURE))return -38;
   if(c!=sizeof(KgRequest))return -22;
-  if(!k32_user_range(loader_map,b,c,1))return -14;
+  if(!k32_user_access(loader_map,b,c,1))return -14;
   if(!transfer(b-K32_BASE,loader_buffer,c,0))return -5;
   int e=host_graphics(loader_buffer,1);
   if(e>=0&&!transfer(b-K32_BASE,loader_buffer,c,1))return -5;

@@ -8,6 +8,7 @@
 typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,presents,last_key,heartbeat,error;
  u32 terminal_magic,terminal0,terminal1,terminal_phase,terminal_valid;
  u32 terminal_geometry[2][6];
+ u32 capacity,terminal2,terminal3,extra_geometry[2][6];
 } GuiState;
 volatile GuiState gui_state __attribute__((used,section(".data.gui_state")))={.magic=0x3147554b,.version=1,.terminal_magic=0x3254474b};
 static GuiInfo info;static Scene scene;static u8 font[95*16];
@@ -15,20 +16,20 @@ static struct {u32 code;u8 bitmap[32];} glyph_cache[128];
 static unsigned glyph_slot;
 static u8 framebuffer[800*600*2],packed[800*600*2];
 static Rect clip;
-static GuiSessionView views[2];static int errors[2],editing[2],lengths[2];
-static GuiTerminalView terminals[2],terminal_stage;
-static unsigned terminal_valid[2],terminal_phase;static u32 terminal_tick;
-static char paths[2][128];static unsigned following[2];
-static KgRequest clients[2],client_io;
+static GuiSessionView views[4];static int errors[4],editing[4],lengths[4];
+static GuiTerminalView terminals[4],terminal_stage;
+static unsigned terminal_valid[4],terminal_phase;static u32 terminal_tick;
+static char paths[4][128];static unsigned following[4];
+static KgRequest clients[4],client_io;
 static unsigned exit_pending;
-static u32 close_generation[2],close_token[2],close_cancel[2];
+static u32 close_generation[4],close_token[4],close_cancel[4];
 static unsigned capture,capture_generation,capture_token;
 static void refresh_graphical(unsigned);
 static int client_event(unsigned,const KgEvent *);
 static void follow_cursor(unsigned);
 static void terminal_report(void){
- gui_state.terminal0=(u32)&terminals[0];gui_state.terminal1=(u32)&terminals[1];gui_state.terminal_valid=terminal_valid[0]|terminal_valid[1]<<1;gui_state.terminal_phase=terminal_phase;
- for(unsigned id=0;id<2;id++){Rect r=scene.window[id+2].r;u32 *g=(u32 *)gui_state.terminal_geometry[id];g[0]=r.x;g[1]=r.y;g[2]=r.w;g[3]=r.h;g[4]=scene.scroll_x[id];g[5]=scene.scroll_y[id];}
+ gui_state.terminal0=(u32)&terminals[0];gui_state.terminal1=(u32)&terminals[1];gui_state.terminal_valid=terminal_valid[0]|terminal_valid[1]<<1|terminal_valid[2]<<2|terminal_valid[3]<<3;gui_state.capacity=scene.slots;gui_state.terminal2=(u32)&terminals[2];gui_state.terminal3=(u32)&terminals[3];gui_state.terminal_phase=terminal_phase;
+ for(unsigned id=0;id<(unsigned)scene.slots;id++){Rect r=scene.window[id+2].r;u32 *g=(u32 *)(id<2?gui_state.terminal_geometry[id]:gui_state.extra_geometry[id-2]);g[0]=r.x;g[1]=r.y;g[2]=r.w;g[3]=r.h;g[4]=scene.scroll_x[id];g[5]=scene.scroll_y[id];}
 }
 static int session_command(unsigned slot,unsigned operation,unsigned key){
  GuiSessionCommand c={.version=1,.size=sizeof c,.slot=slot,.generation=operation==GS_CREATE?0:views[slot].generation,.operation=operation,.key=key};
@@ -36,7 +37,7 @@ static int session_command(unsigned slot,unsigned operation,unsigned key){
  return k32_call(GUI_SESSION,(u32)&c,sizeof c);
 }
 static void refresh(void){
- for(unsigned id=0;id<2;id++){
+ for(unsigned id=0;id<(unsigned)scene.slots;id++){
   GuiSessionView v={.version=1,.size=sizeof v,.slot=id};
   if(k32_call(GUI_SNAPSHOT,(u32)&v,sizeof v))continue;
   GuiWindow *w=&scene.window[id+2];
@@ -100,8 +101,8 @@ static void launch(int act){
   * current state rather than rejecting an available slot from the cache. */
  refresh();
  unsigned id=0;
- while(id<2&&(views[id].state==1||views[id].state==2||views[id].state==3||(views[id].state==4&&!views[id].owned)))id++;
- if(id==2){scene.action_result=-16;scene_damage(&scene,scene.window[0].r);return;}
+ while(id<(unsigned)scene.slots&&(views[id].state==1||views[id].state==2||views[id].state==3||(views[id].state==4&&!views[id].owned)))id++;
+ if(id==(unsigned)scene.slots){scene.action_result=-16;scene_damage(&scene,scene.window[0].r);return;}
  const char *path=act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":"KSH.EXE";
  for(unsigned i=0;i<128;i++){paths[id][i]=path[i];if(!path[i])break;}
  errors[id]=session_command(id,GS_CREATE,0);scene.action_result=errors[id];
@@ -322,7 +323,8 @@ static void window(int id){
  if(x+width+6<=clip.x||x>=clip.x+clip.w||y+height+6<=clip.y||y>=clip.y+clip.h)return;
  box(x+5,y+5,width,height,rgb(8,16,28));box(x,y,width,height,color(11));box(x+1,y+1,width-2,height-2,color(2));
  box(x+2,y+2,width-4,28,color(scene.active==id?4:9));box(x+3,y+3,width-6,1,color(scene.active==id?13:3));
- text(x+12,y+9,id>=2?(scene.graphical[id-2]?(id==2?"App 1":"App 2"):(id==2?"DOS 1":"DOS 2")):id?"System":"Welcome to KGUI32",color(scene.active==id?7:0));
+ char label[6]="DOS 1";if(id>=2){if(scene.graphical[id-2]){label[0]='A';label[1]='p';label[2]='p';}label[4]='1'+id-2;}
+ text(x+12,y+9,id>=2?label:id?"System":"Welcome to KGUI32",color(scene.active==id?7:0));
  box(x+width-47,y+6,18,18,color(3));box(x+width-25,y+6,18,18,color(3));
  text(x+width-43,y+7,"_",color(0));text(x+width-21,y+7,"x",color(0));
  if(id>=2){
@@ -335,12 +337,12 @@ static void window(int id){
   text(x+174,y+196,scene.action_result<0?"Slots full / error":"F2 / F10",color(10));
  }else{
   text(x+16,y+46,"Desktop: private context",color(0));
-  text(x+16,y+70,"Application slots: 2",color(0));
-  for(int i=0;i<2;i++){
+  text(x+16,y+70,scene.slots==4?"Application slots: 4":"Application slots: 2",color(0));
+  for(int i=0;i<scene.slots;i++){
    int yy=y+98+i*24;number(x+16,yy,i+1,color(0));text(x+32,yy,scene.states[i]==1?"Running":scene.states[i]==2?"Waiting":scene.states[i]==3?"Stopped":scene.states[i]==4?"Faulted":"Free",color(10));number(x+108,yy,scene.counters[i],color(0));
   }
-  text(x+16,y+146,scene.action_result<0?"Slots busy / unavailable":"CPU workers: T=start S=stop",color(10));
-  button(x+16,y+168,94,"Test CPU");button(x+124,y+168,94,"Stop");
+  text(x+16,y+146+(scene.slots-2)*24,scene.action_result<0?"Slots busy / unavailable":"CPU workers: T=start S=stop",color(10));
+  button(x+16,y+168+(scene.slots-2)*24,94,"Test CPU");button(x+124,y+168+(scene.slots-2)*24,94,"Stop");
  }
 }
 static void cursor(void){
@@ -354,12 +356,12 @@ static int paint(void){
  for(int y=clip.y;y<clip.y+clip.h;y++)box(clip.x,y,clip.w,1,rgb(18+y*14/info.height,30+y*34/info.height,58+y*40/info.height));
  box(0,0,info.width,32,color(0));box(0,31,info.width,1,color(4));
  box(12,8,12,16,color(6));box(26,8,6,16,color(4));text(44,9,"KGUI32",color(7));text(124,9,"32-bit",color(9));
- button(info.width-312,3,84,"New DOS 1");button(info.width-220,3,84,"New DOS 2");
+ for(int i=0;i<scene.slots;i++){char label[]="DOS 1";label[4]+=i;if(scene.slots==2)button(info.width-312+i*92,3,84,i?"New DOS 2":"New DOS 1");else button(info.width-360+i*56,3,52,label);}
  button(info.width-128,3,120,"Exit to DOS");
- for(int i=0;i<4;i++)window(scene.order[i]);
+ for(int i=0;i<scene.slots+2;i++)window(scene.order[i]);
  box(0,info.height-32,info.width,32,color(0));box(0,info.height-32,info.width,1,color(4));
  button(6,info.height-29,136,"Welcome");button(152,info.height-29,136,"System");
- for(int i=0;i<2;i++)if(scene.window[i+2].open)button(300+i*146,info.height-29,136,scene.graphical[i]?clients[i].title:i?"DOS 2":"DOS 1");
+ for(int i=0;i<scene.slots;i++)if(scene.window[i+2].open){char label[]="DOS 1";label[4]+=i;int step=scene.slots==2?146:(info.width-300)/4;button(300+i*step,info.height-29,step-10,scene.graphical[i]?clients[i].title:label);}
  cursor();
  unsigned row_bytes=clip.w*info.bpp;
  for(int row=0;row<clip.h;row++){
@@ -375,7 +377,7 @@ static int session_negative(void){
  static const u32 client_header[4]={1,sizeof(KgRequest),0,0};
  if(k32_call(GUI_CLIENT_VIEW,0x10000,sizeof(KgRequest))!=-14)return 12;
  if(k32_call(GUI_CLIENT_VIEW,(u32)client_header,sizeof(KgRequest))!=-14)return 13;
- client_io=(KgRequest){.version=1,.size=sizeof client_io,.slot=2};
+ client_io=(KgRequest){.version=1,.size=sizeof client_io,.slot=scene.slots};
  if(k32_call(GUI_CLIENT_VIEW,(u32)&client_io,sizeof client_io)!=-22)return 14;
  client_io.slot=0;client_io.generation=~0u;
  if(k32_call(GUI_CLIENT_EVENT,(u32)&client_io,sizeof client_io)!=-1)return 15;
@@ -387,9 +389,9 @@ static int session_negative(void){
  if(k32_call(GUI_SNAPSHOT,(u32)readonly_header,sizeof v)!=-14)return 11;
  if(k32_call(GUI_SNAPSHOT,0x800000,sizeof v)!=-22)return 3; /* RO ELF header is not a valid versioned request. */
  if(k32_call(GUI_SESSION,(u32)&c,sizeof c-1)!=-22)return 4;
- c.slot=2;if(k32_call(GUI_SESSION,(u32)&c,sizeof c)!=-22)return 5;c.slot=0;
+ c.slot=scene.slots;if(k32_call(GUI_SESSION,(u32)&c,sizeof c)!=-22)return 5;c.slot=0;
  c.operation=7;if(k32_call(GUI_SESSION,(u32)&c,sizeof c)!=-22)return 6;
- for(unsigned id=0;id<2;id++){
+ for(unsigned id=0;id<(unsigned)scene.slots;id++){
   c.slot=id;c.operation=GS_END;c.generation=views[id].generation+1;
   if(k32_call(GUI_SESSION,(u32)&c,sizeof c)!=-116)return 7;
   c.generation=views[id].generation;c.key=1;
@@ -434,7 +436,7 @@ int main(int argc,char **argv){
  int e=k32_call(GUI_INFO,(u32)&info,sizeof info);if(e)return 2;
  if(info.magic!=0x3149474b||info.version!=1||info.width>800||info.height>600||(info.bpp!=1&&info.bpp!=2)||info.pitch!=info.width*info.bpp)return 3;
  if(k32_call(GUI_FONT,(u32)font,sizeof font))return 4;
- scene_init(&scene,info.width,info.height);gui_state.x0=scene.window[0].r.x;gui_state.y0=scene.window[0].r.y;gui_state.x1=scene.window[1].r.x;gui_state.y1=scene.window[1].r.y;
+ scene_init(&scene,info.width,info.height);scene_slots(&scene,info.features&GUI_FOUR_SLOTS?4:2);gui_state.x0=scene.window[0].r.x;gui_state.y0=scene.window[0].r.y;gui_state.x1=scene.window[1].r.x;gui_state.y1=scene.window[1].r.y;
  refresh();
  int once=argc>1&&equal(argv[1],"once"),proof=argc>1&&equal(argv[1],"proof");
  if(argc>1&&equal(argv[1],"sessionapi")){int bad=session_negative();gui_state.error=bad?200+bad:0;return bad?5:0;}
@@ -444,18 +446,18 @@ int main(int argc,char **argv){
  if(argc>1&&equal(argv[1],"fault"))*(volatile u32 *)0x10000=1;
  if(argc>1&&equal(argv[1],"spin"))for(;;)gui_state.heartbeat++;
  for(;;){
-  GuiEvent event;int got=k32_call(GUI_EVENT,(u32)&event,sizeof event);
+  GuiEvent4 event4;int got=k32_call(GUI_EVENT,(u32)&event4,sizeof event4);GuiEvent event=event4.base;
   if(got<0){gui_state.error=7;return 7;}
   if(!got){k32_wait(K32_WAIT_TIME,16);continue;}
   gui_state.events++;gui_state.heartbeat++;key_modifiers=event.type==GUI_KEY?event.buttons:0;if(event.type==GUI_KEY)gui_state.last_key=event.key;
   if(!terminal_tick)terminal_tick=event.ticks;
   if(((event.ticks-terminal_tick)&0xffffff)>=153600){terminal_tick=event.ticks;terminal_phase^=1;
-   for(unsigned id=0;id<2;id++)if(terminal_valid[id]&&scene.window[id+2].open&&!scene.window[id+2].hidden){
+   for(unsigned id=0;id<(unsigned)scene.slots;id++)if(terminal_valid[id]&&scene.window[id+2].open&&!scene.window[id+2].hidden){
     unsigned blink=0;for(unsigned i=0;i<2000;i++)if(terminals[id].attributes[i]&2){blink=1;break;}
     if(blink)scene_window_damage(&scene,id+2,scene.window[id+2].r);
    }
   }
-  int previous_focus=scene.active;Rect previous_rect[2]={scene.window[2].r,scene.window[3].r};
+  int previous_focus=scene.active;Rect previous_rect[4];for(unsigned id=0;id<(unsigned)scene.slots;id++)previous_rect[id]=scene.window[id+2].r;
   /* A child may OPEN/SUBSCRIBE between timer events. Route input against
    * its current generation/token, never the ended root's cached canvas. */
   if(event.type==GUI_KEY||event.type==GUI_BUTTON)refresh();
@@ -463,21 +465,21 @@ int main(int argc,char **argv){
   if(event.type==GUI_KEY&&scene.active>=2&&event.key!=281&&event.key!=11&&event.key!=289&&
      ((editing[scene.active-2]&&event.key!=9)||(!editing[scene.active-2]&&clients[scene.active-2].token&&event.key!=289&&((event.key==9&&(clients[scene.active-2].event.control&KG_INPUT_TAB))||((clients[scene.active-2].event.control&KG_INPUT_KEYS)&&event.key!=9))))){
    scene.slot=scene.active-2;scene.key=event.key;act=ACT_KEY;
-  }else act=scene_event(&scene,&event);
+  }else act=scene_event4(&scene,&event4);
   if(act==ACT_EXIT){
    exit_pending=1;
-   for(unsigned id=0;id<2;id++)if(clients[id].token&&(clients[id].event.control&KG_INPUT_CLOSE)){
+   for(unsigned id=0;id<(unsigned)scene.slots;id++)if(clients[id].token&&(clients[id].event.control&KG_INPUT_CLOSE)){
     KgEvent q={.type=KG_QUIT,.key=2};client_event(id,&q);
    }
    act=ACT_NONE;
   }
-  if(act==ACT_END&&event.type==GUI_BUTTON&&scene.slot<2&&clients[scene.slot].token&&event.x>=(u32)(scene.window[scene.slot+2].r.x+scene.window[scene.slot+2].r.w-25)&&event.y<(u32)(scene.window[scene.slot+2].r.y+30)&&(clients[scene.slot].event.control&KG_INPUT_CLOSE)){
+  if(act==ACT_END&&event.type==GUI_BUTTON&&scene.slot<scene.slots&&clients[scene.slot].token&&event.x>=(u32)(scene.window[scene.slot+2].r.x+scene.window[scene.slot+2].r.w-25)&&event.y<(u32)(scene.window[scene.slot+2].r.y+30)&&(clients[scene.slot].event.control&KG_INPUT_CLOSE)){
    unsigned id=scene.slot;scene.window[id+2].open=1;scene_focus(&scene,id+2);
    KgEvent q={.type=KG_QUIT,.key=1};if(!client_event(id,&q)){close_generation[id]=views[id].generation;close_token[id]=clients[id].token;close_cancel[id]=clients[id].event.key;}act=ACT_NONE;
   }
   action(act);if(event.type==GUI_TIMER)refresh();
-  if(exit_pending){unsigned pending=0;for(unsigned id=0;id<2;id++)if(clients[id].token&&(clients[id].event.control&KG_INPUT_CLOSE))pending=1;if(!pending)return 0;}
-  for(unsigned id=0;id<2;id++)if(scene.graphical[id]&&clients[id].token){
+  if(exit_pending){unsigned pending=0;for(unsigned id=0;id<(unsigned)scene.slots;id++)if(clients[id].token&&(clients[id].event.control&KG_INPUT_CLOSE))pending=1;if(!pending)return 0;}
+  for(unsigned id=0;id<(unsigned)scene.slots;id++)if(scene.graphical[id]&&clients[id].token){
    Rect r=scene.window[id+2].r;
    if(r.w!=previous_rect[id].w||r.h!=previous_rect[id].h){capture=0;KgEvent change={.type=KG_RESIZE,.width=r.w-16,.height=r.h-104};client_event(id,&change);}
    if(previous_focus!=scene.active&&(previous_focus==(int)id+2||scene.active==(int)id+2)){KgEvent focus={.type=KG_FOCUS,.key=scene.active==(int)id+2};client_event(id,&focus);capture=0;}

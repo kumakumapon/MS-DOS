@@ -27,6 +27,14 @@ typedef struct {
     char report[6][72];
 } K386Resources;
 extern K386Resources k386_resources;
+#ifdef K32_HOST
+#define K386_RESOURCE_SLOTS 4u
+extern unsigned resource_slots;
+#else
+#define K386_RESOURCE_SLOTS K386_SESSIONS
+#define resource_slots K386_SESSIONS
+#endif
+K386Usage *resource_usage(unsigned id);
 void resource_init(void);
 int resource_pick(unsigned runnable);
 int resource_priority(unsigned id,unsigned priority);

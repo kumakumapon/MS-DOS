@@ -19,7 +19,7 @@ void scene_damage(Scene *s,Rect r){
  * Cached content still advances; revealing a window repaints from that cache. */
 static void visible_damage(Scene *s,Rect r,int level){
  if(r.w<=0||r.h<=0)return;
- for(int n=level;n<4;n++){
+ for(int n=level;n<s->slots+2;n++){
   GuiWindow *w=&s->window[s->order[n]];if(!w->open||w->hidden)continue;
   Rect c=w->r;int l=r.x>c.x?r.x:c.x,t=r.y>c.y?r.y:c.y;
   int right=r.x+r.w<c.x+c.w?r.x+r.w:c.x+c.w,bottom=r.y+r.h<c.y+c.h?r.y+r.h:c.y+c.h;
@@ -32,25 +32,32 @@ static void visible_damage(Scene *s,Rect r,int level){
  scene_damage(s,r);
 }
 void scene_window_damage(Scene *s,int id,Rect r){
- for(int n=0;n<4;n++)if(s->order[n]==id){visible_damage(s,r,n+1);return;}
+ for(int n=0;n<s->slots+2;n++)if(s->order[n]==id){visible_damage(s,r,n+1);return;}
 }
 void scene_init(Scene *s,int width,int height){
- *s=(Scene){.width=width,.height=height,.mx=320,.my=200,.active=0,.order={3,2,1,0}};
+ *s=(Scene){.width=width,.height=height,.mx=320,.my=200,.active=0,.order={3,2,1,0},.slots=2};
  s->window[0]=(GuiWindow){{48,64,340,224},1,0};
  s->window[1]=(GuiWindow){{width-272,120,244,224},1,0};
  for(int i=0;i<2;i++)s->window[i+2]=(GuiWindow){{16+i*8,40+i*8,width>688?656:width-32,height>576?496:height-80},0,0};
  scene_damage(s,(Rect){0,0,width,height});
 }
+void scene_slots(Scene *s,unsigned n){
+ if(n!=2&&n!=4)return;
+ s->slots=n;
+ for(unsigned i=0;i<n+2;i++)s->order[i]=n+1-i;
+ for(unsigned i=2;i<n;i++)s->window[i+2]=(GuiWindow){{32+(int)i*8,40+(int)i*8,s->width>688?656:s->width-32,s->height>576?496:s->height-80},0,0};
+ s->window[1].r.h=224+(n-2)*24;
+}
 void scene_focus(Scene *s,int id){
  if(s->active==id&&s->window[id].open&&!s->window[id].hidden)return;
- for(int i=0;i<4;i++)if(s->window[i].open&&!s->window[i].hidden)scene_damage(s,covered(&s->window[i]));
- for(int i=0;i<3;i++)if(s->order[i]==id){for(int j=i;j<3;j++)s->order[j]=s->order[j+1];break;}
- s->order[3]=id;s->active=id;s->window[id].open=1;s->window[id].hidden=0;scene_damage(s,covered(&s->window[id]));
+ for(int i=0;i<s->slots+2;i++)if(s->window[i].open&&!s->window[i].hidden)scene_damage(s,covered(&s->window[i]));
+ for(int i=0;i<s->slots+1;i++)if(s->order[i]==id){for(int j=i;j<s->slots+1;j++)s->order[j]=s->order[j+1];break;}
+ s->order[s->slots+1]=id;s->active=id;s->window[id].open=1;s->window[id].hidden=0;scene_damage(s,covered(&s->window[id]));
  scene_damage(s,(Rect){0,s->height-32,s->width,32});
 }
 static void next_visible(Scene *s){
  scene_damage(s,(Rect){0,s->height-32,s->width,32});
- for(int n=3;n>=0;n--){int id=s->order[n];if(s->window[id].open&&!s->window[id].hidden){s->active=id;scene_damage(s,covered(&s->window[id]));return;}}
+ for(int n=s->slots+1;n>=0;n--){int id=s->order[n];if(s->window[id].open&&!s->window[id].hidden){s->active=id;scene_damage(s,covered(&s->window[id]));return;}}
  s->active=0;
 }
 void scene_close(Scene *s,int id){GuiWindow *w=&s->window[id];w->open=0;scene_damage(s,covered(w));if(s->active==id)next_visible(s);}
@@ -75,8 +82,8 @@ int scene_event(Scene *s,const GuiEvent *e){
   if(e->key==289)return ACT_EXIT;
   if(e->key==11||e->key==281){scene_focus(s,0);return ACT_NONE;}
   if(e->key==9){
-   int id=(s->active+1)%4;
-   while(id>=2&&id!=s->active&&!s->window[id].open)id=(id+1)%4;
+   int id=(s->active+1)%(s->slots+2);
+   while(id>=2&&id!=s->active&&!s->window[id].open)id=(id+1)%(s->slots+2);
    scene_focus(s,id);return ACT_NONE;
   }
   if(s->active>=2&&s->window[s->active].open&&!s->window[s->active].hidden){
@@ -107,15 +114,15 @@ int scene_event(Scene *s,const GuiEvent *e){
  if(s->drag){move(s,s->drag-1,s->mx-s->dx,s->my-s->dy);if(!(s->buttons&1))s->drag=0;return ACT_NONE;}
  if(!down)return ACT_NONE;
  if(inside((Rect){s->width-128,4,120,24},s->mx,s->my))return ACT_EXIT;
- for(int i=0;i<2;i++)if(inside((Rect){s->width-312+i*92,3,84,28},s->mx,s->my)){
+ for(int i=0;i<s->slots;i++)if(inside((Rect){s->width-(s->slots==2?312:360)+i*(s->slots==2?92:56),3,s->slots==2?84:52,28},s->mx,s->my)){
   s->slot=i;scene_focus(s,i+2);return ACT_NEW;
  }
  if(s->my>=s->height-28){
   if(s->mx<146)scene_focus(s,0);else if(s->mx<292)scene_focus(s,1);
-  else for(int i=0;i<2;i++)if(s->mx>=300+i*146&&s->mx<436+i*146&&s->window[i+2].open)scene_focus(s,i+2);
+  else for(int i=0;i<s->slots;i++)if(s->mx>=300+i*(s->slots==2?146:(s->width-300)/4)&&s->mx<300+(i+1)*(s->slots==2?146:(s->width-300)/4)-10&&s->window[i+2].open)scene_focus(s,i+2);
   return ACT_NONE;
  }
- for(int n=3;n>=0;n--){
+ for(int n=s->slots+1;n>=0;n--){
   int id=s->order[n];GuiWindow *w=&s->window[id];
   if(!w->open||w->hidden||!inside(w->r,s->mx,s->my))continue;
   scene_focus(s,id);
@@ -147,9 +154,23 @@ int scene_event(Scene *s,const GuiEvent *e){
    if(inside((Rect){w->r.x+174,w->r.y+152,140,28},s->mx,s->my))return ACT_FILES;
    if(inside((Rect){w->r.x+18,w->r.y+188,140,28},s->mx,s->my))return ACT_EDITOR;
   }
-  if(id==1&&inside((Rect){w->r.x+16,w->r.y+168,94,28},s->mx,s->my))return ACT_START;
-  if(id==1&&inside((Rect){w->r.x+124,w->r.y+168,94,28},s->mx,s->my))return ACT_STOP;
+  if(id==1&&inside((Rect){w->r.x+16,w->r.y+168+(s->slots-2)*24,94,28},s->mx,s->my))return ACT_START;
+  if(id==1&&inside((Rect){w->r.x+124,w->r.y+168+(s->slots-2)*24,94,28},s->mx,s->my))return ACT_STOP;
   break;
  }
  return ACT_NONE;
+}
+
+int scene_event4(Scene *s,const GuiEvent4 *e){
+ if(e->base.type==GUI_TIMER){
+  GuiWindow *w=&s->window[1];
+  for(int i=2;i<s->slots;i++){
+   if(w->open&&!w->hidden){
+    if(s->states[i]!=e->extra_states[i-2])scene_window_damage(s,1,(Rect){w->r.x+32,w->r.y+98+i*24,76,16});
+    if(s->counters[i]!=e->extra_counters[i-2])scene_window_damage(s,1,(Rect){w->r.x+108,w->r.y+98+i*24,120,16});
+   }
+   s->states[i]=e->extra_states[i-2];s->counters[i]=e->extra_counters[i-2];
+  }
+ }
+ return scene_event(s,&e->base);
 }

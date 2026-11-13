@@ -1,15 +1,34 @@
 #include "k386_client.h"
 #include "hardware.h"
 #include "../k38632/manager.h"
-static unsigned segment,offset,turn,mixed;
-static u32 cached_view[2];
-static void refresh_views(void){for(unsigned id=0;id<2;id++){unsigned at=__builtin_offsetof(K32Manager,view)+id*4;cached_view[id]=mem_get(segment,offset+at)|(u32)mem_get(segment,offset+at+1)<<8|(u32)mem_get(segment,offset+at+2)<<16|(u32)mem_get(segment,offset+at+3)<<24;}}
+#include "../k386/extended.h"
+static unsigned segment,offset,turn,mixed,capacity=2;
+static u32 cached_view[4];
+static unsigned word(unsigned);
+static void refresh_views(void){
+ capacity=mixed==2?word(__builtin_offsetof(K32Manager4,capacity)):2;
+ if(capacity!=2&&capacity!=4)capacity=2;
+ for(unsigned id=0;id<capacity;id++){unsigned at=(mixed==2?__builtin_offsetof(K32Manager4,view):__builtin_offsetof(K32Manager,view))+id*4;cached_view[id]=word(at)|(u32)word(at+2)<<16;}
+}
+unsigned k386_capacity(void){return capacity;}
+int k386_capacity_request(unsigned n){if(mixed!=2)return 50;return k386_command(K386_CAPACITY,0,n,0);}
 static unsigned resources_segment,resources_offset;
 #define OFF(m) __builtin_offsetof(K386Mailbox,m)
 static unsigned word(unsigned at) {return mem_get(segment,offset+at)|(unsigned)mem_get(segment,offset+at+1)<<8;}
 static void put(unsigned at,unsigned value) {mem_put(segment,offset+at,value);mem_put(segment,offset+at+1,value>>8);}
 int k386_probe(void) {
-    unsigned query=0xd391,zero=0,di_mixed;u16 seg_mixed;
+    unsigned query=0xd392,zero=0,di_mixed;u16 seg_mixed;
+    capacity=2;
+    __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(query),"=c"(seg_mixed),"=D"(di_mixed):"b"(zero):"cc","memory");
+    if((query&65535)==0x392d){
+        segment=seg_mixed;offset=di_mixed&65535;
+        if(word(8)==2&&word(10)==sizeof(K32Manager4)&&word(12)==1){
+            mixed=2;unsigned at=__builtin_offsetof(K32Manager4,resources);u32 p=word(at)|(u32)word(at+2)<<16;
+            resources_segment=p>>4;resources_offset=p&15;
+            if(p>=0x10000&&p+sizeof(K386Resources)<=0xa0000){refresh_views();return 1;}
+        }
+    }
+    query=0xd391;
     __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(query),"=c"(seg_mixed),"=D"(di_mixed):"b"(zero):"cc","memory");
     if((query&65535)==0x391d){
         segment=seg_mixed;offset=di_mixed&65535;
@@ -36,9 +55,10 @@ int k386_probe(void) {
 }
 int k386_resources_available(void){return resources_segment!=0;}
 int k386_usage(unsigned id,K386Usage *out){
-    if(!resources_segment||id>=K386_SESSIONS)return 0;
-    unsigned at=resources_offset+__builtin_offsetof(K386Resources,usage)+id*sizeof(K386Usage);
-    for(unsigned i=0;i<sizeof *out;i++)((unsigned char *)out)[i]=mem_get(resources_segment,at+i);
+    if(!resources_segment||id>=capacity)return 0;
+    unsigned seg=resources_segment,at=resources_offset+__builtin_offsetof(K386Resources,usage)+id*sizeof(K386Usage);
+    if(mixed==2){unsigned pos=__builtin_offsetof(K32Manager4,usage)+id*4;u32 p=word(pos)|(u32)word(pos+2)<<16;if(p<0x10000||p+sizeof *out>0xa0000)return 0;seg=p>>4;at=p&15;}
+    for(unsigned i=0;i<sizeof *out;i++)((unsigned char *)out)[i]=mem_get(seg,at+i);
     return 1;
 }
 int k386_history(unsigned age,K386Event *out){
@@ -58,26 +78,26 @@ void k386_report_line(unsigned row,char *out){
     out[71]=0;
 }
 int k386_command(unsigned command,unsigned id,unsigned key,const char *path) {
-    if(!segment||id>=2)return 1;
+    if(!segment||id>=capacity)return 1;
     put(OFF(command),command);put(OFF(session),id);put(OFF(key),key);
     if(path)for(unsigned i=0;i<128;i++){mem_put(segment,offset+OFF(path)+i,path[i]);if(!path[i])break;}
-    unsigned a=mixed?0xd391:0xd386,b=1;
+    unsigned a=mixed==2?0xd392:mixed?0xd391:0xd386,b=1;
     __asm__ volatile("int $0x2f":"+a"(a),"+b"(b)::"ecx","edx","esi","edi","cc","memory");
     if(mixed)refresh_views();
     return word(OFF(error));
 }
 static u32 view_address(unsigned id){return cached_view[id];}
-unsigned k386_kind(unsigned id){return mixed&&id<2?word(__builtin_offsetof(K32Manager,kind)+id*2):0;}
+unsigned k386_kind(unsigned id){return mixed&&id<capacity?word(__builtin_offsetof(K32Manager,kind)+id*2):0;}
 int k386_restart(unsigned id){return k386_command(mixed?K32_RESTART:K386_CREATE,id,0,mixed?0:"KSH.EXE");}
 unsigned k386_word(unsigned id,unsigned at) {
-    if(id>=2||at+2>sizeof(K386View))return 0;
+    if(id>=capacity||at+2>sizeof(K386View))return 0;
     if(!mixed)return word(OFF(view)+id*sizeof(K386View)+at);
     u32 p=view_address(id)+at;if(p<0x10000||p+2>0xa0000)return 0;
     return mem_get(p>>4,p&15)|(unsigned)mem_get(p>>4,(p&15)+1)<<8;
 }
 unsigned k386_counter(unsigned id) {return k386_word(id,__builtin_offsetof(K386View,counter))|k386_word(id,__builtin_offsetof(K386View,counter)+2)<<16;}
 char k386_character(unsigned id,unsigned cell) {
-    if(id>=2||cell>=K386_SCREEN)return ' ';
+    if(id>=capacity||cell>=K386_SCREEN)return ' ';
     u32 p=mixed?view_address(id):(u32)segment*16+offset+OFF(view)+id*sizeof(K386View);
     p+=__builtin_offsetof(K386View,screen)+cell;
     unsigned c=mem_get(p>>4,p&15);return c<32?' ':c;
@@ -91,13 +111,13 @@ void k386_screen(unsigned id,char *out) {
 unsigned k386_tick(void) {
     if(!segment)return 0;
     if(resources_segment){
-        unsigned flags[2],states[2],changed=0;
-        for(unsigned i=0;i<2;i++){flags[i]=k386_word(i,6);states[i]=k386_word(i,0);}
+        unsigned flags[4],states[4],changed=0;
+        for(unsigned i=0;i<capacity;i++){flags[i]=k386_word(i,6);states[i]=k386_word(i,0);}
         if(k386_command(K386_SCHEDULE,0,8,0))return 0;
-        for(unsigned i=0;i<2;i++)if(flags[i]!=k386_word(i,6)||states[i]!=k386_word(i,0))changed|=1u<<i;
+        for(unsigned i=0;i<capacity;i++)if(flags[i]!=k386_word(i,6)||states[i]!=k386_word(i,0))changed|=1u<<i;
         return changed;
     }
-    unsigned id=turn++&1;
+    unsigned id=turn++%capacity;
     unsigned state=k386_word(id,0);
     if(state!=K386_RUNNING&&state!=K386_WAITING)return 0;
     unsigned before=k386_word(id,6);
@@ -105,7 +125,7 @@ unsigned k386_tick(void) {
     return k386_word(id,6)!=before||k386_word(id,0)!=state?1u<<id:0;
 }
 int k386_text(unsigned id,unsigned first,unsigned count,K386TextChunk *out){
- if(id>=2||first>=25||!count||count>3||count>25-first||k386_kind(id))return 87;
+ if(id>=capacity||first>=25||!count||count>3||count>25-first||k386_kind(id))return 87;
  int error=k386_command(K386_TEXT,id,first|(count<<8),0);if(error)return error;
  unsigned a=0xd38a,b=0,di;u16 seg;
  __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=D"(di):"b"(b):"edx","esi","cc","memory");

@@ -59,6 +59,16 @@ unavailable:
     mov ax,0x4c01
     int 0x21
 api:
+    cmp ax,0xd38b
+    jne text_api
+    test bx,bx
+    jnz dispatch_extended
+    mov ax,cs
+    mov es,ax
+    mov di,OFFSET k386_extended
+    mov ax,0x38bd
+    iretw
+text_api:
     cmp ax,0xd38a
     jne diagnostic_api
     test bx,bx
@@ -101,7 +111,20 @@ legacy_api:
 chain:
     .byte 0x2e,0xff,0x2e
     .word old_int
+dispatch_extended:
+    cmp WORD PTR cs:k386_extended+14,0
+    jne api_busy
+    mov WORD PTR cs:extended_call,1
+    jmp dispatch_common
 dispatch:
+    cmp WORD PTR cs:k386_extended+14,0
+    jne api_busy
+    mov WORD PTR cs:extended_call,0
+    jmp dispatch_common
+api_busy:
+    mov WORD PTR cs:k386_mailbox+14,5
+    iretw
+dispatch_common:
     cld
     pushad
     pushw ds
@@ -116,7 +139,13 @@ dispatch:
     mov es,ax
     mov esp,0xfff0
     sti
+    cmp WORD PTR extended_call,0
+    je dispatch_legacy_call
+    call api_dispatch_extended
+    jmp dispatch_return
+dispatch_legacy_call:
     call api_dispatch
+dispatch_return:
     cli
     mov ss,WORD PTR caller_ss
     mov esp,DWORD PTR caller_esp
@@ -511,3 +540,6 @@ busy_text: .asciz "K386 unavailable: XMS required; protected-mode/timer owner mu
 .align 16
 tss: .space 104
 .section .note.GNU-stack,"",@progbits
+
+.section .data
+extended_call: .word 0

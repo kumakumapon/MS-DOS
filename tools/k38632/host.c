@@ -15,7 +15,8 @@ char host_command[128];
 extern u16 host_api_kind;
 /* Keep the immutable initial task image outside the near resident segment. */
 static unsigned seed;
-static struct {u16 state,tables;u32 generation;} slots[2];
+K32HostSlot host_slots[2];
+#define slots host_slots
 static unsigned active,ds_segment,task_bytes,indos_segment,indos_offset;
 static unsigned csi,parameter[2],which;
 /* Terminal parser belongs to the task, just like its syscall request. */
@@ -41,7 +42,7 @@ static int graphics_available(void){
  unsigned a=0xd394,b=0;__asm__ volatile("int $0x2f":"+a"(a),"+b"(b)::"ecx","edx","esi","edi","cc","memory");return (a&65535)==0x394d;
 }
 int host_graphics(void *request,unsigned operation){
- KgPacket p={1,sizeof p,active,k32_manager.generation[active],(unsigned)request,sizeof(KgRequest),operation,-38};
+ KgPacket p={1,sizeof p,active+host_slot_bias,manager_generation(active+host_slot_bias),(unsigned)request,sizeof(KgRequest),operation,-38};
  unsigned a=0xd394,b=1,di=(unsigned)&p;
  __asm__ volatile("pushw %%es; pushw %%ds; popw %%es; int $0x2f; popw %%es":"+a"(a),"+b"(b),"+D"(di)::"ecx","edx","esi","cc","memory");
  return (a&65535)==0x394d?p.result:-38;
@@ -84,7 +85,7 @@ int host_write(const void *buffer,unsigned n){
  terminal_state=csi;terminal_parameter[0]=parameter[0];terminal_parameter[1]=parameter[1];terminal_which=which;v->flags++;return (int)n;
 }
 static int create(unsigned id){
- if(slots[id].state||(manager_v86_active(id)&&!manager_staging(id)))return 5;
+ if(slots[id].state||(manager_v86_active(id+host_slot_bias)&&!manager_staging(id+host_slot_bias)))return 5;
  unsigned snapshot=mem_alloc(task_bytes),tables=mem_alloc(16384);
  if(!snapshot||!tables){mem_free(snapshot);mem_free(tables);return 8;}
  slots[id].state=snapshot;slots[id].tables=tables;
@@ -103,7 +104,7 @@ static int create(unsigned id){
  for(unsigned i=0;i<2000;i++)v->view.screen[i]=' ';
  v->generation=++slots[id].generation;copy(v->command,host_command,128);publish(id);save(id);return 0;
 }
-int host_operate(unsigned id,unsigned cmd){
+int host_local_operate(unsigned id,unsigned cmd){
  if(cmd==K32_HOST_CREATE)return create(id);
  if(!slots[id].state){if(cmd==K32_HOST_END){host_mailbox.task[id].view.state=K386_ENDED;host_mailbox.task[id].view.flags++;return 0;}return 5;}
  K386View *v=&host_mailbox.task[id].view;load(id);
@@ -134,16 +135,23 @@ int host_install(void){
  seed=mem_alloc(task_bytes);if(!seed)return 1;
  mem_copy(seed,0,ds_segment,(unsigned)__task_start,task_bytes);host_mailbox.cookie=ticks()|1;host_mailbox.ready=1;manager_init(ds_segment);return 0;
 }
-unsigned host_occupied(void){return (slots[0].state?1u:0)|(slots[1].state?2u:0);}
+
 void host_dispatch(void){
  unsigned request=host_api_kind;
  u16 msw;u8 mask;__asm__ volatile("smsw %0; inb $2,%1":"=r"(msw),"=a"(mask));
- if(host_mailbox.busy||k32_manager.busy||(msw&1)||!(mask&1)||mem_get(indos_segment,indos_offset)){if(request)k32_manager.error=5;else host_mailbox.error=5;return;}
+ if(host_mailbox.busy||k32_manager.busy||k32_extended.busy||(msw&1)||!(mask&1)||mem_get(indos_segment,indos_offset)){if(request==2)k32_extended.error=5;else if(request)k32_manager.error=5;else host_mailbox.error=5;return;}
  if(!request&&host_mailbox.session>=2){host_mailbox.error=87;return;}
  host_mailbox.busy=1;unsigned caller,a=0x6200;__asm__ volatile("int $0x21":"+a"(a),"=b"(caller)::"cc","memory");
  a=0x5000;__asm__ volatile("int $0x21":"+a"(a):"b"((unsigned)host_mailbox.owner):"cc","memory");
  if(request){
-  k32_manager.busy=1;manager_dispatch();k32_manager.busy=0;
+  if(request==1){
+   if(k32_manager.session>=2||k32_manager.command==15){k32_manager.error=87;goto restore;}
+   copy((u8 *)&k32_extended+14,(u8 *)&k32_manager+14,138);
+  }
+  k32_manager.busy=k32_extended.busy=1;manager_dispatch();
+  manager_publish();
+  if(request==1){k32_manager.error=k32_extended.error;k32_manager.session=k32_extended.session;}
+  k32_manager.busy=k32_extended.busy=0;
  }else host_mailbox.error=host_operate(host_mailbox.session,host_mailbox.command);
- a=0x5000;__asm__ volatile("int $0x21":"+a"(a):"b"(caller):"cc","memory");host_mailbox.busy=0;
+ restore:a=0x5000;__asm__ volatile("int $0x21":"+a"(a):"b"(caller):"cc","memory");host_mailbox.busy=0;
 }

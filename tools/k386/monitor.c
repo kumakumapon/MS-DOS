@@ -2,11 +2,13 @@
 #include "runtime.h"
 #include "resources.h"
 #include "xmem.h"
+#include "extended.h"
 #include "../window/hardware.h"
 K386Mailbox k386_mailbox={{'K','3','8','6','A','B','I','1'},1,sizeof(K386Mailbox),1,0,0,0,0,0,{0},{{0}}};
 K386Session sessions[2];
 k32 monitor_base,page_directory[2],selected,saved_cr0,saved_cr3;
 k8 transfer[K386_TRANSFER];
+unsigned api_slot_bias;
 static k16 tables;
 static k16 ds_segment,owner_psp,indos_segment,indos_offset;
 static void usage(unsigned id){
@@ -49,9 +51,23 @@ static void step(unsigned id){
     else if(v->state==K386_ENDED)event(id,K386_EVENT_EXIT,K386_REASON_EXIT);
     k386_reap(id);limit(id);usage(id);
 }
+int api_available(void){
+    if((k386_mailbox.reserved&&!api_slot_bias)||mem_get(indos_segment,indos_offset))return 0;
+    k16 msw;unsigned char mask;__asm__ volatile("smsw %0; inb $2,%1":"=r"(msw),"=a"(mask));
+    return !(msw&1)&&(mask&1);
+}
+int api_capacity(unsigned n){
+    if(!api_available())return 5;
+    unsigned caller,a=0x6200;k386_mailbox.reserved=1;
+    __asm__ volatile("int $0x21":"+a"(a),"=b"(caller)::"cc","memory");
+    a=0x5000;__asm__ volatile("int $0x21":"+a"(a):"b"((unsigned)owner_psp):"cc","memory");
+    int e=k386_bank_capacity(n);
+    a=0x5000;__asm__ volatile("int $0x21":"+a"(a):"b"(caller):"cc","memory");
+    k386_mailbox.reserved=0;return e;
+}
 void api_dispatch(void) {
     unsigned id=k386_mailbox.session;k386_mailbox.error=0;
-    if(k386_mailbox.reserved||mem_get(indos_segment,indos_offset)){k386_mailbox.error=5;return;}
+    if(!api_available()){k386_mailbox.error=5;return;}
     k16 msw;unsigned char mask;
     __asm__ volatile("smsw %0; inb $2,%1":"=r"(msw),"=a"(mask));
     if((msw&1)||!(mask&1)){k386_mailbox.error=5;return;}
@@ -67,7 +83,7 @@ void api_dispatch(void) {
         /* A resident PM32 owner may occupy the same unified slot. */
         unsigned a=0xd393,b=0;
         __asm__ volatile("int $0x2f":"+a"(a),"+b"(b)::"ecx","edx","esi","edi","cc","memory");
-        if((a&65535)==0x393d&&(b&(1u<<id))){k386_mailbox.error=5;break;}
+        if((a&65535)==0x393d&&(b&(1u<<(id+api_slot_bias)))){k386_mailbox.error=5;break;}
         k386_mailbox.error=k386_start(id,k386_mailbox.path);
         if(!k386_mailbox.error){resource_begin(id);event(id,K386_EVENT_START,K386_REASON_NONE);}
         usage(id);break;}
@@ -135,7 +151,7 @@ void api_dispatch(void) {
     default:k386_mailbox.error=1;
     }
     service=0x5000;__asm__ volatile("int $0x21":"+a"(service):"b"(caller):"cc","memory");
-    k386_mailbox.reserved=0;
+    if(!api_slot_bias)k386_mailbox.reserved=0;
 }
 int monitor_init(void) {
     __asm__ volatile("movw %%ds,%0":"=r"(ds_segment));monitor_base=(k32)ds_segment*16;
@@ -152,7 +168,7 @@ int monitor_init(void) {
     k32 at=((k32)tables*16+4095)&~4095u;
     page_directory[0]=at;page_directory[1]=at+12288;
     for(int id=0;id<2;id++){runtime[id].process.vif=1;runtime[id].process.dta=0x80000080;for(int i=0;i<2000;i++)k386_mailbox.view[id].screen[i]=' ';}
-    return 1;
+    k386_bank_capacity(2);return 1;
 }
 _Static_assert(sizeof(K386Frame)==76,"interrupt frame ABI");
 _Static_assert(sizeof(K386Session)==256,"assembly session stride");
