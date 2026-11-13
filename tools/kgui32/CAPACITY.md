@@ -49,7 +49,7 @@ four System rows and independent launch/focus/pause/resume/restart/close control
 The default two-slot layout retains its existing coordinates.
 
 The bundled FDXMS286 PC-98 binary remains unchanged and manages the low pool
-below 16 MiB. KXMS32.SYS is an original optional supplement loaded after it.
+below 16 MiB. KXHIGH.SYS captures/reserves the BIOS high pool first; KXMS32.SYS is an original optional supplement loaded after FDXMS286.
 Only BIOS configurations advertising >=16 MiB above 16 MiB activate its separate
 16–32 MiB pool. The PC-98 reserved gap is never allocated. Low handles, HMA and
 A20 delegate to FDXMS286; high handles have independent bounded accounting.

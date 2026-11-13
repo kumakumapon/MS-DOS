@@ -4,7 +4,7 @@ Original MIT extension for the KGUI32 32 MiB profile. The vendored GPL FDXMS286
 binary and sources remain unchanged; this separate driver delegates its low
 handles, HMA and A20 operations to the already installed XMS 2 manager.
 
-Load `DEVICE=KXMS32.SYS` immediately after FDXMS286, without EMM386. BIOS word
+Load `DEVICE=KXHIGH.SYS`, then FDXMS286, then `DEVICE=KXMS32.SYS`, without EMM386. KXHIGH captures and reserves the BIOS high pool before FDXMS286 clears word 0594h. BIOS word
 0594h must advertise at least 16 MiB above 16 MiB. Only then is the independent
 physical 01000000h–01FFFFFFh pool installed. Lower configurations retain the old
 entry and only a small inert DOS device prefix. The reserved PC-98 15–16 MiB

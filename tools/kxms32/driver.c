@@ -71,7 +71,13 @@ void kx_init(void){
  mem_put(seg,off+3,0);mem_put(seg,off+4,1);
  u16 ds;__asm__ volatile("movw %%ds,%0":"=r"(ds));
  pool=(KxPool){0};
- unsigned end=(unsigned)inactive_end,high=mem_get(0,0x594)|(unsigned)mem_get(0,0x595)<<8;
+ unsigned end=(unsigned)inactive_end,high=0;
+ unsigned cap=0xd38d,di;u16 cs;
+ __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(cap),"=c"(cs),"=D"(di)::"ebx","edx","esi","cc","memory");
+ if((cap&65535)==0x38dd){
+  const char *sig="KX32BOOT";unsigned good=1;for(unsigned i=0;i<8;i++)if(mem_get(cs,(di&65535)+i)!=(u8)sig[i])good=0;
+  if(good&&mem_get(cs,(di&65535)+8)==1&&mem_get(cs,(di&65535)+10)==16)high=mem_get(cs,(di&65535)+12)|(unsigned)mem_get(cs,(di&65535)+13)<<8;
+ }
  unsigned probe=0xd38c;__asm__ volatile("int $0x2f":"+a"(probe)::"ebx","ecx","edx","esi","edi","cc","memory");
  unsigned found=0x4300;__asm__ volatile("int $0x2f":"+a"(found)::"ebx","ecx","edx","esi","edi","cc","memory");
  if(high>=16&&(probe&65535)!=0x38cd&&(found&255)==128){

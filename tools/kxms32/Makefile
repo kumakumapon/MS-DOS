@@ -18,3 +18,11 @@ $(BUILD)/test-policy: test-policy.c policy.c policy.h | $(BUILD)
 test: all $(BUILD)/test-policy
 	$(BUILD)/test-policy
 .PHONY: all test
+
+all: $(BUILD)/KXHIGH.SYS
+$(BUILD)/capture.o: capture.S | $(BUILD)
+	as --32 $< -o $@
+$(BUILD)/capture.elf: $(BUILD)/capture.o capture.ld
+	ld -m elf_i386 -T capture.ld $< -o $@
+$(BUILD)/KXHIGH.SYS: $(BUILD)/capture.elf
+	objcopy -O binary $< $@
