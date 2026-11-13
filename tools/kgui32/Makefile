@@ -163,3 +163,17 @@ $(BUILD)/KGRECNEG.EXE: $(BUILD)/recovery-test.elf $(K32)/package.py
 $(BUILD)/KGRECNON.EXE: $(BUILD)/recovery-test.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client
 all: $(BUILD)/KGRECNEG.EXE $(BUILD)/KGRECNON.EXE
+
+# Original UTF-8 input tables and word list become bounded Shift-JIS artifacts.
+$(BUILD)/ime-tables.h $(BUILD)/KGIME.DIC &: ime-build.py ime/words.tsv | $(BUILD)
+	python3 ime-build.py $(BUILD)
+$(BUILD)/ime.o: sdk/ime.c sdk/ime.h sdk/text.h $(BUILD)/ime-tables.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -I$(BUILD) -c $< -o $@
+$(BUILD)/editor.elf: $(BUILD)/ime.o
+all: $(BUILD)/KGIME.DIC
+$(BUILD)/test-ime: test-ime.c sdk/ime.c sdk/ime.h sdk/text.h sdk/editor.c sdk/widgets.c $(BUILD)/ime-tables.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined -fexec-charset=SHIFT_JIS -I$(BUILD) test-ime.c sdk/ime.c sdk/editor.c sdk/widgets.c -o $@
+test: test-ime-run
+test-ime-run: $(BUILD)/test-ime $(BUILD)/KGIME.DIC
+	$(BUILD)/test-ime $(BUILD)/KGIME.DIC
+.PHONY: test-ime-run

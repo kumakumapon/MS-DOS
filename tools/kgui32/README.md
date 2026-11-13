@@ -8,7 +8,8 @@ and input routing execute in the CPL3 GUI. The first graphical-client SDK and se
 available through the Welcome launcher. See [CLIENT-SDK.md](CLIENT-SDK.md)
 and [SESSIONS.md](SESSIONS.md) for the client and text-session contracts.
 Graphical Japanese text and Editor Shift-JIS reading/writing are described in
-[JAPANESE.md](JAPANESE.md); Japanese composition/IME is a later stage.
+[JAPANESE.md](JAPANESE.md). Editor includes an app-local Japanese IME: F4
+toggles input, F5 switches Romaji/JIS kana, Space converts, Enter commits.
 
 ## Build and run
 
@@ -124,7 +125,7 @@ The GUI is an experimental protected desktop client with two built-ins and
 two text-session windows. The native loop alternates bounded execution and
 real-mode drivers; it is not a permanently protected-mode kernel or a new
 MS-DOS implementation. The initial graphical SDK supports one retained canvas per client and
-rectangle/text/button commands. Japanese text rendering and additional execution slots remain later work.
+rectangle/text/button commands. Japanese DOS terminal emulation and additional execution slots remain later work.
 SDK2/3/4 provide Files, guest clipboard and the ASCII editor; see the SDK links below. Existing KDESK retains those features. No Windows APIs, resources or
 binaries are used. An EMM386/V86 owner is incompatible with this loader;
 the optional image uses the existing standalone XMS driver instead.
