@@ -23,6 +23,7 @@ static Mouse previous;
 static u32 get(unsigned at){return *(u32 *)(results+at);}
 static void put(unsigned at,u32 n){*(u32 *)(results+at)=n;}
 static unsigned largest(void){unsigned a=0x4800,b=65535;__asm__ volatile("int $0x21":"+a"(a),"+b"(b)::"cc","memory");return b&65535;}
+int gui_output_range(u32 at,unsigned n){extern u32 loader_map[1024];return k32_user_range(loader_map,at,n,1);}
 void host_physical32(u32 at,u32 value){for(unsigned i=0;i<4;i++)mem_put(at>>4,(at&15)+i,value>>(i*8));}
 int host_write(const void *p,unsigned n){(void)p;return (int)n;}
 static void workers(void){
@@ -133,6 +134,7 @@ static int dispatch(void){
  }if(error<0)gui_record.rejected++;return error;
 }
 int gui_main(void){
+ for(unsigned i=0;i<16;i++)*(volatile u8 *)(0xd400+i)=0xa5;
  p_init();__asm__ volatile("movw %%ds,%w0":"=r"(segment));
  gui_record.owner=segment;gui_record.cookie=input_ticks()|1;gui_record.runtime=(u32)segment*16+(unsigned)results;
  gui_record.largest_before=largest();gui_record.state=1;
@@ -178,6 +180,8 @@ cleanup:
  gui_record.scratch=gui_record.tables=0;gui_record.graphics=0;
  if(get(16)&&!gui_record.error)gui_record.error=get(16);
 done:
+ gui_record.reserved[0]=1;
+ for(unsigned i=0;i<16;i++)if(*(volatile u8 *)(0xd400+i)!=0xa5){gui_record.reserved[0]=0;gui_record.error=9;}
  /* Terminal status is a publication boundary for external observers. In
   * particular, the final DOS allocation query must finish before ready is
   * cleared; otherwise a successful exit can expose largest_after == 0. */

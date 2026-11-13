@@ -7,14 +7,20 @@
 u8 loader_buffer[4096];
 unsigned owned[2],manager=1,session_focus;u32 owned_generation[2];
 static GuiSessionCommand request;static GuiSessionView snapshot;
+static GuiTerminalView terminal_request,terminal_result;static unsigned terminal_test,bad_chunk;
 static unsigned states[2],generation[2],kinds[2],last_command,last_key,calls,fail;
 static char launched[128];
 extern int gui_session(u32,unsigned),gui_snapshot(u32,unsigned),gui_open_document(unsigned,u32,unsigned,const char *);
 int gui_copy(u32 p,void *v,unsigned n,int write){
  if(p==99)return -14;
+ if(terminal_test){if(!write){assert(n==16);memcpy(v,&terminal_request,n);}else{assert(p>=1&&p-1+n<=sizeof terminal_result);memcpy((char *)&terminal_result+p-1,v,n);}return 0;}
  if(write){assert(n==sizeof snapshot);memcpy(&snapshot,v,n);}
  else if(n==16){u32 h[4]={1,sizeof snapshot,request.slot,0};memcpy(v,h,n);}
  else {assert(n==sizeof request);memcpy(v,&request,n);}return 0;
+}
+int gui_output_range(u32 p,unsigned n){return p!=201&&n==sizeof(GuiTerminalView);}
+int k386_text(unsigned id,unsigned first,unsigned count,K386TextChunk *t){
+ memset(t,0,sizeof *t);t->flags=bad_chunk;t->state=states[id];for(unsigned i=0;i<count*80;i++){t->codes[i]='A'+id;t->attributes[i]=0xe1;}assert(first<25);return 0;
 }
 int k386_usage(unsigned id,K386Usage *u){memset(u,0,sizeof *u);u->generation=generation[id];return 1;}
 unsigned k386_word(unsigned id,unsigned o){return o?0:states[id];}
@@ -68,5 +74,12 @@ int main(void){
  assert(states[0]==1&&generation[0]==9);states[1]=0;
  assert(!gui_open_document(0,9,0,"A.TXT")&&!strcmp(launched,"KGEDIT.EXE root A.TXT"));
  owned[0]=0;count=calls;assert(gui_open_document(0,9,1,"NOTE.TXT")==-116&&calls==count);
+ terminal_test=1;terminal_request=(GuiTerminalView){.version=2,.size=sizeof terminal_request,.slot=0,.generation=9};
+ owned[0]=1;kinds[0]=0;states[0]=2;assert(!gui_snapshot(1,sizeof terminal_request));assert(terminal_result.version==2&&terminal_result.codes[1999]=='A'&&terminal_result.attributes[1999]==0xe1);
+ terminal_request.generation=8;assert(gui_snapshot(1,sizeof terminal_request)==-116);terminal_request.generation=9;
+ owned[0]=0;assert(gui_snapshot(1,sizeof terminal_request)==-1);owned[0]=1;kinds[0]=1;assert(gui_snapshot(1,sizeof terminal_request)==-38);kinds[0]=0;
+ assert(gui_snapshot(201,sizeof terminal_request)==-14);bad_chunk=1;assert(gui_snapshot(1,sizeof terminal_request)==-116);bad_chunk=0;
+ terminal_request.version=3;assert(gui_snapshot(1,sizeof terminal_request)==-22);terminal_request.version=2;terminal_request.slot=2;assert(gui_snapshot(1,sizeof terminal_request)==-22);terminal_request.slot=0;
+ manager=0;assert(gui_snapshot(1,sizeof terminal_request)==-38);
  return 0;
 }

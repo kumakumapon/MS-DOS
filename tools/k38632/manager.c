@@ -174,6 +174,7 @@ void manager_dispatch(void){
  case K386_PRIORITY:k32_manager.error=resource_priority(id,k32_manager.key==65535?(k386_resources.usage[id].priority+1)%3:k32_manager.key);if(!k32_manager.error)event(id,K386_EVENT_PRIORITY,K386_REASON_NONE);break;
  case K386_BUDGET:{unsigned ms=k32_manager.key;if(ms==65535){unsigned n=resource_ms(k386_resources.usage[id].limit_ticks);ms=!n?1000:n<5000?5000:n<10000?10000:0;}k32_manager.error=resource_budget(id,ms);if(!k32_manager.error){event(id,K386_EVENT_BUDGET,K386_REASON_NONE);limit(id);}break;}
  case K386_DESCRIBE:k32_manager.error=resource_describe(id,k32_manager.key);break;
+ case K386_TEXT:k32_manager.error=k32_manager.kind[id]==K32_V86?legacy(K386_TEXT,id,k32_manager.key,0):50;break;
  case K32_RESTART:if(k32_manager.kind[id]==K32_PM32)k32_manager.error=create(id,host_mailbox.task[id].command);else k32_manager.error=create(id,"KSH.EXE");break;
  default:k32_manager.error=87;
  }

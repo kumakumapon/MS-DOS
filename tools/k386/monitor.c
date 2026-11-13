@@ -42,6 +42,7 @@ static void step(unsigned id){
     }
     k32 start=k386_clock_ticks();
     if(!s->request)pm_run();
+    for(unsigned i=0;i<16;i++)if(mem_get(ds_segment,0xd000+i)!=0xa5){v->state=K386_FAULTED;v->fault=0x8002;}
     backing_a20(0);if(s->request)k386_broker(id);
     resource_charge(id,(k386_clock_ticks()-start)&0xffffff);
     if(v->state==K386_FAULTED)event(id,K386_EVENT_FAULT,K386_REASON_FAULT);
@@ -123,6 +124,14 @@ void api_dispatch(void) {
         s->head=s->count=s->line_count=s->request=0;v->state=K386_ENDED;v->exit_code=0x103;
         k386_reap(id);limit(id);usage(id);v->flags++;break;
     case K386_DESCRIBE:k386_mailbox.error=resource_describe(id,k386_mailbox.key);break;
+    case K386_TEXT:{
+        unsigned first=k386_mailbox.key&255,count=k386_mailbox.key>>8;
+        if(first>=25||!count||count>3||count>25-first||!runtime[id].backing.handle){k386_mailbox.error=87;break;}
+        K386TextChunk *t=(K386TextChunk *)transfer;unsigned n=count*80;
+        if(!backing_read(&runtime[id].backing,0xa0000+first*160,t->codes,n*2)||!backing_read(&runtime[id].backing,0xa2000+first*160,t->attributes,n*2)){k386_mailbox.error=5;break;}
+        const char *sig="K386TXT1";for(unsigned i=0;i<8;i++)t->signature[i]=sig[i];
+        t->version=1;t->size=sizeof *t;t->slot=id;t->first=first;t->count=count;t->flags=v->flags;t->column=v->column;t->row=v->row;t->state=v->state;t->reserved=0;t->generation=k386_resources.usage[id].generation;
+        break;}
     default:k386_mailbox.error=1;
     }
     service=0x5000;__asm__ volatile("int $0x21":"+a"(service):"b"(caller):"cc","memory");
@@ -130,6 +139,7 @@ void api_dispatch(void) {
 }
 int monitor_init(void) {
     __asm__ volatile("movw %%ds,%0":"=r"(ds_segment));monitor_base=(k32)ds_segment*16;
+    for(unsigned i=0;i<16;i++)mem_put(ds_segment,0xd000+i,0xa5);
     unsigned service=0x6200,psp;
     __asm__ volatile("int $0x21":"+a"(service),"=b"(psp)::"cc","memory");owner_psp=psp;
     if(monitor_base+0x10000>=0x80000)return 0;

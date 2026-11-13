@@ -5,6 +5,7 @@
 #include "../window/hardware.h"
 #include "../window/k386_client.h"
 extern int gui_copy(u32,void *,unsigned,int);
+extern int gui_output_range(u32,unsigned);
 extern unsigned owned[2],manager,session_focus;
 extern u32 owned_generation[2];
 static char commands[2][128];
@@ -67,15 +68,38 @@ int gui_session(u32 pointer,unsigned bytes){
   else if(r.key>=256&&r.key<=263){
    if(!k386_kind(id))return -22;
    static const u8 scan[]={0x3a,0x3d,0x3b,0x3c,0x3e,0x3f,0x36,0x37};r.key=(unsigned)scan[r.key-256]<<8;
-  }else if(r.key>127)return -22;
+  }else if(r.key>255)return -22;
   break;
  default:return -22;
  }
  e=k386_command(command,id,r.key,0);return e?-e:0;
 }
 int gui_snapshot(u32 pointer,unsigned bytes){
- u32 header[4];if(bytes!=sizeof view)return -22;
+ u32 header[4];if(bytes!=sizeof view&&bytes!=sizeof(GuiTerminalView))return -22;
  int e=gui_copy(pointer,header,sizeof header,0);if(e)return e;
+ if(header[0]==2){
+  if(bytes!=sizeof(GuiTerminalView)||header[1]!=bytes||header[2]>=2)return -22;
+  if(!manager)return -38;
+  if(!gui_output_range(pointer,bytes))return -14;
+  unsigned id=header[2];K386Usage u;
+  if(!k386_usage(id,&u))return -5;
+  if(header[3]!=u.generation)return -116;
+  if(!owned[id]||owned_generation[id]!=u.generation)return -1;
+  if(k386_kind(id))return -38;
+  u32 out[8]={2,bytes,id,u.generation,k386_word(id,6),k386_word(id,0),k386_word(id,36),k386_word(id,38)};
+  /* No worker is scheduled while this synchronous read is assembled. Never
+   * accept a chunk from another generation/revision, including recycled slots. */
+  for(unsigned first=0;first<25;first+=3){unsigned count=25-first;if(count>3)count=3;
+   K386TextChunk *chunk=(K386TextChunk *)loader_buffer;
+   if(k386_text(id,first,count,chunk))return -5;
+   if(chunk->flags!=out[4]||chunk->column!=out[6]||chunk->row!=out[7]||chunk->state!=out[5])return -116;
+   e=gui_copy(pointer+32+first*160,chunk->codes,count*160,1);if(e)return e;
+   e=gui_copy(pointer+4032+first*160,chunk->attributes,count*160,1);if(e)return e;
+  }
+  K386Usage after;if(!k386_usage(id,&after)||after.generation!=out[3]||k386_word(id,6)!=out[4])return -116;
+  return gui_copy(pointer,out,sizeof out,1);
+ }
+ if(bytes!=sizeof view)return -22;
  if(header[0]!=1||header[1]!=sizeof view||header[2]>=2)return -22;
  unsigned id=header[2];view=(GuiSessionView){.version=1,.size=sizeof view,.slot=id};
  if(manager){
@@ -83,6 +107,7 @@ int gui_snapshot(u32 pointer,unsigned bytes){
   view.generation=u.generation;view.state=k386_word(id,0);view.kind=k386_kind(id);
   view.exit_code=k386_word(id,2);view.fault=k386_word(id,4);view.counter=k386_counter(id);
   view.column=k386_word(id,36);view.row=k386_word(id,38);view.keys=k386_word(id,40);
+  view.text_revision=k386_word(id,6);
   view.cpu_ticks=u.cpu_ticks;view.runs=u.runs;
   view.owned=owned[id]&&owned_generation[id]==u.generation;
   for(unsigned i=0;i<16;i++)view.program[i]=u.program[i];

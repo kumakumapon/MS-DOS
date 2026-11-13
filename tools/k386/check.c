@@ -13,6 +13,17 @@ static int command(unsigned cmd,unsigned id) {
     return word(OFF(error));
 }
 static void path(const char *s) {unsigned i=0;do{mem_put(segment,offset+OFF(path)+i,s[i]);}while(s[i++]);}
+/* A quantum can expire immediately after the title's INT 21h. Wait for the
+ * observable input boundary, without changing the scheduler's IRQ budget. */
+static int input_boundary(unsigned id){
+    for(unsigned i=0;i<64;i++){
+        if(command(K386_STEP,id))return 0;
+        unsigned state=word(VOFF(id,state));
+        if(state==K386_WAITING)return 1;
+        if(state!=K386_RUNNING)return 0;
+    }
+    return 0;
+}
 int main(void) {
     unsigned a=0xd386,b=0,di;u16 seg;
     __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=D"(di):"b"(b):"cc","memory");
@@ -31,10 +42,9 @@ int main(void) {
     stage=6;path("FAULT.EXE");if(command(K386_CREATE,1))goto fail;
     command(K386_STEP,1);if(word(VOFF(1,state))!=K386_FAULTED||word(VOFF(1,fault))!=14)goto fail;
     c0=value(VOFF(0,counter));command(K386_STEP,0);if(value(VOFF(0,counter))<=c0)goto fail;
-    stage=7;path("ECHO.EXE");if(command(K386_CREATE,1))goto fail;command(K386_STEP,1);
-    if(word(VOFF(1,state))!=K386_WAITING)goto fail;
-    set(OFF(key),'Z');command(K386_KEY,1);command(K386_STEP,1);
-    if(word(VOFF(1,state))!=K386_WAITING)goto fail;
+    stage=7;path("ECHO.EXE");if(command(K386_CREATE,1)||!input_boundary(1))goto fail;
+    set(OFF(key),'Z');if(command(K386_KEY,1)||!input_boundary(1))goto fail;
+    if(word(VOFF(1,keys))||word(VOFF(1,row))!=1||word(VOFF(1,column))!=1||mem_get(segment,offset+VOFF(1,screen)+80)!='Z')goto fail;
     stage=8;command(K386_STOP,1);
     for(int i=0;i<K386_KEY_CAPACITY;i++){set(OFF(key),'A'+i%26);if(command(K386_KEY,1))goto fail;}
     if(command(K386_KEY,1)!=8)goto fail;
