@@ -42,6 +42,7 @@ int main(int argc,char **argv){
  ki_clear(&v);type(&v,"f[@@");expect(&v,"は");type(&v,"[");expect(&v,"ぱ");
  ki_clear(&v);assert(ki_input(&v,0xb6,0)>0);assert(ki_input(&v,0xde,0)>0);expect(&v,"が");v.katakana=1;expect(&v,"ガ");
  ki_clear(&v);type(&v,"4@");expect(&v,"ヴ");
+ ki_clear(&v);v.katakana=0;assert(ki_input(&v,'E',0)>0);assert(ki_input(&v,'E',1)>0);expect(&v,"いぃ");
  v=fresh(KI_ROMAJI);for(unsigned i=0;i<48;i++)type(&v,"a");assert(v.n==96);before=v;assert(ki_input(&v,'a',0)==-27);assert(v.n==before.n&&!memcmp(v.reading,before.reading,sizeof v.reading));
  assert(ki_input(&v,8,0)>0);type(&v,"n");before=v;/* 94 + n flush fits exactly. */assert(!ki_prepare(&v));assert(v.n==96);
  ki_clear(&v);type(&v,"a");before=v;assert(ki_input(&v,'q',0)==-22);assert(!memcmp(v.reading,before.reading,sizeof v.reading)&&v.pending==before.pending);

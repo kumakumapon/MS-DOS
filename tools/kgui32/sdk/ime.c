@@ -79,7 +79,7 @@ static int kana(KiIme *v,unsigned c,unsigned shift){
  if(c==0xde||c=='@'||c=='`')return accent(v,1);
  if(c==0xdf||c=='['||c=='{')return accent(v,2);
  if(c>=0xa1&&c<=0xdf)return insert(v,ki_half[c-0xa1].text);
- if(c>='A'&&c<='Z'){c+=32;shift=1;}
+ if(c>='A'&&c<='Z')c+=32;
  if(shift){
   for(unsigned i=0;i<COUNT(ki_shifted);i++)if((unsigned char)ki_shifted[i].key[0]==c){c=ki_shifted[i].text[0];break;}
   for(unsigned i=0;i<COUNT(ki_small);i++)if((unsigned char)ki_small[i].key[0]==c)return insert(v,ki_small[i].text);
