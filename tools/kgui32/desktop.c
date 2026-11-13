@@ -7,6 +7,7 @@
 #include "../k38632/sdk/k32x.h"
 typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,presents,last_key,heartbeat,error;
  u32 terminal_magic,terminal0,terminal1,terminal_phase,terminal_valid;
+ u32 terminal_geometry[2][6];
 } GuiState;
 volatile GuiState gui_state __attribute__((used,section(".data.gui_state")))={.magic=0x3147554b,.version=1,.terminal_magic=0x3254474b};
 static GuiInfo info;static Scene scene;static u8 font[95*16];
@@ -25,6 +26,10 @@ static unsigned capture,capture_generation,capture_token;
 static void refresh_graphical(unsigned);
 static int client_event(unsigned,const KgEvent *);
 static void follow_cursor(unsigned);
+static void terminal_report(void){
+ gui_state.terminal0=(u32)&terminals[0];gui_state.terminal1=(u32)&terminals[1];gui_state.terminal_valid=terminal_valid[0]|terminal_valid[1]<<1;gui_state.terminal_phase=terminal_phase;
+ for(unsigned id=0;id<2;id++){Rect r=scene.window[id+2].r;u32 *g=(u32 *)gui_state.terminal_geometry[id];g[0]=r.x;g[1]=r.y;g[2]=r.w;g[3]=r.h;g[4]=scene.scroll_x[id];g[5]=scene.scroll_y[id];}
+}
 static int session_command(unsigned slot,unsigned operation,unsigned key){
  GuiSessionCommand c={.version=1,.size=sizeof c,.slot=slot,.generation=operation==GS_CREATE?0:views[slot].generation,.operation=operation,.key=key};
  for(unsigned i=0;i<128;i++){c.path[i]=paths[slot][i];if(!c.path[i])break;}
@@ -62,7 +67,7 @@ static void refresh(void){
   }
   views[id]=v;refresh_graphical(id);if(following[id]){follow_cursor(id);following[id]--;}
  }
- gui_state.terminal0=(u32)&terminals[0];gui_state.terminal1=(u32)&terminals[1];gui_state.terminal_valid=terminal_valid[0]|terminal_valid[1]<<1;gui_state.terminal_phase=terminal_phase;
+ terminal_report();
 }
 static int client_event(unsigned id,const KgEvent *e){
  client_io=(KgRequest){.version=1,.size=sizeof client_io,.slot=id,.generation=views[id].generation,.token=clients[id].token,.event=*e};
@@ -480,6 +485,7 @@ int main(int argc,char **argv){
   if(act==ACT_NONE)client_mouse(&event);
   input_focus();
   gui_state.mx=scene.mx;gui_state.my=scene.my;gui_state.x0=scene.window[0].r.x;gui_state.y0=scene.window[0].r.y;gui_state.x1=scene.window[1].r.x;gui_state.y1=scene.window[1].r.y;gui_state.active=scene.active;gui_state.drag=scene.drag;
+  terminal_report();
   e=paint();if(e){gui_state.error=8;return 8;}
   if((once&&gui_state.events>=20)||(proof&&gui_state.events>=16))return 0;
  }
