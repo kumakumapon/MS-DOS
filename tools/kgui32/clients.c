@@ -25,13 +25,16 @@ static void publish(void){
 }
 extern int gui_open_document(unsigned,u32,unsigned,const char *);
 void kg_clients_tick(void){
+ /* Metadata lives in far per-slot pages. Poll deferred work on the same
+  * bounded 100 ms clock as DOS time, not after every preempted GUI slice. */
+ u32 now=input_ticks();if(last_clock&&((now-last_clock)&0xffffff)<30720)return;last_clock=now;
  /* This tick is outside INT 2F: DOS/EXEC are allowed only at this boundary. */
  for(unsigned id=0;id<k386_capacity();id++){load(id);if(!client.edit_pending)continue;
-  KgClient *c=&client;c->edit_pending=0;
-  c->edit_result=!c->token||!owned[id]||owned_generation[id]!=c->generation?-116:gui_open_document(id,c->generation,c->edit_namespace,c->edit_name);save(id);
+  client.edit_pending=0;u32 generation=client.generation,token=client.token;save(id);
+  int result=!token||!owned[id]||owned_generation[id]!=generation?-116:gui_open_document(id,generation,client.edit_namespace,client.edit_name);
+  /* DOS/EXEC can reenter the client bridge while replacing another slot. */
+  load(id);if(client.generation==generation&&client.token==token){client.edit_result=result;save(id);}
  }
-
- u32 now=input_ticks();if(last_clock&&((now-last_clock)&0xffffff)<30720)return;last_clock=now;
  unsigned a=0x2c00,c=0,d=0;__asm__ volatile("int $0x21":"+a"(a),"=c"(c),"=d"(d)::"ebx","esi","edi","cc","memory");
  seconds=((c>>8)&255)*3600+(c&255)*60+((d>>8)&255);
 }
