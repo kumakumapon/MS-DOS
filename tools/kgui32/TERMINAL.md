@@ -23,6 +23,13 @@ The cursor follows the logical position, snaps to a wide lead and spans both
 halves. Colour/effect changes alone damage the affected rows. Existing scene
 clipping, occlusion, movement, minimization and focus routing remain in use.
 
+The monitor hashes both full planes only after a write. Each quantum rebuilds
+the private PTEs without dirty bits and flushes CR3; the CPU's dirty bits for
+the character/attribute pages catch direct V86 stores as well as DOS output.
+Root creation and real-mode broker writes into the text aperture invalidate
+the cached content hash. Cursor revisions are checked on every return. Pure
+computation and XMS buffer traffic therefore retain their scheduling throughput.
+
 Bounded ANSI CSI supports H/f, A/B/C/D/G, J/K, s/u and SGR 0, 30-37/39,
 4/24, 5/25, 7/27, 8/28. Parameters saturate and excess parameters are consumed
 without overflow. PC-98 text has no independent background plane; unrelated

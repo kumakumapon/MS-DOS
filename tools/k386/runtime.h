@@ -21,7 +21,8 @@ typedef struct {
     k32 clock,accumulator,timer_count;
     k16 timer_owner,timer_armed,timer_pending;
     K98Text text;
-    k32 text_hash;
+    k32 text_hash,text_content_hash;
+    k16 text_valid;
 } K386Runtime;
 extern K386Runtime runtime[2];
 typedef struct {k32 number,ax,bx,cx,dx,ds,es,cs,ip;} K386Call;
