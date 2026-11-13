@@ -101,6 +101,7 @@ int ki_input(KiIme *v,unsigned key,unsigned modifiers){
  }
  else if((key>=33&&key<=126)||(key>=0xa1&&key<=0xdf))result=v->scheme==KI_ROMAJI&&key<128?roman(v,key):kana(v,key,modifiers&1);
  else return 0;
+ if(v->n+v->pending>KI_TEXT)result=-27;
  if(result<0){*v=before;v->note=result==-27?"Composition limit: 96 bytes":"Invalid or incomplete input";}
  return result;
 }
@@ -121,7 +122,7 @@ static void candidate(KiIme *v,const char *s,unsigned n){
  copy(v->candidates[v->count++],s,n);
 }
 int ki_convert(KiIme *v,const KiDictionary *d){
- KiIme before=*v;if(ki_prepare(v)<0){*v=before;v->note="Incomplete romaji: edit or cancel";return -22;}
+ KiIme before=*v;int error=ki_prepare(v);if(error<0){const char *note=v->note;*v=before;v->note=note;return error;}
  if(!v->n)return 0;
  v->count=v->selected=0;v->note=0;
  if(d&&d->data)for(unsigned at=32;at<d->bytes;at+=u16(d->data+at)){

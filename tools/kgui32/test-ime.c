@@ -45,6 +45,9 @@ int main(int argc,char **argv){
  v=fresh(KI_ROMAJI);for(unsigned i=0;i<48;i++)type(&v,"a");assert(v.n==96);before=v;assert(ki_input(&v,'a',0)==-27);assert(v.n==before.n&&!memcmp(v.reading,before.reading,sizeof v.reading));
  assert(ki_input(&v,8,0)>0);type(&v,"n");before=v;/* 94 + n flush fits exactly. */assert(!ki_prepare(&v));assert(v.n==96);
  ki_clear(&v);type(&v,"a");before=v;assert(ki_input(&v,'q',0)==-22);assert(!memcmp(v.reading,before.reading,sizeof v.reading)&&v.pending==before.pending);
+ ki_clear(&v);for(unsigned i=0;i<45;i++)type(&v,"a");type(&v,"12345n");assert(v.n==95&&v.pending==1);before=v;
+ assert(ki_input(&v,'n',0)==-27);assert(v.n==95&&v.pending==1);char preview[KI_TEXT+1];assert(ki_preview(&v,preview)==96);
+ assert(ki_convert(&v,&dict)==-27);assert(v.n==before.n&&v.pending==before.pending);assert(ki_prepare(&v)==-27);assert(v.n==before.n&&v.pending==before.pending);
  assert(!ki_dictionary(&(KiDictionary){0},bytes,n));
  for(unsigned cut=0;cut<n;cut++)assert(ki_dictionary(&(KiDictionary){0},bytes,cut)<0);
  memcpy(bad,bytes,n);bad[n-1]^=1;assert(ki_dictionary(&(KiDictionary){0},bad,n)<0);
@@ -63,5 +66,6 @@ int main(int argc,char **argv){
  char *wide=malloc(KE_BYTES);assert(wide);memset(wide,'x',KE_BYTES);assert(!ke_load(&doc,wide,KE_BYTES));free(wide);ke_select(&doc,KE_BYTES,KE_BYTES);history=doc.current;before=v;
  assert(ke_replace(&doc,result,ki_length(result))<0);assert(doc.current==history&&ke_view(&doc)->n==KE_BYTES&&!ke_dirty(&doc));assert(!memcmp(&v,&before,sizeof v));
  KwInput field={0};assert(kw_insert(&field,result,ki_length(result))>0);assert(!strcmp(field.text,"日本"));
+ memset(field.text,'x',63);field.text[63]=0;field.cursor=field.length=63;KwInput old_field=field;assert(!kw_insert(&field,result,ki_length(result)));assert(!memcmp(&field,&old_field,sizeof field));assert(!memcmp(&v,&before,sizeof v));
  puts("IME: romaji, JIS kana, accents, candidates, malformed dictionary, bounds and atomic history passed");return 0;
 }
