@@ -4,6 +4,7 @@
 #include "../document.h"
 #include "../sdk/recovery.h"
 #include "../sdk/text.h"
+#include "../sdk/ime.h"
 static KeDocument doc;static KpPicker picker;static KrRecovery recovery;
 static KwInput find_text,replace_text;static KwFocus find_focus;static unsigned replacing,recovery_suggested;
 static const char *notice,*find_note;
@@ -11,8 +12,14 @@ static unsigned lines[KE_BYTES+1],line_count,top,cols,rows,drag,mark,mode,pendin
 static unsigned in_work;static K32Work revision,save_request;
 static K32WorkInfo destination;
 static char filename[13],clipboard[1024],load_buffer[KE_BYTES];
+static KiIme ime;static KiDictionary ime_dictionary;
+static unsigned char dictionary_bytes[KI_DICTIONARY];
+static unsigned dictionary_checked,ime_target;
+/* Extension is app-private diagnostics. The original 64-byte v4 sample stays. */
 static const char *message;static KwScroll editor_scroll;
-volatile struct {u32 magic,version,frames,events,bytes,hash,cursor,anchor,dirty,mode,top,heartbeat,error,history,redo,workspace;} editor_stats __attribute__((section(".data.gui_stats")))={.magic=0x3345474b,.version=4};
+volatile struct {u32 magic,version,frames,events,bytes,hash,cursor,anchor,dirty,mode,top,heartbeat,error,history,redo,workspace;
+ u32 ime_magic,ime_scheme,ime_script,ime_bytes,ime_pending,ime_cursor,ime_candidates,ime_selected,ime_selecting,ime_target,ime_dictionary,ime_hash;
+} editor_stats __attribute__((section(".data.gui_stats")))={.magic=0x3345474b,.version=4,.ime_magic=0x31454d49};
 static void layout(void){cols=(kg_width()-48)/8;if(cols>92)cols=92;rows=(kg_height()-80)/16;if(rows>21)rows=21;}
 static void budget_rows(void){
  KeVersion *v=ke_view(&doc);unsigned used=0,limit=rows,actual=0;
@@ -36,6 +43,92 @@ static void index_lines(int follow){
 }
 static void report(void){KeVersion *v=ke_view(&doc);unsigned hash=2166136261u;for(unsigned i=0;i<v->n;i++)hash=(hash^(unsigned char)v->text[i])*16777619u;
  editor_stats.bytes=v->n;editor_stats.hash=hash;editor_stats.cursor=v->cursor;editor_stats.anchor=v->anchor;editor_stats.dirty=ke_dirty(&doc);editor_stats.mode=mode;editor_stats.top=top;editor_stats.history=doc.current;editor_stats.redo=doc.count-doc.current-1;editor_stats.workspace=destination.flags|(destination.drive<<8);
+ editor_stats.ime_scheme=ime.scheme;editor_stats.ime_script=ime.katakana;editor_stats.ime_bytes=ime.n;editor_stats.ime_pending=ime.pending;editor_stats.ime_cursor=ime.cursor;editor_stats.ime_candidates=ime.count;editor_stats.ime_selected=ime.selected;editor_stats.ime_selecting=ime.selecting;editor_stats.ime_target=ime_target;editor_stats.ime_dictionary=dictionary_checked?(ime_dictionary.data?1:2):0;
+ hash=2166136261u;for(unsigned i=0;i<ime.n;i++)hash=(hash^(unsigned char)ime.reading[i])*16777619u;editor_stats.ime_hash=hash;
+}
+static void ime_load(void){
+ if(dictionary_checked)return;
+ dictionary_checked=1;int h=k32_open("KGIME.DIC");if(h<0)return;
+ unsigned n=0;int error=0;while(n<KI_DICTIONARY){int got=k32_read(h,dictionary_bytes+n,KI_DICTIONARY-n>4096?4096:KI_DICTIONARY-n);if(got<0){error=got;break;}if(!got)break;n+=got;}
+ if(!error&&n==KI_DICTIONARY){char extra;int got=k32_read(h,&extra,1);if(got)error=-27;}
+ int closed=k32_close(h);if(!error&&closed<0)error=closed;
+ if(!error)ki_dictionary(&ime_dictionary,dictionary_bytes,n);
+}
+static unsigned ime_rows(void){unsigned n=(kg_height()-112)/20;return n>6?6:n?n:1;}
+static void ime_commit(void){
+ if(ki_prepare(&ime)<0)return;
+ char text[KI_TEXT+1];const char *s;
+ if(ime.selecting)s=ki_result(&ime);else{ki_script_text(ime.reading,ime.katakana,text);s=text;}
+ unsigned n=ki_length(s);if(!n)return;
+ if(ime_target){if(!kw_insert(ime_target==1?&find_text:&replace_text,s,n)){ime.note="Field limit: 63 bytes / input kept";return;}}
+ else if(ke_replace(&doc,s,n)<0){ime.note="Document limit: 64 KiB / input kept";return;}
+ ki_clear(&ime);drag=mark=0;
+}
+static int ime_event(const KgEvent *e){
+ int active=ki_active(&ime),editable=(mode==0&&!message)||(mode==5&&(find_focus.current==0||(replacing&&find_focus.current==1)));
+ if(e->type==KG_QUIT&&active){kg_cancel_close();ime.note="Commit or cancel IME, then close again";return 1;}
+ if(e->type==KG_KEY&&(e->key==283||e->key==10||e->key==284)&&editable){
+  if(active){ime.note="Commit or cancel before changing input";return 1;}
+  if(e->key==10)ime.scheme=(ime.scheme+1)%3;
+  else if(e->key==283)ime.scheme=ime.scheme?KI_OFF:KI_ROMAJI;
+  else ime.scheme=ime.scheme==KI_KANA?KI_ROMAJI:KI_KANA;
+  notice=ime.scheme==KI_ROMAJI?"IME: Romaji / F4: off / F5: kana":ime.scheme==KI_KANA?"IME: JIS kana / F4: off / F5: romaji":"IME: Off / F4: romaji";return 1;
+ }
+ if(!active&&!editable)return 0;
+ if(e->type==KG_KEY&&(e->key==285||e->key==286)&&ime.scheme){ime.katakana=e->key==286;ime.selecting=ime.count=0;return 1;}
+ if(active){
+  if(e->type==KG_KEY){unsigned k=e->key;
+   if(k==27){if(ime.selecting){ime.selecting=ime.count=0;ime.note=0;}else ki_clear(&ime);return 1;}
+   if(k==26){ki_clear(&ime);return 1;}
+   if(k==13){ime_commit();return 1;}
+   if(k==32){if(ime.selecting)ki_move_candidate(&ime,(e->control&KG_MOD_SHIFT)?-1:1);else{ime_load();ki_convert(&ime,&ime_dictionary);}return 1;}
+   if(ime.selecting){
+    if(k==256||k==257||k==262||k==263)ki_move_candidate(&ime,k==256?-1:k==257?1:k==262?-(int)ime_rows():(int)ime_rows());
+    else if(k==260)ime.selected=0;else if(k==261)ime.selected=ime.count-1;
+    else if(k>='1'&&k<='6'){unsigned at=ime.selected/ime_rows()*ime_rows()+k-'1';if(k-'1'<ime_rows()&&at<ime.count)ime.selected=at;}
+    else ime.note="Esc: edit reading / Enter: commit";
+    return 1;
+   }
+   if(ki_input(&ime,k,e->control))return 1;
+   ime.note="Commit or cancel IME before this action";return 1;
+  }
+  if(kw_button(2190,e)){ime_commit();return 1;}
+  if(kw_button(2191,e)){ki_clear(&ime);return 1;}
+  if(kw_button(2192,e)||kw_button(2193,e)){if(ime.selecting)ki_move_candidate(&ime,kw_button(2192,e)?-(int)ime_rows():(int)ime_rows());else{ime_load();ki_convert(&ime,&ime_dictionary);}return 1;}
+  for(unsigned i=0;i<ime_rows();i++)if(kw_button(2200+i,e)&&ime.selecting){unsigned at=ime.selected/ime_rows()*ime_rows()+i;if(at<ime.count)ime.selected=at;return 1;}
+  return e->type==KG_MOUSE||e->type==KG_POINTER;
+ }
+ if(e->type==KG_KEY&&ime.scheme&&((e->key>=33&&e->key<=126)||(e->key>=0xa1&&e->key<=0xdf))&&!(e->control&(KG_MOD_CTRL|KG_MOD_ALT))){
+  ime_target=mode==5?find_focus.current+1:0;drag=mark=0;ki_input(&ime,e->key,e->control);return 1;
+ }
+ return 0;
+}
+static int ime_draw(void){
+ unsigned w=kg_width(),h=kg_height(),rows=ime_rows();char text[KI_TEXT+1];ki_preview(&ime,text);
+ kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_text(8,4,ime_target==1?"IME / Find":ime_target==2?"IME / Replace":"IME / Document",0x20344a);
+ kg_text(w-176,4,ime.scheme==KI_KANA?(ime.katakana?"Kana / Kata":"Kana / Hira"):(ime.katakana?"Romaji / Kata":"Romaji / Hira"),0x20344a);
+ /* At minimum size show the cursor's whole-character window, at most 2 rows. */
+ unsigned n=ki_length(text),capacity=(w-16)/8;if(capacity>47)capacity=47;
+ unsigned start=0,visible=capacity*2,caret=ime.cursor+ime.pending;
+ if(n>visible){start=caret>capacity?kt_floor(text,n,caret-capacity):0;if(n-start<visible)start=kt_next(text,n,kt_floor(text,n,n-visible));}
+ unsigned a=kt_prefix(text+start,n-start,capacity),begin=start;char line[48];for(unsigned i=0;i<a;i++)line[i]=text[start+i];line[a]=0;kg_text(8,24,line,0x174e87);
+ start+=a;a=kt_prefix(text+start,n-start,capacity);for(unsigned i=0;i<a;i++)line[i]=text[start+i];line[a]=0;kg_text(8,40,line,0x174e87);
+ if(!ime.selecting&&caret>=begin&&caret<=start+a){unsigned second=caret>start||(caret==start&&a);unsigned col=caret-(second?start:begin);if(col<capacity)kg_rect(8+col*8,second?54:38,8,2,0x327ac0);}
+ if(ime.selecting){unsigned first=ime.selected/rows*rows;for(unsigned i=0;i<rows&&first+i<ime.count;i++){
+   unsigned at=first+i;if(at==ime.selected)kg_rect(4,58+i*20,w-8,20,0x327ac0);
+   line[0]='1'+i;line[1]=':';line[2]=' ';unsigned limit=capacity>5?capacity-5:1,bytes=kt_prefix(ime.candidates[at],ki_length(ime.candidates[at]),limit);
+   for(unsigned j=0;j<bytes;j++)line[j+3]=ime.candidates[at][j];
+   line[bytes+3]=0;
+   kg_button(2200+i,8,60+i*20,w-16,18,line);
+  }}else kg_text(8,64,"Space: convert / Enter: commit",0x20344a);
+ kg_button(2190,8,h-44,88,24,"Commit");kg_button(2191,104,h-44,88,24,"Cancel");kg_button(2192,200,h-44,56,24,"Prev");kg_button(2193,264,h-44,64,24,ime.selecting?"Next":"Convert");
+ char status[48]="Candidate ";unsigned p=10;
+ if(ime.selected+1>=10){status[p++]='0'+(ime.selected+1)/10;}
+ status[p++]='0'+(ime.selected+1)%10;status[p++]='/';
+ if(ime.count>=10){status[p++]='0'+ime.count/10;}
+ status[p++]='0'+ime.count%10;
+ const char *hint=" / PgUp Dn / Esc: reading";for(unsigned i=0;hint[i];i++)status[p++]=hint[i];status[p]=0;
+ kw_text(8,h-18,ime.note?ime.note:ime.selecting?status:"F6: hira / F7: kata / Esc: cancel",(w-16)/8,0x20344a);return kg_present();
 }
 static unsigned content_hash(const char *s,unsigned n){unsigned h=2166136261u;for(unsigned i=0;i<n;i++)h=(h^(unsigned char)s[i])*16777619u;return h;}
 static void load(const char *name,unsigned work){
@@ -128,10 +221,12 @@ static void recover_open(void){message=0;drag=mark=0;kr_open(&recovery,load_buff
 static void tools_event(const KgEvent *e){
  if(e->type==KG_KEY&&e->key==27){mode=0;return;}
  if(kw_button(620,e)){search_open(0);return;}if(kw_button(621,e)){search_open(1);return;}if(kw_button(622,e)){recover_open();return;}
+ if(kw_button(626,e)){mode=8;return;}
  if(kw_button(623,e)){ke_set_eol(&doc,0);mode=0;notice="LF selected / Ctrl Z: undo";}if(kw_button(624,e)){ke_set_eol(&doc,1);mode=0;notice="CRLF selected / Ctrl Z: undo";}if(kw_button(625,e))mode=0;
 }
 static int tools_draw(void){unsigned h=kg_height(),w=kg_width();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_text(8,4,"Editor tools",0x20344a);
  kg_button(620,8,28,128,24,"Find / Ctrl F");kg_button(621,144,28,144,24,"Replace / Ctrl H");kg_button(622,8,60,128,24,"Recovery");
+ kg_button(626,144,60,144,24,"IME / F4");
  kg_button(623,8,100,128,24,"Use LF");kg_button(624,144,100,128,24,"Use CRLF");kg_button(625,8,h-48,80,28,"Back");return kg_present();}
 static void selection_rects(unsigned a,unsigned b){
  if(a==b)return;
@@ -143,7 +238,11 @@ static void selection_rects(unsigned a,unsigned b){
  if(lo<=hi)kg_rect(8,40+(lo-top)*16,cols*8,(hi-lo+1)*16,0xb4d6f0);
 }
 static int draw(void){
- layout();budget_rows();report();if(mode==1||mode==3)return kp_draw(&picker);if(mode==5)return search_draw();if(mode==6)return kr_draw(&recovery);if(mode==7)return tools_draw();
+ layout();budget_rows();report();if(ki_active(&ime))return ime_draw();if(mode==1||mode==3)return kp_draw(&picker);if(mode==5)return search_draw();if(mode==6)return kr_draw(&recovery);if(mode==7)return tools_draw();
+ if(mode==8){unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_text(8,4,"IME / input settings",0x20344a);
+  kg_button(2210,8,30,88,24,"Off");kg_button(2211,104,30,96,24,"Romaji");kg_button(2212,208,30,112,24,"JIS kana");
+  kg_text(8,64,ime.scheme==KI_ROMAJI?"Selected: Romaji":ime.scheme==KI_KANA?"Selected: JIS kana":"Selected: Off",0x20344a);
+  kg_button(2213,8,88,128,24,"Hiragana / F6");kg_button(2214,144,88,128,24,"Katakana / F7");kg_button(2215,8,h-40,80,24,"Back");return kg_present();}
  unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xffffff);
  if(mode==2){kg_text(8,8,"Unsaved text",0x20344a);kw_text(8,32,"Save before continuing?",(w-16)/8,0x20344a);kg_button(803,8,64,64,28,"Save");kg_button(801,80,64,80,28,"Discard");kg_button(802,8,100,80,28,"Cancel");return kg_present();}
  if(mode==4){kw_text(8,8,"Replace workspace file?",(w-16)/8,0x20344a);kg_text(8,32,save_request.name,0x20344a);kg_button(811,8,64,100,28,"Replace");kg_button(812,8,100,100,28,"Cancel");return kg_present();}
@@ -182,10 +281,19 @@ int main(int argc,char **argv){
    /* Resize/focus apply to the document even while a modal owns input. */
    if(e.type==KG_RESIZE){editor_scroll.dragging=0;drag=0;index_lines(1);}
    if(e.type==KG_FOCUS&&!e.key){drag=0;editor_scroll.dragging=0;}
-   if(e.type==KG_QUIT){if(mode==1||mode==3)kp_close(&picker);if(mode==6)kr_close(&recovery);mode=0;message=0;pending=0;quit=request(1);}
+   if(ime_event(&e)){index_lines(1);}
+   else if(e.type==KG_QUIT){if(mode==1||mode==3)kp_close(&picker);if(mode==6)kr_close(&recovery);mode=0;message=0;pending=0;quit=request(1);}
    else if(mode==5)search_event(&e);
    else if(mode==6){unsigned changed=recovery.changed;if(kr_event(&recovery,&e)){mode=0;index_lines(1);}if(recovery.changed!=changed)editor_stats.error=0;}
    else if(mode==7)tools_event(&e);
+   else if(mode==8){
+    if(kw_button(2210,&e))ime.scheme=KI_OFF;
+    if(kw_button(2211,&e))ime.scheme=KI_ROMAJI;
+    if(kw_button(2212,&e))ime.scheme=KI_KANA;
+    if(kw_button(2213,&e))ime.katakana=0;
+    if(kw_button(2214,&e))ime.katakana=1;
+    if(kw_button(2215,&e)||(e.type==KG_KEY&&e.key==27))mode=0;
+   }
    else if(mode==2){if(kw_button(803,&e)||(e.type==KG_KEY&&e.key=='s')){mode=0;quit=save(0);}else if(kw_button(801,&e)||(e.type==KG_KEY&&e.key=='d')){mode=0;unsigned next=pending;pending=0;quit=perform(next);}else if(kw_button(802,&e)||(e.type==KG_KEY&&e.key==27)){mode=0;cancel_pending();}}
    else if(mode==1||mode==3){unsigned was=mode;char name[13];int selected=kp_event(&picker,&e,name);if(selected){mode=0;if(selected<0)cancel_pending();else if(was==1)load(name,picker.work);else{save_request=k32_work_name(K32_WORK_STAT,name);int error=k32_work(&save_request);if(error<0){message="Workspace unavailable / file protected";editor_stats.error=-error;cancel_pending();}else if(save_request.exists)mode=4;else quit=commit_save();}}}
    else if(mode==4){if(kw_button(811,&e)||(e.type==KG_KEY&&e.key=='r'))quit=commit_save();else if(kw_button(812,&e)||(e.type==KG_KEY&&e.key==27)){mode=0;cancel_pending();}}

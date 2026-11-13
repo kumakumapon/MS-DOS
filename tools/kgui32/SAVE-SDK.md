@@ -38,8 +38,10 @@ file remains allocated. The size limit is not a free-space guarantee.
 Root boot files, EXEs, devices, paths, application-selected drives, hidden/system/read-only
 files and arbitrary subdirectories are outside the write API. No mkdir/delete
 or arbitrary write-handle API is exposed. SDK1–3 calls and wire layouts retain
-their contracts. Japanese composition/IME, host clipboard and extra slots are later
-work. The browser's existing disk persistence/export saves the modified image;
+their contracts. The app-local [IME](JAPANESE.md) requires explicit commit or
+cancel before save, New, Open or ordinary close. A failed commit retains the
+composition and document. Host clipboard and extra slots remain later work.
+The browser's existing disk persistence/export saves the modified image;
 export a copy before resetting it to the bundled original.
 
 ## Broker and ownership
