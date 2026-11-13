@@ -52,7 +52,7 @@ static void pointers(unsigned id){
  k32_extended.abi[id]=pm?record_value(id,768):0;
  k32_extended.generation[id]=resource_usage(id)->generation;
  k32_extended.usage[id]=(u32)ds_segment*16+(unsigned)resource_usage(id);
- k32_extended.frame[id]=pm?k32_extended.record[id]+336:backend_pointer(__builtin_offsetof(K386Extended,frame),id);
+ k32_extended.frame[id]=pm?k32_extended.record[id]+320:backend_pointer(__builtin_offsetof(K386Extended,frame),id);
 }
 static void usage(unsigned id){
  K386Usage *u=resource_usage(id);

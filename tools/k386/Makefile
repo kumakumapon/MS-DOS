@@ -25,7 +25,7 @@ $(BUILD)/K386CPU.COM: $(BUILD)/probe.elf
 .PHONY: all
 CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -ffunction-sections -fdata-sections -Wall -Wextra -Werror
 all: $(BUILD)/K386.EXE
-$(BUILD)/monitor.o: monitor.c abi.h runtime.h resources.h | $(BUILD)
+$(BUILD)/monitor.o: monitor.c abi.h runtime.h resources.h extended.h | $(BUILD)
 	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/engine.o: engine.c abi.h runtime.h backing.h arena.h | $(BUILD)
 	$(CC) -m32 $(CFLAGS) -c $< -o $@

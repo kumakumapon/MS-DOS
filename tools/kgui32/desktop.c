@@ -446,7 +446,7 @@ int main(int argc,char **argv){
  if(argc>1&&equal(argv[1],"fault"))*(volatile u32 *)0x10000=1;
  if(argc>1&&equal(argv[1],"spin"))for(;;)gui_state.heartbeat++;
  for(;;){
-  GuiEvent4 event4;int got=k32_call(GUI_EVENT,(u32)&event4,sizeof event4);GuiEvent event=event4.base;
+  GuiEvent4 event4={0};int got=k32_call(GUI_EVENT,(u32)&event4,sizeof event4);GuiEvent event=event4.base;
   if(got<0){gui_state.error=7;return 7;}
   if(!got){k32_wait(K32_WAIT_TIME,16);continue;}
   gui_state.events++;gui_state.heartbeat++;key_modifiers=event.type==GUI_KEY?event.buttons:0;if(event.type==GUI_KEY)gui_state.last_key=event.key;
