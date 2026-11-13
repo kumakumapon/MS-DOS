@@ -297,8 +297,18 @@ fault:
 }
 void kernel_finish(void) {
     K386View *v=&k386_mailbox.view[selected];
-    k32 hash=2166136261u;
-    for(k32 i=0;i<2000;i++){k32 c=read16(0xa0000+i*2),a=read16(0xa2000+i*2);hash=(hash^c)*16777619u;hash=(hash^a)*16777619u;v->screen[i]=c;}
+    K386Runtime *r=&runtime[selected];k32 hash=r->text_content_hash;
+    /* kernel_map rebuilds the private PTEs without D and flushes CR3 before
+     * every quantum. Both 4000-byte planes fit one page each. The CPU's D bit
+     * therefore catches DOS output and arbitrary V86 TVRAM stores, including
+     * attribute-only or high-byte-only writes. Keep the full hash off compute
+     * and XMS-only quanta; cursor revisions are still checked every return. */
+    k32 table=0x400000+page_directory[selected]+4096;
+    if(!r->text_valid||((readn(table+0xa0*4,4)|readn(table+0xa2*4,4))&64)){
+        hash=2166136261u;
+        for(k32 i=0;i<2000;i++){k32 c=read16(0xa0000+i*2),a=read16(0xa2000+i*2);hash=(hash^c)*16777619u;hash=(hash^a)*16777619u;v->screen[i]=c;}
+        r->text_content_hash=hash;r->text_valid=1;
+    }
     hash=(hash^(v->row*80+v->column))*16777619u;
     int changed=hash!=runtime[selected].text_hash;runtime[selected].text_hash=hash;
     if(changed)v->flags++;

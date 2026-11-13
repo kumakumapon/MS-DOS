@@ -14,7 +14,13 @@ static unsigned resident(void){return monitor_base>>4;}
 static k16 word(const k8 *p){return p[0]|(k16)p[1]<<8;}
 static void physical32(k32 at,k32 value){for(int i=0;i<4;i++)mem_put(at>>4,(at&15)+i,value>>(i*8));}
 static int get(unsigned id,k32 at,void *b,unsigned n){return backing_read(&runtime[id].backing,at,b,n);}
-static int put(unsigned id,k32 at,const void *b,unsigned n){return backing_write(&runtime[id].backing,at,b,n);}
+static int put(unsigned id,k32 at,const void *b,unsigned n){
+    int ok=backing_write(&runtime[id].backing,at,b,n);
+    /* Real-mode broker writes bypass CPU PTE dirty bits. Ordinary DOS/XMS
+     * buffers are below A0000; invalidate only writes into the text aperture. */
+    if(ok&&n&&at<0xa2fa0&&(at>=0xa0000||n>0xa0000-at))runtime[id].text_valid=0;
+    return ok;
+}
 int xmem_guest(unsigned id,k32 at,void *b,unsigned n,int write){return write?put(id,at,b,n):get(id,at,b,n);}
 static k16 getword(unsigned id,k32 at){k8 b[2]={0};get(id,at,b,2);return word(b);}
 static void putword(unsigned id,k32 at,k16 w){k8 b[2]={w,w>>8};put(id,at,b,2);}
@@ -161,7 +167,7 @@ static int start_inner(unsigned id,const char *command){
     K386Runtime *r=&runtime[id];K386Session *s=&sessions[id];K386View *v=&k386_mailbox.view[id];
     if(!r->backing.handle&&!backing_new(&r->backing)){p_close(h);return 8;}
     discard(id);r->drives=dirs;r->process=(K386Process){0};arena_init(&r->arena);r->timer_armed=r->timer_pending=r->timer_owner=0;r->clock=r->accumulator=0;s->head=s->count=0;
-    *v=(K386View){0};v->state=K386_ENDED;r->text=(K98Text){.attribute=K98_WHITE};r->text_hash=0;
+    *v=(K386View){0};v->state=K386_ENDED;r->text=(K98Text){.attribute=K98_WHITE};r->text_hash=r->text_content_hash=0;r->text_valid=0;
     if(!backing_zero(&r->backing,0,K386_BACKING)){p_close(h);return 8;}
     k8 bios[256];mem_copy(resident(),(unsigned)bios,0,0x400,256);put(id,0x400,bios,256);
     /* Private NLS data, below the first allocatable DOS MCB. No host pointers. */
