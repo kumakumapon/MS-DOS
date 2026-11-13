@@ -300,3 +300,11 @@ $(BUILD)/bank.o: bank.c bank.h | $(BUILD)
 $(BUILD)/extended.o: extended.c extended.h bank.h runtime.h | $(BUILD)
 	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/monitor.elf: $(BUILD)/bank.o $(BUILD)/extended.o
+
+all: kxms32-all
+kxms32-all:
+	$(MAKE) -C ../kxms32 all
+test: kxms32-test
+kxms32-test:
+	$(MAKE) -C ../kxms32 test
+.PHONY: kxms32-all kxms32-test

@@ -212,9 +212,10 @@ int manager_capacity(unsigned n){
  if(n==4){
   extern u32 xms_entry;unsigned a=0x0800,b=0,c=0,d=0;
   __asm__ volatile("pushw %%ds; pushw %%es; lcallw *%4; popw %%es; popw %%ds; cld":"+a"(a),"+b"(b),"+c"(c),"+d"(d):"m"(xms_entry):"esi","edi","cc","memory");
-  /* 32 MiB profile has at least 24 MiB before worker creation, including
+  /* 32 MiB profile has at least 24 MiB free across the PC-98 low/high
+   * pools, and a contiguous 4 MiB block, including
    * when the desktop already owns its private 4 MiB address space. */
-  if((a&65535)<24576)return 8;
+  if((d&65535)<24576||(a&65535)<4100)return 8;
   int e=host_bank_capacity(4);if(e)return e;
   e=legacy(K386_CAPACITY,0,4,0);if(e){host_bank_capacity(2);return e;}
  }else{

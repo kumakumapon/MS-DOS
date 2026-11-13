@@ -12,8 +12,8 @@ profile, and four pointers each to the actual backend view, PM32 record, unified
 usage and CPU frame. These are privileged real-mode records, never user APIs.
 BX=1 dispatches the bounded command. Command 15 requests capacity 2 or 4 in key;
 invalid capacities fail 87, insufficient XMS or conventional RAM fail 8, and
-shrinking occupied extra slots fails 5. Expansion requires 24 MiB of contiguous
-free XMS before worker creation; 16/24 MiB profiles retain two slots. Allocation
+shrinking occupied extra slots fails 5. Expansion requires 24 MiB of total
+free XMS and a contiguous 4 MiB block before worker creation; 16/24 MiB profiles retain two slots. Allocation
 failure rolls back all control allocations. The GUI attempts expansion before
 creating workers, exposes feature bit 16, and releases its expansion after
 ending only the worker generations it owns. Pre-existing expanded managers and
@@ -47,3 +47,13 @@ must reclaim handles, heap, XMS, page tables and owned conventional control RAM.
 The expanded desktop provides four New DOS buttons, four taskbar entries,
 four System rows and independent launch/focus/pause/resume/restart/close controls.
 The default two-slot layout retains its existing coordinates.
+
+The bundled FDXMS286 PC-98 binary remains unchanged and manages the low pool
+below 16 MiB. KXMS32.SYS is an original optional supplement loaded after it.
+Only BIOS configurations advertising >=16 MiB above 16 MiB activate its separate
+16–32 MiB pool. The PC-98 reserved gap is never allocated. Low handles, HMA and
+A20 delegate to FDXMS286; high handles have independent bounded accounting.
+High moves validate both ranges, lock any low handle, pair the old driver's A20
+reference, and use 386 protected copies of at most 32 KiB with exact restoration
+of CR0/GDTR/segments/IF. No DOS/BIOS is called in protected mode. XMS 2 total and
+largest queries combine the two pools without claiming they are contiguous.
