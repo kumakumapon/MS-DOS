@@ -171,6 +171,9 @@ $(BUILD)/ime.o: sdk/ime.c sdk/ime.h sdk/text.h $(BUILD)/ime-tables.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -I$(BUILD) -c $< -o $@
 $(BUILD)/editor.elf: $(BUILD)/ime.o
 all: $(BUILD)/KGIME.DIC
+$(BUILD)/terminal.o: ../k386/text.c ../k386/text.h ../filer/sjis.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/desktop.elf: $(BUILD)/terminal.o
 $(BUILD)/test-ime: test-ime.c sdk/ime.c sdk/ime.h sdk/text.h sdk/editor.c sdk/widgets.c $(BUILD)/ime-tables.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined -fexec-charset=SHIFT_JIS -I$(BUILD) test-ime.c sdk/ime.c sdk/editor.c sdk/widgets.c -o $@
 test: test-ime-run

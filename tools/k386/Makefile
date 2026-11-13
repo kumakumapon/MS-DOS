@@ -1,5 +1,19 @@
 BUILD ?= build
 all: $(BUILD)/K386CPU.COM
+$(BUILD)/text.o: text.c text.h ../filer/sjis.h | $(BUILD)
+	$(CC) -m32 $(CFLAGS) -c $< -o $@
+$(BUILD)/monitor.elf: $(BUILD)/text.o
+$(BUILD)/runtime.o $(BUILD)/engine.o: text.h
+$(BUILD)/text-test: text_test.c text.c text.h ../filer/sjis.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined text_test.c text.c -o $@
+test: test-text-run
+test-text-run: $(BUILD)/text-test
+	$(BUILD)/text-test
+.PHONY: test-text-run
+all: $(BUILD)/TERM98.COM
+$(BUILD)/TERM98.COM: $(BUILD)/terminal.sample.o com.ld
+	ld -m elf_i386 -T com.ld $< -o $(BUILD)/terminal.elf
+	objcopy -O binary $(BUILD)/terminal.elf $@
 $(BUILD):
 	mkdir -p $@
 $(BUILD)/probe.o: probe.S | $(BUILD)

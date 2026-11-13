@@ -3,6 +3,7 @@
 #include "scene.h"
 #include "sdk/protocol.h"
 #include "sdk/text.h"
+#include "../k386/text.h"
 #include "../k38632/sdk/k32x.h"
 typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,presents,last_key,heartbeat,error;} GuiState;
 volatile GuiState gui_state __attribute__((used,section(".data.gui_state")))={.magic=0x3147554b,.version=1};
@@ -12,6 +13,8 @@ static unsigned glyph_slot;
 static u8 framebuffer[800*600*2],packed[800*600*2];
 static Rect clip;
 static GuiSessionView views[2];static int errors[2],editing[2],lengths[2];
+static GuiTerminalView terminals[2],terminal_stage;
+static unsigned terminal_valid[2],terminal_phase;static u32 terminal_tick;
 static char paths[2][128];static unsigned following[2];
 static KgRequest clients[2],client_io;
 static unsigned exit_pending;
@@ -30,6 +33,17 @@ static void refresh(void){
   GuiSessionView v={.version=1,.size=sizeof v,.slot=id};
   if(k32_call(GUI_SNAPSHOT,(u32)&v,sizeof v))continue;
   GuiWindow *w=&scene.window[id+2];
+  if(v.kind||!v.owned){terminal_valid[id]=0;}
+  else if(!terminal_valid[id]||terminals[id].generation!=v.generation||terminals[id].revision!=v.text_revision){
+   terminal_stage=(GuiTerminalView){.version=2,.size=sizeof terminal_stage,.slot=id,.generation=v.generation};
+   if(!k32_call(GUI_SNAPSHOT,(u32)&terminal_stage,sizeof terminal_stage)){
+    if(w->open&&!w->hidden)for(unsigned r=0;r<25;r++){int changed=!terminal_valid[id]||terminals[id].generation!=v.generation;
+     for(unsigned c=0;c<80&&!changed;c++){unsigned at=r*80+c;if(terminal_stage.codes[at]!=terminals[id].codes[at]||terminal_stage.attributes[at]!=terminals[id].attributes[at])changed=1;}
+     if(changed)scene_window_damage(&scene,id+2,(Rect){w->r.x+8,w->r.y+70+((int)r-scene.scroll_y[id])*16,(w->r.w-16)/8*8,16});
+    }
+    terminals[id]=terminal_stage;terminal_valid[id]=1;
+   }
+  }
   if(w->open&&!w->hidden){
    int changed=v.generation!=views[id].generation||v.state!=views[id].state||v.owned!=views[id].owned;
    for(int i=0;i<16;i++)if(v.program[i]!=views[id].program[i])changed=1;
@@ -204,12 +218,32 @@ static void terminal(unsigned id,int x,int y,int width,int height){
  clip.w=right>clip.x?right-clip.x:0;clip.h=bottom>clip.y?bottom-clip.y:0;
  for(int row=0;row<rows;row++){
   int rr=row+scene.scroll_y[id];if(rr>=25)break;
+  if(terminal_valid[id]&&terminals[id].generation==v->generation&&!v->kind){
+   const u16 *codes=terminals[id].codes+rr*80;
+   u16 row_glyphs[80];u8 row_halves[80];k98_row(codes,row_glyphs,row_halves);
+   for(int col=0;col<cols&&col+scene.scroll_x[id]<80;col++){
+    unsigned at=col+scene.scroll_x[id],half=row_halves[at],code=row_glyphs[at],attr=terminals[id].attributes[rr*80+at];
+    if(code==' '&&!(attr&28))continue;
+    const u8 *bitmap=code>=32&&code<=126?font+(code-32)*16:glyph(code);
+    u32 ink=rgb((k98_rgb(attr)>>16)&255,(k98_rgb(attr)>>8)&255,k98_rgb(attr)&255);
+    int xx=x+8+col*8,yy=y+70+row*16;
+    for(unsigned scan=0;scan<16;scan++){
+     unsigned bits=k98_ink(bitmap[half*16+scan],attr,scan,terminal_phase,0);
+     int py=yy+scan;if(py<clip.y||py>=clip.y+clip.h)continue;
+     u8 *line=framebuffer+py*info.pitch;
+     for(unsigned bit=0;bit<8;bit++)if(bits&(128>>bit)){int px=xx+bit;if(px<clip.x||px>=clip.x+clip.w)continue;if(info.bpp==1)line[px]=(u8)ink;else ((u16 *)line)[px]=(u16)ink;}
+    }
+   }
+   continue;
+  }
   char line[81];int col=0;
   for(;col<cols&&col+scene.scroll_x[id]<80;col++)line[col]=v->screen[rr*80+col+scene.scroll_x[id]];
   line[col]=0;text(x+8,y+70+row*16,line,color(7));
  }
- if(v->owned&&(v->state==1||v->state==2)&&scene.active==(int)id+2)
-  box(x+8+((int)v->column-scene.scroll_x[id])*8,y+84+((int)v->row-scene.scroll_y[id])*16,8,2,color(6));
+ if(v->owned&&(v->state==1||v->state==2)&&scene.active==(int)id+2){
+  unsigned half=0,code=32;if(terminal_valid[id]&&v->row<25&&v->column<80)code=k98_glyph(terminals[id].codes+v->row*80,v->column,&half);
+  box(x+8+((int)v->column-(int)half-scene.scroll_x[id])*8,y+84+((int)v->row-scene.scroll_y[id])*16,code>255?16:8,2,color(6));
+ }
  clip=before;
  int yy=y+height-30;const char *arrows[]={"Left","Right","Up","Down"};
  for(int i=0;i<4;i++)button(x+8+i*48,yy,44,arrows[i]);
@@ -378,9 +412,16 @@ static int negative(void){
  g.code=0x93fa;g.version=2;if(k32_call(GUI_FONT,(u32)&g,sizeof g)!=-22)return 11;
  static const GuiGlyph ro={.version=1,.size=sizeof(GuiGlyph),.code=0x93fa};
  if(k32_call(GUI_FONT,(u32)&ro,sizeof ro)!=-14)return 12;
+ if(k32_call(GUI_SNAPSHOT,0x10000,sizeof terminal_stage)!=-14)return 13;
+ static const u32 text_ro[4]={2,sizeof(GuiTerminalView),0,0};
+ if(k32_call(GUI_SNAPSHOT,(u32)text_ro,sizeof terminal_stage)!=-14)return 14;
+ terminal_stage=(GuiTerminalView){.version=3,.size=sizeof terminal_stage};
+ if(k32_call(GUI_SNAPSHOT,(u32)&terminal_stage,sizeof terminal_stage)!=-22)return 15;
+ if(k32_call(GUI_SNAPSHOT,(u32)&terminal_stage,sizeof terminal_stage-1)!=-22)return 16;
  return 0;
 }
 int main(int argc,char **argv){
+ terminal_phase=1;
  if((k32_query()&23)!=23)return 1;
  int e=k32_call(GUI_INFO,(u32)&info,sizeof info);if(e)return 2;
  if(info.magic!=0x3149474b||info.version!=1||info.width>800||info.height>600||(info.bpp!=1&&info.bpp!=2)||info.pitch!=info.width*info.bpp)return 3;
@@ -399,6 +440,13 @@ int main(int argc,char **argv){
   if(got<0){gui_state.error=7;return 7;}
   if(!got){k32_wait(K32_WAIT_TIME,16);continue;}
   gui_state.events++;gui_state.heartbeat++;key_modifiers=event.type==GUI_KEY?event.buttons:0;if(event.type==GUI_KEY)gui_state.last_key=event.key;
+  if(!terminal_tick)terminal_tick=event.ticks;
+  if(((event.ticks-terminal_tick)&0xffffff)>=153600){terminal_tick=event.ticks;terminal_phase^=1;
+   for(unsigned id=0;id<2;id++)if(terminal_valid[id]&&scene.window[id+2].open&&!scene.window[id+2].hidden){
+    unsigned blink=0;for(unsigned i=0;i<2000;i++)if(terminals[id].attributes[i]&2){blink=1;break;}
+    if(blink)scene_window_damage(&scene,id+2,scene.window[id+2].r);
+   }
+  }
   int previous_focus=scene.active;Rect previous_rect[2]={scene.window[2].r,scene.window[3].r};
   /* A child may OPEN/SUBSCRIBE between timer events. Route input against
    * its current generation/token, never the ended root's cached canvas. */

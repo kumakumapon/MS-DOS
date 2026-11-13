@@ -104,3 +104,13 @@ unsigned k386_tick(void) {
     if(k386_command(K386_STEP,id,0,0))return 0;
     return k386_word(id,6)!=before||k386_word(id,0)!=state?1u<<id:0;
 }
+int k386_text(unsigned id,unsigned first,unsigned count,K386TextChunk *out){
+ if(id>=2||first>=25||!count||count>3||count>25-first||k386_kind(id))return 87;
+ int error=k386_command(K386_TEXT,id,first|(count<<8),0);if(error)return error;
+ unsigned a=0xd38a,b=0,di;u16 seg;
+ __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=D"(di):"b"(b):"edx","esi","cc","memory");
+ if((a&65535)!=0x38ad)return 50;
+ unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));mem_copy(ds,(unsigned)out,seg,di&65535,sizeof *out);
+ const char *sig="K386TXT1";for(unsigned i=0;i<8;i++)if(out->signature[i]!=sig[i])return 5;
+ return out->version!=1||out->size!=sizeof *out||out->slot!=id||out->first!=first||out->count!=count||out->reserved?5:0;
+}

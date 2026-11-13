@@ -10,6 +10,7 @@ unsigned k386_word(unsigned id,unsigned offset);
 unsigned k386_counter(unsigned id);
 char k386_character(unsigned id,unsigned cell);
 void k386_screen(unsigned id,char *out);
+int k386_text(unsigned id,unsigned first,unsigned count,K386TextChunk *out);
 unsigned k386_tick(void);
 int k386_resources_available(void);
 int k386_usage(unsigned id,K386Usage *usage);

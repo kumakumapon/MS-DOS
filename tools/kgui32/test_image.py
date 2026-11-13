@@ -46,7 +46,8 @@ class Image(unittest.TestCase):
             elf,stats={'KGCALC':('calculator.elf','calc_stats'),'KGCLOCK':('clock.elf','clock_stats'),'KGFILES':('files.elf','files_stats'),'KGDIRBAD':('directory-test.elf','directory_stats'),'KGEDIT':('editor.elf','editor_stats'),'KGRECNEG':('recovery-test.elf','recovery_stats'),'KGRECNON':('recovery-test.elf','recovery_stats')}[name]
             self.assertEqual(symbols(elf)[stats],p.rwbase)
     def test_loader_bounds_and_explicit_allocation(self):
-        s=symbols('driver.elf');self.assertLess(s['__bss_end'],0xd000)
+        s=symbols('driver.elf');self.assertLess(s['__bss_end'],0xd400)
+        self.assertGreaterEqual(0xeff0-s['__bss_end'],7000)
         b=(ROOT/'build/KGUILDR.EXE').read_bytes();h=struct.unpack_from('<14H',b)
         self.assertEqual(h[0],0x5a4d);self.assertEqual(h[5],h[6])
         self.assertEqual(((len(b)-h[4]*16+15)//16+h[5])*16,65536)

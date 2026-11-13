@@ -4,6 +4,7 @@
 #include "backing.h"
 #include "arena.h"
 #include "drives.h"
+#include "text.h"
 typedef struct {
     K386Frame frame;
     k32 dta;
@@ -19,6 +20,8 @@ typedef struct {
     K386Drives drives;
     k32 clock,accumulator,timer_count;
     k16 timer_owner,timer_armed,timer_pending;
+    K98Text text;
+    k32 text_hash;
 } K386Runtime;
 extern K386Runtime runtime[2];
 typedef struct {k32 number,ax,bx,cx,dx,ds,es,cs,ip;} K386Call;

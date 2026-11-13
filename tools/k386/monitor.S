@@ -59,6 +59,16 @@ unavailable:
     mov ax,0x4c01
     int 0x21
 api:
+    cmp ax,0xd38a
+    jne diagnostic_api
+    test bx,bx
+    jnz chain
+    mov ax,cs
+    mov es,ax
+    mov di,OFFSET transfer
+    mov ax,0x38ad
+    iretw
+diagnostic_api:
     cmp ax,0xd388
     jne resource_api
     test bx,bx

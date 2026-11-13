@@ -13,6 +13,6 @@ SECTIONS {
  __mz_ss = 0;
  __mz_sp = 0xfff0;
  __mz_memory_bytes = 0x10000;
- ASSERT(__bss_end < 0xc000, "K386 needs separate real/protected stacks")
+ ASSERT(__bss_end < 0xd000, "K386 reserves 8 KiB protected and 4 KiB real-mode stacks")
  /DISCARD/ : { *(.eh_frame) *(.comment) *(.note*) }
 }

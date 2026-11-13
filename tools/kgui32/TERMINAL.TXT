@@ -1,0 +1,36 @@
+KGUI32 DOS terminal / native PC-98 text
+
+Use 16 MiB extended memory. The graphical desktop owns two private mixed
+V86/PM32 slots. Choose New DOS 1/2, or Run KSH.EXE in an ended slot.
+The ordinary KDESK fallback and the separate K386 distribution remain available.
+
+DOS terminal output supports ASCII, half-width kana and JIS X0208 Shift-JIS.
+TYPE JPDEMO.TXT displays a sample. Shift-JIS pairs remain whole at column 80.
+CR/LF, tabs and backspace move the private cursor; scrolling moves both the
+character and attribute planes. ANSI CSI H/f, A/B/C/D/G, J/K, s/u and m are
+bounded. SGR 0, 30-37/39, 4/24, 5/25, 7/27, 8/28 control default/colour,
+underline, blink, reverse and display. PC-98 has no independent background
+colour plane. Direct private A000/A200 TVRAM words and per-cell attributes are
+also displayed, including different attributes on each half of a kanji.
+Semigraphics, user fonts and hardware GDC mode changes are separate extensions.
+
+Host Send Text may forward committed Shift-JIS bytes to a focused DOS program.
+The Editor's app-local IME remains separate: F4 toggles Romaji input, F5 selects
+JIS kana, Space converts, Enter commits and Esc cancels. DOS has no resident FEP.
+
+TERM98.COM is a read-only diagnostic. It waits for one command byte:
+ a: attributes only; j: upper character byte only; r: cursor on right half;
+ w: wide wrap at bottom right; s: repeated coloured scrolling;
+ i: DOS buffered Japanese input, whole-character backspace and echo;
+ q: normal exit; f: deliberate isolated V86 fault.
+No diagnostic command opens or writes a disk file.
+
+Session controls: Ctrl+L Run, Ctrl+P pause, Ctrl+R resume, Ctrl+E Force End.
+F2 returns to Welcome. F10 closes the desktop. Graphical Editor close may ask
+for commit/cancel or Save/Discard/Cancel. Force End discards app-local changes.
+Work saving and recovery retain their separate bounded APIs and original-file
+preservation rules. The A: root is read-only through the app broker.
+
+Full contracts and historical K386 documentation:
+https://github.com/kumakumapon/MS-DOS/tree/main/tools/k386
+https://github.com/kumakumapon/MS-DOS/blob/main/tools/kgui32/TERMINAL.md

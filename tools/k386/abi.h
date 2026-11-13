@@ -7,6 +7,15 @@ enum { K386_SESSIONS=2, K386_SCREEN=2000, K386_SEGMENT=0x8000, K386_KEY_CAPACITY
 enum { K386_ENDED, K386_RUNNING, K386_WAITING, K386_STOPPED, K386_FAULTED };
 enum { K386_CREATE=1,K386_STEP,K386_KEY,K386_STOP,K386_RESUME,K386_END,
        K386_SCHEDULE,K386_PRIORITY,K386_BUDGET,K386_INTERRUPT,K386_DESCRIBE,K386_POLL };
+/* 13 belongs to the mixed manager's restart. Fixed read-only TVRAM transport
+ * uses existing 1024-byte scratch and never exposes an arbitrary guest address. */
+#define K386_TEXT 14u
+typedef struct {
+ char signature[8];k16 version,size,slot,first,count,flags,column,row,state,reserved;
+ k32 generation;
+ k16 codes[240],attributes[240];
+} K386TextChunk;
+_Static_assert(sizeof(K386TextChunk)==992,"bounded private text chunk");
 typedef struct {
     k32 edi,esi,ebp,ignored,ebx,edx,ecx,eax,vector,error,eip,cs,eflags,esp,ss,es,ds,fs,gs;
 } K386Frame;
