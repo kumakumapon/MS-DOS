@@ -79,14 +79,15 @@ void kg_dispatch(void){
  extern volatile GuiDriverRecord gui_record;
  p.result=kg_policy(&client,r,p.generation,&serial,gui_record.width,gui_record.height);
  if(p.result>=0){
+  r->slot=id;r->generation=p.generation;r->revision=client.revision;r->event.seconds=seconds;
   if(r->operation==KG_CLIP_SET){clip_bytes=r->count;mem_copy(arena,clipboard(),self,(unsigned)r->draw,clip_bytes);}
   if(r->operation==KG_CLIP_GET){unsigned n=r->count<clip_bytes?r->count:clip_bytes;mem_copy(self,(unsigned)r->draw,arena,clipboard(),n);p.result=n;}
+  if(r->operation==KG_FRAME){r->width=client.width;r->height=client.height;for(unsigned i=0;i<32;i++)r->title[i]=client.title[i];}
   if(kg_surface_operation(r->operation)){
    kg_surface_set(r,0,client.surface.handle);kg_surface_set(r,4,r->operation==KG_SURFACE_UPLOAD?r->height:0);kg_surface_set(r,8,client.surface.width);kg_surface_set(r,12,client.surface.height);
   }
   if(r->operation==KG_FRAME||kg_surface_operation(r->operation))mem_copy(arena,id*4096,self,(unsigned)r,sizeof *r);
   if(r->operation==KG_OPEN)mem_fill(arena,id*4096,sizeof *r,0);
-  r->slot=id;r->generation=p.generation;r->revision=client.revision;r->event.seconds=seconds;
   mem_copy(host_segment,p.request,self,(unsigned)r,sizeof *r);
  }
 done:

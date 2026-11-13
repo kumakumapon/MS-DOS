@@ -48,7 +48,7 @@ static int change(unsigned key){
 static int draw(void){
  stats();unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
  kw_draw_input((KwRect){8,4,160,28},&filename,focused);kg_button('o',176,4,72,28,"Load");kg_button('q',w-80,4,72,28,"Close");
- kg_button('i',8,40,72,28,"Invert");kg_button('h',88,40,72,28,"Flip H");kg_button('u',168,40,72,28,"Undo");kg_button('r',248,40,80,28,paintmode?"Painting":"Paint");
+ kg_button('i',8,40,72,28,"Invert");kg_button('h',88,40,72,28,"Flip H");kg_button('u',168,40,72,28,"Undo");kg_button('p',248,40,80,28,paintmode?"Painting":"Paint");
  kg_rect(8,80,w-16,h-116,0x182c46);
  if(handle&&image.width){
   int x=16+panx,y=88+pany,sx=x<8?8-x:0,sy=y<80?80-y:0;x+=sx;y+=sy;
@@ -63,11 +63,13 @@ static int draw(void){
 int main(int argc,char **argv){
  int token=kg_open("Images / BMP24",328,196);if(token<0){image_stats.error=-token;return 1;}
  kg_subscribe(KG_INPUT_TAB|KG_INPUT_KEYS|KG_INPUT_MOTION);
- const char *name=argc>2&&equal(argv[1],"root")?argv[2]:argc>1?argv[1]:"SAMPLE.BMP";
+ unsigned fault=argc>1&&equal(argv[1],"fault");
+ const char *name=fault?"SAMPLE.BMP":argc>2&&equal(argv[1],"root")?argv[2]:argc>1?argv[1]:"SAMPLE.BMP";
  for(unsigned i=0;name[i]&&i<12;i++)filename.text[i]=name[i];
  filename.length=k32_len(filename.text);filename.cursor=filename.length;
  int e=k32_len(name)>12?-22:load();if(e<0){image_stats.error=-e;message="Unsupported BMP or read error";}
  if(draw()<0)return 2;
+ if(fault)*(volatile unsigned *)0x10000=1;
  for(;;){
   KgEvent v;int got=kg_poll(&v);if(got<0)return 3;image_stats.heartbeat++;unsigned key=0,dirty=0;e=0;
   if(got){image_stats.events++;

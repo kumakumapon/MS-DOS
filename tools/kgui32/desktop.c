@@ -10,7 +10,7 @@ typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,pr
  u32 terminal_magic,terminal0,terminal1,terminal_phase,terminal_valid;
  u32 terminal_geometry[2][6];
  u32 capacity,terminal2,terminal3,extra_geometry[2][6];
- u32 bitmap_magic,bitmap_meta,bitmap_pixels,bitmap_stride;
+ u32 bitmap_magic,bitmap_meta,bitmap_pixels,bitmap_stride,bitmap_frames;
 } GuiState;
 volatile GuiState gui_state __attribute__((used,section(".data.gui_state")))={.magic=0x3147554b,.version=1,.terminal_magic=0x3254474b};
 static GuiInfo info;static Scene scene;static u8 font[95*16];
@@ -463,7 +463,7 @@ int main(int argc,char **argv){
  int e=k32_call(GUI_INFO,(u32)&info,sizeof info);if(e)return 2;
  if(info.magic!=0x3149474b||info.version!=1||info.width>800||info.height>600||(info.bpp!=1&&info.bpp!=2)||info.pitch!=info.width*info.bpp)return 3;
  if(k32_call(GUI_FONT,(u32)font,sizeof font))return 4;
- gui_state.bitmap_magic=0x3153474b;gui_state.bitmap_meta=(u32)images;gui_state.bitmap_pixels=(u32)image_pixels;gui_state.bitmap_stride=sizeof image_pixels[0];
+ gui_state.bitmap_magic=0x3153474b;gui_state.bitmap_meta=(u32)images;gui_state.bitmap_pixels=(u32)image_pixels;gui_state.bitmap_stride=sizeof image_pixels[0];gui_state.bitmap_frames=(u32)clients;
  scene_init(&scene,info.width,info.height);scene_slots(&scene,info.features&GUI_FOUR_SLOTS?4:2);gui_state.x0=scene.window[0].r.x;gui_state.y0=scene.window[0].r.y;gui_state.x1=scene.window[1].r.x;gui_state.y1=scene.window[1].r.y;
  refresh();
  int once=argc>1&&equal(argv[1],"once"),proof=argc>1&&equal(argv[1],"proof");

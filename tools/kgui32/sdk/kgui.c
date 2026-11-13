@@ -8,7 +8,7 @@ int kg_open(const char *title,unsigned w,unsigned h){
  request=(KgRequest){.width=w,.height=h};copy(request.title,title,sizeof request.title);
  int e=call(KG_OPEN);if(e<0)return e;token=e;width=request.width;height=request.height;surface_handle=0;return e;
 }
-void kg_begin(void){request.count=0;}
+void kg_begin(void){request.count=0;request.width=width;request.height=height;}
 static KgDraw *add(unsigned op,int x,int y,int w,int h,u32 color){
  if(request.count==KG_COMMANDS)return 0;
  KgDraw *d=&request.draw[request.count++];*d=(KgDraw){.op=op,.x=x,.y=y,.w=w,.h=h,.color=color};return d;
