@@ -37,14 +37,27 @@ class Image(unittest.TestCase):
         b=bytearray(data);struct.pack_into('<I',b,92,32)
         self.assertNotEqual(parser(True)(b)[0],0)
     def test_graphical_client_packages(self):
-        for name in ('KGCALC','KGCLOCK','KGFILES','KGDIRBAD','KGEDIT','KGRECNEG','KGRECNON'):
+        for name in ('KGCALC','KGCLOCK','KGFILES','KGDIRBAD','KGEDIT','KGRECNEG','KGRECNON','KGIMAGE'):
             data=(ROOT/f'build/{name}.EXE').read_bytes()
             self.assertNotEqual(parser(False)(data)[0],0)
             self.assertNotEqual(parser(True)(data)[0],0)
             error,p=parser(False,True)(data);self.assertEqual(error,0)
-            self.assertEqual((p.abi,p.features),(257,231 if name in ('KGEDIT','KGFILES','KGRECNEG') else 103 if name in ('KGDIRBAD','KGRECNON') else 39))
-            elf,stats={'KGCALC':('calculator.elf','calc_stats'),'KGCLOCK':('clock.elf','clock_stats'),'KGFILES':('files.elf','files_stats'),'KGDIRBAD':('directory-test.elf','directory_stats'),'KGEDIT':('editor.elf','editor_stats'),'KGRECNEG':('recovery-test.elf','recovery_stats'),'KGRECNON':('recovery-test.elf','recovery_stats')}[name]
+            self.assertEqual((p.abi,p.features),(257,231 if name in ('KGEDIT','KGFILES','KGRECNEG') else 103 if name in ('KGDIRBAD','KGRECNON') else 47 if name=='KGIMAGE' else 39))
+            elf,stats={'KGCALC':('calculator.elf','calc_stats'),'KGCLOCK':('clock.elf','clock_stats'),'KGFILES':('files.elf','files_stats'),'KGDIRBAD':('directory-test.elf','directory_stats'),'KGEDIT':('editor.elf','editor_stats'),'KGRECNEG':('recovery-test.elf','recovery_stats'),'KGRECNON':('recovery-test.elf','recovery_stats'),'KGIMAGE':('image.elf','image_stats')}[name]
             self.assertEqual(symbols(elf)[stats],p.rwbase)
+    def test_compact_packages_keep_all_loaded_bytes_and_page_alignment(self):
+        for exe,elf in [('KGUI32','desktop'),('KGEDIT','editor'),('KGIMAGE','image')]:
+            package=(ROOT/f'build/{exe}.EXE').read_bytes();at,size=struct.unpack_from('<II',package,84)
+            compact=package[at:];original=(ROOT/f'build/{elf}.elf').read_bytes()
+            self.assertEqual(size,len(compact));self.assertLess(len(compact),len(original))
+            self.assertEqual(struct.unpack_from('<I',compact,32)[0],0)
+            ph=struct.unpack_from('<I',original,28)[0];count=struct.unpack_from('<H',original,44)[0]
+            for i in range(count):
+                p=ph+i*32;kind,offset,_,_,n=struct.unpack_from('<5I',original,p)
+                new=struct.unpack_from('<8I',compact,p);old=struct.unpack_from('<8I',original,p)
+                self.assertEqual(new[2:7],old[2:7])
+                if kind==1:
+                    self.assertEqual(compact[new[1]:new[1]+n],original[offset:offset+n]);self.assertEqual(new[1]%16,0);self.assertEqual(new[2]%4096,0);self.assertEqual(new[7],16)
     def test_loader_bounds_and_explicit_allocation(self):
         s=symbols('driver.elf');self.assertLess(s['__bss_end'],0xd400)
         self.assertGreaterEqual(0xeff0-s['__bss_end'],7000)

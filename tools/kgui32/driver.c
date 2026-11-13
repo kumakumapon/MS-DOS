@@ -19,6 +19,7 @@ static u32 last_schedule,last_timer;
 static unsigned expanded_here;
 unsigned manager,owned[4],session_focus;u32 owned_generation[4];
 extern int gui_session(u32,unsigned),gui_snapshot(u32,unsigned),kg_clients_start(void),kg_clients_snapshot(u32,unsigned),kg_clients_event(u32,unsigned);
+extern int kg_clients_surface_ack(u32,unsigned);
 extern void kg_clients_close(void),kg_clients_tick(void);
 static Mouse previous;
 static u32 get(unsigned at){return *(u32 *)(results+at);}
@@ -132,6 +133,7 @@ static int dispatch(void){
  case GUI_SNAPSHOT:error=gui_snapshot(b,c);break;
  case GUI_CLIENT_VIEW:error=kg_clients_snapshot(b,c);break;
  case GUI_CLIENT_EVENT:error=kg_clients_event(b,c);break;
+ case GUI_SURFACE_ACK:error=kg_clients_surface_ack(b,c);break;
  default:gui_record.unknown++;return -38;
  }if(error<0)gui_record.rejected++;return error;
 }

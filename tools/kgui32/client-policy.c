@@ -4,7 +4,7 @@
 #include "sdk/text.h"
 static int text(const char *p,unsigned n){return kt_cstr(p,n)>=0;}
 int kg_validate(const KgRequest *r,unsigned width,unsigned height){
- if(r->version!=1||r->size!=sizeof *r||r->operation<KG_OPEN||r->operation>KG_EDIT_STATUS)return -22;
+ if(r->version!=1||r->size!=sizeof *r||r->operation<KG_OPEN||r->operation>KG_SURFACE_DESTROY)return -22;
  if(r->operation==KG_OPEN)return r->width<160||r->width>640||r->height<80||r->height>400||!r->title[0]||!text(r->title,32)?-22:0;
  if(r->operation==KG_SUBSCRIBE&&(r->count&~KG_CAP_SUPPORTED))return -22;
  if(r->operation==KG_EDIT_DOCUMENT){char command[64];return kg_document_command(r->count,r->title,command);}
@@ -12,6 +12,7 @@ int kg_validate(const KgRequest *r,unsigned width,unsigned height){
  if(r->count>KG_COMMANDS)return -22;
  for(unsigned i=0;i<r->count;i++){
   const KgDraw *d=&r->draw[i];
+  if(d->op==KG_BITMAP){if(d->x < -800||d->x>800||d->y < -600||d->y>600||d->w<1||d->w>256||d->h<1||d->h>192)return -22;continue;}
   if(d->op<KG_RECT||d->op>KG_BUTTON||d->x<0||d->y<0||(unsigned)d->x>=width||(unsigned)d->y>=height||d->color>0xffffff)return -22;
   if(d->op==KG_TEXT){
    if(!text(d->text,48)||height-(unsigned)d->y<16)return -22;
@@ -45,12 +46,21 @@ int kg_policy(KgClient *c,KgRequest *r,u32 generation,u32 *serial,unsigned width
   return 0;
  }
  if(r->operation==KG_EDIT_STATUS)return c->edit_result;
- if(r->operation==KG_CAPABILITIES)return KG_CAP_SUPPORTED;
+ if(r->operation>=KG_SURFACE_CREATE){
+  int result=kg_surface_policy(&c->surface,r,serial);
+  if(result>=0&&kg_surface_operation(r->operation)){if(++c->revision==0)c->revision=1;c->surface.pending=c->revision;}
+  return result;
+ }
+ if(r->operation==KG_CAPABILITIES)return KG_CAP_SUPPORTED|KG_CAP_BITMAP;
  if(r->operation==KG_SUBSCRIBE){c->input_flags=r->count;c->revision++;return 0;}
  if(r->operation==KG_CANCEL_CLOSE){if(!(c->input_flags&KG_INPUT_CLOSE))return -22;c->cancelled++;c->revision++;return 0;}
  if(r->operation==KG_CLIP_SET||r->operation==KG_CLIP_GET)return r->count>1024?-22:0;
- if(r->operation==KG_CLOSE){c->edit_pending=0;c->input_flags=0;c->token=0;c->head=c->count=0;c->revision++;return 0;}
- if(r->operation==KG_FRAME){c->revision++;return 0;}
+ if(r->operation==KG_CLOSE){c->surface=(KgSurface){0};c->edit_pending=0;c->input_flags=0;c->token=0;c->head=c->count=0;c->revision++;return 0;}
+ if(r->operation==KG_FRAME){
+  if(c->surface.pending)return -11;
+  for(unsigned i=0;i<r->count;i++)if(r->draw[i].op==KG_BITMAP){int e=kg_surface_draw(&c->surface,&r->draw[i]);if(e)return e;}
+  c->revision++;return 0;
+ }
  r->event=(KgEvent){0};
  if(c->count){r->event=c->event[c->head];c->head=(c->head+1)%KG_EVENTS;c->count--;}
  r->width=c->width;r->height=c->height;return r->event.type?1:0;

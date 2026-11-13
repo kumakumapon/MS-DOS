@@ -32,7 +32,7 @@ int k32_plan(K32Read read,void *opaque,u32 bytes,K32Plan *out){
   u32 type=dword(p);if(!type)continue;if(type!=1)return 6;
   K32Segment s={dword(p+4),dword(p+8),dword(p+16),dword(p+20),dword(p+24)};
   u32 align=dword(p+28);
-  if(!s.memsz||s.filesz>s.memsz||!range(s.offset,s.filesz,plan.elf_size)||s.address<K32_BASE||!range(s.address,s.memsz,K32_LIMIT)||s.address%4096||s.offset%4096||align!=4096||!(s.flags&4)||(s.flags&~7u)||((s.flags&3)==3))return 7;
+  if(!s.memsz||s.filesz>s.memsz||!range(s.offset,s.filesz,plan.elf_size)||s.address<K32_BASE||!range(s.address,s.memsz,K32_LIMIT)||s.address%4096||(align!=4096&&align!=16)||(s.offset&(align-1))||(align==16&&s.offset<ph+number*32)||!(s.flags&4)||(s.flags&~7u)||((s.flags&3)==3))return 7;
   u32 end=(s.address+s.memsz+4095)&~4095u;
   for(unsigned j=0;j<plan.count;j++){
    K32Segment *old=&plan.segment[j];u32 oldend=(old->address+old->memsz+4095)&~4095u;
