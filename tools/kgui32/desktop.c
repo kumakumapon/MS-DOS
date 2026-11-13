@@ -5,8 +5,10 @@
 #include "sdk/text.h"
 #include "../k386/text.h"
 #include "../k38632/sdk/k32x.h"
-typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,presents,last_key,heartbeat,error;} GuiState;
-volatile GuiState gui_state __attribute__((used,section(".data.gui_state")))={.magic=0x3147554b,.version=1};
+typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,presents,last_key,heartbeat,error;
+ u32 terminal_magic,terminal0,terminal1,terminal_phase,terminal_valid;
+} GuiState;
+volatile GuiState gui_state __attribute__((used,section(".data.gui_state")))={.magic=0x3147554b,.version=1,.terminal_magic=0x3254474b};
 static GuiInfo info;static Scene scene;static u8 font[95*16];
 static struct {u32 code;u8 bitmap[32];} glyph_cache[128];
 static unsigned glyph_slot;
@@ -60,6 +62,7 @@ static void refresh(void){
   }
   views[id]=v;refresh_graphical(id);if(following[id]){follow_cursor(id);following[id]--;}
  }
+ gui_state.terminal0=(u32)&terminals[0];gui_state.terminal1=(u32)&terminals[1];gui_state.terminal_valid=terminal_valid[0]|terminal_valid[1]<<1;gui_state.terminal_phase=terminal_phase;
 }
 static int client_event(unsigned id,const KgEvent *e){
  client_io=(KgRequest){.version=1,.size=sizeof client_io,.slot=id,.generation=views[id].generation,.token=clients[id].token,.event=*e};
@@ -208,7 +211,7 @@ static void terminal(unsigned id,int x,int y,int width,int height){
  const char *names[]={"Run","Stop","Resume","End","Again"};
  for(int i=0;i<5;i++)button(x+8+i*64,y+36,60,names[i]);
  int cols=(width-16)/8,rows=(height-104)/16;
- box(x+8,y+70,cols*8,rows*16,color(0));
+ box(x+8,y+70,cols*8,rows*16,terminal_valid[id]&&!v->kind?rgb(0,0,0):color(0));
  Rect before=clip;Rect area={x+8,y+70,cols*8,rows*16};
  int right=clip.x+clip.w,bottom=clip.y+clip.h;
  if(clip.x<area.x)clip.x=area.x;
