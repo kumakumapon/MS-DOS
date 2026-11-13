@@ -9,7 +9,7 @@ typedef struct {
  u32 counters[4],states[4];int action_result;
  int order[6],slot,key,resize,scroll_x[4],scroll_y[4],graphical[4],slots;
 } Scene;
-enum {ACT_NONE,ACT_EXIT,ACT_START,ACT_STOP,ACT_NEW,ACT_RUN,ACT_KEY,ACT_END,ACT_PAUSE,ACT_RESUME,ACT_RESTART,ACT_SCROLL,ACT_CALCULATOR,ACT_CLOCK,ACT_SHELL,ACT_FILES,ACT_EDITOR};
+enum {ACT_NONE,ACT_EXIT,ACT_START,ACT_STOP,ACT_NEW,ACT_RUN,ACT_KEY,ACT_END,ACT_PAUSE,ACT_RESUME,ACT_RESTART,ACT_SCROLL,ACT_CALCULATOR,ACT_CLOCK,ACT_SHELL,ACT_FILES,ACT_EDITOR,ACT_IMAGE};
 void scene_init(Scene *,int,int);
 void scene_slots(Scene *,unsigned);
 int scene_event4(Scene *,const GuiEvent4 *);

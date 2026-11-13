@@ -21,7 +21,13 @@ volatile struct {
  u32 generation[2],token[2],revision[2],events[2],dropped[2];
 } kg_producer={.signature={'K','G','C','L','N','T','0','1'},.version=1,.size=sizeof kg_producer};
 static void publish(void){
- for(unsigned i=0;i<2;i++){load(i);kg_producer.generation[i]=client.generation;kg_producer.token[i]=client.token;kg_producer.revision[i]=client.revision;kg_producer.events[i]=client.received;kg_producer.dropped[i]=client.dropped;}
+ extern volatile GuiDriverRecord gui_record;
+ for(unsigned i=0;i<k386_capacity();i++){
+  load(i);
+  if(i<2){kg_producer.generation[i]=client.generation;kg_producer.token[i]=client.token;kg_producer.revision[i]=client.revision;kg_producer.events[i]=client.received;kg_producer.dropped[i]=client.dropped;}
+  gui_record.reserved[8+i]=client.surface.handle;gui_record.reserved[12+i]=client.surface.uploaded;
+  gui_record.reserved[16+i]=client.surface.pending;gui_record.reserved[20+i]=client.generation;
+ }
 }
 extern int gui_open_document(unsigned,u32,unsigned,const char *);
 void kg_clients_tick(void){
@@ -65,7 +71,7 @@ void kg_dispatch(void){
  p.result=-22;
  if(p.version!=1||p.size!=sizeof p||p.slot>=k386_capacity())goto done;
  id=p.slot;load(id);
- if(!p.operation){if(client.generation==p.generation){client.edit_pending=0;client.token=0;client.input_flags=0;client.revision++;client.head=client.count=0;}p.result=0;goto done;}
+ if(!p.operation){if(client.generation==p.generation){client.surface=(KgSurface){0};client.edit_pending=0;client.token=0;client.input_flags=0;client.revision++;client.head=client.count=0;}p.result=0;goto done;}
  if(p.operation!=1||p.bytes!=sizeof(KgRequest)||p.request>65536-sizeof(KgRequest))goto done;
  if(!owned[id]||owned_generation[id]!=p.generation){p.result=-1;goto done;}
  KgRequest *r=(KgRequest *)loader_buffer;
@@ -75,7 +81,10 @@ void kg_dispatch(void){
  if(p.result>=0){
   if(r->operation==KG_CLIP_SET){clip_bytes=r->count;mem_copy(arena,clipboard(),self,(unsigned)r->draw,clip_bytes);}
   if(r->operation==KG_CLIP_GET){unsigned n=r->count<clip_bytes?r->count:clip_bytes;mem_copy(self,(unsigned)r->draw,arena,clipboard(),n);p.result=n;}
-  if(r->operation==KG_FRAME)mem_copy(arena,id*4096,self,(unsigned)r,sizeof *r);
+  if(kg_surface_operation(r->operation)){
+   kg_surface_set(r,0,client.surface.handle);kg_surface_set(r,4,r->operation==KG_SURFACE_UPLOAD?r->height:0);kg_surface_set(r,8,client.surface.width);kg_surface_set(r,12,client.surface.height);
+  }
+  if(r->operation==KG_FRAME||kg_surface_operation(r->operation))mem_copy(arena,id*4096,self,(unsigned)r,sizeof *r);
   if(r->operation==KG_OPEN)mem_fill(arena,id*4096,sizeof *r,0);
   r->slot=id;r->generation=p.generation;r->revision=client.revision;r->event.seconds=seconds;
   mem_copy(host_segment,p.request,self,(unsigned)r,sizeof *r);
@@ -95,7 +104,10 @@ int kg_clients_snapshot(u32 pointer,unsigned bytes){
  else {*r=(KgRequest){0};}
  r->version=1;r->size=sizeof *r;r->slot=id;r->generation=c->generation;r->token=owned[id]&&owned_generation[id]==c->generation?c->token:0;
  r->revision=c->revision;r->width=c->width;r->height=c->height;r->event.control=c->input_flags;r->event.key=c->cancelled;
- for(unsigned i=0;i<32;i++)r->title[i]=c->title[i];
+ if(kg_surface_operation(r->operation)){
+  if(c->surface.pending)r->revision=c->surface.pending;
+  else {r->operation=0;r->count=0;}
+ }else for(unsigned i=0;i<32;i++)r->title[i]=c->title[i];
  return gui_copy(pointer,r,sizeof *r,1);
 }
 int kg_clients_event(u32 pointer,unsigned bytes){
@@ -114,3 +126,16 @@ int kg_clients_event(u32 pointer,unsigned bytes){
 }
 
 int kg_clients_close_guard(void){for(unsigned i=0;i<k386_capacity();i++){load(i);if(client.token&&(client.input_flags&KG_INPUT_CLOSE))return 1;}return 0;}
+
+int kg_clients_surface_ack(u32 pointer,unsigned bytes){
+ GuiSurfaceAck r;if(bytes!=sizeof r)return -22;
+ int e=gui_copy(pointer,&r,sizeof r,0);if(e)return e;
+ if(r.version!=1||r.size!=sizeof r||r.slot>=k386_capacity())return -22;
+ unsigned id=r.slot;load(id);KgClient *c=&client;
+ if(!owned[id]||owned_generation[id]!=r.generation)return -1;
+ if(!c->token||c->token!=r.token||c->generation!=r.generation||!c->surface.pending||c->surface.pending!=r.revision)return -116;
+ /* The trusted desktop acknowledges only an accepted complete transport. */
+ KgRequest *stored=(KgRequest *)loader_buffer;mem_copy(self,(unsigned)stored,arena,id*4096,sizeof *stored);
+ e=kg_surface_ack(&c->surface,r.revision,stored->operation);if(e)return e;
+ save(id);publish();return 0;
+}

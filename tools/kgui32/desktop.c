@@ -3,12 +3,14 @@
 #include "scene.h"
 #include "sdk/protocol.h"
 #include "sdk/text.h"
+#include "surface.h"
 #include "../k386/text.h"
 #include "../k38632/sdk/k32x.h"
 typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,presents,last_key,heartbeat,error;
  u32 terminal_magic,terminal0,terminal1,terminal_phase,terminal_valid;
  u32 terminal_geometry[2][6];
  u32 capacity,terminal2,terminal3,extra_geometry[2][6];
+ u32 bitmap_magic,bitmap_meta,bitmap_pixels,bitmap_stride;
 } GuiState;
 volatile GuiState gui_state __attribute__((used,section(".data.gui_state")))={.magic=0x3147554b,.version=1,.terminal_magic=0x3254474b};
 static GuiInfo info;static Scene scene;static u8 font[95*16];
@@ -21,6 +23,7 @@ static GuiTerminalView terminals[4],terminal_stage;
 static unsigned terminal_valid[4],terminal_phase;static u32 terminal_tick;
 static char paths[4][128];static unsigned following[4];
 static KgRequest clients[4],client_io;
+static KgImage images[4];static u16 image_pixels[4][KG_SURFACE_PIXELS*2];
 static unsigned exit_pending;
 static u32 close_generation[4],close_token[4],close_cancel[4];
 static unsigned capture,capture_generation,capture_token;
@@ -77,6 +80,14 @@ static int client_event(unsigned id,const KgEvent *e){
 static void refresh_graphical(unsigned id){
  client_io=(KgRequest){.version=1,.size=sizeof client_io,.slot=id};
  if(k32_call(GUI_CLIENT_VIEW,(u32)&client_io,sizeof client_io))return;
+ if(kg_surface_operation(client_io.operation)&&client_io.token&&views[id].owned&&client_io.generation==views[id].generation){
+  int e=kg_surface_receive(&images[id],image_pixels[id],&client_io,views[id].generation,client_io.token);
+  if(!e){GuiSurfaceAck ack={1,sizeof ack,id,client_io.generation,client_io.token,client_io.revision};e=k32_call(GUI_SURFACE_ACK,(u32)&ack,sizeof ack);}
+  if(e)errors[id]=e;
+  else if(client_io.operation==KG_SURFACE_DESTROY||(images[id].valid&&images[id].uploaded==images[id].width*images[id].height*2))scene_window_damage(&scene,id+2,scene.window[id+2].r);
+  return;
+ }
+ if(!client_io.token||client_io.generation!=views[id].generation||!views[id].owned)images[id]=(KgImage){0};
  if(close_token[id]){
   if(close_generation[id]!=views[id].generation||close_generation[id]!=client_io.generation||close_cancel[id]!=client_io.event.key||(client_io.token&&client_io.token!=close_token[id]))close_token[id]=0;
   else if(!client_io.token){scene_close(&scene,id+2);close_token[id]=0;capture=0;}
@@ -91,6 +102,7 @@ static void refresh_graphical(unsigned id){
   scene_focus(&scene,id+2);scene_damage(&scene,w->r);
  }
  if(exit_pending&&clients[id].event.key!=client_io.event.key)exit_pending=0;
+ if(!client_io.operation&&clients[id].token==client_io.token&&clients[id].generation==client_io.generation&&client_io.token){clients[id].event=client_io.event;return;}
  if(clients[id].revision!=client_io.revision||clients[id].generation!=client_io.generation||clients[id].token!=client_io.token){
   if(yes&&scene.window[id+2].open&&!scene.window[id+2].hidden)scene_window_damage(&scene,id+2,scene.window[id+2].r);
   clients[id]=client_io;
@@ -103,7 +115,7 @@ static void launch(int act){
  unsigned id=0;
  while(id<(unsigned)scene.slots&&(views[id].state==1||views[id].state==2||views[id].state==3||(views[id].state==4&&!views[id].owned)))id++;
  if(id==(unsigned)scene.slots){scene.action_result=-16;scene_damage(&scene,scene.window[0].r);return;}
- const char *path=act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":"KSH.EXE";
+ const char *path=act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":act==ACT_IMAGE?"KGIMAGE.EXE":"KSH.EXE";
  for(unsigned i=0;i<128;i++){paths[id][i]=path[i];if(!path[i])break;}
  errors[id]=session_command(id,GS_CREATE,0);scene.action_result=errors[id];
  if(!errors[id])scene_focus(&scene,id+2);
@@ -281,6 +293,17 @@ static void graphical(unsigned id,int x,int y,int width,int height){
   KgDraw *d=&r->draw[i];int xx=x+8+d->x,yy=y+70+d->y;u32 c=rgb(d->color>>16,(d->color>>8)&255,d->color&255);
   if(d->op==KG_RECT)box(xx,yy,d->w,d->h,c);
   if(d->op==KG_TEXT)text(xx,yy,d->text,c);
+  if(d->op==KG_BITMAP){
+   const KgImage *im=&images[id];
+   if(im->valid&&im->handle==d->id&&im->generation==r->generation&&im->token==r->token){
+    unsigned sx=d->color&65535,sy=d->color>>16;
+    if(sx<im->width&&sy<im->height&&(unsigned)d->w<=im->width-sx&&(unsigned)d->h<=im->height-sy){
+     const u16 *p=image_pixels[id]+im->front*KG_SURFACE_PIXELS;
+     int l=xx>clip.x?xx:clip.x,t=yy>clip.y?yy:clip.y,right=xx+d->w<clip.x+clip.w?xx+d->w:clip.x+clip.w,bottom=yy+d->h<clip.y+clip.h?yy+d->h:clip.y+clip.h;
+     for(int row=t;row<bottom;row++)for(int col=l;col<right;col++){u16 c=p[(sy+row-yy)*im->width+sx+col-xx];u32 pixel=info.bpp==2?c:rgb(((c>>11)&31)*255/31,((c>>5)&63)*255/63,(c&31)*255/31);box(col,row,1,1,pixel);}
+    }
+   }
+  }
   if(d->op==KG_BUTTON){
    box(xx,yy,d->w,d->h,color(11));box(xx+1,yy+1,d->w-2,d->h-2,c);box(xx+2,yy+2,d->w-4,1,color(7));
    text(xx+(d->w-8*(int)k32_len(d->text))/2,yy+(d->h-16)/2,d->text,color(0));
@@ -333,8 +356,8 @@ static void window(int id){
  }else if(!id){
   box(x+16,y+48,46,46,color(4));box(x+24,y+56,12,28,color(7));box(x+38,y+56,12,12,color(6));box(x+38,y+72,12,12,color(3));
   text(x+78,y+48,"Your new desktop",color(0));text(x+78,y+72,"32-bit protected mode",color(10));
-  button(x+18,y+116,140,"Calculator");button(x+174,y+116,140,"Clock");button(x+18,y+152,140,"DOS Shell");button(x+174,y+152,140,"Files");button(x+18,y+188,140,"Editor");
-  text(x+174,y+196,scene.action_result<0?"Slots full / error":"F2 / F10",color(10));
+  button(x+18,y+116,140,"Calculator");button(x+174,y+116,140,"Clock");button(x+18,y+152,140,"DOS Shell");button(x+174,y+152,140,"Files");button(x+18,y+188,140,"Editor");button(x+174,y+188,140,"Images");
+  text(x+18,y+92,scene.action_result<0?"Slots full / error":"F2 / F10",color(10));
  }else{
   text(x+16,y+46,"Desktop: private context",color(0));
   text(x+16,y+70,scene.slots==4?"Application slots: 4":"Application slots: 2",color(0));
@@ -428,6 +451,10 @@ static int negative(void){
  terminal_stage=(GuiTerminalView){.version=3,.size=sizeof terminal_stage};
  if(k32_call(GUI_SNAPSHOT,(u32)&terminal_stage,sizeof terminal_stage)!=-22)return 15;
  if(k32_call(GUI_SNAPSHOT,(u32)&terminal_stage,sizeof terminal_stage-1)!=-22)return 16;
+ GuiSurfaceAck ack={.version=1,.size=sizeof ack};
+ if(k32_call(GUI_SURFACE_ACK,0x10000,sizeof ack)!=-14)return 17;
+ ack.slot=scene.slots;if(k32_call(GUI_SURFACE_ACK,(u32)&ack,sizeof ack)!=-22)return 18;
+ ack.slot=0;if(k32_call(GUI_SURFACE_ACK,(u32)&ack,sizeof ack)!=-1)return 19;
  return 0;
 }
 int main(int argc,char **argv){
@@ -436,6 +463,7 @@ int main(int argc,char **argv){
  int e=k32_call(GUI_INFO,(u32)&info,sizeof info);if(e)return 2;
  if(info.magic!=0x3149474b||info.version!=1||info.width>800||info.height>600||(info.bpp!=1&&info.bpp!=2)||info.pitch!=info.width*info.bpp)return 3;
  if(k32_call(GUI_FONT,(u32)font,sizeof font))return 4;
+ gui_state.bitmap_magic=0x3153474b;gui_state.bitmap_meta=(u32)images;gui_state.bitmap_pixels=(u32)image_pixels;gui_state.bitmap_stride=sizeof image_pixels[0];
  scene_init(&scene,info.width,info.height);scene_slots(&scene,info.features&GUI_FOUR_SLOTS?4:2);gui_state.x0=scene.window[0].r.x;gui_state.y0=scene.window[0].r.y;gui_state.x1=scene.window[1].r.x;gui_state.y1=scene.window[1].r.y;
  refresh();
  int once=argc>1&&equal(argv[1],"once"),proof=argc>1&&equal(argv[1],"proof");

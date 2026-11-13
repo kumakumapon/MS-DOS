@@ -90,10 +90,11 @@ static void switch_root(void){
 }
 static void edit_selected(void){
  if(edit_pending){message="Editor request pending";return;}
- if(loading||!list.count){message="Select a TXT file";return;}
+ if(loading||!list.count){message="Select a TXT or BMP file";return;}
  K32DirEntry *d=&entries[matches[list.selected]];unsigned n=k32_len(d->name);
- if((d->attributes&16)||n<5||d->name[n-4]!='.'||upper(d->name[n-3])!='T'||upper(d->name[n-2])!='X'||upper(d->name[n-1])!='T'){message="Select a TXT file";return;}
- if(d->bytes>65536){message="Editor limit: 64 KiB";return;}
+ int bitmap=!work&&n>=5&&d->name[n-4]=='.'&&upper(d->name[n-3])=='B'&&upper(d->name[n-2])=='M'&&upper(d->name[n-1])=='P';
+ if((d->attributes&16)||n<5||d->name[n-4]!='.'||(!bitmap&&(upper(d->name[n-3])!='T'||upper(d->name[n-2])!='X'||upper(d->name[n-1])!='T'))){message="Select a TXT or BMP file";return;}
+ if(!bitmap&&d->bytes>65536){message="Editor limit: 64 KiB";return;}
  int e=kg_edit_document(d->name,work);if(e<0){files_stats.error=-e;message="Editor request rejected";}else{edit_pending=1;files_stats.error=0;}
 }
 static void diagnostics(void){
@@ -108,7 +109,7 @@ static int draw(void){
  layout();unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
  kg_text(8,8,mode?filename:work?destination.root:"A: root / read only",0x20344a);
  if(focus.current>=6)kg_rect(w-(focus.current==6?169:89),1,focus.current==6?78:82,22,0x327ac0);
- kg_button(104,w-168,2,76,20,work?"Root":"Work");kg_button(105,w-88,2,80,20,"Editor");
+ kg_button(104,w-168,2,76,20,work?"Root":"Work");kg_button(105,w-88,2,80,20,"Open app");
  if(mode)kg_text(8,30,"TXT preview / 40 columns",0x466581);
  else {kg_text(8,32,"Filter",0x466581);kw_draw_input((KwRect){64,24,(int)w-76,26},&filter,focus.current==0);}
  kg_rect(8,52,w-40,list.rows*16,0xffffff);

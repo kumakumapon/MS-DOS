@@ -35,7 +35,7 @@ $(BUILD)/client.o: ../window/k386_client.c | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/verified-disk.o: ../filer/verified-disk.c ../filer/verified-disk.h | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
-$(BUILD)/driver.elf: $(BUILD)/verified-disk.o $(BUILD)/document.o $(BUILD)/clients.o $(BUILD)/client-policy.o $(BUILD)/client-gate.o $(BUILD)/runtime.o $(BUILD)/driver.o $(BUILD)/sessions.o $(BUILD)/loader.broker.o $(BUILD)/elf.broker.o $(BUILD)/services.broker.o $(BUILD)/services-dos.broker.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/cirrus.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/client.o driver.ld
+$(BUILD)/driver.elf: $(BUILD)/verified-disk.o $(BUILD)/document.o $(BUILD)/clients.o $(BUILD)/client-policy.o $(BUILD)/surface.native.o $(BUILD)/client-gate.o $(BUILD)/runtime.o $(BUILD)/driver.o $(BUILD)/sessions.o $(BUILD)/loader.broker.o $(BUILD)/elf.broker.o $(BUILD)/services.broker.o $(BUILD)/services-dos.broker.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/cirrus.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/client.o driver.ld
 	ld -m elf_i386 --gc-sections -T driver.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGUILDR.EXE: $(BUILD)/driver.elf ../mz/build.py
 	python3 ../mz/build.py --desktop-app 'KGUI32 native loader' $< $@
@@ -45,10 +45,10 @@ $(BUILD)/scene.o: scene.c scene.h gui.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/crt.o: $(K32)/sdk/crt1.S | $(BUILD)
 	as --32 $< -o $@
-$(BUILD)/desktop.elf: $(BUILD)/desktop.o $(BUILD)/scene.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+$(BUILD)/desktop.elf: $(BUILD)/desktop.o $(BUILD)/scene.o $(BUILD)/surface.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGUI32.EXE: $(BUILD)/desktop.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 23 --gui
+	python3 $(K32)/package.py $< $@ --abi 257 --features 23 --gui --compact
 $(BUILD)/proof.o: proof.c ../k38632/host.h ../window/k386_client.h | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/proof-start.o: ../filer/start.s | $(BUILD)
@@ -61,9 +61,11 @@ $(BUILD)/test-scene: test-scene.c scene.c scene.h gui.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-scene.c scene.c -o $@
 $(BUILD)/test-sessions: test-sessions.c sessions.c document.c document.h $(K32)/services.c $(K32)/services.h gui.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-sessions.c sessions.c document.c $(K32)/services.c -o $@
-$(BUILD)/test-client-policy: test-client-policy.c client-policy.c document.c document.h $(K32)/services.c $(K32)/services.h client-policy.h sdk/protocol.h sdk/text.h | $(BUILD)
-	$(CC) -Wall -Wextra -Werror test-client-policy.c client-policy.c document.c $(K32)/services.c -o $@
-test: all $(BUILD)/test-scene $(BUILD)/test-sessions $(BUILD)/test-client-policy $(BUILD)/test-widgets $(BUILD)/test-editor
+$(BUILD)/test-client-policy: test-client-policy.c client-policy.c surface.c document.c document.h $(K32)/services.c $(K32)/services.h client-policy.h sdk/protocol.h sdk/text.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror test-client-policy.c client-policy.c surface.c document.c $(K32)/services.c -o $@
+test: all $(BUILD)/test-bitmap $(BUILD)/test-surface $(BUILD)/test-scene $(BUILD)/test-sessions $(BUILD)/test-client-policy $(BUILD)/test-widgets $(BUILD)/test-editor
+	$(BUILD)/test-bitmap
+	$(BUILD)/test-surface
 	$(BUILD)/test-scene
 	$(BUILD)/test-sessions
 	$(BUILD)/test-client-policy
@@ -87,14 +89,14 @@ $(BUILD)/calculator.elf: $(BUILD)/calculator.app.o $(BUILD)/calculator-core.o $(
 $(BUILD)/clock.elf: $(BUILD)/clock.app.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGCALC.EXE: $(BUILD)/calculator.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client
+	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client --compact
 $(BUILD)/KGCLOCK.EXE: $(BUILD)/clock.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client
+	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client --compact
 all: $(BUILD)/KGCALC.EXE $(BUILD)/KGCLOCK.EXE
 $(BUILD)/boundary.elf: $(BUILD)/boundary.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGBAD.EXE: $(BUILD)/boundary.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client
+	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client --compact
 all: $(BUILD)/KGBAD.EXE
 
 $(BUILD)/widgets.o: sdk/widgets.c sdk/widgets.h | $(BUILD)
@@ -104,18 +106,18 @@ $(BUILD)/widgets-draw.o: sdk/widgets-draw.c sdk/widgets.h sdk/kgui.h | $(BUILD)
 $(BUILD)/files.elf: $(BUILD)/files.app.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGFILES.EXE: $(BUILD)/files.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client
+	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client --compact
 all: $(BUILD)/KGFILES.EXE
 $(BUILD)/directory-test.elf: $(BUILD)/directory-test.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGDIRBAD.EXE: $(BUILD)/directory-test.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client
+	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client --compact
 all: $(BUILD)/KGDIRBAD.EXE
 $(BUILD)/test-widgets: test-widgets.c sdk/widgets.c sdk/widgets.h sdk/text.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-widgets.c sdk/widgets.c -o $@
 
 $(BUILD)/KGDIRNO.EXE: $(BUILD)/directory-test.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client
+	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client --compact
 all: $(BUILD)/KGDIRNO.EXE
 
 $(BUILD)/editor-model.o: sdk/editor.c sdk/editor.h | $(BUILD)
@@ -129,7 +131,7 @@ $(BUILD)/workspace-policy.o: $(K32)/workspace.c $(K32)/workspace.h | $(BUILD)
 $(BUILD)/workspace-services.o: $(K32)/services.c | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/KGEDIT.EXE: $(BUILD)/editor.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client
+	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client --compact
 all: $(BUILD)/KGEDIT.EXE
 $(BUILD)/test-editor: test-editor.c sdk/editor.c sdk/editor.h sdk/text.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-editor.c sdk/editor.c -o $@
@@ -137,14 +139,14 @@ $(BUILD)/test-editor: test-editor.c sdk/editor.c sdk/editor.h sdk/text.h | $(BUI
 $(BUILD)/save-test.elf: $(BUILD)/save-test.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGSAVEB.EXE: $(BUILD)/save-test.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client
+	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client --compact
 $(BUILD)/KGSAVENO.EXE: $(BUILD)/save-test.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client
+	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client --compact
 all: $(BUILD)/KGSAVEB.EXE $(BUILD)/KGSAVENO.EXE
 $(BUILD)/save-wide.elf: $(BUILD)/save-wide.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGSAVE64.EXE: $(BUILD)/save-wide.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client
+	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client --compact
 all: $(BUILD)/KGSAVE64.EXE
 $(BUILD)/picker.o $(BUILD)/editor.app.o $(BUILD)/save-wide.app.o $(BUILD)/save-test.app.o: $(K32)/workspace.h $(K32)/sdk/k32x.h
 
@@ -159,9 +161,9 @@ $(BUILD)/recovery.o: sdk/recovery.c sdk/recovery.h sdk/kgui.h sdk/widgets.h | $(
 $(BUILD)/recovery-test.elf: $(BUILD)/recovery-test.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGRECNEG.EXE: $(BUILD)/recovery-test.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client
+	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client --compact
 $(BUILD)/KGRECNON.EXE: $(BUILD)/recovery-test.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client
+	python3 $(K32)/package.py $< $@ --abi 257 --features 103 --client --compact
 all: $(BUILD)/KGRECNEG.EXE $(BUILD)/KGRECNON.EXE
 
 # Original UTF-8 input tables and word list become bounded Shift-JIS artifacts.
@@ -180,3 +182,35 @@ test: test-ime-run
 test-ime-run: $(BUILD)/test-ime $(BUILD)/KGIME.DIC
 	$(BUILD)/test-ime $(BUILD)/KGIME.DIC
 .PHONY: test-ime-run
+
+$(BUILD)/surface.native.o: surface.c surface.h sdk/protocol.h | $(BUILD)
+	$(CC) $(NATIVE) -c $< -o $@
+$(BUILD)/surface.app.o: surface.c surface.h sdk/protocol.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+
+$(BUILD)/bitmap.o: sdk/bitmap.c sdk/bitmap.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/image.app.o: apps/image.c sdk/kgui.h sdk/bitmap.h sdk/widgets.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/image.elf: $(BUILD)/image.app.o $(BUILD)/bitmap.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KGIMAGE.EXE: $(BUILD)/image.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 47 --client --compact
+all: $(BUILD)/KGIMAGE.EXE
+
+$(BUILD)/test-bitmap: test-bitmap.c sdk/bitmap.c sdk/bitmap.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-bitmap.c sdk/bitmap.c -o $@
+$(BUILD)/test-surface: test-surface.c surface.c client-policy.c document.c $(K32)/services.c surface.h client-policy.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-surface.c surface.c client-policy.c document.c $(K32)/services.c -o $@
+
+all: $(BUILD)/SAMPLE.BMP
+$(BUILD)/SAMPLE.BMP: sample-bmp.py | $(BUILD)
+	python3 sample-bmp.py $@
+
+$(BUILD)/bitmap-test.app.o: apps/bitmap-test.c sdk/protocol.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/bitmap-test.elf: $(BUILD)/bitmap-test.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KGBITBAD.EXE: $(BUILD)/bitmap-test.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client --compact
+all: $(BUILD)/KGBITBAD.EXE
