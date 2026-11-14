@@ -103,7 +103,7 @@ input:
     int 0x21
     jmp wait
 fault:
-    mov ax,0xe000
+    mov ax,0xc000
     mov es,ax
     mov WORD PTR es:[0],0x55aa
 done:

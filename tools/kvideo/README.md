@@ -12,7 +12,8 @@ CGRAM uses A1/A3/A5/A9; text/graphics GDC use 60/62 and A0/A2. Byte IN/OUT
 instructions are decoded from the actual private CS:IP, including a single
 66 byte prefix. Word I/O, unsupported ports/commands and invalid parameters
 fault only that task. Direct stores target private user PTEs; C0000 font shadow
-is never mapped into guest code. FIFO-empty and vertical-sync status are bounded
+is never mapped into guest code. Protection diagnostics target C0000, since
+E0000 is now a legitimate private graphics plane. FIFO-empty and vertical-sync status are bounded
 by the monitor ARTIC clock. GDC supports SYNC, START/STOP, PITCH, CURS, MASK,
 CCHAR, direction-2 FIGS, word/byte WDAT operations, RDAT/CURD and the first PRAM
 partition. Only the first text partition and first graphics partition render.
