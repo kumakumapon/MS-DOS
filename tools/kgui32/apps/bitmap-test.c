@@ -10,7 +10,7 @@ int main(int argc,char **argv){
  r=(KgRequest){.version=1,.size=sizeof r,.width=328,.height=160,.title="Bitmap boundary"};
  int t=call(KG_OPEN);CHECK(t>0);token=t;r.token=token;bitmap_stats.token=token;
  CHECK(k32_call(13,0x10000,sizeof r)==-14);CHECK(k32_call(13,0x800000,sizeof r)==-14);CHECK(k32_call(13,0xbff800,sizeof r)==-14);
- r.width=0;r.height=2;CHECK(call(KG_SURFACE_CREATE)==-22);r.width=257;CHECK(call(KG_SURFACE_CREATE)==-22);r.width=3;r.height=193;CHECK(call(KG_SURFACE_CREATE)==-22);
+ r.width=0;r.height=2;CHECK(call(KG_SURFACE_CREATE)==-22);r.width=385;CHECK(call(KG_SURFACE_CREATE)==-22);r.width=3;r.height=257;CHECK(call(KG_SURFACE_CREATE)==-22);
  r.height=2;t=call(KG_SURFACE_CREATE);CHECK(t>0);surface=t;bitmap_stats.reserved[0]=surface;CHECK(!waited());
  r.width=argc>1?number(argv[1]):surface+1;r.height=0;r.count=2;CHECK(call(KG_SURFACE_UPLOAD)==-116);
  r.width=surface;r.count=0;CHECK(call(KG_SURFACE_UPLOAD)==-22);r.count=1;CHECK(call(KG_SURFACE_UPLOAD)==-22);r.count=3042;CHECK(call(KG_SURFACE_UPLOAD)==-22);

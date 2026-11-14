@@ -17,5 +17,12 @@ int main(void){
  old=c.surface;r.draw[0].id=99;assert(op(KG_FRAME)==-116&&!memcmp(&old,&c.surface,sizeof old));r.draw[0].id=2;r.draw[0].color=3;assert(op(KG_FRAME)==-22);r.draw[0].color=0;
  r.token=99;assert(op(KG_FRAME)==-116);r.token=1;r.width=2;assert(!op(KG_SURFACE_DESTROY));receive(0);ack();assert(!c.surface.width&&!image.valid);r.count=1;assert(op(KG_FRAME)==-116);
  assert(!op(KG_CLOSE));assert(!c.surface.handle&&!c.token);assert(op(KG_SURFACE_STATUS)==-116);
+ r=(KgRequest){.version=1,.size=sizeof r,.width=344,.height=196};strcpy(r.title,"Two surfaces");assert(op(KG_OPEN)>0);r.token=c.token;
+ r.width=384;r.height=256;r.count=0;assert(op(KG_SURFACE_CREATE)>0);unsigned primary=c.surface.handle;assert(kg_surface_ack(&c.surface,c.surface.pending,KG_SURFACE_CREATE)==0);c.surface.uploaded=384*256*2;
+ r.width=129;r.height=128;r.count=1;assert(op(KG_SURFACE_CREATE)==-22);r.width=128;assert(op(KG_SURFACE_CREATE)>0);unsigned second=c.extra_surface.handle;assert(second!=primary);assert(!kg_surface_ack(&c.extra_surface,c.extra_surface.pending,KG_SURFACE_CREATE));c.extra_surface.uploaded=128*128*2;
+ r.count=2;r.draw[0]=(KgDraw){.op=KG_BITMAP_SCALE,.x=-100,.y=-100,.w=1536,.h=1024,.id=primary};r.draw[0].text[0]=(char)384;r.draw[0].text[1]=384>>8;r.draw[0].text[2]=0;r.draw[0].text[3]=1;
+ r.draw[1]=(KgDraw){.op=KG_BITMAP,.w=128,.h=128,.id=second};assert(!op(KG_FRAME));
+ r.draw[0].text[4]=1;assert(op(KG_FRAME)==-22);r.draw[0].text[4]=0;r.draw[0].text[1]=2;assert(op(KG_FRAME)==-22);
+ assert(!op(KG_CLOSE)&&!c.extra_surface.handle);
  return 0;
 }

@@ -18,9 +18,11 @@ int kg_cancel_close(void);
 int kg_edit_document(const char *,unsigned);
 int kg_edit_status(void);
 int kg_surface_create(unsigned,unsigned);
+int kg_surface_create_extra(unsigned,unsigned);
 int kg_surface_upload(unsigned,const u16 *,unsigned);
 int kg_surface_destroy(unsigned);
 int kg_bitmap(unsigned,int,int,unsigned,unsigned,unsigned,unsigned);
+int kg_bitmap_scaled(unsigned,int,int,unsigned,unsigned,unsigned,unsigned,unsigned,unsigned);
 unsigned kg_width(void);
 unsigned kg_height(void);
 #endif

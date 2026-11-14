@@ -2,7 +2,7 @@ CC ?= gcc
 BUILD ?= build
 K32 = ../k38632
 CFLAGS = -I$(BUILD) -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -msoft-float -mno-sse -mno-mmx -ffunction-sections -fdata-sections -Wall -Wextra -Werror -MMD -MP
-NATIVE = $(CFLAGS) -Oz -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -DDOS -DPC98 -DK32_HOST -DK32_GUI
+NATIVE = $(CFLAGS) -Oz -mregparm=3 -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -DDOS -DPC98 -DK32_HOST -DK32_GUI
 all: $(BUILD)/KGUILDR.EXE $(BUILD)/KGUI32.EXE
 all: $(BUILD)/KGPROOF.COM
 $(BUILD):
@@ -192,10 +192,10 @@ $(BUILD)/bitmap.o: sdk/bitmap.c sdk/bitmap.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/image.app.o: apps/image.c sdk/kgui.h sdk/bitmap.h sdk/widgets.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
-$(BUILD)/image.elf: $(BUILD)/image.app.o $(BUILD)/bitmap.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+$(BUILD)/image.elf: $(BUILD)/io.sdk.o $(BUILD)/libc.sdk.o $(BUILD)/image.app.o $(BUILD)/bitmap.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGIMAGE.EXE: $(BUILD)/image.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 239 --client --compact
+	python3 $(K32)/package.py $< $@ --abi 258 --features 495 --client --compact --stack-bytes 16384 --min-heap 65536
 all: $(BUILD)/KGIMAGE.EXE
 
 $(BUILD)/test-bitmap: test-bitmap.c sdk/bitmap.c sdk/bitmap.h | $(BUILD)
@@ -247,3 +247,8 @@ test-terminal-video-run: $(BUILD)/test-terminal-video $(BUILD)/test-video-read
 	$(BUILD)/test-terminal-video
 	$(BUILD)/test-video-read
 .PHONY: test-terminal-video-run
+
+$(BUILD)/io.sdk.o: $(K32)/sdk/io.c $(K32)/sdk/io.h $(K32)/io.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/libc.sdk.o: $(K32)/sdk/libc.c $(K32)/sdk/libc.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@

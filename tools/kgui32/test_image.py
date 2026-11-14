@@ -48,7 +48,7 @@ class Image(unittest.TestCase):
             self.assertNotEqual(parser(False)(data)[0],0)
             self.assertNotEqual(parser(True)(data)[0],0)
             error,p=parser(False,True)(data);self.assertEqual(error,0)
-            self.assertEqual((p.abi,p.features),(257,231 if name in ('KGEDIT','KGFILES','KGRECNEG') else 103 if name in ('KGDIRBAD','KGRECNON') else 239 if name=='KGIMAGE' else 39))
+            self.assertEqual((p.abi,p.features),(258 if name=='KGIMAGE' else 257,231 if name in ('KGEDIT','KGFILES','KGRECNEG') else 103 if name in ('KGDIRBAD','KGRECNON') else 495 if name=='KGIMAGE' else 39))
             elf,stats={'KGCALC':('calculator.elf','calc_stats'),'KGCLOCK':('clock.elf','clock_stats'),'KGFILES':('files.elf','files_stats'),'KGDIRBAD':('directory-test.elf','directory_stats'),'KGEDIT':('editor.elf','editor_stats'),'KGRECNEG':('recovery-test.elf','recovery_stats'),'KGRECNON':('recovery-test.elf','recovery_stats'),'KGIMAGE':('image.elf','image_stats')}[name]
             self.assertEqual(symbols(elf)[stats],p.rwbase)
     def test_compact_packages_keep_all_loaded_bytes_and_page_alignment(self):

@@ -23,6 +23,7 @@ int kg_button(u32 id,int x,int y,int w,int h,const char *s){
 int kg_bitmap(unsigned handle,int x,int y,unsigned sx,unsigned sy,unsigned w,unsigned h){
  (void)handle;(void)x;(void)y;(void)sx;(void)sy;(void)w;(void)h;assert(0);return -1;
 }
+int kg_bitmap_scaled(unsigned handle,int x,int y,unsigned sx,unsigned sy,unsigned sw,unsigned sh,unsigned dw,unsigned dh){(void)handle;(void)x;(void)y;(void)sx;(void)sy;(void)sw;(void)sh;(void)dw;(void)dh;assert(0);return -1;}
 int kg_present(void){return kg_validate(&frame,canvas_w,canvas_h);}
 #define main image_guest_main
 #include "apps/image.c"

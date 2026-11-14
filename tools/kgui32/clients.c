@@ -73,7 +73,7 @@ void kg_dispatch(void){
  p.result=-22;
  if(p.version!=1||p.size!=sizeof p||p.slot>=k386_capacity())goto done;
  id=p.slot;load(id);
- if(!p.operation){if(client.generation==p.generation){client.surface=(KgSurface){0};client.edit_pending=0;client.token=0;client.input_flags=0;client.revision++;client.head=client.count=0;}p.result=0;goto done;}
+ if(!p.operation){if(client.generation==p.generation){client.surface=client.extra_surface=(KgSurface){0};client.edit_pending=0;client.token=0;client.input_flags=0;client.revision++;client.head=client.count=0;}p.result=0;goto done;}
  if(p.operation!=1||p.bytes!=sizeof(KgRequest)||p.request>65536-sizeof(KgRequest))goto done;
  if(!owned[id]||owned_generation[id]!=p.generation){p.result=-1;goto done;}
  KgRequest *r=(KgRequest *)loader_buffer;
@@ -87,7 +87,8 @@ void kg_dispatch(void){
   if(r->operation==KG_CLIP_GET){unsigned n=r->count<clip_bytes?r->count:clip_bytes;mem_copy(self,(unsigned)r->draw,arena,clipboard(),n);p.result=n;}
   if(r->operation==KG_FRAME){r->width=client.width;r->height=client.height;for(unsigned i=0;i<32;i++)r->title[i]=client.title[i];}
   if(kg_surface_operation(r->operation)){
-   kg_surface_set(r,0,client.surface.handle);kg_surface_set(r,4,r->operation==KG_SURFACE_UPLOAD?r->height:0);kg_surface_set(r,8,client.surface.width);kg_surface_set(r,12,client.surface.height);
+   KgSurface *s=kg_client_surface(&client,r);
+   kg_surface_set(r,0,s->handle);kg_surface_set(r,4,r->operation==KG_SURFACE_UPLOAD?r->height:0);kg_surface_set(r,8,s->width);kg_surface_set(r,12,s->height);kg_surface_set(r,16,s==&client.extra_surface);
   }
   if(r->operation==KG_FRAME||kg_surface_operation(r->operation))mem_copy(arena,id*4096,self,(unsigned)r,sizeof *r);
   if(r->operation==KG_OPEN)mem_fill(arena,id*4096,sizeof *r,0);
@@ -109,7 +110,8 @@ int kg_clients_snapshot(u32 pointer,unsigned bytes){
  r->version=1;r->size=sizeof *r;r->slot=id;r->generation=c->generation;r->token=owned[id]&&owned_generation[id]==c->generation?c->token:0;
  r->revision=c->revision;r->width=c->width;r->height=c->height;r->event.control=c->input_flags;r->event.key=c->cancelled;
  if(kg_surface_operation(r->operation)){
-  if(c->surface.pending)r->revision=c->surface.pending;
+  KgSurface *s=kg_surface_word(r,16)?&c->extra_surface:&c->surface;
+  if(s->pending)r->revision=s->pending;
   else {r->operation=0;r->count=0;}
  }else for(unsigned i=0;i<32;i++)r->title[i]=c->title[i];
  return gui_copy(pointer,r,sizeof *r,1);
@@ -137,9 +139,11 @@ int kg_clients_surface_ack(u32 pointer,unsigned bytes){
  if(r.version!=1||r.size!=sizeof r||r.slot>=k386_capacity())return -22;
  unsigned id=r.slot;load(id);KgClient *c=&client;
  if(!owned[id]||owned_generation[id]!=r.generation)return -1;
- if(!c->token||c->token!=r.token||c->generation!=r.generation||!c->surface.pending||c->surface.pending!=r.revision)return -116;
+ if(!c->token||c->token!=r.token||c->generation!=r.generation)return -116;
  /* The trusted desktop acknowledges only an accepted complete transport. */
  KgRequest *stored=(KgRequest *)loader_buffer;mem_copy(self,(unsigned)stored,arena,id*4096,sizeof *stored);
- e=kg_surface_ack(&c->surface,r.revision,stored->operation);if(e)return e;
+ KgSurface *s=kg_surface_word(stored,16)?&c->extra_surface:&c->surface;
+ if(!s->pending||s->pending!=r.revision)return -116;
+ e=kg_surface_ack(s,r.revision,stored->operation);if(e)return e;
  save(id);publish();return 0;
 }
