@@ -69,7 +69,12 @@ static int save(unsigned approved){
  K32Work r=request(K32_WORK_STAT,filename.text);int e;
  if(approved)r=replacement;
  else if(loaded_work&&equal(current,filename.text))r=revision;
- else {K32Revision old;e=k32_io_revision(filename.text,0,&old);if(e<0)return e;r.exists=old.exists;r.length=old.length;r.hash=old.hash;if(r.exists){replacement=r;modal=1;return 2;}}
+ else {
+  /* Preserve the legacy protected-target refusal before overwrite prompts.
+   * Large regular files alone fall back to the common binary revision scan. */
+  e=k32_work(&r);if(e==-27){K32Revision old;e=k32_io_revision(filename.text,0,&old);if(e<0)return e;r.exists=old.exists;r.length=old.length;r.hash=old.hash;}else if(e<0)return e;
+  if(r.exists){replacement=r;modal=1;return 2;}
+ }
  int bytes=kg_bmp_encode(pixels,image.width,image.height,encoded,sizeof encoded);if(bytes<0)return bytes;
  r.operation=K32_WORK_SAVE;r.data=(unsigned)encoded;r.bytes=bytes;
  if((unsigned)bytes>K32_BMP_LIMIT||r.length>K32_BMP_LIMIT||image.width>256||image.height>192){K32Revision old={r.exists,r.length,r.hash};e=k32_io_save(r.name,encoded,(unsigned)bytes,&old);}else e=k32_work(&r);if(e<0)return e;
