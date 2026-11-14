@@ -43,7 +43,7 @@ static int file_index(Owner *o,unsigned value){for(unsigned i=0;i<8;i++)if(value
 static int file_close(Owner *o,unsigned value){int i=file_index(o,value);if(i<0)return i;int e=close_handle(o->file[i].h);if(!e)o->file[i]=(File){0};return e;}
 static int file_open(Owner *o,const char *path){
  unsigned i=0;while(i<8&&o->file[i].token)i++;if(i==8)return -24;
- int a=attributes(path);if(a==-2)return -2;if(a<0)return -5;if(a&0x5f)return -13;
+ int a=attributes(path);if(a==-2)return -2;if(a<0)return -5;if(a&0x5e)return -13;
  unsigned value=token();if(!value)return -75;
  int h=open_path(path,0);if(h<0)return h;
  /* Publish ownership before size/seek so failed close cannot leak authority. */
@@ -86,6 +86,7 @@ static int begin(Owner *o,K32Io *r,int recovery){
  k32_io_path(o->drive,r->name,1,next.temporary);k32_io_path(o->drive,r->name,2,next.backup);
  int lock=lock_path(next.temporary);if(lock<0)return lock;next.lock[0]=lock;
  if(recovery){
+  int source_attributes=attributes(next.target);if(source_attributes<0||(source_attributes&0x5f)){e=source_attributes<0?-2:-13;goto failed;}
   char name[16]={0};copy(name,buffer,r->bytes);e=k32_io_path(o->drive,name,0,next.destination);if(e)goto failed;
   char destlock[24];k32_io_path(o->drive,name,1,destlock);lock=lock_path(destlock);if(lock<0){e=lock;goto failed;}next.lock[1]=lock;
   int a=attributes(next.destination);if(a!=-2){e=a<0?-5:-17;goto failed;}

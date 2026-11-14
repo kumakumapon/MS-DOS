@@ -19,7 +19,7 @@ static void system_load(void){
  if(k32_close((unsigned)h))error=-5;
  if(!error)ki_dictionary(&system_dictionary,system_bytes,n);
 }
-static const char *error_note(int e){return e==-116?"File changed / edits kept":e==-17?"TMP or destination exists / kept":e==-117?"Inspect TMP/BAK / original kept":e==-28?"Disk full / original kept":e==-16?"Commit or cancel input / file busy":"Dictionary error / original kept";}
+static const char *error_note(int e){return e==-116?"File changed / edits kept":e==-17?"TMP or destination exists / kept":e==-117?"Inspect TMP/BAK / original kept":e==-28?"Disk full / original kept":e==-13?"Protected file / original kept":e==-16?"Commit or cancel input / file busy":"Dictionary error / original kept";}
 static void failure(int e){words_stats[9]=e<0?(unsigned)-e:0;note=e<0?error_note(e):"Saved to Work";}
 static unsigned candidate_rows(void){unsigned n=(kg_height()-104)/20;return n>6?6:n?n:1;}
 static int draw(void){

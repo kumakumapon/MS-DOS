@@ -16,7 +16,8 @@ cross the boundary. Live handle counts join the existing resource accounting.
 
 Names are regular ASCII 8.3 files with extensions, in the broker-selected Work
 directory on the verified HDD, or A: on the FD profile. No drive/path/device,
-hidden/system/read-only file or raw volume write is accepted. TMP/BAK names are
+hidden/system file or raw volume write is accepted. Read-only regular files
+can be read; replacement/recovery refuses their mutation. TMP/BAK names are
 reserved variants. Files are bounded to 1 MiB; each READ/WRITE and each COMMIT
 revision-scan step transfers at most 4096 bytes. Return -11 from COMMIT/RECOVER
 means submit another step. CPU scheduling returns between calls; DOS is never
