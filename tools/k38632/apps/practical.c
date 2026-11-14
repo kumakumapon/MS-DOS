@@ -14,7 +14,7 @@ int main(int argc,char **argv){
  char text[80];int n=k32_snprintf(text,sizeof text,"PRACT32 PASS: stack=%u heap=%u number=%d hex=%x\r\n",info->reserved[1],info->heap_limit-info->heap_base,(-2147483647-1),0x386u);
  if(n<0||k32_write(text,(unsigned)n)!=n)return 6;
  practical_stats[1]=2;
- if(argc>1&&(argv[1][0]=='i'||argv[1][0]=='r'||argv[1][0]=='c'||argv[1][0]=='v'))return practical_io(argv[1]);
+ if(argc>1&&(argv[1][0]=='i'||argv[1][0]=='r'||argv[1][0]=='c'||argv[1][0]=='v'||argv[1][0]=='b'))return practical_io(argv[1]);
  if(argc>1&&argv[1][0]=='f'){*(volatile unsigned *)info->reserved[2]=1;return 99;}
  if(argc>1)for(;;)k32_wait(K32_WAIT_KEY|K32_WAIT_TIME,1000);
  return 0;

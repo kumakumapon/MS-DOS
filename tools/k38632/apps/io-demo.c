@@ -3,7 +3,19 @@
 extern volatile unsigned practical_stats[16];
 static unsigned char data[70001],readback[4098];
 static unsigned hash(const unsigned char *p,unsigned n){unsigned h=2166136261u;for(unsigned i=0;i<n;i++)h=(h^p[i])*16777619u;return h;}
+#define BOUND(expression) do{practical_stats[14]++;if(!(expression)){practical_stats[15]=practical_stats[14];return 50;}}while(0)
 int practical_io(const char *mode){
+ if(mode[0]=='b'){
+  K32Io r=k32_io_name(K32_IO_STAT,"BOUND.BIN");
+  if(!(k32_query()&K32_FEATURE_IO)){BOUND(k32_io(&r)==-38);practical_stats[1]=4;return 0;}
+  static const K32Io ro={.version=1,.size=sizeof(K32Io),.operation=K32_IO_STAT,.name="BOUND.BIN"};
+  BOUND(k32_call(18,0x10000,sizeof r)==-14);BOUND(k32_call(18,(unsigned)&ro,sizeof ro)==-14);BOUND(k32_call(18,K32_BOOT_ADDRESS-16,sizeof r)==-14);BOUND(k32_call(18,~0u-15,sizeof r)==-14);
+  r.operation=K32_IO_READ;r.token=123;r.data=(unsigned)&ro;r.bytes=1;BOUND(k32_io(&r)==-14);
+  r.operation=K32_IO_WRITE;r.data=0x10000;BOUND(k32_io(&r)==-14);r.data=(unsigned)data;r.bytes=4097;BOUND(k32_io(&r)==-22);
+  r.bytes=0;BOUND(k32_io(&r)==-9);r.operation=K32_IO_STAT;k32_memcpy(r.name,"../BOUND",9);BOUND(k32_io(&r)==-22);
+  r=k32_io_name(K32_IO_STAT,"BOUND.BIN");r.reserved=1;BOUND(k32_io(&r)==-22);r.reserved=0;r.version=2;BOUND(k32_io(&r)==-22);r.version=1;r.size--;BOUND(k32_io(&r)==-22);
+  BOUND(k32_call(19,0,0)==-38);practical_stats[1]=4;k32_printf("PRACT32 IO BOUNDARIES PASS: %u\r\n",practical_stats[14]);return 0;
+ }
  if(mode[0]=='c'){
   K32Revision missing={0};K32Io tx;int e=k32_io_begin("CANCEL.BIN",&missing,&tx);if(e)return 31;
   if(k32_io_write(&tx,"recoverable bytes",17)!=17)return 32;
