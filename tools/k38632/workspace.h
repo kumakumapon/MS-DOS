@@ -8,6 +8,8 @@ enum {K32_WORK_STAT=1,K32_WORK_OPEN,K32_WORK_FIRST,K32_WORK_SAVE,K32_WORK_INFO,
  K32_WORK_REC_RESTORE_TMP,K32_WORK_REC_RESTORE_BAK,
  K32_WORK_REC_FIRST_TMP,K32_WORK_REC_FIRST_BAK};
 #define K32_WORK_CRLF 1u
+#define K32_WORK_BMP 2u
+#define K32_BMP_LIMIT (4096u+256u*192u*3u)
 enum {K32_WORK_HDD=1,K32_WORK_FD=2,K32_WORK_READY=4};
 typedef struct {
  unsigned version,size,flags,drive; /* drive is zero-based, selected by broker */
@@ -37,6 +39,10 @@ typedef struct {
  int (*copy)(unsigned,void *,unsigned);
  int (*space)(unsigned *,unsigned *); /* free bytes and allocation unit */
 } K32WorkIO;
+int k32_work_path_kind_at(unsigned,const char *,unsigned,char [24]);
+int k32_work_variant_kind_at(unsigned,const char *,unsigned,unsigned,char [24]);
+int k32_recovery_info_kind_at(unsigned,const char *,unsigned,K32RecoveryInfo *,const K32WorkIO *);
+int k32_recovery_restore_kind_at(unsigned,const char *,unsigned,unsigned,const K32RecoveryRestore *,const K32WorkIO *);
 int k32_work_path(const char *,char [24]);
 int k32_work_path_at(unsigned,const char *,char [24]);
 int k32_work_space(K32WorkInfo *,unsigned,unsigned,unsigned,unsigned);

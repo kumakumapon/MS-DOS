@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include "workspace.h"
-static struct {char name[24];unsigned char data[65536];unsigned n;int live;} fs[4];
-static unsigned char document[65536],buffer[4096];
+static struct {char name[24];unsigned char data[K32_BMP_LIMIT];unsigned n;int live;} fs[4];
+static unsigned char document[K32_BMP_LIMIT],buffer[4096];
 static int calls,fail,fail2,opened,short_write;
 static int failed(void){calls++;return calls==fail||calls==fail2;}
 static unsigned hash(const unsigned char *p,unsigned n){unsigned h=2166136261u;for(unsigned i=0;i<n;i++)h=(h^p[i])*16777619u;return h;}
@@ -14,7 +14,7 @@ static int write_file(int h,const void *p,unsigned n){if(failed())return -5;asse
 static int close_file(int h){assert(opened==h);opened=0;return failed()?-5:0;}
 static int rename_file(const char *a,const char *b){if(failed())return -5;int i=locate(a);if(i<0||locate(b)>=0)return -5;strcpy(fs[i].name,b);return 0;}
 static int remove_file(const char *s){if(failed())return -5;int i=locate(s);if(i<0)return -5;fs[i].live=0;return 0;}
-static int copy(unsigned at,void *p,unsigned n){if(failed())return -5;assert(at<=65536&&n<=65536-at);memcpy(p,document+at,n);return 0;}
+static int copy(unsigned at,void *p,unsigned n){if(failed())return -5;assert(at<=K32_BMP_LIMIT&&n<=K32_BMP_LIMIT-at);memcpy(p,document+at,n);return 0;}
 static const K32WorkIO io={stat_file,create,write_file,close_file,rename_file,remove_file,copy,0};
 static unsigned free_bytes,cluster_bytes;
 static int space(unsigned *free,unsigned *cluster){if(failed())return -5;*free=free_bytes;*cluster=cluster_bytes;return 0;}
@@ -25,7 +25,7 @@ int main(void){
  const char *bad[]={"","IO.SYS","AUTOEXEC.BAT","CON.TXT","COM1.TXT","../X.TXT","A:ONE.TXT","A\\B.TXT","a..txt","tool.exe","a.txt ","123456789.TXT",".TXT","ONE.TX"};
  for(unsigned i=0;i<sizeof bad/sizeof *bad;i++)assert(k32_work_path(bad[i],path)==-22);
  for(int old=0;old<2;old++){
-  K32Work r=reset(old);assert(k32_work_save(&r,&io,buffer)==0);int steps=calls,i=locate("A:\\WORK\\NOTE.TXT");assert(i>=0&&fs[i].n==65536&&hash(fs[i].data,fs[i].n)==hash(document,sizeof document)&&!opened);
+  K32Work r=reset(old);assert(k32_work_save(&r,&io,buffer)==0);int steps=calls,i=locate("A:\\WORK\\NOTE.TXT");assert(i>=0&&fs[i].n==65536&&hash(fs[i].data,fs[i].n)==hash(document,65536)&&!opened);
   /* Fail every boundary independently: copy, stat, create, write, close,
    * both renames and cleanup. Never lose the previous complete document. */
   for(int at=1;at<=steps;at++){r=reset(old);fail=at;int e=k32_work_save(&r,&io,buffer);assert(e<0||e==1);assert(!opened);if(old&&e<0)old_survives();}
@@ -106,5 +106,26 @@ int main(void){
   r=reset(1);r.bytes=4095+(malformed[i][1]?2:1);document[4095]=malformed[i][0];if(malformed[i][1])document[4096]=malformed[i][1];
   assert(k32_work_save(&r,&io,buffer)==-22&&calls<=2&&!opened);old_survives();assert(locate("A:\\WORK\\NOTE.TMP")==-1);
  }
+
+ /* Binary saves keep the text contract and exercise every transaction boundary
+  * with the maximum 256x192 BMP, including short write and rollback failures. */
+ for(int old=0;old<2;old++){
+  int steps=0;
+  for(int fault=0;fault<=steps;fault++){
+   r=reset(old);r.flags=K32_WORK_BMP;strcpy(r.name,"NOTE.BMP");if(old)strcpy(fs[0].name,"A:\\WORK\\NOTE.BMP");
+   r.bytes=54+256*192*3;memset(document,0,54);document[0]='B';document[1]='M';
+   unsigned at[]={2,10,14,18,22,26,28,34},value[]={r.bytes,54,40,256,192,1,24,256*192*3};
+   for(unsigned j=0;j<8;j++)for(unsigned k=0;k<(at[j]==26||at[j]==28?2u:4u);k++)document[at[j]+k]=value[j]>>(k*8);
+   fail=fault;int result=k32_work_save(&r,&io,buffer);assert(!opened);
+   if(!fault){assert(!result);steps=calls;int i=locate("A:\\WORK\\NOTE.BMP");assert(i>=0&&fs[i].n==r.bytes&&!memcmp(fs[i].data,document,r.bytes));}
+   else {assert(result<0||result==1);if(old&&result<0){int i=locate("A:\\WORK\\NOTE.BMP");if(i<0||fs[i].n!=3)i=locate("A:\\WORK\\NOTE.BAK");assert(i>=0&&fs[i].n==3&&!memcmp(fs[i].data,"old",3));}}
+  }
+ }
+ r=reset(0);r.flags=K32_WORK_BMP;strcpy(r.name,"NOTE.BMP");r.bytes=54;
+ assert(k32_work_save(&r,&io,buffer)==-22&&calls==1&&!fs[0].live);
+ assert(k32_work_path("NOTE.BMP",path)==-22);
+ assert(!k32_work_path_kind_at(1,"note.bmp",K32_WORK_BMP,path)&&!strcmp(path,"B:\\WORK\\NOTE.BMP"));
+ assert(k32_work_path_kind_at(0,"NOTE.TXT",K32_WORK_BMP,path)==-22);
+ r.flags|=K32_WORK_CRLF;assert(k32_work_request(&r)==-22);
  puts("workspace: names, full 64 KiB, Shift-JIS boundaries, conflict and every transaction failure passed");return 0;
 }

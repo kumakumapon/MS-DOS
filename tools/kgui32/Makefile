@@ -195,7 +195,7 @@ $(BUILD)/image.app.o: apps/image.c sdk/kgui.h sdk/bitmap.h sdk/widgets.h | $(BUI
 $(BUILD)/image.elf: $(BUILD)/image.app.o $(BUILD)/bitmap.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGIMAGE.EXE: $(BUILD)/image.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 47 --client --compact
+	python3 $(K32)/package.py $< $@ --abi 257 --features 239 --client --compact
 all: $(BUILD)/KGIMAGE.EXE
 
 $(BUILD)/test-bitmap: test-bitmap.c sdk/bitmap.c sdk/bitmap.h | $(BUILD)

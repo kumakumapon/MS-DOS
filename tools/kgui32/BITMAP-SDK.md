@@ -36,14 +36,15 @@ flip and strict BMP24 decoding helpers; decoder failure leaves its output plan
 unchanged.
 
 Images (`KGIMAGE.EXE`) opens uncompressed 24-bit BITMAPINFOHEADER BMPs from the
-read-only A: root. It validates file extent, reserved fields, dimensions, stride,
+read-only A: root or broker-selected Work. It validates file extent, reserved fields, dimensions, stride,
 BI_RGB, planes and bit depth, accepts top/down or bottom/up rows, closes handles
 on every path, and converts BGR to RGB565. Load failures preserve current pixels,
 original and Undo. Load a name, use Invert / Flip H / Undo, toggle Paint (P) and
 drag a magenta 3-pixel brush. R resets, arrows pan, Q/Close exits. Edits are kept
-in memory; this API does not add binary disk saves. F2 returns to the launcher,
+in private memory; [IMAGE-SAVE.md](IMAGE-SAVE.md) describes explicit Work saving,
+revision checks and TMP/BAK recovery. F2 returns to the launcher,
 F10 ends the desktop. Files' Open app sends root BMPs to Images and TXT files to
-Editor; Work remains TXT-only. SAMPLE.BMP is an original deterministic fixture.
+Editor, including BMP files in Work. SAMPLE.BMP is an original deterministic fixture.
 
 GUI packages optionally compact file payloads to 16-byte alignment and omit
 section/symbol tables. Their virtual segments still begin on 4 KiB pages and

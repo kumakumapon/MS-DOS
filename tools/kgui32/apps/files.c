@@ -11,7 +11,7 @@ volatile FilesStats files_stats __attribute__((section(".data.gui_stats")))={.ma
 static K32DirEntry entries[ENTRIES],entry;
 static unsigned matches[ENTRIES],count,cursor,loading,holding,mode,bytes,line_count,offsets[LINES],preview_top;
 static unsigned char *contents;
-static unsigned work,edit_pending;static K32WorkInfo destination;
+static unsigned work,work_stage,edit_pending;static K32WorkInfo destination;
 static KwInput filter;
 static KwList list;static KwFocus focus;static KwScroll scroll;
 static const char *message;static char filename[13];
@@ -26,14 +26,15 @@ static void rebuild(void){
  kw_reveal(&list);
 }
 static void close_cursor(void){if(cursor)k32_dir_close(cursor);cursor=loading=0;}
-static void refresh(void){close_cursor();files_stats.error=0;count=0;list.selected=list.top=0;loading=1;rebuild();}
+static void refresh(void){close_cursor();files_stats.error=0;count=work_stage=0;list.selected=list.top=0;loading=1;rebuild();}
 static int enumerate(void){
  if(!loading||(holding&&count))return 0;
  for(unsigned i=0;i<4;i++){
-  int e=cursor?k32_dir_next(cursor,&entry):work?k32_work_first(&entry):k32_dir_first(&entry);
+  K32Work first=k32_work_name(K32_WORK_FIRST,"");if(work_stage)first.flags=K32_WORK_BMP;first.data=(unsigned)&entry;first.bytes=sizeof entry;
+  int e=cursor?k32_dir_next(cursor,&entry):work?k32_work(&first):k32_dir_first(&entry);
   if(e<0){files_stats.error=-e;message=work?"Cannot read Work":"Cannot read A: root";close_cursor();break;}
   cursor=entry.cursor;
-  if(!e){close_cursor();break;}
+  if(!e){close_cursor();if(work&&!work_stage){work_stage=loading=1;}break;}
   if(count==ENTRIES){message="Root entry limit reached";close_cursor();break;}
   entries[count++]=entry;
  }
@@ -92,7 +93,7 @@ static void edit_selected(void){
  if(edit_pending){message="Editor request pending";return;}
  if(loading||!list.count){message="Select a TXT or BMP file";return;}
  K32DirEntry *d=&entries[matches[list.selected]];unsigned n=k32_len(d->name);
- int bitmap=!work&&n>=5&&d->name[n-4]=='.'&&upper(d->name[n-3])=='B'&&upper(d->name[n-2])=='M'&&upper(d->name[n-1])=='P';
+ int bitmap=n>=5&&d->name[n-4]=='.'&&upper(d->name[n-3])=='B'&&upper(d->name[n-2])=='M'&&upper(d->name[n-1])=='P';
  if((d->attributes&16)||n<5||d->name[n-4]!='.'||(!bitmap&&(upper(d->name[n-3])!='T'||upper(d->name[n-2])!='X'||upper(d->name[n-1])!='T'))){message="Select a TXT or BMP file";return;}
  if(!bitmap&&d->bytes>65536){message="Editor limit: 64 KiB";return;}
  int e=kg_edit_document(d->name,work);if(e<0){files_stats.error=-e;message="Editor request rejected";}else{edit_pending=1;files_stats.error=0;}
