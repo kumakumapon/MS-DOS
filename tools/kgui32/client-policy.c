@@ -6,7 +6,7 @@ static int text(const char *p,unsigned n){return kt_cstr(p,n)>=0;}
 int kg_validate(const KgRequest *r,unsigned width,unsigned height){
  if(r->version!=1||r->size!=sizeof *r||r->operation<KG_OPEN||r->operation>KG_SURFACE_DESTROY)return -22;
  if(r->operation==KG_OPEN)return r->width<160||r->width>640||r->height<80||r->height>400||!r->title[0]||!text(r->title,32)?-22:0;
- if(r->operation==KG_SUBSCRIBE&&(r->count&~KG_CAP_SUPPORTED))return -22;
+ if(r->operation==KG_SUBSCRIBE&&(r->count&~(KG_CAP_SUPPORTED|KG_INPUT_LANGUAGE)))return -22;
  if(r->operation==KG_EDIT_DOCUMENT){char command[64];return kg_document_command(r->count,r->title,command);}
  if(r->operation!=KG_FRAME)return 0;
  if(r->count>KG_COMMANDS)return -22;
@@ -51,7 +51,7 @@ int kg_policy(KgClient *c,KgRequest *r,u32 generation,u32 *serial,unsigned width
   if(result>=0&&kg_surface_operation(r->operation)){if(++c->revision==0)c->revision=1;c->surface.pending=c->revision;}
   return result;
  }
- if(r->operation==KG_CAPABILITIES)return KG_CAP_SUPPORTED|KG_CAP_BITMAP;
+ if(r->operation==KG_CAPABILITIES)return KG_CAP_SUPPORTED|KG_CAP_BITMAP|KG_CAP_LANGUAGE;
  if(r->operation==KG_SUBSCRIBE){c->input_flags=r->count;c->revision++;return 0;}
  if(r->operation==KG_CANCEL_CLOSE){if(!(c->input_flags&KG_INPUT_CLOSE))return -22;c->cancelled++;c->revision++;return 0;}
  if(r->operation==KG_CLIP_SET||r->operation==KG_CLIP_GET)return r->count>1024?-22:0;

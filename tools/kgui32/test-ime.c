@@ -16,8 +16,10 @@ static void expected(KiIme *v,const char *s,unsigned line){char out[KI_TEXT+1];u
 static void hash_header(unsigned char *b,unsigned n){unsigned h=2166136261u;for(unsigned i=32;i<n;i++)h=(h^b[i])*16777619u;for(unsigned i=0;i<4;i++)b[20+i]=h>>(i*8);}
 int main(int argc,char **argv){
  assert(argc==2);FILE *f=fopen(argv[1],"rb");assert(f);unsigned n=fread(bytes,1,sizeof bytes,f);assert(feof(f));assert(!fclose(f));
- assert(!ki_dictionary(&dict,bytes,n));assert(dict.entries>700);
+ assert(!ki_dictionary(&dict,bytes,n));assert(dict.entries==1024);
  KiIme v=fresh(KI_ROMAJI);
+ type(&v,"gazou");assert(ki_convert(&v,&dict)>0&&!strcmp(ki_result(&v),"画像"));
+ ki_clear(&v);type(&v,"fukkyuu");assert(ki_convert(&v,&dict)>0&&!strcmp(ki_result(&v),"復旧"));ki_clear(&v);
  type(&v,"nihongo");expect(&v,"にほんご");assert(ki_convert(&v,&dict)>0);assert(!strcmp(ki_result(&v),"日本語"));
  ki_clear(&v);type(&v,"konnichiha");expect(&v,"こんにちは");
  ki_clear(&v);type(&v,"nnya");expect(&v,"んにゃ");

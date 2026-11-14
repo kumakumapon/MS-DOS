@@ -1,11 +1,14 @@
 /* Original flat-pointer GUI: composition, cursor, hit testing and window state
  * execute only in CPL3 protected mode. No physical VRAM or I/O mapping. */
 #include "scene.h"
+#include "sdk/i18n.h"
+unsigned ku_language;
 #include "sdk/protocol.h"
 #include "sdk/text.h"
 #include "surface.h"
 #include "../k386/text.h"
 #include "../k38632/sdk/k32x.h"
+#include "ui-desktop.h"
 typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,presents,last_key,heartbeat,error;
  u32 terminal_magic,terminal0,terminal1,terminal_phase,terminal_valid;
  u32 terminal_geometry[2][6];
@@ -220,8 +223,10 @@ static void text(int x,int y,const char *s,u32 c){
   }
  }
 }
+static void ui_label(int x,int y,const char *s,u32 c){text(x,y,KU(s),c);}
 static void number(int x,int y,u32 n,u32 c){char rev[10],out[11];unsigned k=0,i=0;do{rev[k++]=(char)('0'+n%10);n/=10;}while(n);while(k)out[i++]=rev[--k];out[i]=0;text(x,y,out,c);}
 static void button(int x,int y,int w,const char *s){
+ s=KU(s);
  box(x,y,w,28,color(11));box(x+1,y+1,w-2,26,color(3));box(x+2,y+2,w-4,1,color(7));text(x+(w-8*(int)k32_len(s))/2,y+6,s,color(0));
 }
 static void terminal(unsigned id,int x,int y,int width,int height){
@@ -268,14 +273,14 @@ static void terminal(unsigned id,int x,int y,int width,int height){
  clip=before;
  int yy=y+height-30;const char *arrows[]={"Left","Right","Up","Down"};
  for(int i=0;i<4;i++)button(x+8+i*48,yy,44,arrows[i]);
- text(x+208,yy+6,errors[id]?"Error:":!v->owned&&v->state?"Other owner":v->state==1?"Running":v->state==2?"Waiting":v->state==3?"Stopped":v->state==4?"Faulted":"Ended",color(10));
+ ui_label(x+208,yy+6,errors[id]?"Error:":!v->owned&&v->state?"Other owner":v->state==1?"Running":v->state==2?"Waiting":v->state==3?"Stopped":v->state==4?"Faulted":"Ended",color(10));
  if(errors[id])number(x+264,yy+6,-errors[id],color(10));
  text(x+width-18,y+height-18,"/",color(10));
  if(editing[id]){
-  box(x+8,y+70,width-16,72,color(3));text(x+16,y+78,"Run (End current first):",color(0));
+  box(x+8,y+70,width-16,72,color(3));ui_label(x+16,y+78,"Run (End current first):",color(0));
   int n=lengths[id],visible=(width-40)/8,start=n>visible?n-visible:0;
   text(x+16,y+102,paths[id]+start,color(0));box(x+16+(n-start)*8,y+116,8,2,color(4));
-  text(x+16,y+126,"Enter: start   Esc: cancel",color(10));
+  ui_label(x+16,y+126,"Enter: start   Esc: cancel",color(10));
  }
 }
 static void graphical(unsigned id,int x,int y,int width,int height){
@@ -309,14 +314,14 @@ static void graphical(unsigned id,int x,int y,int width,int height){
    text(xx+(d->w-8*(int)k32_len(d->text))/2,yy+(d->h-16)/2,d->text,color(0));
   }
  }
- if(!r->token)text(x+24,y+86,views[id].state==4?"Application faulted":"Application ended",color(10));
+ if(!r->token)ui_label(x+24,y+86,views[id].state==4?"Application faulted":"Application ended",color(10));
  clip=saved;
- text(x+16,y+height-22,views[id].state==3?"Stopped":views[id].state==4?"Faulted":views[id].state==0?"Ended":"PM32 GUI client",color(10));
+ ui_label(x+16,y+height-22,views[id].state==3?"Stopped":views[id].state==4?"Faulted":views[id].state==0?"Ended":"PM32 GUI client",color(10));
  text(x+width-18,y+height-18,"/",color(10));
  if(editing[id]){
-  box(x+8,y+70,width-16,72,color(3));text(x+16,y+78,"Run (End current first):",color(0));
+  box(x+8,y+70,width-16,72,color(3));ui_label(x+16,y+78,"Run (End current first):",color(0));
   int n=lengths[id],visible=(width-40)/8,start=n>visible?n-visible:0;
-  text(x+16,y+102,paths[id]+start,color(0));text(x+16,y+126,"Enter: start   Esc: cancel",color(10));
+  text(x+16,y+102,paths[id]+start,color(0));ui_label(x+16,y+126,"Enter: start   Esc: cancel",color(10));
  }
 }
 static void client_mouse(const GuiEvent *e){
@@ -347,24 +352,24 @@ static void window(int id){
  box(x+5,y+5,width,height,rgb(8,16,28));box(x,y,width,height,color(11));box(x+1,y+1,width-2,height-2,color(2));
  box(x+2,y+2,width-4,28,color(scene.active==id?4:9));box(x+3,y+3,width-6,1,color(scene.active==id?13:3));
  char label[6]="DOS 1";if(id>=2){if(scene.graphical[id-2]){label[0]='A';label[1]='p';label[2]='p';}label[4]='1'+id-2;}
- text(x+12,y+9,id>=2?label:id?"System":"Welcome to KGUI32",color(scene.active==id?7:0));
+ ui_label(x+12,y+9,id>=2?label:id?"System":"Welcome to KGUI32",color(scene.active==id?7:0));
  box(x+width-47,y+6,18,18,color(3));box(x+width-25,y+6,18,18,color(3));
  text(x+width-43,y+7,"_",color(0));text(x+width-21,y+7,"x",color(0));
  if(id>=2){
-  text(x+72,y+9,scene.graphical[id-2]?clients[id-2].title:views[id-2].program,color(7));
+  ui_label(x+72,y+9,scene.graphical[id-2]?clients[id-2].title:views[id-2].program,color(7));
   if(scene.graphical[id-2])graphical(id-2,x,y,width,height);else terminal(id-2,x,y,width,height);
  }else if(!id){
   box(x+16,y+48,46,46,color(4));box(x+24,y+56,12,28,color(7));box(x+38,y+56,12,12,color(6));box(x+38,y+72,12,12,color(3));
-  text(x+78,y+48,"Your new desktop",color(0));text(x+78,y+72,"32-bit protected mode",color(10));
+  ui_label(x+78,y+48,"Your new desktop",color(0));ui_label(x+78,y+72,"32-bit protected mode",color(10));
   button(x+18,y+116,140,"Calculator");button(x+174,y+116,140,"Clock");button(x+18,y+152,140,"DOS Shell");button(x+174,y+152,140,"Files");button(x+18,y+188,140,"Editor");button(x+174,y+188,140,"Images");
-  text(x+18,y+92,scene.action_result<0?"Slots full / error":"F2 / F10",color(10));
+  ui_label(x+18,y+92,scene.action_result<0?"Slots full / error":"F2 / F10",color(10));
  }else{
-  text(x+16,y+46,"Desktop: private context",color(0));
-  text(x+16,y+70,scene.slots==4?"Application slots: 4":"Application slots: 2",color(0));
+  ui_label(x+16,y+46,"Desktop: private context",color(0));
+  ui_label(x+16,y+70,scene.slots==4?"Application slots: 4":"Application slots: 2",color(0));
   for(int i=0;i<scene.slots;i++){
-   int yy=y+98+i*24;number(x+16,yy,i+1,color(0));text(x+32,yy,scene.states[i]==1?"Running":scene.states[i]==2?"Waiting":scene.states[i]==3?"Stopped":scene.states[i]==4?"Faulted":"Free",color(10));number(x+108,yy,scene.counters[i],color(0));
+   int yy=y+98+i*24;number(x+16,yy,i+1,color(0));ui_label(x+32,yy,scene.states[i]==1?"Running":scene.states[i]==2?"Waiting":scene.states[i]==3?"Stopped":scene.states[i]==4?"Faulted":"Free",color(10));number(x+108,yy,scene.counters[i],color(0));
   }
-  text(x+16,y+146+(scene.slots-2)*24,scene.action_result<0?"Slots busy / unavailable":"CPU workers: T=start S=stop",color(10));
+  ui_label(x+16,y+146+(scene.slots-2)*24,scene.action_result<0?"Slots busy / unavailable":"CPU workers: T=start S=stop",color(10));
   button(x+16,y+168+(scene.slots-2)*24,94,"Test CPU");button(x+124,y+168+(scene.slots-2)*24,94,"Stop");
  }
 }
@@ -378,7 +383,7 @@ static int paint(void){
  clip=scene.damage;
  for(int y=clip.y;y<clip.y+clip.h;y++)box(clip.x,y,clip.w,1,rgb(18+y*14/info.height,30+y*34/info.height,58+y*40/info.height));
  box(0,0,info.width,32,color(0));box(0,31,info.width,1,color(4));
- box(12,8,12,16,color(6));box(26,8,6,16,color(4));text(44,9,"KGUI32",color(7));text(124,9,"32-bit",color(9));
+ box(12,8,12,16,color(6));box(26,8,6,16,color(4));text(44,9,"KGUI32",color(7));text(124,9,"32-bit",color(9));ui_label(190,9,"F8:JP/EN",color(9));
  for(int i=0;i<scene.slots;i++){char label[]="DOS 1";label[4]+=i;if(scene.slots==2)button(info.width-312+i*92,3,84,i?"New DOS 2":"New DOS 1");else button(info.width-360+i*56,3,52,label);}
  button(info.width-128,3,120,"Exit to DOS");
  for(int i=0;i<scene.slots+2;i++)window(scene.order[i]);
@@ -478,6 +483,7 @@ int main(int argc,char **argv){
   if(got<0){gui_state.error=7;return 7;}
   if(!got){k32_wait(K32_WAIT_TIME,16);continue;}
   gui_state.events++;gui_state.heartbeat++;key_modifiers=event.type==GUI_KEY?event.buttons:0;if(event.type==GUI_KEY)gui_state.last_key=event.key;
+  if(event.type==GUI_KEY&&event.key==287){ku_language^=1;k32_call(GUI_LANGUAGE,ku_language,0);scene_damage(&scene,(Rect){0,0,info.width,info.height});if(paint())return 7;continue;}
   if(!terminal_tick)terminal_tick=event.ticks;
   if(((event.ticks-terminal_tick)&0xffffff)>=153600){terminal_tick=event.ticks;terminal_phase^=1;
    for(unsigned id=0;id<(unsigned)scene.slots;id++)if(terminal_valid[id]&&scene.window[id+2].open&&!scene.window[id+2].hidden){

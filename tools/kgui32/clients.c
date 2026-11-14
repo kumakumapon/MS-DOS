@@ -9,6 +9,7 @@ extern unsigned owned[4];extern u32 owned_generation[4];
 extern int gui_copy(u32,void *,unsigned,int);
 extern void kg_gate(void);
 extern u32 kg_old_vector;extern u16 kg_sender_segment,kg_sender_offset;
+unsigned kg_language;
 static KgClient client;static unsigned arena,self,host_segment,installed;
 #define META 3200u
 _Static_assert(sizeof(KgRequest)<=META&&sizeof(KgClient)<=4096-META,"private per-slot far metadata");
@@ -45,6 +46,7 @@ void kg_clients_tick(void){
  seconds=((c>>8)&255)*3600+(c&255)*60+((d>>8)&255);
 }
 int kg_clients_start(void){
+ kg_language=0;
  unsigned a=0xd394,b=0;__asm__ volatile("int $0x2f":"+a"(a),"+b"(b)::"ecx","edx","esi","edi","cc","memory");if((a&65535)==0x394d)return -16;
  a=0xd390;b=0;unsigned di;u16 es;
  __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(a),"=c"(es),"=D"(di):"b"(b):"edx","esi","cc","memory");
@@ -80,6 +82,7 @@ void kg_dispatch(void){
  p.result=kg_policy(&client,r,p.generation,&serial,gui_record.width,gui_record.height);
  if(p.result>=0){
   r->slot=id;r->generation=p.generation;r->revision=client.revision;r->event.seconds=seconds;
+  if(r->operation==KG_POLL&&(client.input_flags&KG_INPUT_LANGUAGE)&&kg_language)r->event.control|=KG_LANGUAGE_JA;
   if(r->operation==KG_CLIP_SET){clip_bytes=r->count;mem_copy(arena,clipboard(),self,(unsigned)r->draw,clip_bytes);}
   if(r->operation==KG_CLIP_GET){unsigned n=r->count<clip_bytes?r->count:clip_bytes;mem_copy(self,(unsigned)r->draw,arena,clipboard(),n);p.result=n;}
   if(r->operation==KG_FRAME){r->width=client.width;r->height=client.height;for(unsigned i=0;i<32;i++)r->title[i]=client.title[i];}

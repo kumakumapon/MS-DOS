@@ -2,6 +2,7 @@
 #include "../sdk/kgui.h"
 #include "../sdk/widgets.h"
 #include "../sdk/bitmap.h"
+#include "ui-image.h"
 typedef struct {u32 magic,version,frames,events,width,height,image_width,image_height,hash,original_hash,uploads,surface,heartbeat,error,dirty,mode;} ImageStats;
 volatile ImageStats image_stats __attribute__((section(".data.gui_stats")))={.magic=0x3149474b,.version=1};
 static u16 pixels[256*192],original[256*192],undo_pixels[256*192],candidate[256*192];
@@ -85,24 +86,24 @@ static void hex(char out[9],unsigned v){for(unsigned i=0;i<8;i++)out[i]="0123456
 static int dialog(void){
  unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
  if(modal==1||modal==3){
-  kg_text(8,8,modal==1?"Replace existing Work BMP?":"Unsaved image",0x263e58);
+  kg_label(8,8,modal==1?"Replace existing Work BMP?":"Unsaved image",0x263e58);
   kg_text(8,32,filename.text,0x263e58);
-  kg_text(8,56,modal==1?"R: replace / Esc: cancel":"S: save / D: discard / Esc: cancel",0x263e58);
+  kg_label(8,56,modal==1?"R: replace / Esc: cancel":"S: save / D: discard / Esc: cancel",0x263e58);
   kg_button(modal==1?'R':'S',8,h-64,88,28,modal==1?"Replace":"Save");
   if(modal==3)kg_button('D',104,h-64,88,28,"Discard");
   kg_button(27,w-88,h-64,80,28,"Cancel");
  }else {
-  kg_text(8,4,"Work BMP recovery / original kept",0x263e58);
+  kg_label(8,4,"Work BMP recovery / original kept",0x263e58);
   kg_text(8,28,recovery_base,0x263e58);
   if(modal==2){
    const char *labels[]={"BMP","TMP","BAK"};
-   for(unsigned i=0;i<3;i++){char value[9];hex(value,recovery.file[i].hash);kg_text(8,52+i*24,labels[i],0x263e58);kg_text(56,52+i*24,recovery.file[i].error?"Error":recovery.file[i].exists?value:"Absent",0x263e58);}
+   for(unsigned i=0;i<3;i++){char value[9];hex(value,recovery.file[i].hash);kg_text(8,52+i*24,labels[i],0x263e58);kg_label(56,52+i*24,recovery.file[i].error?"Error":recovery.file[i].exists?value:"Absent",0x263e58);}
    kg_button('T',8,h-64,96,28,"Inspect TMP");kg_button('B',104,h-64,96,28,"Inspect BAK");
   }else {
-   kg_text(8,52,kind==1?"Valid BMP in TMP":"Valid BMP in BAK",0x263e58);
+   kg_label(8,52,kind==1?"Valid BMP in TMP":"Valid BMP in BAK",0x263e58);
    kw_draw_input((KwRect){8,76,(int)w-24,28},&rescue,1);
    kg_button('R',8,h-64,96,28,"Restore");
-   kg_text(8,h-88,"Only move to an unused BMP name",0x263e58);
+   kg_label(8,h-88,"Only move to an unused BMP name",0x263e58);
   }
   kg_button(27,w-88,h-64,80,28,"Cancel");
  }
@@ -133,7 +134,7 @@ static int draw(void){
   if(y+height>(int)h-36)height=(int)h-36-y;
   if(width>0&&height>0)kg_bitmap(handle,x,y,sx,sy,width,height);
  }
- kw_text(8,h-28,message?message:paintmode?"Paint / U:undo":image_stats.dirty?"Modified / Ctrl S:save":"Ctrl W:Root/Work Ctrl R:Recovery",(w-96)/8,0x263e58);
+ kw_label(8,h-28,message?message:paintmode?"Paint / U:undo":image_stats.dirty?"Modified / Ctrl S:save":"Ctrl W:Root/Work Ctrl R:Recovery",(w-96)/8,0x263e58);
  kg_button(19,w-80,h-32,72,24,"Save");
  int e=kg_present();if(!e)image_stats.frames++;return e;
 }

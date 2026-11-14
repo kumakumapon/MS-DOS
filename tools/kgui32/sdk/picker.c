@@ -1,4 +1,5 @@
 #include "picker.h"
+#include "ui-picker.h"
 static unsigned upper(unsigned c){return c>='a'&&c<='z'?c-32:c;}
 static int match(const char *s,const char *f){if(!*f)return 1;for(;*s;s++){unsigned i=0;while(f[i]&&s[i]&&upper(f[i])==upper(s[i]))i++;if(!f[i])return 1;}return 0;}
 static void rebuild(KpPicker *p){p->list.count=0;for(unsigned i=0;i<p->count;i++)if(match(p->entries[i].name,p->filter.text))p->matches[p->list.count++]=i;kw_reveal(&p->list);}
@@ -33,15 +34,15 @@ int kp_event(KpPicker *p,const KgEvent *e,char name[13]){
 static void append(char *s,unsigned *n,const char *text){while(*text&&*n<79)s[(*n)++]=*text++;s[*n]=0;}
 static void number(char *s,unsigned *n,unsigned value){char b[11];unsigned i=10;b[i]=0;do{b[--i]='0'+value%10;value/=10;}while(value);append(s,n,b+i);}
 int kp_draw(KpPicker *p){layout(p);unsigned w=kg_width(),h=kg_height();char title[80]={0},status[80]={0};unsigned n=0;
- if(p->saving||p->work){append(title,&n,p->saving?"Save As / ":"Open / ");append(title,&n,p->location.root);append(title,&n,p->location.flags&K32_WORK_HDD?" / HDD":" / FD");}else append(title,&n,"Open / A: root / read only");
+ if(p->saving||p->work){append(title,&n,p->saving?KU("Save As / "):KU("Open / "));append(title,&n,p->location.root);append(title,&n,p->location.flags&K32_WORK_HDD?" / HDD":" / FD");}else append(title,&n,"Open / A: root / read only");
  n=0;
  if(p->error)append(status,&n,"Use 8.3 TXT / workspace unavailable");
  else if(p->loading)append(status,&n,"Loading...");
  else if((p->work||p->saving)&&p->location.error)append(status,&n,"Workspace unavailable / Esc: cancel");
  else if((p->work||p->saving)&&p->location.version){
-  append(status,&n,"Free ");number(status,&n,p->location.free_bytes/1024);append(status,&n," KiB");
+  append(status,&n,KU("Free "));number(status,&n,p->location.free_bytes/1024);append(status,&n," KiB");
   unsigned c=p->location.sector_bytes*p->location.cluster_sectors;
-  if(p->saving&&c&&c<=65536&&p->document_bytes<=K32_WORK_LIMIT){append(status,&n," / temp ");number(status,&n,((p->document_bytes+c-1)/c*c+1023)/1024);append(status,&n," KiB");}
+  if(p->saving&&c&&c<=65536&&p->document_bytes<=K32_WORK_LIMIT){append(status,&n,KU(" / temp "));number(status,&n,((p->document_bytes+c-1)/c*c+1023)/1024);append(status,&n," KiB");}
  }else append(status,&n,"Tab: controls / Esc: cancel");
  kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kw_text(8,4,title,(w-16)/8,0x20344a);kw_draw_input((KwRect){8,20,(int)w-20,24},&p->filter,p->focus.current==0);
  if(p->list.count&&p->list.selected>=p->list.top&&p->list.selected<p->list.top+p->list.rows)kg_rect(8,44+(p->list.selected-p->list.top)*16,w-40,16,0xb4c2d0);

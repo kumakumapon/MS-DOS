@@ -1,0 +1,191 @@
+# Original UI translations, MIT.
+Welcome to KGUI32	KGUI32へようこそ
+System	システム
+Your new desktop	新しいデスクトップ
+32-bit protected mode	32ビット保護モード
+Slots full / error	実行枠が満杯／エラー
+Desktop: private context	独立したデスクトップ
+Application slots: 4	アプリ実行枠：４
+Application slots: 2	アプリ実行枠：２
+Running	実行中
+Waiting	入力待ち
+Stopped	一時停止
+Faulted	異常終了
+Ended	終了
+Free	空き
+Other owner	別の所有者
+Error:	エラー：
+Slots busy / unavailable	実行枠が使用中です
+CPU workers: T=start S=stop	計算：Ｔで開始／Ｓで停止
+Run (End current first):	実行（現在のアプリを終了）：
+Enter: start   Esc: cancel	Enterで実行／Escで取消
+Application faulted	アプリが異常終了しました
+Application ended	アプリが終了しました
+PM32 GUI client	保護された画像アプリ
+F8:JP/EN	F8:英語
+Files	ファイル
+Editor	エディター
+Images / BMP24	画像／BMP24
+Calculator	電卓
+Clock	時計
+New	新規
+Open	開く
+Save	保存
+Save As	別名保存
+Cancel	取消
+Close	閉じる
+Back	戻る
+Refresh	更新
+About	説明
+Open app	実行
+Root	ルート
+Work	作業用
+Filter	絞込み
+List	一覧
+Tools	操作
+Find	検索
+Replace	置換
+All	すべて
+Replace with	置換後
+Recovery	復旧
+Inspect	確認
+Restore	復旧する
+Move	移動
+OK	確認
+Discard	破棄
+Unsaved text	未保存の文書
+Save before continuing?	続ける前に保存しますか？
+Replace workspace file?	作業用ファイルを置換？
+Editor tools	エディターの操作
+Find / Ctrl F	検索／Ctrl F
+Replace / Ctrl H	置換／Ctrl H
+Use LF	LFを使う
+Use CRLF	CRLFを使う
+Replace / literal, case sensitive	置換／文字と大文字小文字を区別
+Find / literal, wraps at end	検索／末尾で先頭へ戻る
+Not found	見つかりません
+Read error	読込エラー
+File changed	ファイルが変更されています
+Save failed	保存に失敗しました
+Saved	保存しました
+Workspace unavailable	作業用領域が使えません
+Loading...	読込中…
+Tab: controls / Esc: cancel	Tabで移動／Escで取消
+IME / Replace	日本語入力／置換
+IME / Find	日本語入力／検索
+IME / Document	日本語入力／文書
+Kana / Kata	かな入力／カタカナ
+Kana / Hira	かな入力／ひらがな
+Romaji / Kata	ローマ字／カタカナ
+Romaji / Hira	ローマ字／ひらがな
+Space: convert / Enter: commit	Spaceで変換／Enterで確定
+Commit	確定
+Prev	前へ
+Next	次へ
+Convert	変換
+IME / F4	日本語入力／F4
+IME / input settings	日本語入力の設定
+Off	切る
+Romaji	ローマ字
+JIS kana	JISかな
+Selected: Romaji	選択：ローマ字
+Selected: JIS kana	選択：JISかな
+Selected: Off	選択：切る
+Hiragana / F6	ひらがな／F6
+Katakana / F7	カタカナ／F7
+A: root / read only	A: ルート／読込専用
+TXT preview / 40 columns	文書の確認／40桁
+Ctrl W:root O:Editor	Ctrl W:場所 O:アプリ
+Root: read only / Work: Editor	ルート：読込専用／作業用：編集
+Select a TXT or BMP file	TXTまたはBMPを選択
+Cannot read Work	作業用を読み込めません
+Cannot read A: root	A: ルートを読み込めません
+Root entry limit reached	一覧件数の上限です
+Subdirectories are not supported	下位フォルダーは対象外です
+Select a TXT file to preview	確認するTXTを選択
+Preview limit: 128 KiB	確認は128 KiBまでです
+Cannot open this file	このファイルを開けません
+Preview read failed	読込に失敗しました
+Select valid Shift-JIS text	正しいShift-JIS文書を選択
+Editor request pending	起動を待っています
+Editor limit: 64 KiB	文書は64 KiBまでです
+Editor request rejected	起動要求を受け付けません
+Both slots in use: close a task	実行枠が満杯です
+Cannot start Editor	エディターを起動できません
+Use 8.3 TXT / workspace unavailable	8.3形式のTXT名／領域を確認
+Workspace unavailable / Esc: cancel	作業用が使えません／Escで取消
+Save As / 	保存先／
+Open / 	開く場所／
+Open / A: root / read only	開く／A: ルート／読込専用
+Free 	空き 
+ / temp 	／一時領域 
+Work recovery / inspect	作業用の復旧／確認
+Work recovery / TMP and BAK	作業用の復旧／TMPとBAK
+Move selected candidate to unused TXT?	未使用TXT名へ候補を移動？
+Source: TMP	候補：TMP
+Source: BAK	候補：BAK
+Existing TXT and other candidates kept	原本と他の候補を保持します
+TXT present	TXTあり
+TMP present	TMPあり
+BAK present	BAKあり
+TXT absent	TXTなし
+TMP absent	TMPなし
+BAK absent	BAKなし
+TXT error	TXTエラー
+TMP error	TMPエラー
+BAK error	BAKエラー
+Save as	復旧先
+TMP preview	TMPの確認
+BAK preview	BAKの確認
+TXT preview	TXTの確認
+Select a readable TMP or BAK	読めるTMPかBAKを選択
+Recovered as / other files kept	復旧しました／他の候補は保持
+Changed: Back then Refresh	変更されています／戻って更新
+Destination exists: use another TXT	同名あり／別のTXT名を指定
+Protected file: original kept	保護されています／原本を保持
+Over 64 KiB: original kept	64 KiB超／原本を保持
+Use Shift-JIS / valid 8.3 TXT	Shift-JISと8.3形式のTXTを使用
+Candidate missing	候補がありません
+I/O error: original kept	入出力エラー／原本を保持
+Inspect before explicit recovery	確認してから明示的に復旧
+No TMP/BAK candidates	TMP/BAK候補はありません
+Load	読込
+Invert	色反転
+Flip H	左右反転
+Undo	取消
+Painting	描画中
+Paint	描く
+Paint / U:undo	描画／Uで取消
+Modified / Ctrl S:save	変更あり／Ctrl Sで保存
+Ctrl W:Root/Work Ctrl R:Recovery	Ctrl W:場所 Ctrl R:復旧
+Replace existing Work BMP?	同名の作業用BMPを置換？
+Unsaved image	未保存の画像
+R: replace / Esc: cancel	Rで置換／Escで取消
+S: save / D: discard / Esc: cancel	Sで保存／Dで破棄／Escで取消
+Work BMP recovery / original kept	BMPの復旧／原本を保持
+Error	エラー
+Absent	なし
+Inspect TMP	TMP確認
+Inspect BAK	BAK確認
+Valid BMP in TMP	TMP内の正しいBMP
+Valid BMP in BAK	BAK内の正しいBMP
+Only move to an unused BMP name	未使用のBMP名にだけ移動
+Saved / BAK retained: inspect recovery	保存完了／BAKを復旧で確認
+Saved to Work	作業用に保存しました
+Recovered to unused BMP / image kept	未使用名へ復旧／編集中は保持
+File changed / original kept	ファイルが変更／原本を保持
+TMP or destination exists / kept	TMPか同名が存在／保持
+Inspect TMP/BAK / original kept	TMP/BAKを確認／原本を保持
+Disk full / original kept	容量不足／原本を保持
+Protected file / original kept	保護ファイル／原本を保持
+Invalid BMP or I/O error / original kept	BMPか入出力のエラー／原本を保持
+Work / enter BMP name then Load	作業用／BMP名を入力して読込
+Images	画像
+DOS Shell	DOS端末
+Run	実行
+End	終了
+Pause	停止
+Resume	再開
+Restart	再実行
+Start	開始
+Stop	停止

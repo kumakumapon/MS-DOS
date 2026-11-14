@@ -1,6 +1,7 @@
 /* Reuse the existing fixed-decimal calculator without its 16-bit UI/driver. */
 #include "stats.h"
 #include "../../window/utilities.h"
+#include "ui-calculator.h"
 volatile KgStats calc_stats __attribute__((section(".data.gui_stats")))={.magic=0x3243474b,.version=1};
 static Calculator calc;
 static int draw(void){

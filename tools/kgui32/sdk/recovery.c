@@ -1,5 +1,6 @@
 #include "recovery.h"
 #include "text.h"
+#include "ui-recovery.h"
 static void copy(char *to,const char *from){unsigned i=0;for(;i<12&&from[i];i++)to[i]=from[i];to[i]=0;}
 static int same(const char *a,const char *b){unsigned i=0;for(;a[i]&&a[i]==b[i];i++);return a[i]==b[i];}
 static unsigned hash(const char *p,unsigned n){unsigned h=2166136261u;while(n--)h=(h^(unsigned char)*p++)*16777619u;return h;}
@@ -92,10 +93,10 @@ int kr_event(KrRecovery *r,const KgEvent *e){
 static const char *error_text(int e){return e==-116?"Changed: Back then Refresh":e==-17?"Destination exists: use another TXT":e==-13?"Protected file: original kept":e==-27?"Over 64 KiB: original kept":e==-22?"Use Shift-JIS / valid 8.3 TXT":e==-2?"Candidate missing":e?"I/O error: original kept":0;}
 int kr_draw(KrRecovery *r){
  layout(r);unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
- kg_text(8,4,r->mode?"Work recovery / inspect":"Work recovery / TMP and BAK",0x20344a);
+ kg_label(8,4,r->mode?"Work recovery / inspect":"Work recovery / TMP and BAK",0x20344a);
  if(r->mode==2){
-  kg_text(8,28,"Move selected candidate to unused TXT?",0x20344a);kg_text(8,52,r->base,0x20344a);kg_text(8,76,r->kind==1?"Source: TMP":"Source: BAK",0x20344a);kg_text(8,100,r->request.destination,0x20344a);
-  kg_button(870,8,h-68,88,28,"Move");kg_button(871,104,h-68,88,28,"Cancel");kw_text(8,h-24,"Existing TXT and other candidates kept",(w-16)/8,0x20344a);return kg_present();
+  kg_label(8,28,"Move selected candidate to unused TXT?",0x20344a);kg_text(8,52,r->base,0x20344a);kg_label(8,76,r->kind==1?"Source: TMP":"Source: BAK",0x20344a);kg_text(8,100,r->request.destination,0x20344a);
+  kg_button(870,8,h-68,88,28,"Move");kg_button(871,104,h-68,88,28,"Cancel");kw_label(8,h-24,"Existing TXT and other candidates kept",(w-16)/8,0x20344a);return kg_present();
  }
  if(!r->mode){
   kw_text(8,24,r->changed?r->restored:r->location.root,(w-16)/8,0x20344a);
@@ -109,10 +110,10 @@ int kr_draw(KrRecovery *r){
    unsigned at=r->offsets[row+r->top],n=0;char line[48];
    while(at<r->bytes&&n<r->cols&&r->preview[at]!='\n'){char c=r->preview[at];if(c=='\r'){at++;continue;}unsigned k=kt_next(r->preview,r->bytes,at)-at;if(k>r->cols-n)break;for(unsigned j=0;j<k;j++)line[n++]=c=='\t'?' ':r->preview[at+j];at+=k;}line[n]=0;kg_text(8,52+row*16,line,0x20344a);
   }
-  kg_text(8,h-102,"Save as",0x20344a);kw_draw_input((KwRect){88,(int)h-108,(int)w-96,24},&r->name,r->focus.current==1);
+  kg_label(8,h-102,"Save as",0x20344a);kw_draw_input((KwRect){88,(int)h-108,(int)w-96,24},&r->name,r->focus.current==1);
   kg_button(860,8,h-76,104,28,"Restore");kg_button(861,120,h-76,72,28,"Back");kg_button(862,200,h-76,72,28,"Close");
-  char n[11];number(n,r->bytes);kg_text(8,h-40,n,0x466581);kg_text(104,h-40,r->kind==1?"TMP preview":r->kind==2?"BAK preview":"TXT preview",0x466581);
+  char n[11];number(n,r->bytes);kg_text(8,h-40,n,0x466581);kg_label(104,h-40,r->kind==1?"TMP preview":r->kind==2?"BAK preview":"TXT preview",0x466581);
  }
- const char *err=error_text(r->error);kw_text(8,h-20,err?err:r->loading?"Loading...":r->note?r->note:r->count?"Inspect before explicit recovery":"No TMP/BAK candidates",(w-16)/8,0x20344a);
+ const char *err=error_text(r->error);kw_label(8,h-20,err?err:r->loading?"Loading...":r->note?r->note:r->count?"Inspect before explicit recovery":"No TMP/BAK candidates",(w-16)/8,0x20344a);
  return kg_present();
 }
