@@ -1,11 +1,13 @@
-/* Original PC-98 80x25 text policy. Callbacks address PRIVATE session TVRAM. */
+/* Original bounded PC-98 text policy. Callbacks address PRIVATE session TVRAM. */
 #ifndef K386_TEXT_H
 #define K386_TEXT_H
 #define K98_COLUMNS 80u
 #define K98_ROWS 25u
 #define K98_CELLS 2000u
 #define K98_WHITE 0xe1u
-typedef struct {unsigned short column,row,attribute,pending,escape,which,parameter[4],saved_column,saved_row;} K98Text;
+/* Shared by the real-mode loader and protected-mode BIOS reset. */
+#define K98_INITIALIZER {.attribute=K98_WHITE,.columns=80,.rows=25,.pitch=80}
+typedef struct {unsigned short column,row,attribute,pending,escape,which,parameter[4],saved_column,saved_row,columns,rows,pitch,start;} K98Text;
 typedef struct {
  void *context;
  unsigned (*get)(void *,unsigned,unsigned);

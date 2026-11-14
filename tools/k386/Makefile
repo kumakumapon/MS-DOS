@@ -23,7 +23,7 @@ $(BUILD)/probe.elf: $(BUILD)/probe.o probe.ld
 $(BUILD)/K386CPU.COM: $(BUILD)/probe.elf
 	objcopy -O binary $< $@
 .PHONY: all
-CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -ffunction-sections -fdata-sections -Wall -Wextra -Werror
+CFLAGS = -march=i386 -Oz -mregparm=3 -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -ffunction-sections -fdata-sections -Wall -Wextra -Werror
 all: $(BUILD)/K386.EXE
 $(BUILD)/monitor.o: monitor.c abi.h runtime.h resources.h extended.h | $(BUILD)
 	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
@@ -49,7 +49,7 @@ $(BUILD)/drives.o: drives.c drives.h | $(BUILD)
 	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/zero.o: zero.c backing.h | $(BUILD)
 	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
-$(BUILD)/monitor.elf: $(BUILD)/zero.o $(BUILD)/verified-disk.o $(BUILD)/drives.o $(BUILD)/transition.o $(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/loader.o $(BUILD)/backing.o $(BUILD)/arena.o $(BUILD)/engine.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/resources.o $(BUILD)/report.o monitor.ld
+$(BUILD)/monitor.elf: $(BUILD)/video.o $(BUILD)/zero.o $(BUILD)/verified-disk.o $(BUILD)/drives.o $(BUILD)/transition.o $(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/loader.o $(BUILD)/backing.o $(BUILD)/arena.o $(BUILD)/engine.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/resources.o $(BUILD)/report.o monitor.ld
 	ld -m elf_i386 --gc-sections -T monitor.ld $(filter %.o,$^) -o $@
 $(BUILD)/K386.EXE: $(BUILD)/monitor.elf ../mz/build.py
 	python3 ../mz/build.py $< $@
@@ -308,3 +308,16 @@ test: kxms32-test
 kxms32-test:
 	$(MAKE) -C ../kxms32 test
 .PHONY: kxms32-all kxms32-test
+
+$(BUILD)/video.o: video.c video.h ../kvideo/video.h runtime.h resources.h | $(BUILD)
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
+
+all: kvideo-all
+kvideo-all:
+	$(MAKE) -C ../kvideo all
+test: kvideo-test
+kvideo-test:
+	$(MAKE) -C ../kvideo test
+.PHONY: kvideo-all kvideo-test
+
+$(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/engine.o: video.h ../kvideo/video.h text.h backing.h

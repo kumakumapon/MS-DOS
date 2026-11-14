@@ -2,7 +2,7 @@
 int backing_zero(const K386Backing *p,k32 at,k32 count) {
     /* Seed a small zero block, then duplicate only initialized XMS bytes.
        No shared transfer-buffer alias and no 1 KiB resident zero table. */
-    k8 zero[32]={0};if(at>K386_BACKING||count>K386_BACKING-at)return 0;
+    k8 zero[32]={0};if(at>backing_size(p)||count>backing_size(p)-at)return 0;
     unsigned first=count>sizeof zero?sizeof zero:count;
     if(first&&!backing_write(p,at,zero,first))return 0;
     k32 done=first;

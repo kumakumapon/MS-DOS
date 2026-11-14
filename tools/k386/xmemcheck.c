@@ -39,7 +39,7 @@ int main(void){
     for(;;){
         unsigned a=0x0800;__asm__ volatile("int $0x21":"+a"(a)::"cc","memory");unsigned key=a&255;
         if(key=='q'||key=='Q')return 0; /* intentionally leave allocation for automatic reap */
-        if(key=='f'||key=='F'){__asm__ volatile("pushw %%es; movw $0xe000,%%ax; movw %%ax,%%es; movb $1,%%es:0; popw %%es":::"eax","memory");return fail("fault survived");}
+        if(key=='f'||key=='F'){__asm__ volatile("pushw %%es; movw $0xc000,%%ax; movw %%ax,%%es; movb $1,%%es:0; popw %%es":::"eax","memory");return fail("fault survived");}
         if(key=='t'||key=='T'){
             unsigned foreign=token==1?2:1;
             if(kapp_xms_read(foreign,0,buffer,1)!=6)return fail("foreign handle accepted");

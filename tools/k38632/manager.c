@@ -29,7 +29,7 @@ static u32 viewlong(unsigned id,unsigned at){u32 p=k32_extended.view[id]+at;retu
 static int legacy(unsigned cmd,unsigned id,unsigned key,const char *path){
  if(!legacy_segment)return 50;
  put(__builtin_offsetof(K386Mailbox,command),cmd);put(__builtin_offsetof(K386Mailbox,session),id);put(__builtin_offsetof(K386Mailbox,key),key);
- if(path)for(unsigned i=0;i<128;i++){mem_put(legacy_segment,legacy_offset+__builtin_offsetof(K386Mailbox,path)+i,path[i]);if(!path[i])break;}
+ if(path)for(unsigned i=0;i<(cmd==K386_VIDEO?12u:128u);i++){mem_put(legacy_segment,legacy_offset+__builtin_offsetof(K386Mailbox,path)+i,path[i]);if(!path[i]&&cmd!=K386_VIDEO)break;}
  unsigned a=id>=2||cmd==K386_CAPACITY?0xd38b:0xd386,b=1;__asm__ volatile("int $0x2f":"+a"(a),"+b"(b)::"ecx","edx","esi","edi","cc","memory");return word(legacy_segment,legacy_offset+14);
 }
 static u32 backend_pointer(unsigned field,unsigned id){
@@ -192,6 +192,7 @@ void manager_dispatch(void){
  case K386_PRIORITY:k32_extended.error=resource_priority(id,k32_extended.key==65535?(resource_usage(id)->priority+1)%3:k32_extended.key);if(!k32_extended.error)event(id,K386_EVENT_PRIORITY,K386_REASON_NONE);break;
  case K386_BUDGET:{unsigned ms=k32_extended.key;if(ms==65535){unsigned n=resource_ms(resource_usage(id)->limit_ticks);ms=!n?1000:n<5000?5000:n<10000?10000:0;}k32_extended.error=resource_budget(id,ms);if(!k32_extended.error){event(id,K386_EVENT_BUDGET,K386_REASON_NONE);limit(id);}break;}
  case K386_DESCRIBE:k32_extended.error=resource_describe(id,k32_extended.key);break;
+ case K386_VIDEO:k32_extended.error=k32_extended.kind[id]==K32_V86?legacy(K386_VIDEO,id,k32_extended.key,k32_extended.path):50;break;
  case K386_TEXT:k32_extended.error=k32_extended.kind[id]==K32_V86?legacy(K386_TEXT,id,k32_extended.key,0):50;break;
  case K32_RESTART:if(k32_extended.kind[id]==K32_PM32){char command[128];host_task_read(id,__builtin_offsetof(K32HostView,command),command,sizeof command);k32_extended.error=create(id,command);}else k32_extended.error=create(id,"KSH.EXE");break;
  case K386_CAPACITY:k32_extended.error=manager_capacity(k32_extended.key);break;

@@ -43,7 +43,7 @@ int main(void){
     if(!contains(1,"INTERRUPT PARENT PASS")||k386_word(1,2)!=0)goto fail;
     stage=7;if(k386_command(K386_CREATE,1,0,"COUNTER.EXE")||k386_command(K386_CREATE,0,0,"FAULT.EXE"))goto fail;
     call(K386_STEP,1,0);counter=k386_counter(1);call(K386_STEP,0,0);
-    if(k386_word(0,0)!=K386_FAULTED||!k386_history(0,&e)||e.type!=K386_EVENT_FAULT||e.fault!=14||e.cr2!=0xe0000||e.cs!=0x8010)goto fail;
+    if(k386_word(0,0)!=K386_FAULTED||!k386_history(0,&e)||e.type!=K386_EVENT_FAULT||e.fault!=14||e.cr2!=0xc0000||e.cs!=0x8010)goto fail;
     call(K386_STEP,1,0);if(k386_counter(1)<=counter)goto fail;
     /* Legacy callers above retain exact single-slice accounting. Exercise
        the opt-in bounded desktop batch and invalid-count refusal too. */

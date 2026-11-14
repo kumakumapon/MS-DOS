@@ -80,7 +80,7 @@ void k386_report_line(unsigned row,char *out){
 int k386_command(unsigned command,unsigned id,unsigned key,const char *path) {
     if(!segment||id>=capacity)return 1;
     put(OFF(command),command);put(OFF(session),id);put(OFF(key),key);
-    if(path)for(unsigned i=0;i<128;i++){mem_put(segment,offset+OFF(path)+i,path[i]);if(!path[i])break;}
+    if(path)for(unsigned i=0;i<(command==K386_VIDEO?12u:128u);i++){mem_put(segment,offset+OFF(path)+i,path[i]);if(!path[i]&&command!=K386_VIDEO)break;}
     unsigned a=mixed==2?0xd392:mixed?0xd391:0xd386,b=1;
     __asm__ volatile("int $0x2f":"+a"(a),"+b"(b)::"ecx","edx","esi","edi","cc","memory");
     if(mixed)refresh_views();
@@ -133,4 +133,16 @@ int k386_text(unsigned id,unsigned first,unsigned count,K386TextChunk *out){
  unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));mem_copy(ds,(unsigned)out,seg,di&65535,sizeof *out);
  const char *sig="K386TXT1";for(unsigned i=0;i<8;i++)if(out->signature[i]!=sig[i])return 5;
  return out->version!=1||out->size!=sizeof *out||out->slot!=id||out->first!=first||out->count!=count||out->reserved?5:0;
+}
+
+int k386_video(unsigned id,unsigned region,unsigned at,unsigned n,KvRead *out){
+ if(id>=capacity||k386_kind(id)||!n||n>KV_READ_BYTES)return 87;
+ unsigned args[3]={region,at,n};
+ int error=k386_command(K386_VIDEO,id,0,(const char *)args);if(error)return error;
+ unsigned a=0xd38a,b=0,di;u16 seg;
+ __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=D"(di):"b"(b):"edx","esi","cc","memory");
+ if((a&65535)!=0x38ad)return 50;
+ unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));mem_copy(ds,(unsigned)out,seg,di&65535,sizeof *out);
+ KvPacket *p=&out->packet;
+ return p->version!=1||p->size!=sizeof *p||p->slot!=id||p->operation!=4||p->port!=region||p->value!=at||p->width!=n||p->result?5:0;
 }

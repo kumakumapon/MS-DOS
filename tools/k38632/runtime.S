@@ -851,7 +851,7 @@ loader_trap:
 .ifdef GUI_HOST
     cmp eax,64
     jb gui_old_service
-    cmp eax,74                 /* Additive dedicated-GUI language setting. */
+    cmp eax,75                 /* Additive dedicated-GUI language setting. */
     jbe gui_service
 gui_old_service:
 .endif

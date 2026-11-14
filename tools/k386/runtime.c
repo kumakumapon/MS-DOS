@@ -4,6 +4,7 @@
 #include "loader.h"
 #include "app.h"
 #include "xmem.h"
+#include "video.h"
 #include "../window/hardware.h"
 #include "../filer/filer.h"
 #include "../filer/verified-disk.h"
@@ -167,8 +168,8 @@ static int start_inner(unsigned id,const char *command){
     K386Runtime *r=&runtime[id];K386Session *s=&sessions[id];K386View *v=&k386_mailbox.view[id];
     if(!r->backing.handle&&!backing_new(&r->backing)){p_close(h);return 8;}
     discard(id);r->drives=dirs;r->process=(K386Process){0};arena_init(&r->arena);r->timer_armed=r->timer_pending=r->timer_owner=0;r->clock=r->accumulator=0;s->head=s->count=0;
-    *v=(K386View){0};v->state=K386_ENDED;r->text=(K98Text){.attribute=K98_WHITE};r->text_hash=r->text_content_hash=0;r->text_valid=0;
-    if(!backing_zero(&r->backing,0,K386_BACKING)){p_close(h);return 8;}
+    *v=(K386View){0};v->state=K386_ENDED;r->text=(K98Text)K98_INITIALIZER;r->text_hash=r->text_content_hash=0;r->text_valid=0;
+    if(!backing_zero(&r->backing,0,backing_size(&r->backing))){p_close(h);return 8;}
     k8 bios[256];mem_copy(resident(),(unsigned)bios,0,0x400,256);put(id,0x400,bios,256);
     /* Private NLS data, below the first allocatable DOS MCB. No host pointers. */
     transfer[0]=128;transfer[1]=0;for(unsigned i=0;i<128;i++)transfer[i+2]=i+128;put(id,0x8000,transfer,130);
@@ -208,7 +209,9 @@ static int directory(unsigned id,int next,const char *path){
 }
 static void broker_inner(unsigned id){
     K386Session *s=&sessions[id];K386Frame *f=&s->frame;K386Runtime *r=&runtime[id];K386Process *p=&r->process;
-    int result=0;unsigned handle=f->ebx&65535;char path[128];f->eflags&=~1u;
+    int result=0;unsigned handle=f->ebx&65535;char path[128];
+    if(s->request==KV_IO_REQUEST){k386_video_broker(id);return;}
+    f->eflags&=~1u;
     if(s->request==KX_REQUEST){s->request=xmem_service(id,p->psp,f,transfer)?KX_REQUEST:0;return;}
     if(s->request==0x0e){unsigned drive=f->edx&255;result=-live_drive(&r->drives,drive);
         if(!result){r->drives.current=drive;result=r->drives.hdd<26?r->drives.hdd+1:1;}

@@ -1,7 +1,7 @@
 #ifndef KGUI32_PROTOCOL_H
 #define KGUI32_PROTOCOL_H
 #include "../k38632/elf.h"
-enum {GUI_INFO=64,GUI_EVENT,GUI_PRESENT,GUI_FONT,GUI_PROOF,GUI_SESSION,GUI_SNAPSHOT,GUI_CLIENT_VIEW,GUI_CLIENT_EVENT,GUI_SURFACE_ACK,GUI_LANGUAGE};
+enum {GUI_INFO=64,GUI_EVENT,GUI_PRESENT,GUI_FONT,GUI_PROOF,GUI_SESSION,GUI_SNAPSHOT,GUI_CLIENT_VIEW,GUI_CLIENT_EVENT,GUI_SURFACE_ACK,GUI_LANGUAGE,GUI_VIDEO_READ};
 enum {GS_CREATE=1,GS_END,GS_PAUSE,GS_RESUME,GS_KEY,GS_RESTART,GS_FOCUS=8};
 typedef struct {u32 version,size,slot,generation,operation,key;char path[128];} GuiSessionCommand;
 typedef struct {
@@ -22,7 +22,9 @@ typedef struct {u32 magic,version,size,width,height,bpp,pitch,features,colors[16
 typedef struct {u32 sequence,type,x,y,buttons,key,ticks,states[2],counters[2],lost;} GuiEvent;
 typedef struct {GuiEvent base;u32 extra_states[2],extra_counters[2];} GuiEvent4;
 _Static_assert(sizeof(GuiEvent4)==64,"extended event ABI");
-enum {GUI_FOUR_SLOTS=16};
+enum {GUI_FOUR_SLOTS=16,GUI_VIDEO_MODES=32};
+typedef struct {u32 version,size,slot,generation,region,offset,data,bytes,revision,reserved[7];} GuiVideoRead;
+_Static_assert(sizeof(GuiVideoRead)==64,"private video read ABI");
 typedef struct {u32 version,size,slot,generation,token,revision;} GuiSurfaceAck;
 typedef struct {u32 pixels,x,y,width,height,pitch;} GuiPresent;
 /* GUI_FONT accepts this bounded in/out request in addition to the original

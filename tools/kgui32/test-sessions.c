@@ -21,6 +21,7 @@ int gui_copy(u32 p,void *v,unsigned n,int write){
  else {assert(n==sizeof request);memcpy(v,&request,n);}return 0;
 }
 int gui_output_range(u32 p,unsigned n){return p!=201&&n==sizeof(GuiTerminalView);}
+int k386_video(unsigned a,unsigned b,unsigned c,unsigned d,KvRead *e){(void)a;(void)b;(void)c;(void)d;(void)e;return 50;}
 int k386_text(unsigned id,unsigned first,unsigned count,K386TextChunk *t){
  memset(t,0,sizeof *t);t->flags=bad_chunk;t->state=states[id];for(unsigned i=0;i<count*80;i++){t->codes[i]='A'+id;t->attributes[i]=0xe1;}assert(first<25);return 0;
 }

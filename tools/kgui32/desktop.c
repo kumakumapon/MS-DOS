@@ -7,6 +7,7 @@ unsigned ku_language;
 #include "sdk/text.h"
 #include "surface.h"
 #include "../k386/text.h"
+#include "terminal-video.h"
 #include "../k38632/sdk/k32x.h"
 #include "ui-desktop.h"
 typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,presents,last_key,heartbeat,error;
@@ -14,6 +15,7 @@ typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,pr
  u32 terminal_geometry[2][6];
  u32 capacity,terminal2,terminal3,extra_geometry[2][6];
  u32 bitmap_magic,bitmap_meta,bitmap_pixels,bitmap_stride,bitmap_frames;
+ u32 video_magic,video_cache,video_stride,video_generation,video_revision,video_valid;
 } GuiState;
 volatile GuiState gui_state __attribute__((used,section(".data.gui_state")))={.magic=0x3147554b,.version=1,.terminal_magic=0x3254474b};
 static GuiInfo info;static Scene scene;static u8 font[95*16];
@@ -23,6 +25,34 @@ static u8 framebuffer[800*600*2],packed[800*600*2];
 static Rect clip;
 static GuiSessionView views[4];static int errors[4],editing[4],lengths[4];
 static GuiTerminalView terminals[4],terminal_stage;
+static KvCanvas video_cache[4],video_stage;
+static u32 video_generation[4],video_revision[4],video_valid[4];
+static u8 video_pixels[640*400];
+static u32 video_composed_slot,video_composed_revision,video_composed_generation,video_composed_phase;
+static int video_read(unsigned id,const GuiSessionView *v,unsigned region,void *data,unsigned n){
+ for(unsigned at=0;at<n;){unsigned count=n-at;if(count>KV_READ_BYTES)count=KV_READ_BYTES;
+  GuiVideoRead r={.version=1,.size=sizeof r,.slot=id,.generation=v->generation,.region=region,.offset=at,.data=(u32)data+at,.bytes=count,.revision=v->text_revision};
+  int e=k32_call(GUI_VIDEO_READ,(u32)&r,sizeof r);if(e)return e;at+=count;
+ }return 0;
+}
+static void refresh_video(unsigned id,const GuiSessionView *v){
+ if(!(info.features&GUI_VIDEO_MODES)||!v->owned||v->kind||!v->generation){video_valid[id]=0;return;}
+ if(video_valid[id]&&video_generation[id]==v->generation&&video_revision[id]==v->text_revision)return;
+ video_stage=video_cache[id];
+ int e=video_read(id,v,0,&video_stage.meta,sizeof(KvMeta));
+ if(!e)video_stage.meta.text_cursor=(video_stage.meta.text_start+v->row*video_stage.meta.text_pitch+v->column)&4095;
+ if(!e&&(video_stage.meta.version!=1||video_stage.meta.size!=sizeof(KvMeta)))e=-22;
+ if(!e&&kt_video_extra(&video_stage.meta)){
+  if(!video_valid[id]||video_generation[id]!=v->generation||video_stage.meta.font_writes!=video_cache[id].meta.font_writes)e=video_read(id,v,1,video_stage.font,sizeof video_stage.font);
+  if(!e&&(video_stage.meta.flags&KV_GRAPH))for(unsigned p=0;p<4&&!e;p++)e=video_read(id,v,2+p,video_stage.planes[p],32768);
+  if(!e)e=video_read(id,v,6,video_stage.codes,sizeof video_stage.codes);
+  if(!e)e=video_read(id,v,7,video_stage.attributes,sizeof video_stage.attributes);
+ }
+ if(e)return;
+ int old_extra=kt_video_extra(&video_cache[id].meta);
+ video_cache[id]=video_stage;video_valid[id]=1;video_generation[id]=v->generation;video_revision[id]=v->text_revision;
+ if(kt_video_extra(&video_stage.meta)||old_extra)scene_window_damage(&scene,id+2,scene.window[id+2].r);
+}
 static unsigned terminal_valid[4],terminal_phase;static u32 terminal_tick;
 static char paths[4][128];static unsigned following[4];
 static KgRequest clients[4],client_io;
@@ -34,6 +64,7 @@ static void refresh_graphical(unsigned);
 static int client_event(unsigned,const KgEvent *);
 static void follow_cursor(unsigned);
 static void terminal_report(void){
+ gui_state.video_magic=0x3156474b;gui_state.video_cache=(u32)video_cache;gui_state.video_stride=sizeof(KvCanvas);gui_state.video_generation=(u32)video_generation;gui_state.video_revision=(u32)video_revision;gui_state.video_valid=(u32)video_valid;
  gui_state.terminal0=(u32)&terminals[0];gui_state.terminal1=(u32)&terminals[1];gui_state.terminal_valid=terminal_valid[0]|terminal_valid[1]<<1|terminal_valid[2]<<2|terminal_valid[3]<<3;gui_state.capacity=scene.slots;gui_state.terminal2=(u32)&terminals[2];gui_state.terminal3=(u32)&terminals[3];gui_state.terminal_phase=terminal_phase;
  for(unsigned id=0;id<(unsigned)scene.slots;id++){Rect r=scene.window[id+2].r;u32 *g=(u32 *)(id<2?gui_state.terminal_geometry[id]:gui_state.extra_geometry[id-2]);g[0]=r.x;g[1]=r.y;g[2]=r.w;g[3]=r.h;g[4]=scene.scroll_x[id];g[5]=scene.scroll_y[id];}
 }
@@ -72,7 +103,7 @@ static void refresh(void){
     if(dirty)scene_window_damage(&scene,id+2,(Rect){w->r.x+8,w->r.y+70+row*16,cols*8,16});
    }
   }
-  views[id]=v;refresh_graphical(id);if(following[id]){follow_cursor(id);following[id]--;}
+  refresh_video(id,&v);views[id]=v;refresh_graphical(id);if(following[id]){follow_cursor(id);following[id]--;}
  }
  terminal_report();
 }
@@ -229,6 +260,25 @@ static void button(int x,int y,int w,const char *s){
  s=KU(s);
  box(x,y,w,28,color(11));box(x+1,y+1,w-2,26,color(3));box(x+2,y+2,w-4,1,color(7));text(x+(w-8*(int)k32_len(s))/2,y+6,s,color(0));
 }
+static const u8 *video_glyph(void *unused,unsigned code){(void)unused;return code>=32&&code<=126?font+(code-32)*16:glyph(code);}
+static void terminal_video(unsigned id,Rect area){
+ KvCanvas *v=&video_cache[id];KvMeta *m=&v->meta;
+ unsigned w=m->flags&KV_GRAPH?m->width:640,h=m->flags&KV_GRAPH?m->height:400;
+ if(!w||w>640||!h||h>400)return;
+ if(video_composed_slot!=id||video_composed_revision!=video_revision[id]||video_composed_generation!=video_generation[id]||video_composed_phase!=terminal_phase){
+  kt_video_compose(v,video_pixels,terminal_phase,video_glyph,0);video_composed_slot=id;video_composed_revision=video_revision[id];video_composed_generation=video_generation[id];video_composed_phase=terminal_phase;
+ }
+ u32 colors[25];for(unsigned i=0;i<16;i++)colors[i]=rgb(m->palette[i][0]*17,m->palette[i][1]*17,m->palette[i][2]*17);
+ for(unsigned i=0;i<8;i++)colors[16+i]=rgb(i&2?255:0,i&4?255:0,i&1?255:0);
+ colors[24]=rgb(0,0,0);
+ static u16 source_x[800];
+ int dw=area.w,dh=area.h;if(dw*(int)h>dh*(int)w)dw=dh*w/h;else dh=dw*h/w;
+ for(int i=0;i<dw;i++)source_x[i]=i*w/dw;
+ for(int yy=clip.y;yy<clip.y+clip.h&&yy<area.y+dh;yy++){
+  unsigned sy=(yy-area.y)*h/dh;u8 *line=framebuffer+yy*info.pitch;
+  for(int xx=clip.x;xx<clip.x+clip.w&&xx<area.x+dw;xx++){unsigned sx=source_x[xx-area.x];u32 c=colors[video_pixels[sy*w+sx]];if(info.bpp==1)line[xx]=(u8)c;else ((u16 *)line)[xx]=(u16)c;}
+ }
+}
 static void terminal(unsigned id,int x,int y,int width,int height){
  GuiSessionView *v=&views[id];
  const char *names[]={"Run","Stop","Resume","End","Again"};
@@ -242,7 +292,9 @@ static void terminal(unsigned id,int x,int y,int width,int height){
  if(right>area.x+area.w)right=area.x+area.w;
  if(bottom>area.y+area.h)bottom=area.y+area.h;
  clip.w=right>clip.x?right-clip.x:0;clip.h=bottom>clip.y?bottom-clip.y:0;
- for(int row=0;row<rows;row++){
+ int extra=video_valid[id]&&video_generation[id]==v->generation&&kt_video_extra(&video_cache[id].meta);
+ if(extra)terminal_video(id,area);
+ for(int row=0;!extra&&row<rows;row++){
   int rr=row+scene.scroll_y[id];if(rr>=25)break;
   if(terminal_valid[id]&&terminals[id].generation==v->generation&&!v->kind){
    const u16 *codes=terminals[id].codes+rr*80;
@@ -250,7 +302,8 @@ static void terminal(unsigned id,int x,int y,int width,int height){
    for(int col=0;col<cols&&col+scene.scroll_x[id]<80;col++){
     unsigned at=col+scene.scroll_x[id],half=row_halves[at],code=row_glyphs[at],attr=terminals[id].attributes[rr*80+at];
     if(code==' '&&!(attr&28))continue;
-    const u8 *bitmap=code>=32&&code<=126?font+(code-32)*16:glyph(code);
+    const u8 *bitmap=kt_video_gaiji(video_valid[id]&&video_generation[id]==v->generation?&video_cache[id]:0,codes[at-half]);
+    if(!bitmap)bitmap=code>=32&&code<=126?font+(code-32)*16:glyph(code);
     u32 ink=rgb((k98_rgb(attr)>>16)&255,(k98_rgb(attr)>>8)&255,k98_rgb(attr)&255);
     int xx=x+8+col*8,yy=y+70+row*16;
     for(unsigned scan=0;scan<16;scan++){
@@ -266,7 +319,7 @@ static void terminal(unsigned id,int x,int y,int width,int height){
   for(;col<cols&&col+scene.scroll_x[id]<80;col++)line[col]=v->screen[rr*80+col+scene.scroll_x[id]];
   line[col]=0;text(x+8,y+70+row*16,line,color(7));
  }
- if(v->owned&&(v->state==1||v->state==2)&&scene.active==(int)id+2){
+ if(!extra&&v->owned&&(v->state==1||v->state==2)&&scene.active==(int)id+2){
   unsigned half=0,code=32;if(terminal_valid[id]&&v->row<25&&v->column<80)code=k98_glyph(terminals[id].codes+v->row*80,v->column,&half);
   box(x+8+((int)v->column-(int)half-scene.scroll_x[id])*8,y+84+((int)v->row-scene.scroll_y[id])*16,code>255?16:8,2,color(6));
  }
@@ -487,8 +540,19 @@ int main(int argc,char **argv){
   if(!terminal_tick)terminal_tick=event.ticks;
   if(((event.ticks-terminal_tick)&0xffffff)>=153600){terminal_tick=event.ticks;terminal_phase^=1;
    for(unsigned id=0;id<(unsigned)scene.slots;id++)if(terminal_valid[id]&&scene.window[id+2].open&&!scene.window[id+2].hidden){
-    unsigned blink=0;for(unsigned i=0;i<2000;i++)if(terminals[id].attributes[i]&2){blink=1;break;}
-    if(blink)scene_window_damage(&scene,id+2,scene.window[id+2].r);
+    if(video_valid[id]&&kt_video_extra(&video_cache[id].meta)){
+     KvCanvas *v=&video_cache[id];KvMeta *m=&v->meta;if(!(m->flags&KV_TEXT))continue;
+     unsigned blink=0;for(unsigned i=0;i<4096;i++)if(v->attributes[i]&2){blink=1;break;}
+     Rect r=scene.window[id+2].r;
+     if(blink){scene_window_damage(&scene,id+2,r);continue;}
+     if((m->flags&KV_CURSOR)&&(views[id].state==1||views[id].state==2)){
+      int dw=(r.w-16)/8*8,dh=(r.h-104)/16*16,gw=m->flags&KV_GRAPH?m->width:640,gh=m->flags&KV_GRAPH?m->height:400;if(dw*gh>dh*gw)dw=dh*gw/gh;else dh=dw*gh/gw;
+      unsigned cursor=(m->text_cursor-m->text_start)&4095,row=cursor/m->text_pitch,col=cursor%m->text_pitch;
+      if(row<m->rows&&col<m->columns)scene_window_damage(&scene,id+2,(Rect){r.x+8+(int)(col*dw/m->columns),r.y+70+(int)(row*dh/m->rows),dw/(int)m->columns+2,dh/(int)m->rows+2});
+     }
+    }else {unsigned blink=0;for(unsigned i=0;i<2000;i++)if(terminals[id].attributes[i]&2){blink=1;break;}
+     if(blink)scene_window_damage(&scene,id+2,scene.window[id+2].r);
+    }
    }
   }
   int previous_focus=scene.active;Rect previous_rect[4];for(unsigned id=0;id<(unsigned)scene.slots;id++)previous_rect[id]=scene.window[id+2].r;

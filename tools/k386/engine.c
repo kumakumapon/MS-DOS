@@ -2,6 +2,7 @@
 #define K386_MONITOR
 #include "runtime.h"
 #include "xmem.h"
+#include "../kvideo/video.h"
 #include "../filer/sjis.h"
 static k8 read8(k32 address) {
     k8 b;__asm__ volatile("movb %%fs:(%1),%0":"=q"(b):"r"(address):"memory");return b;
@@ -38,8 +39,11 @@ static void error(K386Frame *f,k16 code) {f->eax=code;f->eflags|=1;}
 /* Private PC-98 TVRAM is ordinary session RAM under the active page table.
  * Move complete character words in bulk: a long TYPE used to perform 1,920
  * separate C read/write pairs for every newline after row 25. */
+static void text_scroll_custom(unsigned);
 static void scroll_screen(void *unused,unsigned attr) {
     (void)unused;
+    K98Text *t=&runtime[selected].text;
+    if(t->columns!=80||t->rows!=25||t->pitch!=80||t->start){text_scroll_custom(attr);return;}
     for(unsigned plane=0;plane<2;plane++){
     k32 src=0xa00a0,dst=0xa0000,count=1920;
     src+=plane*0x2000;dst+=plane*0x2000;
@@ -50,21 +54,33 @@ static void scroll_screen(void *unused,unsigned attr) {
                      :"+D"(dst),"+c"(count):"a"(plane?attr:0x20):"memory");
     }
 }
-static unsigned text_get(void *unused,unsigned plane,unsigned cell){(void)unused;return read16(0xa0000+plane*0x2000+cell*2);}
-static void text_set(void *unused,unsigned plane,unsigned cell,unsigned value){(void)unused;k32 at=0xa0000+plane*0x2000+cell*2;__asm__ volatile("movw %w0,%%fs:(%1)"::"r"(value),"r"(at):"memory");}
+static unsigned text_cell(unsigned cell){K98Text *t=&runtime[selected].text;return (t->start+cell/t->columns*t->pitch+cell%t->columns)&4095;}
+static unsigned text_get(void *unused,unsigned plane,unsigned cell){(void)unused;return read16(0xa0000+plane*0x2000+text_cell(cell)*2);}
+static void text_set(void *unused,unsigned plane,unsigned cell,unsigned value){(void)unused;k32 at=0xa0000+plane*0x2000+text_cell(cell)*2;__asm__ volatile("movw %w0,%%fs:(%1)"::"r"(value),"r"(at):"memory");}
 static void text_fill(void *unused,unsigned at,unsigned n,unsigned code,unsigned attr){
- (void)unused;for(unsigned plane=0;plane<2;plane++){k32 dst=0xa0000+plane*0x2000+at*2,count=n;
+ (void)unused;K98Text *t=&runtime[selected].text;
+ if(t->columns!=80||t->pitch!=80||t->start){while(n--){text_set(0,0,at,code);text_set(0,1,at++,attr);}return;}
+ for(unsigned plane=0;plane<2;plane++){k32 dst=0xa0000+plane*0x2000+at*2,count=n;
  __asm__ volatile("push %%es; push %%fs; pop %%es; rep stosw; pop %%es":"+D"(dst),"+c"(count):"a"(plane?attr:code):"memory");}
+}
+static void text_scroll_custom(unsigned attr){K98Text *t=&runtime[selected].text;
+ for(unsigned at=0;at<t->columns*(t->rows-1u);at++)for(unsigned p=0;p<2;p++)text_set(0,p,at,text_get(0,p,at+t->columns));
+ text_fill(0,t->columns*(t->rows-1u),t->columns,32,attr);
 }
 static const K98Surface text_surface={0,text_get,text_set,text_fill,scroll_screen};
 static void output(k8 c) {
     K386View *v=&k386_mailbox.view[selected];
     K98Text *t=&runtime[selected].text;t->column=v->column;t->row=v->row;
+    if(t->column>=t->columns)t->column=t->columns-1;
+    if(t->row>=t->rows)t->row=t->rows-1;
     k98_output(t,c,&text_surface);v->column=t->column;v->row=t->row;
 }
 void kernel_map(void) {
     k32 pd=page_directory[selected],physical=runtime[selected].backing.physical;
     for(k32 i=0;i<0xa4;i++)writen(0x400000+pd+4096+i*4,physical+i*4096+7,4);
+    if((runtime[selected].backing.pages&255)>=0xe8){
+        for(k32 i=0;i<32;i++){k32 page=i<24?0xa8+i:0xe0+i-24;writen(0x400000+pd+4096+page*4,physical+page*4096+7,4);}
+    }
     /* COMMAND probes the model byte at FFFF:000Eh. Expose the actual PC-98
        firmware read-only; never map host DOS RAM or writable device apertures. */
     for(k32 i=0xf0;i<0x100;i++)writen(0x400000+pd+4096+i*4,i*4096+5,4);
@@ -273,7 +289,7 @@ static int user_interrupt(K386Frame *f,k8 number,k32 length,int wide) {
     writen(at,f->eip+length,size);writen(at+size,f->cs,size);writen(at+size*2,flags(f),size);
     f->esp=(f->esp&0xffff0000)|sp;f->cs=cs;f->eip=ip;runtime[selected].process.vif=0;return 1;
 }
-int kernel_trap(K386Frame *f) {
+int __attribute__((regparm(0))) kernel_trap(K386Frame *f) {
     K386Session *s=&sessions[selected];K386View *v=&k386_mailbox.view[selected];
     if(!(f->eflags&0x20000)){v->state=K386_FAULTED;v->fault=0x8000|f->vector;v->eip=f->eip;v->eflags=f->eflags;v->exit_code=f->error;return 1;}
     v->eflags=f->eflags;v->eip=f->eip;__asm__ volatile("movl %%cr3,%0":"=r"(v->cr3));
@@ -285,6 +301,10 @@ int kernel_trap(K386Frame *f) {
             k8 number=read8(pc+1);length++;
             if(number!=0x18&&number!=0x1c&&number!=0x20&&number!=0x21&&number!=0x29&&number!=0x2f){int u=user_interrupt(f,number,length,wide);if(u>0){s->frame=*f;return 0;}if(u<0)goto fault;}
             int r=service(f,number);if(r!=2)f->eip+=length;s->frame=*f;return r!=0;
+        }
+        if((op>=0xe4&&op<=0xe7)||(op>=0xec&&op<=0xef)){
+            if(!address(f->cs,f->eip,length+(op<0xe8)))goto fault;
+            s->request=KV_IO_REQUEST;s->frame=*f;return 1;
         }
         if(op==0x9c||op==0x9d||op==0xcf){if(!stack_flags(f,op,wide,length))goto fault;s->frame=*f;return 0;}
         if(op==0xfa||op==0xfb){runtime[selected].process.vif=op==0xfb;f->eip+=length;s->frame=*f;return 0;}
@@ -304,6 +324,8 @@ void kernel_finish(void) {
      * attribute-only or high-byte-only writes. Keep the full hash off compute
      * and XMS-only quanta; cursor revisions are still checked every return. */
     k32 table=0x400000+page_directory[selected]+4096;
+    if(r->backing.pages&0x8000)for(k32 i=0;i<32;i++){k32 page=i<24?0xa8+i:0xe0+i-24;if(readn(table+page*4,4)&64){v->flags++;break;}}
+    if(r->backing.pages&0x4000)for(k32 i=0;i<4;i++)if(readn(table+(0xa0+i)*4,4)&64){v->flags++;break;}
     if(!r->text_valid||((readn(table+0xa0*4,4)|readn(table+0xa2*4,4))&64)){
         hash=2166136261u;
         for(k32 i=0;i<2000;i++){k32 c=read16(0xa0000+i*2),a=read16(0xa2000+i*2);hash=(hash^c)*16777619u;hash=(hash^a)*16777619u;v->screen[i]=c;}
