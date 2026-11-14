@@ -24,6 +24,7 @@ static struct {u32 code;u8 bitmap[32];} glyph_cache[128];
 static unsigned glyph_slot;
 /* 64-row transfers reclaim 857600 bytes without growing the 4 MiB desktop. */
 static u8 framebuffer[800*600*2],packed[800*64*2];
+static u8 bitmap_cube5[32],bitmap_cube6[64];
 static Rect clip;
 static GuiSessionView views[4];static int errors[4],editing[4],lengths[4];
 static GuiTerminalView terminals[4],terminal_stage;
@@ -366,8 +367,15 @@ static void graphical(unsigned id,int x,int y,int width,int height){
      const u16 *p=secondary?extra_pixels[id]+im->front*KG_SURFACE_EXTRA_PIXELS:image_pixels[id]+im->front*KG_SURFACE_PIXELS;
      int l=xx>clip.x?xx:clip.x,t=yy>clip.y?yy:clip.y,right=xx+d->w<clip.x+clip.w?xx+d->w:clip.x+clip.w,bottom=yy+d->h<clip.y+clip.h?yy+d->h:clip.y+clip.h;
      if(d->op==KG_BITMAP_SCALE){unsigned cw=dimensions[8]|(unsigned)dimensions[9]<<8,ch=dimensions[10]|(unsigned)dimensions[11]<<8;if(cw&&ch){int cx=x+8+(dimensions[4]|(unsigned)dimensions[5]<<8),cy=y+70+(dimensions[6]|(unsigned)dimensions[7]<<8);if(l<cx)l=cx;if(t<cy)t=cy;if(right>cx+(int)cw)right=cx+cw;if(bottom>cy+(int)ch)bottom=cy+ch;}}
+     if(l>=right||t>=bottom)continue;
      for(int col=l;col<right;col++)scale_xmap[col-l]=sx+(unsigned)(col-xx)*sw/(unsigned)d->w;
-     for(int row=t;row<bottom;row++){unsigned source=(sy+(unsigned)(row-yy)*sh/(unsigned)d->h)*im->width;for(int col=l;col<right;col++){u16 c=p[source+scale_xmap[col-l]];u32 pixel=info.bpp==2?c:rgb(((c>>11)&31)*255/31,((c>>5)&63)*255/63,(c&31)*255/31);box(col,row,1,1,pixel);}}
+     /* The viewport and damage intersection already bounds this entire row.
+      * Store it directly and use the exact existing cube quantization. */
+     for(int row=t;row<bottom;row++){
+      unsigned source=(sy+(unsigned)(row-yy)*sh/(unsigned)d->h)*im->width;u8 *out=framebuffer+row*info.pitch+l*info.bpp;
+      if(info.bpp==2)for(int col=l;col<right;col++){u16 c=p[source+scale_xmap[col-l]];*out++=c;*out++=c>>8;}
+      else for(int col=l;col<right;col++){u16 c=p[source+scale_xmap[col-l]];*out++=16+bitmap_cube5[c>>11]*36+bitmap_cube6[(c>>5)&63]*6+bitmap_cube5[c&31];}
+     }
     }
    }
   }
@@ -533,6 +541,8 @@ int main(int argc,char **argv){
  if((k32_query()&23)!=23)return 1;
  int e=k32_call(GUI_INFO,(u32)&info,sizeof info);if(e)return 2;
  if(info.magic!=0x3149474b||info.version!=1||info.width>800||info.height>600||(info.bpp!=1&&info.bpp!=2)||info.pitch!=info.width*info.bpp)return 3;
+ for(unsigned i=0;i<32;i++)bitmap_cube5[i]=(i*255/31+25)/51;
+ for(unsigned i=0;i<64;i++)bitmap_cube6[i]=(i*255/63+25)/51;
  if(k32_call(GUI_FONT,(u32)font,sizeof font))return 4;
  gui_state.bitmap_magic=0x3153474b;gui_state.bitmap_meta=(u32)images;gui_state.bitmap_pixels=(u32)image_pixels;gui_state.bitmap_stride=sizeof image_pixels[0];gui_state.bitmap_frames=(u32)clients;
  gui_state.surfaces_version=2;gui_state.extra_meta=(u32)extra_images;gui_state.extra_pixels=(u32)extra_pixels;gui_state.extra_stride=sizeof extra_pixels[0];gui_state.surface_budget=sizeof image_pixels+sizeof extra_pixels;

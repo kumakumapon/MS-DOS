@@ -42,8 +42,8 @@ $(BUILD)/services-dos.o: services-dos.c services.h elf.h | $(BUILD)
 	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -c $< -o $@
 $(BUILD)/elf.o: elf.c elf.h | $(BUILD)
 	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -c $< -o $@
-$(BUILD)/libmemory.o: ../window/memory.c | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -c $< -o $@
+$(BUILD)/libmemory.o: ../window/memory.c Makefile | $(BUILD)
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -DK32_FAST_RAM -c $< -o $@
 $(BUILD)/verified-disk.o: ../filer/verified-disk.c ../filer/verified-disk.h | $(BUILD)
 	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -ffunction-sections -fdata-sections -c $< -o $@
 $(BUILD)/run.elf: $(BUILD)/verified-disk.o $(BUILD)/run.o $(BUILD)/loader.o $(BUILD)/elf.o $(BUILD)/services.o $(BUILD)/services-dos.o $(BUILD)/libmemory.o runtime.ld

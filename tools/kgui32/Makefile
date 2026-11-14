@@ -23,8 +23,8 @@ $(BUILD)/%.broker.o: $(K32)/%.c $(K32)/elf.h $(K32)/services.h | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/hardware.o: ../window/hardware.c ../window/hardware.h | $(BUILD)
 	$(CC) $(NATIVE) -DKGUI32_DRIVER -c $< -o $@
-$(BUILD)/memory.o: ../window/memory.c | $(BUILD)
-	$(CC) $(NATIVE) -c $< -o $@
+$(BUILD)/memory.o: ../window/memory.c Makefile | $(BUILD)
+	$(CC) $(NATIVE) -DK32_FAST_RAM -c $< -o $@
 $(BUILD)/cirrus.o: ../display/cirrus.c | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/dos.o: ../filer/dos.c | $(BUILD)

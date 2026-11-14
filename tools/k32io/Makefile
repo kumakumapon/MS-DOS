@@ -12,8 +12,8 @@ $(BUILD)/policy.o: ../k38632/io-policy.c ../k38632/io.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/services.o: ../k38632/services.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/memory.o: ../window/memory.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/memory.o: ../window/memory.c Makefile | $(BUILD)
+	$(CC) $(CFLAGS) -DK32_FAST_RAM -c $< -o $@
 $(BUILD)/disk.o: ../filer/verified-disk.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/driver.elf: $(BUILD)/entry.o $(BUILD)/driver.o $(BUILD)/policy.o $(BUILD)/services.o $(BUILD)/memory.o $(BUILD)/disk.o driver.ld

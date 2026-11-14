@@ -29,9 +29,15 @@ void mem_copy(unsigned dst, u32 to, unsigned src, u32 from, u32 length) {
         unsigned n = length > 0xff00 ? 0xff00 : length;
         unsigned ds = src + (from >> 4), es = dst + (to >> 4);
         unsigned si = from & 15, di = to & 15, count = n;
+#ifdef K32_FAST_RAM
+        __asm__ volatile("pushw %%ds; pushw %%es; movw %w3,%%ds; movw %w4,%%es;"
+                         "cld; pushl %%ecx; shrl $2,%%ecx; rep movsl; popl %%ecx; andl $3,%%ecx; rep movsb; popw %%es; popw %%ds"
+                         : "+S"(si), "+D"(di), "+c"(count) : "r"(ds), "r"(es) : "memory", "cc");
+#else
         __asm__ volatile("pushw %%ds; pushw %%es; movw %w3,%%ds; movw %w4,%%es;"
                          "rep movsb; popw %%es; popw %%ds"
                          : "+S"(si), "+D"(di), "+c"(count) : "r"(ds), "r"(es) : "memory");
+#endif
         from += n; to += n; length -= n;
     }
 }
@@ -39,8 +45,14 @@ void mem_fill(unsigned dst, u32 offset, u32 length, u8 color) {
     while (length) {
         unsigned n = length > 0xff00 ? 0xff00 : length;
         unsigned es = dst + (offset >> 4), di = offset & 15, count = n;
+#ifdef K32_FAST_RAM
+        unsigned pixel = 0x01010101u * color;
+        __asm__ volatile("pushw %%es; movw %w3,%%es; cld; pushl %%ecx; shrl $2,%%ecx; rep stosl; popl %%ecx; andl $3,%%ecx; rep stosb; popw %%es"
+                         : "+D"(di), "+c"(count) : "a"(pixel), "r"(es) : "memory", "cc");
+#else
         __asm__ volatile("pushw %%es; movw %w3,%%es; rep stosb; popw %%es"
                          : "+D"(di), "+c"(count) : "a"(color), "r"(es) : "memory");
+#endif
         offset += n; length -= n;
     }
 }
