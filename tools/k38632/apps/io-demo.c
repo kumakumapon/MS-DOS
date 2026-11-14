@@ -16,6 +16,7 @@ int practical_io(const char *mode){
  }
  for(unsigned i=0;i<sizeof data;i++)data[i]=(unsigned char)(i*37+11);
  K32Revision old;int e=k32_io_revision("STREAM.BIN",0,&old);if(e)return 35;
+ if(mode[0]=='v'){if(!old.exists||old.length!=sizeof data||old.hash!=hash(data,sizeof data))return 44;practical_stats[9]=old.length;practical_stats[10]=old.hash;practical_stats[11]=2;practical_stats[1]=4;k32_printf("PRACT32 COLD READ PASS\r\n");return 0;}
  if(k32_io_save("STREAM.BIN",data,sizeof data,&old))return 36;
  K32Revision got;if(k32_io_revision("STREAM.BIN",0,&got)||!got.exists||got.length!=sizeof data||got.hash!=hash(data,sizeof data))return 37;
  unsigned bytes;int h=k32_io_open("STREAM.BIN",0,&bytes);if(h<0||bytes!=sizeof data)return 38;

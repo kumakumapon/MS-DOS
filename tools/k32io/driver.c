@@ -38,15 +38,16 @@ static int size_handle(int,unsigned *);
 static int data_io(int,unsigned,int);
 #endif
 static unsigned handles(const Owner *o){unsigned n=o->tx.phase&&o->tx.writer>=0;for(unsigned i=0;i<8;i++)n+=o->file[i].token!=0;return n;}
-static unsigned token(void){serial=(serial+1)&0x07ffffff;if(!serial)serial=1;return serial<<4|1;}
+static unsigned token(void){if(serial>=0x07ffffff)return 0;return ++serial<<4|1;}
 static int file_index(Owner *o,unsigned value){for(unsigned i=0;i<8;i++)if(value&&o->file[i].token==value)return (int)i;return -9;}
 static int file_close(Owner *o,unsigned value){int i=file_index(o,value);if(i<0)return i;int e=close_handle(o->file[i].h);if(!e)o->file[i]=(File){0};return e;}
 static int file_open(Owner *o,const char *path){
  unsigned i=0;while(i<8&&o->file[i].token)i++;if(i==8)return -24;
  int a=attributes(path);if(a==-2)return -2;if(a<0)return -5;if(a&0x5f)return -13;
+ unsigned value=token();if(!value)return -75;
  int h=open_path(path,0);if(h<0)return h;
  /* Publish ownership before size/seek so failed close cannot leak authority. */
- File *f=&o->file[i];*f=(File){.h=h,.token=token()};int e=size_handle(h,&f->bytes);if(!e&&f->bytes>K32_IO_LIMIT)e=-27;
+ File *f=&o->file[i];*f=(File){.h=h,.token=value};int e=size_handle(h,&f->bytes);if(!e&&f->bytes>K32_IO_LIMIT)e=-27;
  if(e){if(file_close(o,f->token))return -117;return e;}return (int)f->token;
 }
 static int lock_path(const char *path){
@@ -80,6 +81,7 @@ static int ready(Owner *o){
 static int begin(Owner *o,K32Io *r,int recovery){
  Transaction *t=&o->tx;if(t->phase)return -16;
  Transaction next={.token=token(),.phase=1,.exists=r->exists,.old_length=r->length,.old_hash=r->hash,.writer=-1,.kind=recovery};
+ if(!next.token)return -75;
  int e=k32_io_path(o->drive,r->name,recovery?r->flags:0,next.target);if(e)return e;
  k32_io_path(o->drive,r->name,1,next.temporary);k32_io_path(o->drive,r->name,2,next.backup);
  int lock=lock_path(next.temporary);if(lock<0)return lock;next.lock[0]=lock;

@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 SOURCES={name:ROOT/path for name,path in {
  'desktop':'desktop.c','editor':'apps/editor.c','files':'apps/files.c',
- 'image':'apps/image.c','calculator':'apps/calculator.c','clock':'apps/clock.c',
+ 'words':'apps/words.c','image':'apps/image.c','calculator':'apps/calculator.c','clock':'apps/clock.c',
  'picker':'sdk/picker.c','recovery':'sdk/recovery.c','widgets':'sdk/widgets-draw.c'}.items()}
 def literal(text):return '"'+''.join('\\x%02x'%b for b in text.encode('shift_jis'))+'"'
 def button_bounds(text,rows):
@@ -38,8 +38,9 @@ def build(dest):
  dest.mkdir(parents=True,exist_ok=True)
  for name,path in SOURCES.items():
   text=path.read_text()
+  if name in ('editor','words'):text+='\n'+(ROOT/'sdk/ime.c').read_text()
   button_bounds(text,rows)
-  keys=[key for key in rows if json.dumps(key) in text or name=='desktop' and key in ('Files','Editor','Images / BMP24','Calculator','Clock')]
+  keys=[key for key in rows if json.dumps(key) in text or name=='desktop' and key in ('Files','Editor','Images / BMP24','Images / BMP','User dictionary','Calculator','Clock')]
   assert keys,name
   output=['/* Generated original bounded UI labels. */','#include "../sdk/i18n.h"','static const KuPair ku_labels[]={']
   output += ['{%s,%s},'%(json.dumps(key),literal(rows[key])) for key in keys]

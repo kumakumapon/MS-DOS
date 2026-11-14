@@ -155,7 +155,7 @@ static void launch(int act){
  unsigned id=0;
  while(id<(unsigned)scene.slots&&(views[id].state==1||views[id].state==2||views[id].state==3||(views[id].state==4&&!views[id].owned)))id++;
  if(id==(unsigned)scene.slots){scene.action_result=-16;scene_damage(&scene,scene.window[0].r);return;}
- const char *path=act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":act==ACT_IMAGE?"KGIMAGE.EXE":"KSH.EXE";
+ const char *path=act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":act==ACT_IMAGE?"KGIMAGE.EXE":act==ACT_WORDS?"KGWORDS.EXE":"KSH.EXE";
  for(unsigned i=0;i<128;i++){paths[id][i]=path[i];if(!path[i])break;}
  errors[id]=session_command(id,GS_CREATE,0);scene.action_result=errors[id];
  if(!errors[id])scene_focus(&scene,id+2);
@@ -423,6 +423,7 @@ static void window(int id){
   box(x+16,y+48,46,46,color(4));box(x+24,y+56,12,28,color(7));box(x+38,y+56,12,12,color(6));box(x+38,y+72,12,12,color(3));
   ui_label(x+78,y+48,"Your new desktop",color(0));ui_label(x+78,y+72,"32-bit protected mode",color(10));
   button(x+18,y+116,140,"Calculator");button(x+174,y+116,140,"Clock");button(x+18,y+152,140,"DOS Shell");button(x+174,y+152,140,"Files");button(x+18,y+188,140,"Editor");button(x+174,y+188,140,"Images");
+  button(x+174,y+88,140,"User dictionary");
   ui_label(x+18,y+92,scene.action_result<0?"Slots full / error":"F2 / F10",color(10));
  }else{
   ui_label(x+16,y+46,"Desktop: private context",color(0));

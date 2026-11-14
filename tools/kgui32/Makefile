@@ -131,7 +131,7 @@ $(BUILD)/workspace-policy.o: $(K32)/workspace.c $(K32)/workspace.h | $(BUILD)
 $(BUILD)/workspace-services.o: $(K32)/services.c | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/KGEDIT.EXE: $(BUILD)/editor.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client --compact
+	python3 $(K32)/package.py $< $@ --abi 258 --features 487 --client --compact --stack-bytes 16384 --min-heap 65536
 all: $(BUILD)/KGEDIT.EXE
 $(BUILD)/test-editor: test-editor.c sdk/editor.c sdk/editor.h sdk/text.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-editor.c sdk/editor.c -o $@
@@ -171,7 +171,7 @@ $(BUILD)/ime-tables.h $(BUILD)/KGIME.DIC &: ime-build.py ime/words.tsv | $(BUILD
 	python3 ime-build.py $(BUILD)
 $(BUILD)/ime.o: sdk/ime.c sdk/ime.h sdk/text.h $(BUILD)/ime-tables.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -I$(BUILD) -c $< -o $@
-$(BUILD)/editor.elf: $(BUILD)/ime.o
+$(BUILD)/editor.elf: $(BUILD)/ime.o $(BUILD)/ime-user.o $(BUILD)/ime-store.o $(BUILD)/io.sdk.o $(BUILD)/libc.sdk.o
 all: $(BUILD)/KGIME.DIC
 $(BUILD)/terminal.o: ../k386/text.c ../k386/text.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
@@ -179,8 +179,11 @@ $(BUILD)/desktop.elf: $(BUILD)/terminal.o
 $(BUILD)/test-ime: test-ime.c sdk/ime.c sdk/ime.h sdk/text.h sdk/editor.c sdk/widgets.c $(BUILD)/ime-tables.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined -fexec-charset=SHIFT_JIS -I$(BUILD) test-ime.c sdk/ime.c sdk/editor.c sdk/widgets.c -o $@
 test: test-ime-run
-test-ime-run: $(BUILD)/test-ime $(BUILD)/KGIME.DIC
+test-ime-run: $(BUILD)/test-ime $(BUILD)/test-ime-user $(BUILD)/KGIME.DIC
 	$(BUILD)/test-ime $(BUILD)/KGIME.DIC
+	$(BUILD)/test-ime-user $(BUILD)/KGIME.DIC
+$(BUILD)/test-ime-user: test-ime-user.c sdk/ime-user.c sdk/ime.c $(BUILD)/ime-tables.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined -fexec-charset=SHIFT_JIS -I$(BUILD) test-ime-user.c sdk/ime-user.c sdk/ime.c -o $@
 .PHONY: test-ime-run
 
 $(BUILD)/surface.native.o: surface.c surface.h sdk/protocol.h | $(BUILD)
@@ -223,10 +226,10 @@ test: test-image-ui-run
 .PHONY: test-image-ui-run
 
 # Additive switchable UI; private tables include only labels used by a module.
-UI_HEADERS = $(addprefix $(BUILD)/ui-,$(addsuffix .h,desktop editor files image calculator clock picker recovery widgets))
-$(UI_HEADERS) &: ui-build.py ui/strings.tsv desktop.c apps/editor.c apps/files.c apps/image.c apps/calculator.c apps/clock.c sdk/picker.c sdk/recovery.c sdk/widgets-draw.c | $(BUILD)
+UI_HEADERS = $(addprefix $(BUILD)/ui-,$(addsuffix .h,desktop editor files image calculator clock picker recovery widgets words))
+$(UI_HEADERS) &: ui-build.py ui/strings.tsv desktop.c apps/editor.c apps/files.c apps/image.c apps/calculator.c apps/clock.c apps/words.c sdk/ime.c sdk/picker.c sdk/recovery.c sdk/widgets-draw.c | $(BUILD)
 	python3 ui-build.py $(BUILD)
-$(BUILD)/desktop.o $(BUILD)/editor.app.o $(BUILD)/files.app.o $(BUILD)/image.app.o $(BUILD)/calculator.app.o $(BUILD)/clock.app.o $(BUILD)/picker.o $(BUILD)/recovery.o $(BUILD)/widgets-draw.o: $(UI_HEADERS)
+$(BUILD)/desktop.o $(BUILD)/editor.app.o $(BUILD)/files.app.o $(BUILD)/image.app.o $(BUILD)/calculator.app.o $(BUILD)/clock.app.o $(BUILD)/words.app.o $(BUILD)/picker.o $(BUILD)/recovery.o $(BUILD)/widgets-draw.o: $(UI_HEADERS)
 $(BUILD)/i18n.o: sdk/i18n.c sdk/i18n.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/desktop.elf $(BUILD)/editor.elf $(BUILD)/files.elf $(BUILD)/image.elf $(BUILD)/calculator.elf $(BUILD)/clock.elf: $(BUILD)/i18n.o
@@ -252,3 +255,13 @@ $(BUILD)/io.sdk.o: $(K32)/sdk/io.c $(K32)/sdk/io.h $(K32)/io.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/libc.sdk.o: $(K32)/sdk/libc.c $(K32)/sdk/libc.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
+
+$(BUILD)/ime-user.o: sdk/ime-user.c sdk/ime-user.h sdk/ime.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/ime-store.o: sdk/ime-store.c sdk/ime-store.h sdk/ime-user.h $(K32)/sdk/io.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/words.elf: $(BUILD)/words.app.o $(BUILD)/ime.o $(BUILD)/ime-user.o $(BUILD)/ime-store.o $(BUILD)/io.sdk.o $(BUILD)/libc.sdk.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(BUILD)/i18n.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KGWORDS.EXE: $(BUILD)/words.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 258 --features 303 --client --compact --stack-bytes 16384 --min-heap 65536
+all: $(BUILD)/KGWORDS.EXE
