@@ -1,7 +1,9 @@
 # K32IO: shared Work file broker
 
 Install `K32IO.EXE` before K32HOST/KGUILDR (or standalone K32RUN). It is an
-original 64 KiB resident DOS service; neither DOS nor the emulator is modified.
+original 32 KiB resident DOS service, including a guarded 16 KiB real-mode
+stack; neither DOS nor the emulator is modified. Its linker rejects code/data
+growth into that stack so the four-owner profile retains conventional memory.
 INT2F/D39F discovers `K32IOV01` version 1. It runs at serialized real-mode
 boundaries, saves/restores the caller PSP and critical-error vector, refuses
 InDOS/protected-mode/reentrant dispatch and retains a checked 16 KiB stack.
