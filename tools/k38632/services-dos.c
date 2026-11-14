@@ -385,7 +385,7 @@ static int io_broker(K32Io *r,unsigned operation){
 static int io_lock(const char *name,unsigned drive){
  if(!io_available())return 0;
  K32Io r={.version=1,.size=sizeof r,.offset=drive};for(unsigned i=0;i<16;i++)r.name[i]=name[i];
- return io_broker(&r,3)==-16;
+ return io_broker(&r,3)!=0;
 }
 #endif
 static int io_dispatch(u32 pointer,unsigned n){

@@ -155,7 +155,7 @@ void io_dispatch(void){
  K32IoPacket p;mem_copy(self,(unsigned)&p,io_sender_segment,io_sender_offset,sizeof p);p.result=-22;
  unsigned short msw;__asm__ volatile("smsw %0":"=r"(msw));
  if(p.version!=1||p.size!=sizeof p||(msw&1)||mem_get(indos_segment,indos_offset)||p.owner<0x100000||p.owner>=0x2000000||(p.owner&4095)||!p.epoch||p.operation<1||p.operation>3)goto done;
- for(unsigned i=0;i<16;i++)if(mem_get(self,0xc000+i)!=0xa5)io_record.stack_ok=0;
+ for(unsigned i=0;i<16;i++)if(mem_get(self,0x4000+i)!=0xa5)io_record.stack_ok=0;
  if(!io_record.stack_ok){p.result=-75;goto done;}
  io_record.calls++;io_record.busy=1;
  unsigned previous,a=0x6200;__asm__ volatile("int $0x21":"+a"(a),"=b"(previous)::"cc","memory");a=0x5000;__asm__ volatile("int $0x21":"+a"(a):"b"(psp):"cc","memory");
@@ -183,7 +183,7 @@ int io_install(void){
  unsigned short seg;unsigned off;a=0x3400;__asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(off)::"cc","memory");indos_segment=seg;indos_offset=off&65535;
  a=0x352f;__asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(off)::"cc","memory");io_old_vector=(unsigned)seg<<16|(off&65535);
  a=0x252f;__asm__ volatile("int $0x21":"+a"(a):"d"((unsigned)io_api):"ebx","ecx","esi","edi","cc","memory");
- for(unsigned i=0;i<16;i++)mem_put(self,0xc000+i,0xa5);
+ for(unsigned i=0;i<16;i++)mem_put(self,0x4000+i,0xa5);
  io_record.owner=self;io_record.ready=io_record.stack_ok=1;return 1;
 }
 #endif

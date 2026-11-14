@@ -9,8 +9,8 @@ SECTIONS {
  __bss_start = .;
  .bss : { *(.bss*) *(COMMON) }
  __bss_end = .;
- __mz_cs = 0; __mz_ss = 0; __mz_sp = 0xfff0;
- __mz_memory_bytes = 0x10000;
- ASSERT(__bss_end < 0xc000,"I/O broker retains 16 KiB stack")
+ __mz_cs = 0; __mz_ss = 0; __mz_sp = 0x7ff0;
+ __mz_memory_bytes = 0x8000;
+ ASSERT(__bss_end < 0x4000,"32 KiB I/O broker retains 16 KiB stack")
  /DISCARD/ : { *(.eh_frame) *(.comment) *(.note*) }
 }

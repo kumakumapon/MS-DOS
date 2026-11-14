@@ -8,9 +8,9 @@ _start:
     mov ax,cs
     mov ds,ax
     mov ss,ax
-    mov esp,0xfff0
+    mov esp,0x7ff0
     sti
-    mov bx,0x1010
+    mov bx,0x0810
     mov ah,0x4a
     int 0x21
     jc failed
@@ -26,7 +26,7 @@ _start:
     je complete
     test eax,eax
     jz failed
-    mov dx,0x1010
+    mov dx,0x0810
     mov ax,0x3100
     int 0x21
 complete:
@@ -56,7 +56,7 @@ io_api:
     mov ss,ax
     mov ds,ax
     mov es,ax
-    mov esp,0xfff0
+    mov esp,0x7ff0
     cld
     sti
     call io_dispatch
