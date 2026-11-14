@@ -6,6 +6,10 @@
 _start:
     cmp BYTE PTR [0x80],0
     je first
+    cmp BYTE PTR [0x82],'0'
+    jne variant
+    mov BYTE PTR skipfont,1
+variant:
     cmp BYTE PTR [0x82],'2'
     jne first
     mov BYTE PTR pattern,0x42
@@ -27,6 +31,8 @@ first:
     mov WORD PTR es:[2],0xa156
     mov WORD PTR es:[160],0xa5
     mov WORD PTR es:[160+0x2000],0xf1
+    cmp BYTE PTR skipfont,1
+    je wait
     mov dx,0xa1
     mov al,0x21
     out dx,al
@@ -189,6 +195,7 @@ done:
     mov ax,0x4c00
     int 0x21
 pattern: .byte 0x81
+skipfont: .byte 0
 pitch: .byte 80
 raster: .byte 0x8f
 sync: .byte 0,78,0,0,0,0,0x90,1

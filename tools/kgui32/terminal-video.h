@@ -8,6 +8,7 @@ typedef struct {
 } KvCanvas;
 _Static_assert(sizeof(KvCanvas)==153600,"private terminal cache");
 int kt_video_extra(const KvMeta *);
+const unsigned char *kt_video_gaiji(const KvCanvas *,unsigned);
 void kt_video_compose(const KvCanvas *,unsigned char *,unsigned,
  const unsigned char *(*)(void *,unsigned),void *);
 #endif

@@ -302,7 +302,8 @@ static void terminal(unsigned id,int x,int y,int width,int height){
    for(int col=0;col<cols&&col+scene.scroll_x[id]<80;col++){
     unsigned at=col+scene.scroll_x[id],half=row_halves[at],code=row_glyphs[at],attr=terminals[id].attributes[rr*80+at];
     if(code==' '&&!(attr&28))continue;
-    const u8 *bitmap=code>=32&&code<=126?font+(code-32)*16:glyph(code);
+    const u8 *bitmap=kt_video_gaiji(video_valid[id]&&video_generation[id]==v->generation?&video_cache[id]:0,codes[at-half]);
+    if(!bitmap)bitmap=code>=32&&code<=126?font+(code-32)*16:glyph(code);
     u32 ink=rgb((k98_rgb(attr)>>16)&255,(k98_rgb(attr)>>8)&255,k98_rgb(attr)&255);
     int xx=x+8+col*8,yy=y+70+row*16;
     for(unsigned scan=0;scan<16;scan++){

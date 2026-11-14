@@ -319,3 +319,5 @@ test: kvideo-test
 kvideo-test:
 	$(MAKE) -C ../kvideo test
 .PHONY: kvideo-all kvideo-test
+
+$(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/engine.o: video.h ../kvideo/video.h text.h backing.h

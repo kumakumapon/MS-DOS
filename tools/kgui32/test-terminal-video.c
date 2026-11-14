@@ -19,6 +19,8 @@ int main(void){
  kt_video_compose(&v,pixels,1,glyph,0);assert(pixels[0]==23&&pixels[1]==24&&pixels[15]==23);
  kt_video_compose(&peer,pixels,1,glyph,0);assert(pixels[0]==24&&pixels[1]==23);
  v.meta.valid[0]=0;kt_video_compose(&v,pixels,1,glyph,0);assert(pixels[0]==24&&pixels[15]==24);
+ assert(kt_video_gaiji(0,0xa156)&&!kt_video_gaiji(0,0xa156)[0]);
+ assert(!kt_video_gaiji(&v,0xa156)[0]&&!kt_video_gaiji(&v,'V'));
  /* 40x20 characters, physical pitch, ring start and 20-line raster. */
  memset(&v,0,sizeof v);v.meta=model.meta;v.meta.columns=40;v.meta.rows=20;v.meta.text_pitch=40;v.meta.text_start=4095;
  v.codes[4095]='X';v.attributes[4095]=0x41;v.codes[39]='X';v.attributes[39]=0x81;

@@ -1,6 +1,12 @@
 #include "terminal-video.h"
 #include "../k386/text.h"
 int kt_video_extra(const KvMeta *m){return m->version==1&&((m->flags&(KV_GRAPH|KV_SEMI))||m->font_writes||m->columns!=80||m->rows!=25||m->text_pitch!=80||m->text_start||!(m->flags&KV_TEXT));}
+const unsigned char *kt_video_gaiji(const KvCanvas *v,unsigned raw){
+ static const unsigned char blank[32];unsigned ku=raw&127,ten=(raw>>8)&127;
+ if(ku<0x56||ku>0x57||ten<0x21||ten>0x7e)return 0;
+ unsigned i=(ku-0x56)*94+ten-0x21;
+ return v&&(v->meta.valid[i/8]&(1u<<(i&7)))?v->font+i*32:blank;
+}
 /* Indexed canvas: 0..15 private graphic palette; 16..23 PC-98 text RGB;
  * 24 black. The caller clips and scales this bounded native display. */
 void kt_video_compose(const KvCanvas *v,unsigned char *out,unsigned blink,
@@ -10,17 +16,15 @@ void kt_video_compose(const KvCanvas *v,unsigned char *out,unsigned blink,
  unsigned short codes[80],chars[80];unsigned char halves[80];
  static unsigned char rowfonts[80][32];
  unsigned last=~0u;
- static const unsigned char blank[32];
  for(unsigned y=0;y<height;y++){
   unsigned ty=y*m->rows*16/height,row=ty/16,scan=ty&15;
   if(last!=row){for(unsigned i=0;i<80;i++)codes[i]=i<m->columns?v->codes[(m->text_start+row*m->text_pitch+i)&4095]:32;
    if(m->columns==40&&(codes[39]>>8))codes[39]='?';
    k98_row(codes,chars,halves);
    for(unsigned col=0;col<m->columns;col++){
-    unsigned raw=codes[col-halves[col]],ku=raw&127,ten=(raw>>8)&127;
-    const unsigned char *font;
-    if(ku>=0x56&&ku<=0x57&&ten>=0x21&&ten<=0x7e){unsigned i=(ku-0x56)*94+ten-0x21;font=m->valid[i/8]&(1u<<(i&7))?v->font+i*32:blank;}
-    else font=glyph(context,chars[col]);
+    unsigned raw=codes[col-halves[col]];
+    const unsigned char *font=kt_video_gaiji(v,raw);
+    if(!font)font=glyph(context,chars[col]);
     for(unsigned i=0;i<(chars[col]>255?32u:16u);i++)rowfonts[col][i]=font[i];
    }
    last=row;

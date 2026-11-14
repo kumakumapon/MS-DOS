@@ -2,7 +2,7 @@
 
 The GUI boot loads `KV98VID.EXE` after K386/K32HOST, before KGUILDR.
 Each V86 root gets 128 KiB private planar VRAM and 188 private 16x16 gaiji
-(JIS rows 76/77). A recycled generation starts with zeroed storage. Host CG-RAM,
+(JIS rows 0x76/0x77). A recycled generation starts with zeroed storage. Host CG-RAM,
 VRAM and video ports are never written. Without this optional helper the base
 K386 profile retains its original backing allocation and port-denial behavior.
 
@@ -17,7 +17,7 @@ by the monitor ARTIC clock. GDC supports SYNC, START/STOP, PITCH, CURS, MASK,
 CCHAR, direction-2 FIGS, word/byte WDAT operations, RDAT/CURD and the first PRAM
 partition. Only the first text partition and first graphics partition render.
 
-Run `KVTERM.COM` (or `KVTERM.COM 2` for another private font). Keys: g graphics,
+Run `KVTERM.COM` (or `KVTERM.COM 2` for another private font, or `KVTERM.COM 0` for unregistered gaiji). Keys: g graphics,
 a analog palette, t text, 4 = 40x20, 8 = 80x25, n normal text attributes,
 f deliberately unsupported word I/O, q exit. Both TVRAM planes, VRAM and CGRAM
 are changed by actual guest instructions; the browser observer only reads.
