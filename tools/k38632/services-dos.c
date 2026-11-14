@@ -338,7 +338,7 @@ static int workspace(u32 pointer,u32 size){
  if(!k32_user_access(loader_map,pointer,size,1))return -14;
  K32Work r;if(!transfer(pointer-K32_BASE,&r,size,0))return -5;
  int e=k32_work_request(&r);if(e)return e;
- if((r.operation==K32_WORK_SAVE||r.operation==K32_WORK_REC_RESTORE_TMP||r.operation==K32_WORK_REC_RESTORE_BAK)&&io_lock(r.name,work_info.drive))return -16;
+ if((r.operation==K32_WORK_SAVE||r.operation==K32_WORK_REC_RESTORE_TMP||r.operation==K32_WORK_REC_RESTORE_BAK)&&(e=io_lock(r.name,work_info.drive)))return e;
  work_limit=r.flags&K32_WORK_BMP?K32_BMP_LIMIT:K32_WORK_LIMIT;
  if(work_handle>=0&&r.operation!=K32_WORK_INFO)return -117;
  if((r.operation==K32_WORK_SAVE||r.operation==K32_WORK_REC_RESTORE_TMP||r.operation==K32_WORK_REC_RESTORE_BAK)&&!k32_user_access(loader_map,r.data,r.bytes,0))return -14;
@@ -360,7 +360,7 @@ static int workspace(u32 pointer,u32 size){
  if(r.operation>=K32_WORK_REC_INFO){
   const K32WorkIO io={work_stat,work_create,work_write,work_close,work_rename,work_remove,work_copy,work_space};
   if(r.operation==K32_WORK_REC_INFO){K32RecoveryInfo info;e=k32_recovery_info_kind_at(work_info.drive,r.name,r.flags,&info,&io);if(!e)e=transfer(r.data-K32_BASE,&info,sizeof info,1)?0:-5;}
-  else if(r.operation==K32_WORK_REC_RESTORE_TMP||r.operation==K32_WORK_REC_RESTORE_BAK){K32RecoveryRestore restore;if(!transfer(r.data-K32_BASE,&restore,sizeof restore,0))e=-5;else if(io_lock(restore.destination,work_info.drive))e=-16;else e=k32_recovery_restore_kind_at(work_info.drive,r.name,r.operation-K32_WORK_REC_RESTORE_TMP+1,r.flags,&restore,&io);}
+  else if(r.operation==K32_WORK_REC_RESTORE_TMP||r.operation==K32_WORK_REC_RESTORE_BAK){K32RecoveryRestore restore;if(!transfer(r.data-K32_BASE,&restore,sizeof restore,0))e=-5;else if(!(e=io_lock(restore.destination,work_info.drive)))e=k32_recovery_restore_kind_at(work_info.drive,r.name,r.operation-K32_WORK_REC_RESTORE_TMP+1,r.flags,&restore,&io);}
   else{unsigned kind=r.operation-K32_WORK_REC_OPEN_TMP+1,bytes,hash;e=k32_work_variant_kind_at(work_info.drive,r.name,kind,r.flags,path);if(!e){e=work_stat(path,&bytes,&hash);if(e>=0)e=e?open_path(path):-2;}}
   goto done;
  }
@@ -385,7 +385,7 @@ static int io_broker(K32Io *r,unsigned operation){
 static int io_lock(const char *name,unsigned drive){
  if(!io_available())return 0;
  K32Io r={.version=1,.size=sizeof r,.offset=drive};for(unsigned i=0;i<16;i++)r.name[i]=name[i];
- return io_broker(&r,3)!=0;
+ return io_broker(&r,3);
 }
 #endif
 static int io_dispatch(u32 pointer,unsigned n){
