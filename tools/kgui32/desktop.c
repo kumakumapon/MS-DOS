@@ -271,10 +271,12 @@ static void terminal_video(unsigned id,Rect area){
  u32 colors[25];for(unsigned i=0;i<16;i++)colors[i]=rgb(m->palette[i][0]*17,m->palette[i][1]*17,m->palette[i][2]*17);
  for(unsigned i=0;i<8;i++)colors[16+i]=rgb(i&2?255:0,i&4?255:0,i&1?255:0);
  colors[24]=rgb(0,0,0);
+ static u16 source_x[800];
  int dw=area.w,dh=area.h;if(dw*(int)h>dh*(int)w)dw=dh*w/h;else dh=dw*h/w;
+ for(int i=0;i<dw;i++)source_x[i]=i*w/dw;
  for(int yy=clip.y;yy<clip.y+clip.h&&yy<area.y+dh;yy++){
   unsigned sy=(yy-area.y)*h/dh;u8 *line=framebuffer+yy*info.pitch;
-  for(int xx=clip.x;xx<clip.x+clip.w&&xx<area.x+dw;xx++){unsigned sx=(xx-area.x)*w/dw;u32 c=colors[video_pixels[sy*w+sx]];if(info.bpp==1)line[xx]=(u8)c;else ((u16 *)line)[xx]=(u16)c;}
+  for(int xx=clip.x;xx<clip.x+clip.w&&xx<area.x+dw;xx++){unsigned sx=source_x[xx-area.x];u32 c=colors[video_pixels[sy*w+sx]];if(info.bpp==1)line[xx]=(u8)c;else ((u16 *)line)[xx]=(u16)c;}
  }
 }
 static void terminal(unsigned id,int x,int y,int width,int height){
@@ -538,8 +540,19 @@ int main(int argc,char **argv){
   if(!terminal_tick)terminal_tick=event.ticks;
   if(((event.ticks-terminal_tick)&0xffffff)>=153600){terminal_tick=event.ticks;terminal_phase^=1;
    for(unsigned id=0;id<(unsigned)scene.slots;id++)if(terminal_valid[id]&&scene.window[id+2].open&&!scene.window[id+2].hidden){
-    unsigned blink=video_valid[id]&&kt_video_extra(&video_cache[id].meta);for(unsigned i=0;i<2000;i++)if(terminals[id].attributes[i]&2){blink=1;break;}
-    if(blink)scene_window_damage(&scene,id+2,scene.window[id+2].r);
+    if(video_valid[id]&&kt_video_extra(&video_cache[id].meta)){
+     KvCanvas *v=&video_cache[id];KvMeta *m=&v->meta;if(!(m->flags&KV_TEXT))continue;
+     unsigned blink=0;for(unsigned i=0;i<4096;i++)if(v->attributes[i]&2){blink=1;break;}
+     Rect r=scene.window[id+2].r;
+     if(blink){scene_window_damage(&scene,id+2,r);continue;}
+     if((m->flags&KV_CURSOR)&&(views[id].state==1||views[id].state==2)){
+      int dw=(r.w-16)/8*8,dh=(r.h-104)/16*16,gw=m->flags&KV_GRAPH?m->width:640,gh=m->flags&KV_GRAPH?m->height:400;if(dw*gh>dh*gw)dw=dh*gw/gh;else dh=dw*gh/gw;
+      unsigned cursor=(m->text_cursor-m->text_start)&4095,row=cursor/m->text_pitch,col=cursor%m->text_pitch;
+      if(row<m->rows&&col<m->columns)scene_window_damage(&scene,id+2,(Rect){r.x+8+(int)(col*dw/m->columns),r.y+70+(int)(row*dh/m->rows),dw/(int)m->columns+2,dh/(int)m->rows+2});
+     }
+    }else {unsigned blink=0;for(unsigned i=0;i<2000;i++)if(terminals[id].attributes[i]&2){blink=1;break;}
+     if(blink)scene_window_damage(&scene,id+2,scene.window[id+2].r);
+    }
    }
   }
   int previous_focus=scene.active;Rect previous_rect[4];for(unsigned id=0;id<(unsigned)scene.slots;id++)previous_rect[id]=scene.window[id+2].r;

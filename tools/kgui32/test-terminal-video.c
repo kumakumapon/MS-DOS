@@ -3,8 +3,9 @@
 #include <stdio.h>
 #include "terminal-video.h"
 static KvCanvas v,peer;
+static unsigned lookups;
 static unsigned char pixels[640*400],bits[32];
-static const unsigned char *glyph(void *p,unsigned c){(void)p;memset(bits,c=='X'?255:0,sizeof bits);return bits;}
+static const unsigned char *glyph(void *p,unsigned c){(void)p;lookups++;memset(bits,c=='X'?255:0,sizeof bits);return bits;}
 int main(void){
  KvVideo model;kv_reset(&model);v.meta=model.meta;
  assert(!kt_video_extra(&v.meta));v.meta.flags=KV_GRAPH;assert(kt_video_extra(&v.meta));
@@ -24,6 +25,6 @@ int main(void){
  /* 40x20 characters, physical pitch, ring start and 20-line raster. */
  memset(&v,0,sizeof v);v.meta=model.meta;v.meta.columns=40;v.meta.rows=20;v.meta.text_pitch=40;v.meta.text_start=4095;
  v.codes[4095]='X';v.attributes[4095]=0x41;v.codes[39]='X';v.attributes[39]=0x81;
- kt_video_compose(&v,pixels,1,glyph,0);assert(pixels[0]==18&&pixels[15]==18&&pixels[16]==24&&pixels[20*640]==20);
+ lookups=0;kt_video_compose(&v,pixels,1,glyph,0);assert(lookups<=4);assert(pixels[0]==18&&pixels[15]==18&&pixels[16]==24&&pixels[20*640]==20);
  puts("Terminal display: planes, palette indices, semigraphics, private/unset gaiji and 40x20 ring modes passed");
 }

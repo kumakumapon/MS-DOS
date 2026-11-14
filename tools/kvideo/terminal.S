@@ -60,6 +60,8 @@ wait:
     je done
     cmp al,'f'
     je fault
+    cmp al,'c'
+    je cursor
     cmp al,'a'
     je analog
     cmp al,'g'
@@ -76,6 +78,9 @@ wait:
     xor al,al
     out dx,al
     jmp wait
+cursor:
+    xor BYTE PTR raster,0x80
+    jmp character
 analog:
     mov dx,0x6a
     mov al,1
@@ -154,12 +159,14 @@ textmode:
     jmp wait
 forty:
     mov BYTE PTR sync+1,38
-    mov BYTE PTR raster,0x93
+    and BYTE PTR raster,0x80
+    or BYTE PTR raster,0x13
     mov BYTE PTR pitch,40
     jmp mode
 eighty:
     mov BYTE PTR sync+1,78
-    mov BYTE PTR raster,0x8f
+    and BYTE PTR raster,0x80
+    or BYTE PTR raster,0x0f
     mov BYTE PTR pitch,80
 mode:
     mov dx,0x62
@@ -178,6 +185,8 @@ modebyte:
     mov dx,0x60
     mov al,BYTE PTR pitch
     out dx,al
+    mov dx,0x62
+character:
     mov dx,0x62
     mov al,0x4b
     out dx,al
