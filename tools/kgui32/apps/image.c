@@ -97,7 +97,7 @@ static int dialog(void){
   if(modal==2){
    const char *labels[]={"BMP","TMP","BAK"};
    for(unsigned i=0;i<3;i++){char value[9];hex(value,recovery.file[i].hash);kg_text(8,52+i*24,labels[i],0x263e58);kg_text(56,52+i*24,recovery.file[i].error?"Error":recovery.file[i].exists?value:"Absent",0x263e58);}
-   kg_button('T',8,h-64,88,28,"Inspect TMP");kg_button('B',104,h-64,88,28,"Inspect BAK");
+   kg_button('T',8,h-64,96,28,"Inspect TMP");kg_button('B',104,h-64,96,28,"Inspect BAK");
   }else {
    kg_text(8,52,kind==1?"Valid BMP in TMP":"Valid BMP in BAK",0x263e58);
    kw_draw_input((KwRect){8,76,(int)w-24,28},&rescue,1);

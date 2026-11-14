@@ -214,3 +214,10 @@ $(BUILD)/bitmap-test.elf: $(BUILD)/bitmap-test.app.o $(BUILD)/crt.o $(K32)/sdk/a
 $(BUILD)/KGBITBAD.EXE: $(BUILD)/bitmap-test.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client --compact
 all: $(BUILD)/KGBITBAD.EXE
+
+$(BUILD)/test-image-ui: test-image-ui.c apps/image.c client-policy.c document.c $(K32)/services.c sdk/widgets.c sdk/widgets-draw.c | $(BUILD)
+	$(CC) -I$(BUILD) -Wall -Wextra -Werror -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -ffunction-sections -fdata-sections -fsanitize=address,undefined test-image-ui.c client-policy.c document.c $(K32)/services.c sdk/widgets.c sdk/widgets-draw.c $(wildcard sdk/i18n.c) -Wl,--gc-sections -o $@
+test-image-ui-run: $(BUILD)/test-image-ui
+	$(BUILD)/test-image-ui
+test: test-image-ui-run
+.PHONY: test-image-ui-run
