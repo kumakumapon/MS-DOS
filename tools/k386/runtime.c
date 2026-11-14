@@ -168,7 +168,7 @@ static int start_inner(unsigned id,const char *command){
     K386Runtime *r=&runtime[id];K386Session *s=&sessions[id];K386View *v=&k386_mailbox.view[id];
     if(!r->backing.handle&&!backing_new(&r->backing)){p_close(h);return 8;}
     discard(id);r->drives=dirs;r->process=(K386Process){0};arena_init(&r->arena);r->timer_armed=r->timer_pending=r->timer_owner=0;r->clock=r->accumulator=0;s->head=s->count=0;
-    *v=(K386View){0};v->state=K386_ENDED;r->text=(K98Text){.attribute=K98_WHITE};r->text_hash=r->text_content_hash=0;r->text_valid=0;
+    *v=(K386View){0};v->state=K386_ENDED;r->text=(K98Text)K98_INITIALIZER;r->text_hash=r->text_content_hash=0;r->text_valid=0;
     if(!backing_zero(&r->backing,0,backing_size(&r->backing))){p_close(h);return 8;}
     k8 bios[256];mem_copy(resident(),(unsigned)bios,0,0x400,256);put(id,0x400,bios,256);
     /* Private NLS data, below the first allocatable DOS MCB. No host pointers. */

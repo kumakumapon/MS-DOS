@@ -1,6 +1,6 @@
 #include "text.h"
 #include "../filer/sjis.h"
-void k98_reset(K98Text *t){*t=(K98Text){.attribute=K98_WHITE,.columns=80,.rows=25,.pitch=80};}
+void k98_reset(K98Text *t){*t=(K98Text)K98_INITIALIZER;}
 /* Convert the PC-98 ku-0x20 / ten word to a bounded JIS X0208 SJIS glyph. */
 unsigned k98_sjis(unsigned code){
  unsigned ku=(code&127)+32,ten=(code>>8)&127;
