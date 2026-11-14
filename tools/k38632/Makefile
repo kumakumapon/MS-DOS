@@ -23,6 +23,10 @@ test: all $(BUILD)/test-resources4
 	python3 test_services.py
 	$(MAKE) $(BUILD)/test-workspace
 	$(BUILD)/test-workspace
+	$(MAKE) $(BUILD)/test-libc
+	$(BUILD)/test-libc
+$(BUILD)/test-libc: test-libc.c sdk/libc.c sdk/libc.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror -DK32_LIBC_TEST -fsanitize=address,undefined test-libc.c sdk/libc.c -o $@
 $(BUILD)/test-workspace: test-workspace.c workspace.c workspace.h services.c services.h ../filer/sjis.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-workspace.c workspace.c services.c -o $@
 .PHONY: test
@@ -30,17 +34,17 @@ CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -
 $(BUILD)/run.o: runtime.S | $(BUILD)
 	as --32 --defsym LOADER=1 $< -o $@
 $(BUILD)/loader.o: loader.c elf.h services.h | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -c $< -o $@
 $(BUILD)/services.o: services.c services.h elf.h | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -c $< -o $@
 $(BUILD)/services-dos.o: services-dos.c services.h elf.h | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -c $< -o $@
 $(BUILD)/elf.o: elf.c elf.h | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -c $< -o $@
 $(BUILD)/libmemory.o: ../window/memory.c | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -c $< -o $@
 $(BUILD)/verified-disk.o: ../filer/verified-disk.c ../filer/verified-disk.h | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -ffunction-sections -fdata-sections -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -ffunction-sections -fdata-sections -c $< -o $@
 $(BUILD)/run.elf: $(BUILD)/verified-disk.o $(BUILD)/run.o $(BUILD)/loader.o $(BUILD)/elf.o $(BUILD)/services.o $(BUILD)/services-dos.o $(BUILD)/libmemory.o runtime.ld
 	ld -m elf_i386 -T runtime.ld $(filter %.o,$^) -o $@
 $(BUILD)/K32RUN.EXE: $(BUILD)/run.elf ../mz/build.py
@@ -97,22 +101,22 @@ apps: $(BUILD)/VIEW32.EXE
 $(BUILD)/host-run.o: runtime.S host-entry.S host-engine.S | $(BUILD)
 	as --32 --defsym LOADER=1 --defsym HOST=1 $< -o $@
 $(BUILD)/%.host.o: %.c services.h elf.h host.h | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DK32_HOST -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -DK32_HOST -c $< -o $@
 $(BUILD)/host.elf: $(BUILD)/verified-disk.o $(BUILD)/workspace.host.o $(BUILD)/manager.host.o $(BUILD)/host-resources.o $(BUILD)/host-report.o $(BUILD)/host-run.o $(BUILD)/host.host.o $(BUILD)/loader.host.o $(BUILD)/elf.host.o $(BUILD)/services.host.o $(BUILD)/services-dos.host.o $(BUILD)/libmemory.o host.ld
 	ld -m elf_i386 -T host.ld $(filter %.o,$^) -o $@
 $(BUILD)/K32HOST.EXE: $(BUILD)/host.elf ../mz/build.py Makefile
 	python3 ../mz/build.py --desktop-app "PM32 resident service" $< $@
 all: $(BUILD)/K32HOST.EXE
 $(BUILD)/mix.o: mix.c host.h ../window/k386_client.h | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -DDOS -c $< -o $@
 $(BUILD)/mix-client.o: ../window/k386_client.c | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -DDOS -c $< -o $@
 $(BUILD)/mix-dos.o: ../filer/dos.c | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -DPC98 -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -DDOS -DPC98 -c $< -o $@
 $(BUILD)/mix-start.o: ../filer/start.s | $(BUILD)
 	as --32 $< -o $@
 $(BUILD)/mix-core.o: ../filer/core.c | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -DDOS -c $< -o $@
 $(BUILD)/mix.elf: $(BUILD)/mix.o $(BUILD)/mix-client.o $(BUILD)/mix-dos.o $(BUILD)/mix-start.o $(BUILD)/mix-core.o $(BUILD)/libmemory.o ../filer/com.ld
 	ld -m elf_i386 --gc-sections -T ../filer/com.ld $(filter %.o,$^) -o $@
 $(BUILD)/K32MIX.COM: $(BUILD)/mix.elf
@@ -120,9 +124,9 @@ $(BUILD)/K32MIX.COM: $(BUILD)/mix.elf
 all: $(BUILD)/K32MIX.COM
 
 $(BUILD)/host-resources.o: ../k386/resources.c ../k386/resources.h | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DK32_HOST -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -DK32_HOST -c $< -o $@
 $(BUILD)/host-report.o: ../k386/report.c ../k386/resources.h | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DK32_HOST -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -DK32_HOST -c $< -o $@
 $(BUILD)/host.host.o $(BUILD)/manager.host.o: manager.h
 $(BUILD)/COUNT32.EXE: $(BUILD)/count.ext.elf package.py
 	python3 package.py $< $@ --abi 257 --features 15
@@ -132,11 +136,21 @@ $(BUILD)/XARRAY32.EXE: $(BUILD)/xarray.ext.elf package.py
 	python3 package.py $< $@ --abi 257 --features 7
 apps: $(BUILD)/XARRAY32.EXE
 
+$(BUILD)/libc.app.o: sdk/libc.c sdk/libc.h sdk/k32x.h | $(BUILD)
+	$(CC) -m32 $(CFLAGS) -g -c $< -o $@
+$(BUILD)/practical.ext.o: apps/practical.c sdk/libc.h
+	$(CC) -m32 $(CFLAGS) -g -Isdk -c $< -o $@
+$(BUILD)/practical.ext.elf: $(BUILD)/practical.ext.o $(BUILD)/libc.app.o $(BUILD)/crt1.o sdk/app.ld
+	ld -m elf_i386 -T sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/PRACT32.EXE: $(BUILD)/practical.ext.elf package.py
+	python3 package.py $< $@ --abi 258 --features 15 --compact --stack-bytes 65536 --min-heap 1048576 --debug-map $(BUILD)/PRACT32.debug.json
+apps: $(BUILD)/PRACT32.EXE
+
 $(BUILD)/host.host.o $(BUILD)/services-dos.host.o $(BUILD)/services-dos.o: ../kgui32/sdk/protocol.h
 $(BUILD)/workspace.host.o $(BUILD)/services-dos.host.o: workspace.h
 
 $(BUILD)/bank.host.o: ../k386/bank.c ../k386/bank.h | $(BUILD)
-	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DK32_HOST -c $< -o $@
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -DK32_HOST -c $< -o $@
 $(BUILD)/host.elf: $(BUILD)/bank.host.o $(BUILD)/host-bank.host.o
 
 $(BUILD)/test-resources4: resources4-test.c ../k386/resources.c ../k386/resources.h | $(BUILD)

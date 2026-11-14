@@ -75,16 +75,17 @@ static void pte(unsigned i,u32 value){
  inc(848);
 }
 int services_start(void){
- if(loader_plan.abi!=257)return 0;
+ if(loader_plan.abi<257)return 0;
  #if defined(K32_HOST) && !defined(K32_GUI)
  if(loader_plan.features&K32_FEATURE_SAVE)workspace_start();
  #endif
  u32 end=K32_BASE;
  for(unsigned i=0;i<loader_plan.count;i++){K32Segment *s=&loader_plan.segment[i];u32 at=(s->address+s->memsz+4095)&~4095u;if(at>end)end=at;}
- k32_heap_init(&heap,end,K32_INFO);
- put(768,257);put(772,service_features());put(776,loader_args.argc);put(780,end);put(784,K32_INFO);
+ k32_heap_init(&heap,end,loader_plan.heap_limit);
+ put(768,loader_plan.abi);put(772,service_features());put(776,loader_args.argc);put(780,end);put(784,loader_plan.heap_limit);
  for(unsigned i=0;i<4096;i++)loader_buffer[i]=0;
- u32 *info=(u32 *)loader_buffer;info[0]=0x3149324b;info[1]=257;info[2]=64;info[3]=loader_args.argc;info[4]=K32_INFO+64;info[5]=service_features();info[6]=end;info[7]=K32_INFO;info[8]=4096;info[9]=307200;
+ u32 *info=(u32 *)loader_buffer;info[0]=0x3149324b;info[1]=loader_plan.abi;info[2]=64;info[3]=loader_args.argc;info[4]=K32_INFO+64;info[5]=service_features();info[6]=end;info[7]=loader_plan.heap_limit;info[8]=4096;info[9]=307200;
+ if(loader_plan.abi==258){info[10]=loader_plan.stack_base;info[11]=loader_plan.stack_top-loader_plan.stack_base;info[12]=loader_plan.stack_base-4096;info[13]=loader_plan.min_heap;info[14]=1;}
  unsigned at=128;
  for(unsigned i=0;i<loader_args.argc;i++){
   *(u32 *)(loader_buffer+64+i*4)=K32_INFO+at;
@@ -358,8 +359,8 @@ static int workspace(u32 pointer,u32 size){
 int services_dispatch(void){
  u32 nr=loader_request;loader_request=0;
  if(nr==1)return loader_write();
- if(nr==4)return loader_plan.abi==257?service_features():0;
- if(loader_plan.abi!=257)return -38;
+ if(nr==4)return loader_plan.abi>=257?service_features():0;
+ if(loader_plan.abi<257)return -38;
  u32 b=context[8],c=context[10],d=context[9];
  switch(nr){
  case 5:return allocate(b);

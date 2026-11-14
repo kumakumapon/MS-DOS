@@ -1,5 +1,6 @@
 """Exercise the same C parser used in the guest against actual packaged files."""
 import ctypes as c
+import importlib.util
 from pathlib import Path
 import struct
 import subprocess
@@ -9,7 +10,7 @@ subprocess.run(['cc','-shared','-fPIC','-Wall','-Wextra','-Werror',str(ROOT/'elf
 class Segment(c.Structure):
     _fields_=[(k,c.c_uint32) for k in ('offset','address','filesz','memsz','flags')]
 class Plan(c.Structure):
-    _fields_=[(k,c.c_uint32) for k in ('entry','elf_offset','elf_size','count','rwbase','rwbytes')]+[('segments',Segment*8),('abi',c.c_uint32),('features',c.c_uint32)]
+    _fields_=[(k,c.c_uint32) for k in ('entry','elf_offset','elf_size','count','rwbase','rwbytes')]+[('segments',Segment*8)]+[(k,c.c_uint32) for k in ('abi','features','stack_base','stack_top','heap_limit','min_heap')]
 READ=c.CFUNCTYPE(c.c_int,c.c_void_p,c.c_uint32,c.c_void_p,c.c_uint32)
 LIB=c.CDLL(str(ROOT/'build/elf-test.so'));LIB.k32_plan.argtypes=[READ,c.c_void_p,c.c_uint32,c.POINTER(Plan)]
 def parse(data):
@@ -19,6 +20,19 @@ def parse(data):
     plan=Plan();error=LIB.k32_plan(READ(read),None,len(data),c.byref(plan));return error,plan
 def fixture():return bytearray((ROOT/'build/MEM32.EXE').read_bytes())
 class ElfValidation(unittest.TestCase):
+    def test_resource_abi_stack_guard_and_heap_reservation(self):
+        spec=importlib.util.spec_from_file_location('package',ROOT/'package.py');pkg=importlib.util.module_from_spec(spec);spec.loader.exec_module(pkg)
+        elf=(ROOT/'build/practical.ext.elf').read_bytes()
+        for stack in (4096,65536,262144):
+            b=pkg.package(elf,258,15,stack_bytes=stack,min_heap=1048576)
+            e,p=parse(b);self.assertEqual(e,0);self.assertEqual(p.stack_top,0xbfd000);self.assertEqual(p.stack_base,0xbfd000-stack);self.assertEqual(p.heap_limit,p.stack_base-4096);self.assertEqual(p.min_heap,1048576)
+            resource=struct.unpack_from('<I',b,84)[0]-24
+            for offset,value in ((0,0),(8,2),(10,23),(12,0),(12,4097),(12,266240),(16,0x400000),(20,1)):
+                changed=bytearray(b);struct.pack_into('<I' if offset not in (8,10) else '<H',changed,resource+offset,value)
+                self.assertNotEqual(parse(changed)[0],0,(stack,offset,value))
+        for stack in (0,4095,4097,266240):
+            with self.assertRaises(ValueError):pkg.package(elf,258,15,stack_bytes=stack)
+        with self.assertRaises(ValueError):pkg.package(elf,257,15,stack_bytes=4096)
     def test_real_sdk_applications(self):
         for name in ('HELLO32','MEM32','BADPTR32','SPIN32','FAULT32'):
             with self.subTest(name=name):self.assertEqual(parse((ROOT/f'build/{name}.EXE').read_bytes())[0],0)

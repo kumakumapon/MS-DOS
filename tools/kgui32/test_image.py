@@ -11,7 +11,7 @@ K32=ROOT.parent/'k38632'
 class Segment(c.Structure):
     _fields_=[(k,c.c_uint32) for k in ('offset','address','filesz','memsz','flags')]
 class Plan(c.Structure):
-    _fields_=[(k,c.c_uint32) for k in ('entry','elf_offset','elf_size','count','rwbase','rwbytes')]+[('segments',Segment*8),('abi',c.c_uint32),('features',c.c_uint32)]
+    _fields_=[(k,c.c_uint32) for k in ('entry','elf_offset','elf_size','count','rwbase','rwbytes')]+[('segments',Segment*8)]+[(k,c.c_uint32) for k in ('abi','features','stack_base','stack_top','heap_limit','min_heap')]
 READ=c.CFUNCTYPE(c.c_int,c.c_void_p,c.c_uint32,c.c_void_p,c.c_uint32)
 def parser(gui,host=False):
     path=ROOT/'build'/('host-parser.so' if host else 'gui-parser.so' if gui else 'old-parser.so')

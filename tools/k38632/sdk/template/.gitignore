@@ -1,0 +1,4 @@
+*.o
+*.EXE
+*.ELF
+*.debug.json
