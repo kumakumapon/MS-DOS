@@ -25,12 +25,13 @@ test: all $(BUILD)/test-resources4
 	$(BUILD)/test-workspace
 	$(MAKE) $(BUILD)/test-libc
 	$(BUILD)/test-libc
+	$(MAKE) -C ../k32io test
 $(BUILD)/test-libc: test-libc.c sdk/libc.c sdk/libc.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror -DK32_LIBC_TEST -fsanitize=address,undefined test-libc.c sdk/libc.c -o $@
 $(BUILD)/test-workspace: test-workspace.c workspace.c workspace.h services.c services.h ../filer/sjis.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-workspace.c workspace.c services.c -o $@
 .PHONY: test
-CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -msoft-float -mno-sse -mno-mmx -Wall -Wextra -Werror
+CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -ffunction-sections -fdata-sections -msoft-float -mno-sse -mno-mmx -Wall -Wextra -Werror
 $(BUILD)/run.o: runtime.S | $(BUILD)
 	as --32 --defsym LOADER=1 $< -o $@
 $(BUILD)/loader.o: loader.c elf.h services.h | $(BUILD)
@@ -103,7 +104,7 @@ $(BUILD)/host-run.o: runtime.S host-entry.S host-engine.S | $(BUILD)
 $(BUILD)/%.host.o: %.c services.h elf.h host.h | $(BUILD)
 	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -DK32_HOST -c $< -o $@
 $(BUILD)/host.elf: $(BUILD)/verified-disk.o $(BUILD)/workspace.host.o $(BUILD)/manager.host.o $(BUILD)/host-resources.o $(BUILD)/host-report.o $(BUILD)/host-run.o $(BUILD)/host.host.o $(BUILD)/loader.host.o $(BUILD)/elf.host.o $(BUILD)/services.host.o $(BUILD)/services-dos.host.o $(BUILD)/libmemory.o host.ld
-	ld -m elf_i386 -T host.ld $(filter %.o,$^) -o $@
+	ld -m elf_i386 --gc-sections -T host.ld $(filter %.o,$^) -o $@
 $(BUILD)/K32HOST.EXE: $(BUILD)/host.elf ../mz/build.py Makefile
 	python3 ../mz/build.py --desktop-app "PM32 resident service" $< $@
 all: $(BUILD)/K32HOST.EXE
@@ -140,14 +141,19 @@ $(BUILD)/libc.app.o: sdk/libc.c sdk/libc.h sdk/k32x.h | $(BUILD)
 	$(CC) -m32 $(CFLAGS) -g -c $< -o $@
 $(BUILD)/practical.ext.o: apps/practical.c sdk/libc.h
 	$(CC) -m32 $(CFLAGS) -g -Isdk -c $< -o $@
-$(BUILD)/practical.ext.elf: $(BUILD)/practical.ext.o $(BUILD)/libc.app.o $(BUILD)/crt1.o sdk/app.ld
+$(BUILD)/io.app.o: sdk/io.c sdk/io.h sdk/libc.h io.h | $(BUILD)
+	$(CC) -m32 $(CFLAGS) -g -c $< -o $@
+$(BUILD)/practical.ext.elf: $(BUILD)/practical.ext.o $(BUILD)/io-demo.ext.o $(BUILD)/io.app.o $(BUILD)/libc.app.o $(BUILD)/crt1.o sdk/app.ld
 	ld -m elf_i386 -T sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/PRACT32.EXE: $(BUILD)/practical.ext.elf package.py
-	python3 package.py $< $@ --abi 258 --features 15 --compact --stack-bytes 65536 --min-heap 1048576 --debug-map $(BUILD)/PRACT32.debug.json
+	python3 package.py $< $@ --abi 258 --features 271 --compact --stack-bytes 65536 --min-heap 1048576 --debug-map $(BUILD)/PRACT32.debug.json
 apps: $(BUILD)/PRACT32.EXE
 
 $(BUILD)/host.host.o $(BUILD)/services-dos.host.o $(BUILD)/services-dos.o: ../kgui32/sdk/protocol.h
 $(BUILD)/workspace.host.o $(BUILD)/services-dos.host.o: workspace.h
+$(BUILD)/services-dos.host.o $(BUILD)/services-dos.o: io.h
+all:
+	$(MAKE) -C ../k32io all
 
 $(BUILD)/bank.host.o: ../k386/bank.c ../k386/bank.h | $(BUILD)
 	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -DK32_HOST -c $< -o $@

@@ -1,5 +1,6 @@
 #include "k32x.h"
 #include "libc.h"
+extern int practical_io(const char *);
 volatile unsigned practical_stats[16] __attribute__((section(".data.stats")))={0x3252504b};
 static unsigned stack_probe(void){volatile unsigned char bytes[32768];unsigned sum=0;for(unsigned i=0;i<sizeof bytes;i++){bytes[i]=(unsigned char)(i*17+3);sum+=bytes[i];}return sum;}
 int main(int argc,char **argv){
@@ -13,6 +14,7 @@ int main(int argc,char **argv){
  char text[80];int n=k32_snprintf(text,sizeof text,"PRACT32 PASS: stack=%u heap=%u number=%d hex=%x\r\n",info->reserved[1],info->heap_limit-info->heap_base,(-2147483647-1),0x386u);
  if(n<0||k32_write(text,(unsigned)n)!=n)return 6;
  practical_stats[1]=2;
+ if(argc>1&&(argv[1][0]=='i'||argv[1][0]=='r'||argv[1][0]=='c'))return practical_io(argv[1]);
  if(argc>1&&argv[1][0]=='f'){*(volatile unsigned *)info->reserved[2]=1;return 99;}
  if(argc>1)for(;;)k32_wait(K32_WAIT_KEY|K32_WAIT_TIME,1000);
  return 0;

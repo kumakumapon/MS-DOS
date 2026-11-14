@@ -861,9 +861,9 @@ loader_trap:
 gui_old_service:
 .endif
     .ifdef HOST
-    cmp eax,17
+    cmp eax,18
     .else
-    cmp eax,12
+    cmp eax,18
     .endif
     ja unknown_service
 .ifdef GUI_HOST

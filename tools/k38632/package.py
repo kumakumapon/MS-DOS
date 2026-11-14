@@ -22,7 +22,7 @@ def compact_elf(elf):
     return bytes(out)
 
 def package(elf,abi=256,features=0,gui=False,client=False,stack_bytes=None,min_heap=0):
-    if abi not in (256,257,258) or features&~(31 if gui else 239 if client else 15) or (features&128 and features&96!=96) or (abi==256 and features) or (gui and not features&16) or (client and (gui or not features&32)):raise ValueError("unsupported ABI/features")
+    if abi not in (256,257,258) or features&~(31 if gui else 495 if client else 271) or (features&128 and features&96!=96) or (abi==256 and features) or (gui and not features&16) or (client and (gui or not features&32)):raise ValueError("unsupported ABI/features")
     if abi!=258 and (stack_bytes is not None or min_heap):raise ValueError('resources require ABI 258')
     resource=b''
     if abi==258:
