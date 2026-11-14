@@ -177,7 +177,7 @@ void io_dispatch(void){
  done:if(p.result<0&&p.result!=-11)io_record.rejected++;mem_copy(io_sender_segment,io_sender_offset,self,(unsigned)&p,sizeof p);
 }
 int io_install(void){
- unsigned a=0xd39f,b=0;__asm__ volatile("int $0x2f":"+a"(a):"b"(b):"ecx","edx","esi","edi","cc","memory");if((a&65535)==0x39fd)return 2;
+ unsigned a=0xd39f,b=0;__asm__ volatile("pushw %%es; int $0x2f; popw %%es":"+a"(a):"b"(b):"ecx","edx","esi","edi","cc","memory");if((a&65535)==0x39fd)return 2;
  __asm__ volatile("movw %%ds,%w0":"=r"(self));a=0x6200;__asm__ volatile("int $0x21":"+a"(a),"=b"(psp)::"cc","memory");
  a=0x6700;__asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"b"(96):"cc","memory");if(a==~0u)return 0;
  unsigned short seg;unsigned off;a=0x3400;__asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(off)::"cc","memory");indos_segment=seg;indos_offset=off&65535;

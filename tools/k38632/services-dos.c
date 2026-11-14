@@ -33,7 +33,8 @@ static u32 get(unsigned at){return *(u32 *)(results+at);}
 static void put(unsigned at,u32 n){*(u32 *)(results+at)=n;}
 static void inc(unsigned at){put(at,get(at)+1);}
 #ifndef K32_GUI
-static int io_available(void){u32 a=0xd39f,b=0;__asm__ volatile("int $0x2f":"+a"(a):"b"(b):"ecx","edx","esi","edi","cc","memory");return (a&65535)==0x39fd;}
+/* The resident query returns ES:DI; C string operations require our ES=DS. */
+static int io_available(void){u32 a=0xd39f,b=0;__asm__ volatile("pushw %%es; int $0x2f; popw %%es":"+a"(a):"b"(b):"ecx","edx","esi","edi","cc","memory");return (a&65535)==0x39fd;}
 #ifdef K32_HOST
 static int io_lock(const char *,unsigned);
 #endif
