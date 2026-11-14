@@ -14,7 +14,10 @@ One acknowledged transfer is pending per client. Both surfaces retain complete
 old fronts until upload completes and are revoked on Close/fault/generation
 replacement. `kg_bitmap_scaled` uses nearest-neighbor sampling with bounded
 destination geometry and source rectangles; op 5 stores source width/height as
-two little-endian u16s in text[0..3], with remaining text bytes zero.
+two little-endian u16s in text[0..3]. Optional viewport x/y/w/h occupy four
+u16s in text[4..11]; all-zero means the whole client canvas. Remaining bytes
+are zero. Images supplies its image-panel viewport so zoom/pan never paints
+over its controls. `kg_bitmap_scaled_clip` validates this additional rectangle.
 
 Images supports uncompressed BMP8 with a bounded indexed palette, BMP16 RGB555,
 BMP24 and BMP32 RGBX, including top-down rows. It validates complete palette

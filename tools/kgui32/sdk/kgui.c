@@ -72,3 +72,8 @@ int kg_bitmap_scaled(unsigned handle,int x,int y,unsigned sx,unsigned sy,unsigne
  if(sx>=surface_width[index]||sy>=surface_height[index]||!sw||!sh||sw>surface_width[index]-sx||sh>surface_height[index]-sy||!dw||dw>4096||!dh||dh>4096)return -22;
  KgDraw *d=add(KG_BITMAP_SCALE,x,y,dw,dh,sy<<16|sx);if(!d)return -28;d->id=handle;d->text[0]=sw;d->text[1]=sw>>8;d->text[2]=sh;d->text[3]=sh>>8;return 0;
 }
+int kg_bitmap_scaled_clip(unsigned handle,int x,int y,unsigned sx,unsigned sy,unsigned sw,unsigned sh,unsigned dw,unsigned dh,unsigned cx,unsigned cy,unsigned cw,unsigned ch){
+ if(!cw||!ch||cx>=width||cy>=height||cw>width-cx||ch>height-cy)return -22;
+ int e=kg_bitmap_scaled(handle,x,y,sx,sy,sw,sh,dw,dh);if(e)return e;
+ KgDraw *d=&request.draw[request.count-1];unsigned clip[4]={cx,cy,cw,ch};for(unsigned i=0;i<4;i++){d->text[4+i*2]=clip[i];d->text[5+i*2]=clip[i]>>8;}return 0;
+}

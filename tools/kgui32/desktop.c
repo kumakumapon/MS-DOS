@@ -365,6 +365,7 @@ static void graphical(unsigned id,int x,int y,int width,int height){
     if(sx<im->width&&sy<im->height&&sw&&sh&&sw<=im->width-sx&&sh<=im->height-sy){
      const u16 *p=secondary?extra_pixels[id]+im->front*KG_SURFACE_EXTRA_PIXELS:image_pixels[id]+im->front*KG_SURFACE_PIXELS;
      int l=xx>clip.x?xx:clip.x,t=yy>clip.y?yy:clip.y,right=xx+d->w<clip.x+clip.w?xx+d->w:clip.x+clip.w,bottom=yy+d->h<clip.y+clip.h?yy+d->h:clip.y+clip.h;
+     if(d->op==KG_BITMAP_SCALE){unsigned cw=dimensions[8]|(unsigned)dimensions[9]<<8,ch=dimensions[10]|(unsigned)dimensions[11]<<8;if(cw&&ch){int cx=x+8+(dimensions[4]|(unsigned)dimensions[5]<<8),cy=y+70+(dimensions[6]|(unsigned)dimensions[7]<<8);if(l<cx)l=cx;if(t<cy)t=cy;if(right>cx+(int)cw)right=cx+cw;if(bottom>cy+(int)ch)bottom=cy+ch;}}
      for(int col=l;col<right;col++)scale_xmap[col-l]=sx+(unsigned)(col-xx)*sw/(unsigned)d->w;
      for(int row=t;row<bottom;row++){unsigned source=(sy+(unsigned)(row-yy)*sh/(unsigned)d->h)*im->width;for(int col=l;col<right;col++){u16 c=p[source+scale_xmap[col-l]];u32 pixel=info.bpp==2?c:rgb(((c>>11)&31)*255/31,((c>>5)&63)*255/63,(c&31)*255/31);box(col,row,1,1,pixel);}}
     }

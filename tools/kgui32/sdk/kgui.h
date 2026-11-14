@@ -23,6 +23,7 @@ int kg_surface_upload(unsigned,const u16 *,unsigned);
 int kg_surface_destroy(unsigned);
 int kg_bitmap(unsigned,int,int,unsigned,unsigned,unsigned,unsigned);
 int kg_bitmap_scaled(unsigned,int,int,unsigned,unsigned,unsigned,unsigned,unsigned,unsigned);
+int kg_bitmap_scaled_clip(unsigned,int,int,unsigned,unsigned,unsigned,unsigned,unsigned,unsigned,unsigned,unsigned,unsigned,unsigned);
 unsigned kg_width(void);
 unsigned kg_height(void);
 #endif

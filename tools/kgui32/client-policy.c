@@ -12,7 +12,12 @@ int kg_validate(const KgRequest *r,unsigned width,unsigned height){
  if(r->count>KG_COMMANDS)return -22;
  for(unsigned i=0;i<r->count;i++){
   const KgDraw *d=&r->draw[i];
-  if(d->op==KG_BITMAP||d->op==KG_BITMAP_SCALE){if(d->x < -4096||d->x>4096||d->y < -4096||d->y>4096||d->w<1||d->w>(d->op==KG_BITMAP?384:4096)||d->h<1||d->h>(d->op==KG_BITMAP?256:4096))return -22;continue;}
+  if(d->op==KG_BITMAP||d->op==KG_BITMAP_SCALE){
+   if(d->x < -4096||d->x>4096||d->y < -4096||d->y>4096||d->w<1||d->w>(d->op==KG_BITMAP?384:4096)||d->h<1||d->h>(d->op==KG_BITMAP?256:4096))return -22;
+   if(d->op==KG_BITMAP_SCALE){const u8 *p=(const u8 *)d->text;unsigned cx=p[4]|(unsigned)p[5]<<8,cy=p[6]|(unsigned)p[7]<<8,cw=p[8]|(unsigned)p[9]<<8,ch=p[10]|(unsigned)p[11]<<8;
+    if(cx||cy||cw||ch)if(!cw||!ch||cx>=width||cy>=height||cw>width-cx||ch>height-cy)return -22;}
+   continue;
+  }
   if(d->op<KG_RECT||d->op>KG_BUTTON||d->x<0||d->y<0||(unsigned)d->x>=width||(unsigned)d->y>=height||d->color>0xffffff)return -22;
   if(d->op==KG_TEXT){
    if(!text(d->text,48)||height-(unsigned)d->y<16)return -22;

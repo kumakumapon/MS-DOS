@@ -142,7 +142,7 @@ static int draw(void){
  kw_draw_input((KwRect){8,4,160,28},&filename,focused);kg_button('o',176,4,72,28,"Load");kg_button('q',w-80,4,72,28,"Close");
  kg_button('i',8,40,72,28,"Invert");kg_button('h',88,40,72,28,"Flip H");kg_button('u',168,40,72,28,"Undo");kg_button('p',248,40,80,28,paintmode?"Painting":"Paint");
  kg_rect(8,80,w-16,h-116,0x182c46);
- if(handle&&image.width&&zoom){unsigned z=zoom==3?1:2u<<zoom,dw=image.width*z/2,dh=image.height*z/2;kg_bitmap_scaled(handle,16+panx,88+pany,0,0,image.width,image.height,dw?dw:1,dh?dh:1);}
+ if(handle&&image.width&&zoom){unsigned z=zoom==3?1:2u<<zoom,dw=image.width*z/2,dh=image.height*z/2;kg_bitmap_scaled_clip(handle,16+panx,88+pany,0,0,image.width,image.height,dw?dw:1,dh?dh:1,8,80,w-16,h-116);}
  else if(handle&&image.width){
   int x=16+panx,y=88+pany,sx=x<8?8-x:0,sy=y<80?80-y:0;x+=sx;y+=sy;
   int width=(int)image.width-sx,height=(int)image.height-sy;

@@ -23,7 +23,7 @@ int kg_surface_draw(const KgSurface *s,const KgDraw *d){
  unsigned sx=d->color&65535,sy=d->color>>16;
  if(!s->width||d->id!=s->handle)return -116;
  if(s->pending||s->uploaded!=s->width*s->height*2)return -11;
- unsigned w=d->w,h=d->h;if(d->op==KG_BITMAP_SCALE){const u8 *p=(const u8 *)d->text;w=p[0]|(unsigned)p[1]<<8;h=p[2]|(unsigned)p[3]<<8;for(unsigned i=4;i<sizeof d->text;i++)if(p[i])return -22;}
+ unsigned w=d->w,h=d->h;if(d->op==KG_BITMAP_SCALE){const u8 *p=(const u8 *)d->text;w=p[0]|(unsigned)p[1]<<8;h=p[2]|(unsigned)p[3]<<8;for(unsigned i=12;i<sizeof d->text;i++)if(p[i])return -22;}
  if(d->w<1||d->h<1||!w||!h||sx>=s->width||sy>=s->height||w>s->width-sx||h>s->height-sy)return -22;
  return 0;
 }
