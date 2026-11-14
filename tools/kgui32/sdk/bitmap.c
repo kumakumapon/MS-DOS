@@ -1,9 +1,9 @@
 /* Strict bounded BMP24/BI_RGB decoder. Output is private RGB565, not VRAM. */
 #include "bitmap.h"
-static u32 word(const u8 *p){return p[0]|(u32)p[1]<<8;}
-static u32 dword(const u8 *p){return word(p)|word(p+2)<<16;}
+#include "../../filer/bmp.h"
+static u32 dword(const u8 *p){return bmp32(p);}
 int kg_bmp_header(const u8 *p,unsigned n,u32 filebytes,KgBmp *out){
- if(n<54||p[0]!='B'||p[1]!='M'||dword(p+2)!=filebytes||dword(p+6)||dword(p+14)!=40||word(p+26)!=1||word(p+28)!=24||dword(p+30))return -22;
+ if(n<54||!bmp24_valid(p,filebytes))return -22;
  unsigned w=dword(p+18);int h=(int)dword(p+22);
  if(!w||w>256||!h||h < -192||h>192)return -22;
  unsigned height=h<0?-h:h,stride=(w*3+3)&~3u,offset=dword(p+10),bytes=stride*height;
@@ -35,4 +35,19 @@ int kg_bitmap_line(u16 *p,unsigned w,unsigned h,int x,int y,int endx,int endy,u1
  int dx=endx>x?endx-x:x-endx,dy=endy>y?y-endy:endy-y,sx=x<endx?1:-1,sy=y<endy?1:-1,error=dx+dy;
  for(;;){kg_bitmap_fill(p,w,h,x-1,y-1,3,3,color);if(x==endx&&y==endy)break;int twice=error*2;if(twice>=dy){error+=dy;x+=sx;}if(twice<=dx){error+=dx;y+=sy;}}
  return 0;
+}
+
+int kg_bmp_encode(const u16 *pixels,unsigned w,unsigned h,u8 *out,unsigned capacity){
+ if(!pixels||!out||!w||w>256||!h||h>192)return -22;
+ unsigned stride=(w*3+3)&~3u,bytes=54+stride*h;
+ if(capacity<bytes)return -28;
+ for(unsigned i=0;i<bytes;i++)out[i]=0;
+ out[0]='B';out[1]='M';
+ unsigned at[]={2,10,14,18,22,26,28,34},value[]={bytes,54,40,w,h,1,24,stride*h};
+ for(unsigned j=0;j<8;j++)for(unsigned i=0;i<(at[j]==26||at[j]==28?2u:4u);i++)out[at[j]+i]=value[j]>>(i*8);
+ for(unsigned y=0;y<h;y++)for(unsigned x=0;x<w;x++){
+  unsigned v=pixels[(h-1-y)*w+x],b=v&31,g=v>>5&63,r=v>>11;
+  unsigned at=54+y*stride+x*3;out[at]=(b<<3)|(b>>2);out[at+1]=(g<<2)|(g>>4);out[at+2]=(r<<3)|(r>>2);
+ }
+ return bytes;
 }

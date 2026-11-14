@@ -19,5 +19,15 @@ int main(void){
  assert(!kg_bitmap_fill(clipped+1,3,3,0x7fffffff,0x7fffffff,0x7fffffff,0x7fffffff,0));assert(clipped[1]==0xabcd);
  assert(!kg_bitmap_line(clipped+1,3,3,-1,-1,3,3,0x5678));assert(clipped[1]==0x5678&&clipped[9]==0x5678&&clipped[0]==0x1234&&clipped[10]==0x1234);
  assert(kg_bitmap_line(clipped+1,3,3,-2147483647,0,1,1,0)==-22);
+ static u16 all[256*192],decoded[256*192];static u8 encoded[54+256*192*3];
+ for(unsigned pass=0;pass<2;pass++){
+  for(unsigned i=0;i<256*192;i++)all[i]=(u16)(i+pass*32768);
+  int n=kg_bmp_encode(all,256,192,encoded,sizeof encoded);assert(n==sizeof encoded);
+  assert(!kg_bmp_header(encoded,54,n,&b));
+  for(unsigned y=0;y<192;y++)assert(!kg_bmp_row(&b,y,encoded+54+y*768,768,decoded,256*192));
+  assert(!memcmp(all,decoded,sizeof all));
+ }
+ assert(kg_bmp_encode(all,257,1,encoded,sizeof encoded)==-22);
+ assert(kg_bmp_encode(all,256,192,encoded,54)==-28);
  return 0;
 }

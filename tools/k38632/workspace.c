@@ -2,16 +2,19 @@
 #include "services.h"
 #include "workspace.h"
 #include "../filer/sjis.h"
-int k32_work_path_at(unsigned drive,const char *name,char path[24]){
+#include "../filer/bmp.h"
+int k32_work_path_kind_at(unsigned drive,const char *name,unsigned flags,char path[24]){
  if(drive>25)return -22;
  unsigned n=0;while(n<16&&name[n])n++;
  char root[16];if(n>12||!k32_filename(name,n,root))return -22;
- if(n<5||root[n-1]!='.'||root[n]!='T'||root[n+1]!='X'||root[n+2]!='T')return -22;
+ const char *ext=flags&K32_WORK_BMP?"BMP":"TXT";
+ if(n<5||root[n-1]!='.'||root[n]!=ext[0]||root[n+1]!=ext[1]||root[n+2]!=ext[2])return -22;
  const char *prefix="A:\\WORK\\";for(unsigned i=0;i<8;i++)path[i]=prefix[i];
  path[0]='A'+drive;
  for(unsigned i=0;i<=n;i++)path[8+i]=root[3+i];
  return 0;
 }
+int k32_work_path_at(unsigned drive,const char *name,char path[24]){return k32_work_path_kind_at(drive,name,0,path);}
 int k32_work_path(const char *name,char path[24]){return k32_work_path_at(0,name,path);}
 int k32_work_space(K32WorkInfo *out,unsigned spc,unsigned free,unsigned bps,unsigned total){
  if(!spc||spc>128||(spc&(spc-1))||bps<128||bps>4096||(bps&(bps-1))||free>total||!total)return -5;
@@ -20,30 +23,37 @@ int k32_work_space(K32WorkInfo *out,unsigned spc,unsigned free,unsigned bps,unsi
  out->free_bytes=free*cluster;out->total_bytes=total*cluster;return 0;
 }
 int k32_work_request(const K32Work *r){
- if(r->version!=1||r->size!=sizeof *r||(r->flags&~K32_WORK_CRLF)||(r->flags&&r->operation!=K32_WORK_SAVE)||r->reserved[0]||r->reserved[1]||r->reserved[2])return -22;
+ if(r->version!=1||r->size!=sizeof *r||(r->flags&~(K32_WORK_CRLF|K32_WORK_BMP))||((r->flags&K32_WORK_CRLF)&&(r->operation!=K32_WORK_SAVE||(r->flags&K32_WORK_BMP)))||r->reserved[0]||r->reserved[1]||r->reserved[2])return -22;
  if(r->operation<1||r->operation>K32_WORK_REC_FIRST_BAK)return -38;
  if(r->operation==K32_WORK_INFO){
-  if(r->bytes!=sizeof(K32WorkInfo)||r->exists||r->length||r->hash)return -22;
+  if(r->flags||r->bytes!=sizeof(K32WorkInfo)||r->exists||r->length||r->hash)return -22;
   for(unsigned i=0;i<sizeof r->name;i++)if(r->name[i])return -22;
   return 0;
  }
  if(r->operation==K32_WORK_FIRST||r->operation==K32_WORK_REC_FIRST_TMP||r->operation==K32_WORK_REC_FIRST_BAK)return r->bytes==64?0:-22;
  if(r->operation==K32_WORK_REC_INFO&&r->bytes!=sizeof(K32RecoveryInfo))return -22;
  if((r->operation==K32_WORK_REC_RESTORE_TMP||r->operation==K32_WORK_REC_RESTORE_BAK)&&r->bytes!=sizeof(K32RecoveryRestore))return -22;
- char path[24];if(k32_work_path(r->name,path))return -22;
- if(r->operation==K32_WORK_SAVE&&(r->bytes>K32_WORK_LIMIT||r->exists>1||r->length>K32_WORK_LIMIT))return -22;
+ char path[24];if(k32_work_path_kind_at(0,r->name,r->flags,path))return -22;
+ unsigned limit=r->flags&K32_WORK_BMP?K32_BMP_LIMIT:K32_WORK_LIMIT;
+ if(r->operation==K32_WORK_SAVE&&(r->bytes>limit||r->exists>1||r->length>limit))return -22;
  return 0;
 }
 int k32_work_save_at(unsigned drive,const K32Work *r,const K32WorkIO *io,unsigned char buffer[4096]){
  char target[24],temp[24],backup[24];int e=k32_work_request(r);
  if(e||r->operation!=K32_WORK_SAVE)return e?e:-22;
- if(k32_work_path_at(drive,r->name,target))return -22;
+ if(k32_work_path_kind_at(drive,r->name,r->flags,target))return -22;
  unsigned dot=0;
  for(unsigned i=0;i<24;i++){temp[i]=backup[i]=target[i];if(target[i]=='.')dot=i;if(!target[i])break;}
  temp[dot+1]='T';temp[dot+2]='M';temp[dot+3]='P';
  backup[dot+1]='B';backup[dot+2]='A';backup[dot+3]='K';
  /* Validate the entire user document before any filesystem mutation. */
  unsigned pending_cr=0,pending_lead=0;
+ if(r->flags&K32_WORK_BMP){
+  if(r->bytes<54)return -22;
+  if((e=io->copy(r->data,buffer,54)))return e;
+  if(!bmp24_valid(buffer,r->bytes))return -22;
+ }
+ else {
  for(unsigned at=0;at<r->bytes;){unsigned n=r->bytes-at;if(n>4096)n=4096;
   if((e=io->copy(r->data+at,buffer,n)))return e;
   for(unsigned i=0;i<n;i++){
@@ -57,6 +67,7 @@ int k32_work_save_at(unsigned drive,const K32Work *r,const K32WorkIO *io,unsigne
   at+=n;
  }
  if(pending_cr||pending_lead)return -22;
+ }
  unsigned length=0,hash=0;int exists=io->stat(target,&length,&hash);
  if(exists<0)return exists;
  if((unsigned)exists!=r->exists||(exists&&(length!=r->length||hash!=r->hash)))return -116;
@@ -82,27 +93,27 @@ int k32_work_save_at(unsigned drive,const K32Work *r,const K32WorkIO *io,unsigne
 int k32_work_save(const K32Work *r,const K32WorkIO *io,unsigned char buffer[4096]){return k32_work_save_at(0,r,io,buffer);}
 
 /* Only three reserved variants of a validated TXT base, never a caller path. */
-int k32_work_variant_at(unsigned drive,const char *name,unsigned kind,char path[24]){
+int k32_work_variant_kind_at(unsigned drive,const char *name,unsigned kind,unsigned flags,char path[24]){
  if(kind>2)return -22;
- int e=k32_work_path_at(drive,name,path);if(e)return e;
+ int e=k32_work_path_kind_at(drive,name,flags,path);if(e)return e;
  if(kind){unsigned dot=0;for(unsigned i=8;path[i];i++)if(path[i]=='.')dot=i;
   const char *ext=kind==1?"TMP":"BAK";for(unsigned i=0;i<3;i++)path[dot+1+i]=ext[i];}
  return 0;
 }
-int k32_recovery_info_at(unsigned drive,const char *name,K32RecoveryInfo *out,const K32WorkIO *io){
+int k32_recovery_info_kind_at(unsigned drive,const char *name,unsigned flags,K32RecoveryInfo *out,const K32WorkIO *io){
  *out=(K32RecoveryInfo){.version=1,.size=sizeof *out};
- for(unsigned i=0;i<3;i++){char path[24];int e=k32_work_variant_at(drive,name,i,path);if(e)return e;
+ for(unsigned i=0;i<3;i++){char path[24];int e=k32_work_variant_kind_at(drive,name,i,flags,path);if(e)return e;
   K32WorkRevision *v=&out->file[i];e=io->stat(path,&v->length,&v->hash);
   if(e<0){v->error=e;v->length=v->hash=0;}else v->exists=e;
  }
  return 0;
 }
-int k32_recovery_restore_at(unsigned drive,const char *name,unsigned kind,const K32RecoveryRestore *r,const K32WorkIO *io){
+int k32_recovery_restore_kind_at(unsigned drive,const char *name,unsigned kind,unsigned flags,const K32RecoveryRestore *r,const K32WorkIO *io){
  char source[24],target[24];
  if(kind<1||kind>2||r->expected.version!=1||r->expected.size!=sizeof r->expected||r->expected.reserved[0]||r->expected.reserved[1])return -22;
- if(k32_work_variant_at(drive,name,kind,source)||k32_work_path_at(drive,r->destination,target))return -22;
- for(unsigned i=0;i<3;i++)if(r->expected.file[i].exists>1||r->expected.file[i].length>K32_WORK_LIMIT)return -22;
- K32RecoveryInfo got;int e=k32_recovery_info_at(drive,name,&got,io);if(e)return e;
+ if(k32_work_variant_kind_at(drive,name,kind,flags,source)||k32_work_path_kind_at(drive,r->destination,flags,target))return -22;
+ for(unsigned i=0;i<3;i++)if(r->expected.file[i].exists>1||r->expected.file[i].length>(flags&K32_WORK_BMP?K32_BMP_LIMIT:K32_WORK_LIMIT))return -22;
+ K32RecoveryInfo got;int e=k32_recovery_info_kind_at(drive,name,flags,&got,io);if(e)return e;
  for(unsigned i=0;i<3;i++){
   K32WorkRevision a=got.file[i],b=r->expected.file[i];if(a.error)return a.error;
   if(a.exists!=b.exists||a.length!=b.length||a.hash!=b.hash||a.error!=b.error)return -116;
@@ -113,3 +124,7 @@ int k32_recovery_restore_at(unsigned drive,const char *name,unsigned kind,const 
   * A failed DOS rename leaves the candidate; other revisions are untouched. */
  return io->rename(source,target);
 }
+
+int k32_work_variant_at(unsigned d,const char *n,unsigned k,char p[24]){return k32_work_variant_kind_at(d,n,k,0,p);}
+int k32_recovery_info_at(unsigned d,const char *n,K32RecoveryInfo *o,const K32WorkIO *i){return k32_recovery_info_kind_at(d,n,0,o,i);}
+int k32_recovery_restore_at(unsigned d,const char *n,unsigned k,const K32RecoveryRestore *r,const K32WorkIO *i){return k32_recovery_restore_kind_at(d,n,k,0,r,i);}

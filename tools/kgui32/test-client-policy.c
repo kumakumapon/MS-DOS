@@ -44,7 +44,7 @@ int main(void){
  for(unsigned i=0;i<sizeof invalid/sizeof *invalid;i++)assert(kg_document_command(0,invalid[i],command)==-22);
  assert(kg_document_command(2,"A.TXT",command)==-22);
  assert(!kg_document_command(0,"sample.bmp",command)&&!strcmp(command,"KGIMAGE.EXE root SAMPLE.BMP"));
- assert(kg_document_command(1,"A.BMP",command)==-22);
+ assert(!kg_document_command(1,"A.BMP",command)&&!strcmp(command,"KGIMAGE.EXE work A.BMP"));
  request.operation=KG_EDIT_DOCUMENT;request.count=1;strcpy(request.title,"NOTE.TXT");request.token=999;assert(kg_policy(&client,&request,7,&serial,640,400)==-116);request.token=1;
  assert(!kg_policy(&client,&request,7,&serial,640,400)&&client.edit_pending&&client.edit_namespace==1);
  assert(kg_policy(&client,&request,7,&serial,640,400)==-16);request.operation=KG_EDIT_STATUS;assert(kg_policy(&client,&request,7,&serial,640,400)==-11);
