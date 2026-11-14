@@ -29,27 +29,25 @@ static KvCanvas video_cache[4],video_stage;
 static u32 video_generation[4],video_revision[4],video_valid[4];
 static u8 video_pixels[640*400];
 static u32 video_composed_slot,video_composed_revision,video_composed_generation,video_composed_phase;
-static int video_read(unsigned id,unsigned region,void *data,unsigned n){
+static int video_read(unsigned id,const GuiSessionView *v,unsigned region,void *data,unsigned n){
  for(unsigned at=0;at<n;){unsigned count=n-at;if(count>KV_READ_BYTES)count=KV_READ_BYTES;
-  GuiVideoRead r={.version=1,.size=sizeof r,.slot=id,.generation=views[id].generation,.region=region,.offset=at,.data=(u32)data+at,.bytes=count,.revision=views[id].text_revision};
+  GuiVideoRead r={.version=1,.size=sizeof r,.slot=id,.generation=v->generation,.region=region,.offset=at,.data=(u32)data+at,.bytes=count,.revision=v->text_revision};
   int e=k32_call(GUI_VIDEO_READ,(u32)&r,sizeof r);if(e)return e;at+=count;
  }return 0;
 }
 static void refresh_video(unsigned id,const GuiSessionView *v){
  if(!(info.features&GUI_VIDEO_MODES)||!v->owned||v->kind||!v->generation){video_valid[id]=0;return;}
  if(video_valid[id]&&video_generation[id]==v->generation&&video_revision[id]==v->text_revision)return;
- GuiSessionView saved=views[id];views[id]=*v;
  video_stage=video_cache[id];
- int e=video_read(id,0,&video_stage.meta,sizeof(KvMeta));
+ int e=video_read(id,v,0,&video_stage.meta,sizeof(KvMeta));
  if(!e)video_stage.meta.text_cursor=(video_stage.meta.text_start+v->row*video_stage.meta.text_pitch+v->column)&4095;
  if(!e&&(video_stage.meta.version!=1||video_stage.meta.size!=sizeof(KvMeta)))e=-22;
  if(!e&&kt_video_extra(&video_stage.meta)){
-  if(!video_valid[id]||video_generation[id]!=v->generation||video_stage.meta.font_writes!=video_cache[id].meta.font_writes)e=video_read(id,1,video_stage.font,sizeof video_stage.font);
-  if(!e&&(video_stage.meta.flags&KV_GRAPH))for(unsigned p=0;p<4&&!e;p++)e=video_read(id,2+p,video_stage.planes[p],32768);
-  if(!e)e=video_read(id,6,video_stage.codes,sizeof video_stage.codes);
-  if(!e)e=video_read(id,7,video_stage.attributes,sizeof video_stage.attributes);
+  if(!video_valid[id]||video_generation[id]!=v->generation||video_stage.meta.font_writes!=video_cache[id].meta.font_writes)e=video_read(id,v,1,video_stage.font,sizeof video_stage.font);
+  if(!e&&(video_stage.meta.flags&KV_GRAPH))for(unsigned p=0;p<4&&!e;p++)e=video_read(id,v,2+p,video_stage.planes[p],32768);
+  if(!e)e=video_read(id,v,6,video_stage.codes,sizeof video_stage.codes);
+  if(!e)e=video_read(id,v,7,video_stage.attributes,sizeof video_stage.attributes);
  }
- views[id]=saved;
  if(e)return;
  int old_extra=kt_video_extra(&video_cache[id].meta);
  video_cache[id]=video_stage;video_valid[id]=1;video_generation[id]=v->generation;video_revision[id]=v->text_revision;

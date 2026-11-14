@@ -36,6 +36,12 @@ class Image(unittest.TestCase):
         self.assertEqual(symbols('desktop.elf')['gui_state'],p.rwbase)
         b=bytearray(data);struct.pack_into('<I',b,92,32)
         self.assertNotEqual(parser(True)(b)[0],0)
+    def test_desktop_stack_headroom(self):
+        rows=(ROOT/'build/desktop.su').read_text().splitlines()
+        self.assertTrue(rows)
+        for row in rows:
+            function,size,kind=row.split('\t')
+            self.assertLessEqual(int(size),3072,function+' must leave headroom in the 4 KiB user stack')
     def test_graphical_client_packages(self):
         for name in ('KGCALC','KGCLOCK','KGFILES','KGDIRBAD','KGEDIT','KGRECNEG','KGRECNON','KGIMAGE'):
             data=(ROOT/f'build/{name}.EXE').read_bytes()

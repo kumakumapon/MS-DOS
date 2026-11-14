@@ -40,7 +40,7 @@ $(BUILD)/driver.elf: $(BUILD)/video-policy.o $(BUILD)/verified-disk.o $(BUILD)/d
 $(BUILD)/KGUILDR.EXE: $(BUILD)/driver.elf ../mz/build.py
 	python3 ../mz/build.py --desktop-app 'KGUI32 native loader' $< $@
 $(BUILD)/desktop.o: desktop.c gui.h | $(BUILD)
-	$(CC) $(CFLAGS) -m32 -I$(K32)/sdk -c $< -o $@
+	$(CC) $(CFLAGS) -fstack-usage -m32 -I$(K32)/sdk -c $< -o $@
 $(BUILD)/scene.o: scene.c scene.h gui.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/crt.o: $(K32)/sdk/crt1.S | $(BUILD)
