@@ -5,6 +5,7 @@
 #include "../sdk/recovery.h"
 #include "../sdk/text.h"
 #include "../sdk/ime.h"
+#include "../sdk/ime-store.h"
 #include "ui-editor.h"
 static KeDocument doc;static KpPicker picker;static KrRecovery recovery;
 static KwInput find_text,replace_text;static KwFocus find_focus;static unsigned replacing,recovery_suggested;
@@ -14,12 +15,14 @@ static unsigned in_work;static K32Work revision,save_request;
 static K32WorkInfo destination;
 static char filename[13],clipboard[1024],load_buffer[KE_BYTES];
 static KiIme ime;static KiDictionary ime_dictionary;
+static KiDictionary user_dictionary;static KiStore user_store;
 static unsigned char dictionary_bytes[KI_DICTIONARY];
 static unsigned dictionary_checked,ime_target;
 /* Extension is app-private diagnostics. The original 64-byte v4 sample stays. */
 static const char *message;static KwScroll editor_scroll;
 volatile struct {u32 magic,version,frames,events,bytes,hash,cursor,anchor,dirty,mode,top,heartbeat,error,history,redo,workspace;
  u32 ime_magic,ime_scheme,ime_script,ime_bytes,ime_pending,ime_cursor,ime_candidates,ime_selected,ime_selecting,ime_target,ime_dictionary,ime_hash;
+ u32 user_readings,user_error;
 } editor_stats __attribute__((section(".data.gui_stats")))={.magic=0x3345474b,.version=4,.ime_magic=0x31454d49};
 static void layout(void){cols=(kg_width()-48)/8;if(cols>92)cols=92;rows=(kg_height()-80)/16;if(rows>21)rows=21;}
 static void budget_rows(void){
@@ -46,27 +49,29 @@ static void report(void){KeVersion *v=ke_view(&doc);unsigned hash=2166136261u;fo
  editor_stats.bytes=v->n;editor_stats.hash=hash;editor_stats.cursor=v->cursor;editor_stats.anchor=v->anchor;editor_stats.dirty=ke_dirty(&doc);editor_stats.mode=mode;editor_stats.top=top;editor_stats.history=doc.current;editor_stats.redo=doc.count-doc.current-1;editor_stats.workspace=destination.flags|(destination.drive<<8);
  editor_stats.ime_scheme=ime.scheme;editor_stats.ime_script=ime.katakana;editor_stats.ime_bytes=ime.n;editor_stats.ime_pending=ime.pending;editor_stats.ime_cursor=ime.cursor;editor_stats.ime_candidates=ime.count;editor_stats.ime_selected=ime.selected;editor_stats.ime_selecting=ime.selecting;editor_stats.ime_target=ime_target;editor_stats.ime_dictionary=dictionary_checked?(ime_dictionary.data?1:2):0;
  hash=2166136261u;for(unsigned i=0;i<ime.n;i++)hash=(hash^(unsigned char)ime.reading[i])*16777619u;editor_stats.ime_hash=hash;
+ editor_stats.user_readings=user_dictionary.entries;editor_stats.user_error=user_store.error<0?-user_store.error:0;
 }
 static void ime_load(void){
  if(dictionary_checked)return;
- dictionary_checked=1;int h=k32_open("KGIME.DIC");if(h<0)return;
+ dictionary_checked=1;
+ ki_store_init(&user_store);int user_error=ki_store_load(&user_store);if(!user_error)ki_user_view(&user_store.words,&user_dictionary);
+ int h=k32_open("KGIME.DIC");if(h<0)return;
  unsigned n=0;int error=0;while(n<KI_DICTIONARY){int got=k32_read(h,dictionary_bytes+n,KI_DICTIONARY-n>4096?4096:KI_DICTIONARY-n);if(got<0){error=got;break;}if(!got)break;n+=got;}
  if(!error&&n==KI_DICTIONARY){char extra;int got=k32_read(h,&extra,1);if(got)error=-27;}
  int closed=k32_close(h);if(!error&&closed<0)error=closed;
  if(!error)ki_dictionary(&ime_dictionary,dictionary_bytes,n);
 }
+static void ime_reload(void){ime_load();int error=ki_store_load(&user_store);if(!error)ki_user_view(&user_store.words,&user_dictionary);notice=error?"User dictionary reload failed / kept":"User dictionary reloaded";}
 static unsigned ime_rows(void){unsigned n=(kg_height()-112)/20;return n>6?6:n?n:1;}
 static void ime_commit(void){
- if(ki_prepare(&ime)<0)return;
- char text[KI_TEXT+1];const char *s;
- if(ime.selecting)s=ki_result(&ime);else{ki_script_text(ime.reading,ime.katakana,text);s=text;}
- unsigned n=ki_length(s);if(!n)return;
+ char text[KI_TEXT+1];int bytes=ki_commit_text(&ime,text);if(bytes<=0)return;const char *s=text;unsigned n=(unsigned)bytes;
  if(ime_target){if(!kw_insert(ime_target==1?&find_text:&replace_text,s,n)){ime.note="Field limit: 63 bytes / input kept";return;}}
  else if(ke_replace(&doc,s,n)<0){ime.note="Document limit: 64 KiB / input kept";return;}
  ki_clear(&ime);drag=mark=0;
 }
 static int ime_event(const KgEvent *e){
  int active=ki_active(&ime),editable=(mode==0&&!message)||(mode==5&&(find_focus.current==0||(replacing&&find_focus.current==1)));
+ if(e->type==KG_KEY&&e->key==288&&editable){if(active){ime.note="Commit or cancel before reloading words";return 1;}ime_reload();return 1;}
  if(e->type==KG_QUIT&&active){kg_cancel_close();ime.note="Commit or cancel IME, then close again";return 1;}
  if(e->type==KG_KEY&&(e->key==283||e->key==10||e->key==284)&&editable){
   if(active){ime.note="Commit or cancel before changing input";return 1;}
@@ -82,7 +87,7 @@ static int ime_event(const KgEvent *e){
    if(k==27){if(ime.selecting){ime.selecting=ime.count=0;ime.note=0;}else ki_clear(&ime);return 1;}
    if(k==26){ki_clear(&ime);return 1;}
    if(k==13){ime_commit();return 1;}
-   if(k==32){if(ime.selecting)ki_move_candidate(&ime,(e->control&KG_MOD_SHIFT)?-1:1);else{ime_load();ki_convert(&ime,&ime_dictionary);}return 1;}
+   if(k==32){if(ime.selecting)ki_move_candidate(&ime,(e->control&KG_MOD_SHIFT)?-1:1);else{ime_load();ki_convert_user(&ime,&ime_dictionary,&user_dictionary);}return 1;}
    if(ime.selecting){
     if(k==256||k==257||k==262||k==263)ki_move_candidate(&ime,k==256?-1:k==257?1:k==262?-(int)ime_rows():(int)ime_rows());
     else if(k==260)ime.selected=0;else if(k==261)ime.selected=ime.count-1;
@@ -90,17 +95,17 @@ static int ime_event(const KgEvent *e){
     else ime.note="Esc: edit reading / Enter: commit";
     return 1;
    }
-   if(ki_input(&ime,k,e->control))return 1;
+   if(ki_key_event(&ime,k,e->control,&ime_dictionary,&user_dictionary,0))return 1;
    ime.note="Commit or cancel IME before this action";return 1;
   }
   if(kw_button(2190,e)){ime_commit();return 1;}
   if(kw_button(2191,e)){ki_clear(&ime);return 1;}
-  if(kw_button(2192,e)||kw_button(2193,e)){if(ime.selecting)ki_move_candidate(&ime,kw_button(2192,e)?-(int)ime_rows():(int)ime_rows());else{ime_load();ki_convert(&ime,&ime_dictionary);}return 1;}
+  if(kw_button(2192,e)||kw_button(2193,e)){if(ime.selecting)ki_move_candidate(&ime,kw_button(2192,e)?-(int)ime_rows():(int)ime_rows());else{ime_load();ki_convert_user(&ime,&ime_dictionary,&user_dictionary);}return 1;}
   for(unsigned i=0;i<ime_rows();i++)if(kw_button(2200+i,e)&&ime.selecting){unsigned at=ime.selected/ime_rows()*ime_rows()+i;if(at<ime.count)ime.selected=at;return 1;}
   return e->type==KG_MOUSE||e->type==KG_POINTER;
  }
  if(e->type==KG_KEY&&ime.scheme&&((e->key>=33&&e->key<=126)||(e->key>=0xa1&&e->key<=0xdf))&&!(e->control&(KG_MOD_CTRL|KG_MOD_ALT))){
-  ime_target=mode==5?find_focus.current+1:0;drag=mark=0;ki_input(&ime,e->key,e->control);return 1;
+  ime_target=mode==5?find_focus.current+1:0;drag=mark=0;ki_key_event(&ime,e->key,e->control,&ime_dictionary,&user_dictionary,0);return 1;
  }
  return 0;
 }
@@ -129,7 +134,7 @@ static int ime_draw(void){
  if(ime.count>=10){status[p++]='0'+ime.count/10;}
  status[p++]='0'+ime.count%10;
  const char *hint=" / PgUp Dn / Esc: reading";for(unsigned i=0;hint[i];i++)status[p++]=hint[i];status[p]=0;
- kw_text(8,h-18,ime.note?ime.note:ime.selecting?status:"F6: hira / F7: kata / Esc: cancel",(w-16)/8,0x20344a);return kg_present();
+ kw_label(8,h-18,ime.note?ime.note:ime.selecting?status:"F6: hira / F7: kata / Esc: cancel",(w-16)/8,0x20344a);return kg_present();
 }
 static unsigned content_hash(const char *s,unsigned n){unsigned h=2166136261u;for(unsigned i=0;i<n;i++)h=(h^(unsigned char)s[i])*16777619u;return h;}
 static void load(const char *name,unsigned work){
@@ -243,7 +248,7 @@ static int draw(void){
  if(mode==8){unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_label(8,4,"IME / input settings",0x20344a);
   kg_button(2210,8,30,88,24,"Off");kg_button(2211,104,30,96,24,"Romaji");kg_button(2212,208,30,112,24,"JIS kana");
   kg_label(8,64,ime.scheme==KI_ROMAJI?"Selected: Romaji":ime.scheme==KI_KANA?"Selected: JIS kana":"Selected: Off",0x20344a);
-  kg_button(2213,8,88,128,24,"Hiragana / F6");kg_button(2214,144,88,128,24,"Katakana / F7");kg_button(2215,8,h-40,80,24,"Back");return kg_present();}
+  kg_button(2213,8,88,128,24,"Hiragana / F6");kg_button(2214,144,88,128,24,"Katakana / F7");kg_button(2215,8,h-40,80,24,"Back");kg_button(2216,104,h-40,216,24,"Reload words / F9");return kg_present();}
  unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xffffff);
  if(mode==2){kg_label(8,8,"Unsaved text",0x20344a);kw_label(8,32,"Save before continuing?",(w-16)/8,0x20344a);kg_button(803,8,64,64,28,"Save");kg_button(801,80,64,80,28,"Discard");kg_button(802,8,100,80,28,"Cancel");return kg_present();}
  if(mode==4){kw_label(8,8,"Replace workspace file?",(w-16)/8,0x20344a);kg_text(8,32,save_request.name,0x20344a);kg_button(811,8,64,100,28,"Replace");kg_button(812,8,100,100,28,"Cancel");return kg_present();}
@@ -260,7 +265,7 @@ static int draw(void){
  char status[64];unsigned n=0;const char *parts[]={ke_dirty(&doc)?"Modified / ":"",v->crlf?"CRLF / ":"LF / ",!in_work&&filename[0]?"A: root":destination.root," / ",filename[0]?filename:"Untitled"};
  for(unsigned i=0;i<5;i++)for(unsigned j=0;parts[i][j]&&n<sizeof status-1;j++)status[n++]=parts[i][j];
  status[n]=0;kw_text(8,h-32,status,(w-16)/8,0x466581);
- kw_text(8,h-16,notice?notice:"Ctrl F:Find H:Replace T:Recovery / Tools",(w-16)/8,0x466581);return kg_present();
+ kw_label(8,h-16,notice?notice:"Ctrl F:Find H:Replace T:Recovery / Tools",(w-16)/8,0x466581);return kg_present();
 }
 int main(int argc,char **argv){
  ke_load(&doc,"",0);if(kg_open("Editor / workspace TXT",576,320)<0)return 1;
@@ -288,6 +293,7 @@ int main(int argc,char **argv){
    else if(mode==6){unsigned changed=recovery.changed;if(kr_event(&recovery,&e)){mode=0;index_lines(1);}if(recovery.changed!=changed)editor_stats.error=0;}
    else if(mode==7)tools_event(&e);
    else if(mode==8){
+    if(kw_button(2216,&e)||(e.type==KG_KEY&&e.key==288)){ime_reload();mode=0;}
     if(kw_button(2210,&e))ime.scheme=KI_OFF;
     if(kw_button(2211,&e))ime.scheme=KI_ROMAJI;
     if(kw_button(2212,&e))ime.scheme=KI_KANA;

@@ -19,6 +19,10 @@ void ki_clear(KiIme *);
 int ki_input(KiIme *,unsigned,unsigned);
 int ki_prepare(KiIme *);
 int ki_convert(KiIme *,const KiDictionary *);
+int ki_convert_user(KiIme *,const KiDictionary *,const KiDictionary *);
+/* 0 pass through, 1 consumed, 2 proposed commit; caller clears only on success. */
+int ki_key_event(KiIme *,unsigned,unsigned,const KiDictionary *,const KiDictionary *,char *);
+int ki_commit_text(KiIme *,char *);
 void ki_move_candidate(KiIme *,int);
 void ki_script_text(const char *,unsigned,char *);
 unsigned ki_preview(const KiIme *,char *);

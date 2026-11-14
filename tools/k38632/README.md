@@ -1,5 +1,10 @@
 # K38632: execution foundations and resident window tasks
 
+The opt-in resource ABI, selected guarded stack, C subset, template and
+hash-matched fault diagnostics are in [PRACTICAL-SDK.md](PRACTICAL-SDK.md).
+The independent common Work stream/persistence service is described in
+[../k32io/README.md](../k32io/README.md).
+
 The resident PM32 backend, shared PM32/V86 scheduling and KDESK text windows
 are documented in [HOST.md](HOST.md). Start there for current GUI usage and
 limits. The original probes and standalone runners below remain available.

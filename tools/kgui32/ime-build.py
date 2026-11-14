@@ -75,12 +75,35 @@ def tables():
     return '\n'.join(out + ['};', ''])
 
 def dictionary():
-    rows, seen = [], set()
+    rows, seen, words = [], set(), {}
     for line in (ROOT/'ime/words.tsv').read_text().splitlines():
         if not line or line.startswith('#'): continue
         key, *values = line.split('\t')
         assert key not in seen and values and len(values) <= 12, key
         seen.add(key)
+        words[key]=values
+    # Explicit original lexemes/classes; avoid guessing ichidan/godan from -ru.
+    forms={
+        'k':['きます','かない','いた','いて','けば','こう'],
+        'm':['みます','まない','んだ','んで','めば','もう'],
+        's':['します','さない','した','して','せば','そう'],
+        'r':['ります','らない','った','って','れば','ろう'],
+        'i':['ます','ない','た','て','れば','よう'],
+        'iku':['きます','かない','った','って','けば','こう'],
+        'a':['かった','くない','く','ければ']}
+    for reading,word,kind in [('かく','書く','k'),('よむ','読む','m'),('はなす','話す','s'),
+            ('つくる','作る','r'),('たべる','食べる','i'),('みる','見る','i'),
+            ('いく','行く','iku'),('あたらしい','新しい','a')]:
+        for suffix in forms[kind]:
+            key,value=reading[:-1]+suffix,word[:-1]+suffix
+            values=words.setdefault(key,[])
+            if value not in values:values.append(value)
+    for key,value in [('します','します'),('した','した'),('して','して'),('しない','しない'),
+            ('しました','しました'),('きます','来ます'),('きた','来た'),('きて','来て'),('こない','来ない')]:
+        values=words.setdefault(key,[])
+        if value not in values:values.append(value)
+    for key,values in words.items():
+        assert len(values)<=12,key
         encoded = [sjis(s) for s in [key,*values]]
         assert all(0 < len(s) <= 96 and not any(b < 32 for b in s) for s in encoded), key
         assert len(set(values)) == len(values), key
@@ -88,7 +111,7 @@ def dictionary():
         rows.append(struct.pack('<HBB',4+len(payload),len(encoded[0]),len(values))+payload)
     body = b''.join(rows)
     result = struct.pack('<8s6I',b'KGIMED1\0',1,32+len(body),len(rows),fnv(body),0,0)+body
-    assert len(result) <= 32768 and 0 < len(rows) <= 1024
+    assert len(result) <= 32768 and 0 < len(rows) <= 4096
     return result, len(rows)
 
 if __name__ == '__main__':

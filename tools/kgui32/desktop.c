@@ -16,12 +16,15 @@ typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,pr
  u32 capacity,terminal2,terminal3,extra_geometry[2][6];
  u32 bitmap_magic,bitmap_meta,bitmap_pixels,bitmap_stride,bitmap_frames;
  u32 video_magic,video_cache,video_stride,video_generation,video_revision,video_valid;
+ u32 surfaces_version,extra_meta,extra_pixels,extra_stride,surface_budget;
 } GuiState;
 volatile GuiState gui_state __attribute__((used,section(".data.gui_state")))={.magic=0x3147554b,.version=1,.terminal_magic=0x3254474b};
 static GuiInfo info;static Scene scene;static u8 font[95*16];
 static struct {u32 code;u8 bitmap[32];} glyph_cache[128];
 static unsigned glyph_slot;
-static u8 framebuffer[800*600*2],packed[800*600*2];
+/* 64-row transfers reclaim 857600 bytes without growing the 4 MiB desktop. */
+static u8 framebuffer[800*600*2],packed[800*64*2];
+static u8 bitmap_cube5[32],bitmap_cube6[64];
 static Rect clip;
 static GuiSessionView views[4];static int errors[4],editing[4],lengths[4];
 static GuiTerminalView terminals[4],terminal_stage;
@@ -57,7 +60,9 @@ static unsigned terminal_valid[4],terminal_phase;static u32 terminal_tick;
 static char paths[4][128];static unsigned following[4];
 static KgRequest clients[4],client_io;
 static KgImage images[4];static u16 image_pixels[4][KG_SURFACE_PIXELS*2];
+static KgImage extra_images[4];static u16 extra_pixels[4][KG_SURFACE_EXTRA_PIXELS*2];
 static unsigned exit_pending;
+static unsigned scale_xmap[800];
 static u32 close_generation[4],close_token[4],close_cancel[4];
 static unsigned capture,capture_generation,capture_token;
 static void refresh_graphical(unsigned);
@@ -115,13 +120,15 @@ static void refresh_graphical(unsigned id){
  client_io=(KgRequest){.version=1,.size=sizeof client_io,.slot=id};
  if(k32_call(GUI_CLIENT_VIEW,(u32)&client_io,sizeof client_io))return;
  if(kg_surface_operation(client_io.operation)&&client_io.token&&views[id].owned&&client_io.generation==views[id].generation){
-  int e=kg_surface_receive(&images[id],image_pixels[id],&client_io,views[id].generation,client_io.token);
+  unsigned secondary=kg_surface_word(&client_io,16);if(secondary>1){errors[id]=-22;return;}
+  KgImage *image=secondary?&extra_images[id]:&images[id];
+  int e=kg_surface_receive_n(image,secondary?extra_pixels[id]:image_pixels[id],secondary?KG_SURFACE_EXTRA_PIXELS:KG_SURFACE_PIXELS,&client_io,views[id].generation,client_io.token);
   if(!e){GuiSurfaceAck ack={1,sizeof ack,id,client_io.generation,client_io.token,client_io.revision};e=k32_call(GUI_SURFACE_ACK,(u32)&ack,sizeof ack);}
   if(e)errors[id]=e;
-  else if(client_io.operation==KG_SURFACE_DESTROY||(images[id].valid&&images[id].uploaded==images[id].width*images[id].height*2))scene_window_damage(&scene,id+2,scene.window[id+2].r);
+  else if(client_io.operation==KG_SURFACE_DESTROY||(image->valid&&image->uploaded==image->width*image->height*2))scene_window_damage(&scene,id+2,scene.window[id+2].r);
   return;
  }
- if(!client_io.token||client_io.generation!=views[id].generation||!views[id].owned)images[id]=(KgImage){0};
+ if(!client_io.token||client_io.generation!=views[id].generation||!views[id].owned)images[id]=extra_images[id]=(KgImage){0};
  if(close_token[id]){
   if(close_generation[id]!=views[id].generation||close_generation[id]!=client_io.generation||close_cancel[id]!=client_io.event.key||(client_io.token&&client_io.token!=close_token[id]))close_token[id]=0;
   else if(!client_io.token){scene_close(&scene,id+2);close_token[id]=0;capture=0;}
@@ -149,7 +156,7 @@ static void launch(int act){
  unsigned id=0;
  while(id<(unsigned)scene.slots&&(views[id].state==1||views[id].state==2||views[id].state==3||(views[id].state==4&&!views[id].owned)))id++;
  if(id==(unsigned)scene.slots){scene.action_result=-16;scene_damage(&scene,scene.window[0].r);return;}
- const char *path=act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":act==ACT_IMAGE?"KGIMAGE.EXE":"KSH.EXE";
+ const char *path=act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":act==ACT_IMAGE?"KGIMAGE.EXE":act==ACT_WORDS?"KGWORDS.EXE":"KSH.EXE";
  for(unsigned i=0;i<128;i++){paths[id][i]=path[i];if(!path[i])break;}
  errors[id]=session_command(id,GS_CREATE,0);scene.action_result=errors[id];
  if(!errors[id])scene_focus(&scene,id+2);
@@ -351,14 +358,24 @@ static void graphical(unsigned id,int x,int y,int width,int height){
   KgDraw *d=&r->draw[i];int xx=x+8+d->x,yy=y+70+d->y;u32 c=rgb(d->color>>16,(d->color>>8)&255,d->color&255);
   if(d->op==KG_RECT)box(xx,yy,d->w,d->h,c);
   if(d->op==KG_TEXT)text(xx,yy,d->text,c);
-  if(d->op==KG_BITMAP){
-   const KgImage *im=&images[id];
+  if(d->op==KG_BITMAP||d->op==KG_BITMAP_SCALE){
+   unsigned secondary=d->id==extra_images[id].handle;const KgImage *im=secondary?&extra_images[id]:&images[id];
    if(im->valid&&im->handle==d->id&&im->generation==r->generation&&im->token==r->token){
     unsigned sx=d->color&65535,sy=d->color>>16;
-    if(sx<im->width&&sy<im->height&&(unsigned)d->w<=im->width-sx&&(unsigned)d->h<=im->height-sy){
-     const u16 *p=image_pixels[id]+im->front*KG_SURFACE_PIXELS;
+    const u8 *dimensions=(const u8 *)d->text;unsigned sw=d->op==KG_BITMAP?(unsigned)d->w:dimensions[0]|(unsigned)dimensions[1]<<8,sh=d->op==KG_BITMAP?(unsigned)d->h:dimensions[2]|(unsigned)dimensions[3]<<8;
+    if(sx<im->width&&sy<im->height&&sw&&sh&&sw<=im->width-sx&&sh<=im->height-sy){
+     const u16 *p=secondary?extra_pixels[id]+im->front*KG_SURFACE_EXTRA_PIXELS:image_pixels[id]+im->front*KG_SURFACE_PIXELS;
      int l=xx>clip.x?xx:clip.x,t=yy>clip.y?yy:clip.y,right=xx+d->w<clip.x+clip.w?xx+d->w:clip.x+clip.w,bottom=yy+d->h<clip.y+clip.h?yy+d->h:clip.y+clip.h;
-     for(int row=t;row<bottom;row++)for(int col=l;col<right;col++){u16 c=p[(sy+row-yy)*im->width+sx+col-xx];u32 pixel=info.bpp==2?c:rgb(((c>>11)&31)*255/31,((c>>5)&63)*255/63,(c&31)*255/31);box(col,row,1,1,pixel);}
+     if(d->op==KG_BITMAP_SCALE){unsigned cw=dimensions[8]|(unsigned)dimensions[9]<<8,ch=dimensions[10]|(unsigned)dimensions[11]<<8;if(cw&&ch){int cx=x+8+(dimensions[4]|(unsigned)dimensions[5]<<8),cy=y+70+(dimensions[6]|(unsigned)dimensions[7]<<8);if(l<cx)l=cx;if(t<cy)t=cy;if(right>cx+(int)cw)right=cx+cw;if(bottom>cy+(int)ch)bottom=cy+ch;}}
+     if(l>=right||t>=bottom)continue;
+     for(int col=l;col<right;col++)scale_xmap[col-l]=sx+(unsigned)(col-xx)*sw/(unsigned)d->w;
+     /* The viewport and damage intersection already bounds this entire row.
+      * Store it directly and use the exact existing cube quantization. */
+     for(int row=t;row<bottom;row++){
+      unsigned source=(sy+(unsigned)(row-yy)*sh/(unsigned)d->h)*im->width;u8 *out=framebuffer+row*info.pitch+l*info.bpp;
+      if(info.bpp==2)for(int col=l;col<right;col++){u16 c=p[source+scale_xmap[col-l]];*out++=c;*out++=c>>8;}
+      else for(int col=l;col<right;col++){u16 c=p[source+scale_xmap[col-l]];*out++=16+bitmap_cube5[c>>11]*36+bitmap_cube6[(c>>5)&63]*6+bitmap_cube5[c&31];}
+     }
     }
    }
   }
@@ -415,6 +432,7 @@ static void window(int id){
   box(x+16,y+48,46,46,color(4));box(x+24,y+56,12,28,color(7));box(x+38,y+56,12,12,color(6));box(x+38,y+72,12,12,color(3));
   ui_label(x+78,y+48,"Your new desktop",color(0));ui_label(x+78,y+72,"32-bit protected mode",color(10));
   button(x+18,y+116,140,"Calculator");button(x+174,y+116,140,"Clock");button(x+18,y+152,140,"DOS Shell");button(x+174,y+152,140,"Files");button(x+18,y+188,140,"Editor");button(x+174,y+188,140,"Images");
+  button(x+174,y+88,140,"User dictionary");
   ui_label(x+18,y+92,scene.action_result<0?"Slots full / error":"F2 / F10",color(10));
  }else{
   ui_label(x+16,y+46,"Desktop: private context",color(0));
@@ -445,12 +463,15 @@ static int paint(void){
  for(int i=0;i<scene.slots;i++)if(scene.window[i+2].open){char label[]="DOS 1";label[4]+=i;int step=scene.slots==2?146:(info.width-300)/4;button(300+i*step,info.height-29,step-10,scene.graphical[i]?clients[i].title:label);}
  cursor();
  unsigned row_bytes=clip.w*info.bpp;
- for(int row=0;row<clip.h;row++){
-  const u8 *source=framebuffer+(clip.y+row)*info.pitch+clip.x*info.bpp;u8 *to=packed+row*row_bytes;unsigned n=row_bytes;
-  __asm__ volatile("cld; rep movsb":"+S"(source),"+D"(to),"+c"(n)::"memory","cc");
+ for(int offset=0;offset<clip.h;offset+=64){
+  int rows=clip.h-offset;if(rows>64)rows=64;
+  for(int row=0;row<rows;row++){
+   const u8 *source=framebuffer+(clip.y+offset+row)*info.pitch+clip.x*info.bpp;u8 *to=packed+row*row_bytes;unsigned n=row_bytes;
+   __asm__ volatile("cld; rep movsb":"+S"(source),"+D"(to),"+c"(n)::"memory","cc");
+  }
+  GuiPresent p={(u32)packed,clip.x,clip.y+offset,clip.w,rows,row_bytes};
+  int e=k32_call(GUI_PRESENT,(u32)&p,sizeof p);if(e)return e;
  }
- GuiPresent p={(u32)packed,clip.x,clip.y,clip.w,clip.h,row_bytes};
- int e=k32_call(GUI_PRESENT,(u32)&p,sizeof p);if(e)return e;
  scene.damage=(Rect){0};gui_state.presents++;gui_state.frames++;return 0;
 }
 static int equal(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
@@ -520,8 +541,11 @@ int main(int argc,char **argv){
  if((k32_query()&23)!=23)return 1;
  int e=k32_call(GUI_INFO,(u32)&info,sizeof info);if(e)return 2;
  if(info.magic!=0x3149474b||info.version!=1||info.width>800||info.height>600||(info.bpp!=1&&info.bpp!=2)||info.pitch!=info.width*info.bpp)return 3;
+ for(unsigned i=0;i<32;i++)bitmap_cube5[i]=(i*255/31+25)/51;
+ for(unsigned i=0;i<64;i++)bitmap_cube6[i]=(i*255/63+25)/51;
  if(k32_call(GUI_FONT,(u32)font,sizeof font))return 4;
  gui_state.bitmap_magic=0x3153474b;gui_state.bitmap_meta=(u32)images;gui_state.bitmap_pixels=(u32)image_pixels;gui_state.bitmap_stride=sizeof image_pixels[0];gui_state.bitmap_frames=(u32)clients;
+ gui_state.surfaces_version=2;gui_state.extra_meta=(u32)extra_images;gui_state.extra_pixels=(u32)extra_pixels;gui_state.extra_stride=sizeof extra_pixels[0];gui_state.surface_budget=sizeof image_pixels+sizeof extra_pixels;
  scene_init(&scene,info.width,info.height);scene_slots(&scene,info.features&GUI_FOUR_SLOTS?4:2);gui_state.x0=scene.window[0].r.x;gui_state.y0=scene.window[0].r.y;gui_state.x1=scene.window[1].r.x;gui_state.y1=scene.window[1].r.y;
  refresh();
  int once=argc>1&&equal(argv[1],"once"),proof=argc>1&&equal(argv[1],"proof");

@@ -12,17 +12,25 @@ int k32_plan(K32Read read,void *opaque,u32 bytes,K32Plan *out){
 #ifdef K32_GUI
  const unsigned supported=31;
 #elif defined(K32_HOST)
- const unsigned supported=239;
+ const unsigned supported=495;
 #else
- const unsigned supported=15;
+ const unsigned supported=271;
 #endif
- if((plan.abi!=256&&plan.abi!=257)||(plan.abi==256&&plan.features)||(plan.features&~supported))return 2;
+ if((plan.abi!=256&&plan.abi!=257&&plan.abi!=258)||(plan.abi==256&&plan.features)||(plan.features&~supported))return 2;
  if((plan.features&128)&&((plan.features&96)!=96))return 2;
  unsigned title=40;for(;title<72&&mz[title];title++)if(mz[title]<32||mz[title]>126)return 2;
  if(title==40||title==72||!word(mz+4)||word(mz+2)>511||word(mz+12)<word(mz+10))return 2;
  u32 load=(word(mz+4)-1u)*512+(word(mz+2)?word(mz+2):512);
  plan.elf_offset=dword(mz+84);plan.elf_size=dword(mz+88);
  if(load<=96||word(mz+22)*16u+word(mz+20)>=load-96||plan.elf_offset<load||plan.elf_offset>4096||plan.elf_size<52||plan.elf_size>0x400000||!range(plan.elf_offset,plan.elf_size,bytes)||plan.elf_offset+plan.elf_size!=bytes)return 3;
+ plan.stack_base=K32_STACK;plan.stack_top=0xc00000;plan.heap_limit=K32_LIMIT;
+ if(plan.abi==258){
+  u8 resource[24];
+  if(plan.elf_offset<load+24||!read(opaque,plan.elf_offset-24,resource,24)||!magic(resource,"K32RES01",8)||word(resource+8)!=1||word(resource+10)!=24||dword(resource+20))return 10;
+  u32 stack=dword(resource+12);plan.min_heap=dword(resource+16);
+  if(stack<4096||stack>262144||stack%4096||plan.min_heap>0x400000)return 10;
+  plan.stack_top=K32_LIMIT;plan.stack_base=plan.stack_top-stack;plan.heap_limit=plan.stack_base-4096;
+ }
  if(!read(opaque,plan.elf_offset,e,52)||!magic(e,"\177ELF",4)||e[4]!=1||e[5]!=1||e[6]!=1||e[7]||e[8]||word(e+16)!=2||word(e+18)!=3||dword(e+20)!=1||dword(e+36)||word(e+40)!=52||word(e+42)!=32)return 4;
  u32 ph=dword(e+28),number=word(e+44);plan.entry=dword(e+24);
  if(!number||number>8||ph<52||!range(ph,number*32,plan.elf_size))return 5;
@@ -32,7 +40,7 @@ int k32_plan(K32Read read,void *opaque,u32 bytes,K32Plan *out){
   u32 type=dword(p);if(!type)continue;if(type!=1)return 6;
   K32Segment s={dword(p+4),dword(p+8),dword(p+16),dword(p+20),dword(p+24)};
   u32 align=dword(p+28);
-  if(!s.memsz||s.filesz>s.memsz||!range(s.offset,s.filesz,plan.elf_size)||s.address<K32_BASE||!range(s.address,s.memsz,K32_LIMIT)||s.address%4096||(align!=4096&&align!=16)||(s.offset&(align-1))||(align==16&&s.offset<ph+number*32)||!(s.flags&4)||(s.flags&~7u)||((s.flags&3)==3))return 7;
+  if(!s.memsz||s.filesz>s.memsz||!range(s.offset,s.filesz,plan.elf_size)||s.address<K32_BASE||!range(s.address,s.memsz,plan.heap_limit)||s.address%4096||(align!=4096&&align!=16)||(s.offset&(align-1))||(align==16&&s.offset<ph+number*32)||!(s.flags&4)||(s.flags&~7u)||((s.flags&3)==3))return 7;
   u32 end=(s.address+s.memsz+4095)&~4095u;
   for(unsigned j=0;j<plan.count;j++){
    K32Segment *old=&plan.segment[j];u32 oldend=(old->address+old->memsz+4095)&~4095u;
@@ -44,5 +52,7 @@ int k32_plan(K32Read read,void *opaque,u32 bytes,K32Plan *out){
   plan.segment[plan.count++]=s;
  }
  if(!plan.count||!executable)return 9;
+ u32 end=K32_BASE;for(unsigned i=0;i<plan.count;i++){u32 last=(plan.segment[i].address+plan.segment[i].memsz+4095)&~4095u;if(last>end)end=last;}
+ if(end>plan.heap_limit||plan.min_heap>plan.heap_limit-end)return 10;
  *out=plan;return 0;
 }

@@ -12,7 +12,12 @@ int kg_validate(const KgRequest *r,unsigned width,unsigned height){
  if(r->count>KG_COMMANDS)return -22;
  for(unsigned i=0;i<r->count;i++){
   const KgDraw *d=&r->draw[i];
-  if(d->op==KG_BITMAP){if(d->x < -800||d->x>800||d->y < -600||d->y>600||d->w<1||d->w>256||d->h<1||d->h>192)return -22;continue;}
+  if(d->op==KG_BITMAP||d->op==KG_BITMAP_SCALE){
+   if(d->x < -4096||d->x>4096||d->y < -4096||d->y>4096||d->w<1||d->w>(d->op==KG_BITMAP?384:4096)||d->h<1||d->h>(d->op==KG_BITMAP?256:4096))return -22;
+   if(d->op==KG_BITMAP_SCALE){const u8 *p=(const u8 *)d->text;unsigned cx=p[4]|(unsigned)p[5]<<8,cy=p[6]|(unsigned)p[7]<<8,cw=p[8]|(unsigned)p[9]<<8,ch=p[10]|(unsigned)p[11]<<8;
+    if(cx||cy||cw||ch)if(!cw||!ch||cx>=width||cy>=height||cw>width-cx||ch>height-cy)return -22;}
+   continue;
+  }
   if(d->op<KG_RECT||d->op>KG_BUTTON||d->x<0||d->y<0||(unsigned)d->x>=width||(unsigned)d->y>=height||d->color>0xffffff)return -22;
   if(d->op==KG_TEXT){
    if(!text(d->text,48)||height-(unsigned)d->y<16)return -22;
@@ -22,6 +27,12 @@ int kg_validate(const KgRequest *r,unsigned width,unsigned height){
    if(d->op==KG_BUTTON){if(d->w<12||d->h<18||!text(d->text,48))return -22;unsigned n=0;while(d->text[n])n++;if(n>(unsigned)(d->w-4)/8)return -22;}
   }
  }
+ return 0;
+}
+KgSurface *kg_client_surface(KgClient *c,const KgRequest *r){
+ if(r->operation==KG_SURFACE_CREATE)return r->count==0?&c->surface:r->count==1?&c->extra_surface:0;
+ if(r->width&&r->width==c->surface.handle)return &c->surface;
+ if(r->width&&r->width==c->extra_surface.handle)return &c->extra_surface;
  return 0;
 }
 int kg_policy(KgClient *c,KgRequest *r,u32 generation,u32 *serial,unsigned width,unsigned height){
@@ -47,18 +58,21 @@ int kg_policy(KgClient *c,KgRequest *r,u32 generation,u32 *serial,unsigned width
  }
  if(r->operation==KG_EDIT_STATUS)return c->edit_result;
  if(r->operation>=KG_SURFACE_CREATE){
-  int result=kg_surface_policy(&c->surface,r,serial);
-  if(result>=0&&kg_surface_operation(r->operation)){if(++c->revision==0)c->revision=1;c->surface.pending=c->revision;}
+  KgSurface *s=kg_client_surface(c,r);if(!s)return r->operation==KG_SURFACE_CREATE?-22:-116;
+  if(r->operation==KG_SURFACE_CREATE&&s==&c->extra_surface&&(r->width>128||r->height>128))return -22;
+  if(kg_surface_operation(r->operation)&&(c->surface.pending||c->extra_surface.pending))return -11;
+  int result=kg_surface_policy(s,r,serial);
+  if(result>=0&&kg_surface_operation(r->operation)){if(++c->revision==0)c->revision=1;s->pending=c->revision;}
   return result;
  }
- if(r->operation==KG_CAPABILITIES)return KG_CAP_SUPPORTED|KG_CAP_BITMAP|KG_CAP_LANGUAGE;
+ if(r->operation==KG_CAPABILITIES)return KG_CAP_SUPPORTED|KG_CAP_BITMAP|KG_CAP_LANGUAGE|KG_CAP_SURFACES;
  if(r->operation==KG_SUBSCRIBE){c->input_flags=r->count;c->revision++;return 0;}
  if(r->operation==KG_CANCEL_CLOSE){if(!(c->input_flags&KG_INPUT_CLOSE))return -22;c->cancelled++;c->revision++;return 0;}
  if(r->operation==KG_CLIP_SET||r->operation==KG_CLIP_GET)return r->count>1024?-22:0;
- if(r->operation==KG_CLOSE){c->surface=(KgSurface){0};c->edit_pending=0;c->input_flags=0;c->token=0;c->head=c->count=0;c->revision++;return 0;}
+ if(r->operation==KG_CLOSE){c->surface=c->extra_surface=(KgSurface){0};c->edit_pending=0;c->input_flags=0;c->token=0;c->head=c->count=0;c->revision++;return 0;}
  if(r->operation==KG_FRAME){
-  if(c->surface.pending)return -11;
-  for(unsigned i=0;i<r->count;i++)if(r->draw[i].op==KG_BITMAP){int e=kg_surface_draw(&c->surface,&r->draw[i]);if(e)return e;}
+  if(c->surface.pending||c->extra_surface.pending)return -11;
+  for(unsigned i=0;i<r->count;i++)if(r->draw[i].op==KG_BITMAP||r->draw[i].op==KG_BITMAP_SCALE){KgSurface *s=r->draw[i].id==c->surface.handle?&c->surface:&c->extra_surface;int e=kg_surface_draw(s,&r->draw[i]);if(e)return e;}
   c->revision++;return 0;
  }
  r->event=(KgEvent){0};

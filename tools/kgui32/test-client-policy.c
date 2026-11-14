@@ -28,7 +28,7 @@ int main(void){
  assert(kg_policy(&client,&request,7,&serial,640,400)==1&&request.event.key=='7');assert(kg_policy(&client,&request,7,&serial,640,400)==0);
  e=(KgEvent){.type=KG_RESIZE,.width=360,.height=200};kg_enqueue(&client,&e);e.width=400;kg_enqueue(&client,&e);assert(client.count==1&&client.width==400);
  for(unsigned i=0;i<20;i++){e=(KgEvent){.type=KG_KEY,.key=i};kg_enqueue(&client,&e);}assert(client.count==16&&client.dropped==5);
- request.operation=KG_CAPABILITIES;assert(kg_policy(&client,&request,7,&serial,640,400)==(KG_CAP_SUPPORTED|KG_CAP_BITMAP|KG_CAP_LANGUAGE));
+ request.operation=KG_CAPABILITIES;assert(kg_policy(&client,&request,7,&serial,640,400)==(KG_CAP_SUPPORTED|KG_CAP_BITMAP|KG_CAP_LANGUAGE|KG_CAP_SURFACES));
  request.operation=KG_SUBSCRIBE;request.count=64;assert(kg_policy(&client,&request,7,&serial,640,400)==-22);
  request.count=3;assert(!kg_policy(&client,&request,7,&serial,640,400)&&client.input_flags==3);
  client.count=0;e=(KgEvent){.type=KG_POINTER,.x=1};kg_enqueue(&client,&e);e.x=2;kg_enqueue(&client,&e);assert(client.count==1&&client.event[client.head].x==2);

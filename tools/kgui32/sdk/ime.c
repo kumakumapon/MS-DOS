@@ -9,7 +9,7 @@ static unsigned u16(const unsigned char *s){return s[0]|s[1]<<8;}
 static unsigned u32(const unsigned char *s){return u16(s)|(unsigned)u16(s+2)<<16;}
 int ki_dictionary(KiDictionary *d,const void *data,unsigned n){
  *d=(KiDictionary){0};const unsigned char *s=data;
- if(n<32||n>KI_DICTIONARY||!s||!equal((const char *)s,"KGIMED1\0",8)||u32(s+8)!=1||u32(s+12)!=n||!u32(s+16)||u32(s+16)>1024||u32(s+24)||u32(s+28))return -22;
+ if(n<32||n>KI_DICTIONARY||!s||!equal((const char *)s,"KGIMED1\0",8)||u32(s+8)!=1||u32(s+12)!=n||u32(s+16)>4096||u32(s+24)||u32(s+28))return -22;
  unsigned hash=2166136261u;for(unsigned i=32;i<n;i++)hash=(hash^s[i])*16777619u;if(hash!=u32(s+20))return -22;
  unsigned at=32,entries=0;
  while(at<n){
@@ -121,16 +121,61 @@ static void candidate(KiIme *v,const char *s,unsigned n){
  for(unsigned i=0;i<v->count;i++)if(ki_length(v->candidates[i])==n&&equal(v->candidates[i],s,n))return;
  copy(v->candidates[v->count++],s,n);
 }
-int ki_convert(KiIme *v,const KiDictionary *d){
+static int exact_candidates(KiIme *v,const KiDictionary *d){
+ if(!d||!d->data)return 0;
+ for(unsigned at=32;at<d->bytes;at+=u16(d->data+at)){
+  const unsigned char *r=d->data+at;unsigned n=r[2];if(n!=v->n||!equal((const char *)r+4,v->reading,n))continue;
+  unsigned p=4+n;for(unsigned i=0;i<r[3];i++){unsigned len=r[p++];candidate(v,(const char *)r+p,len);p+=len;}return 1;
+ }return 0;
+}
+/* Full dictionary-word coverage only. Scratch belongs to this application;
+ * no guessed partial conversion and no combinatorial candidate expansion. */
+static struct {unsigned score,bytes;char text[KI_TEXT+1];} phrase[KI_TEXT+1];
+static void phrase_word(unsigned at,unsigned end,const char *word,unsigned n,unsigned cost){
+ if(n>KI_TEXT-phrase[at].bytes||phrase[at].score+cost>=phrase[end].score)return;
+ phrase[end].score=phrase[at].score+cost;phrase[end].bytes=phrase[at].bytes+n;
+ copy(phrase[end].text,phrase[at].text,phrase[at].bytes);copy(phrase[end].text+phrase[at].bytes,word,n);
+}
+static void phrase_dictionary(const KiIme *v,const KiDictionary *d,unsigned at,unsigned cost){
+ if(!d||!d->data)return;
+ for(unsigned p=32;p<d->bytes;p+=u16(d->data+p)){
+  const unsigned char *r=d->data+p;unsigned n=r[2];if(n<4||n>v->n-at||!equal((const char *)r+4,v->reading+at,n))continue;
+  unsigned bytes=r[4+n];phrase_word(at,at+n,(const char *)r+5+n,bytes,cost);
+ }
+}
+static void compound(KiIme *v,const KiDictionary *d,const KiDictionary *user){
+ for(unsigned i=0;i<=KI_TEXT;i++){phrase[i].score=~0u;phrase[i].bytes=0;phrase[i].text[0]=0;}phrase[0].score=0;
+ static const char *particles[]={"\202\315","\202\360","\202\311","\202\314","\202\306","\202\252","\202\305","\202\326","\202\340","\202\342","\202\251\202\347","\202\334\202\305"};
+ for(unsigned at=0;at<v->n;at++)if(phrase[at].score!=~0u){
+  phrase_dictionary(v,user,at,1);phrase_dictionary(v,d,at,2);
+  for(unsigned i=0;i<COUNT(particles);i++){unsigned n=ki_length(particles[i]);if(n<=v->n-at&&equal(v->reading+at,particles[i],n))phrase_word(at,at+n,particles[i],n,4);}
+ }
+ if(phrase[v->n].score!=~0u)candidate(v,phrase[v->n].text,phrase[v->n].bytes);
+}
+int ki_convert_user(KiIme *v,const KiDictionary *d,const KiDictionary *user){
  KiIme before=*v;int error=ki_prepare(v);if(error<0){const char *note=v->note;*v=before;v->note=note;return error;}
  if(!v->n)return 0;
  v->count=v->selected=0;v->note=0;
- if(d&&d->data)for(unsigned at=32;at<d->bytes;at+=u16(d->data+at)){
-  const unsigned char *r=d->data+at;unsigned n=r[2];if(n!=v->n||!equal((const char *)r+4,v->reading,n))continue;
-  unsigned p=4+n;for(unsigned i=0;i<r[3];i++){unsigned len=r[p++];candidate(v,(const char *)r+p,len);p+=len;}break;
- }
- else v->note="Dictionary unavailable: kana candidates";
+ int exact=exact_candidates(v,user);exact|=exact_candidates(v,d);
+ if(!exact)compound(v,d,user);
+ if((!d||!d->data)&&(!user||!user->entries))v->note="Dictionary unavailable: kana candidates";
  candidate(v,v->reading,v->n);char text[KI_TEXT+1];ki_script_text(v->reading,1,text);candidate(v,text,v->n);v->selecting=1;return 1;
+}
+int ki_convert(KiIme *v,const KiDictionary *d){return ki_convert_user(v,d,0);}
+int ki_commit_text(KiIme *v,char *out){if(ki_prepare(v)<0)return -22;if(!v->n)return 0;const char *s=ki_result(v);if(v->selecting)copy(out,s,ki_length(s));else ki_script_text(s,v->katakana,out);return (int)ki_length(out);}
+int ki_key_event(KiIme *v,unsigned key,unsigned modifiers,const KiDictionary *d,const KiDictionary *user,char *out){
+ int active=ki_active(v);
+ if(key==283||key==284||key==10){if(active){v->note="Commit or cancel before changing input";return 1;}v->scheme=key==10?(v->scheme+1)%3:key==283?(v->scheme?KI_OFF:KI_ROMAJI):v->scheme==KI_KANA?KI_ROMAJI:KI_KANA;return 1;}
+ if((key==285||key==286)&&v->scheme){v->katakana=key==286;v->selecting=v->count=0;return 1;}
+ if(active){
+  if(key==27||key==26){if(key==27&&v->selecting){v->selecting=v->count=0;v->note=0;}else ki_clear(v);return 1;}
+  if(key==13){if(!out){v->note="Commit destination required";return 1;}return ki_commit_text(v,out)>0?2:1;}
+  if(key==32){if(v->selecting)ki_move_candidate(v,modifiers&1?-1:1);else ki_convert_user(v,d,user);return 1;}
+  if(v->selecting){if(key==256||key==257)ki_move_candidate(v,key==256?-1:1);else if(key==260)v->selected=0;else if(key==261)v->selected=v->count-1;else if(key>='1'&&key<='9'&&key-'1'<v->count)v->selected=key-'1';else v->note="Esc: edit reading / Enter: commit";return 1;}
+  if(!ki_input(v,key,modifiers))v->note="Commit or cancel IME before this action";
+  return 1;
+ }
+ if(v->scheme&&!(modifiers&6)&&((key>=33&&key<=126)||(key>=0xa1&&key<=0xdf))){ki_input(v,key,modifiers);return 1;}return 0;
 }
 void ki_move_candidate(KiIme *v,int step){if(v->count)v->selected=(v->selected+v->count+(step%(int)v->count))%v->count;}
 const char *ki_result(const KiIme *v){return v->selecting&&v->selected<v->count?v->candidates[v->selected]:v->reading;}

@@ -189,3 +189,42 @@ Resume	再開
 Restart	再実行
 Start	開始
 Stop	停止
+User dictionary	ユーザー辞書
+Reading	読み
+Word	単語
+Add	追加
+Delete	削除
+Reload	再読込
+Images / BMP	画像 / BMP
+Reload words / F9	辞書再読込 / F9
+Unsaved user dictionary	未保存のユーザー辞書
+Reload user dictionary?	ユーザー辞書を再読込しますか？
+Save, discard or cancel	保存・破棄・取消を選択
+IME / Word	IME / 単語
+IME / Reading	IME / 読み
+User dictionary reloaded	ユーザー辞書を再読込しました
+User dictionary reload failed / kept	辞書再読込失敗 / 編集を保持
+Field limit / input kept	入力上限 / 編集を保持
+Added / save explicitly	追加しました / 保存してください
+Deleted / save explicitly	削除しました / 保存してください
+Saved / BAK retained	保存済み / BAKを保持
+Valid candidate / restore to RECIME.DIC	有効な候補 / RECIME.DICへ復旧
+Recovered / active dictionary kept	復旧済み / 使用中の辞書を保持
+Dictionary error / original kept	辞書エラー / 原本を保持
+Commit or cancel input / file busy	入力を確定・取消 / ファイル使用中
+File changed / edits kept	ファイル変更あり / 編集を保持
+Commit or cancel before reloading words	入力を確定・取消後に辞書を再読込
+Commit or cancel before closing	入力を確定・取消後に閉じる
+F4: off / F5: kana / F6 F7: script	F4:切 F5:かな F6/F7:字種
+Composition limit: 96 bytes	変換入力は96バイトまで
+Incomplete romaji: edit or cancel	未完成のローマ字 / 編集・取消
+Invalid or incomplete input	入力が不正または未完成です
+Dictionary unavailable: kana candidates	辞書なし / かな候補を表示
+Esc: edit reading / Enter: commit	Esc:読み編集 Enter:確定
+Commit or cancel before changing input	確定・取消後に入力方式を変更
+Commit or cancel IME before this action	入力を確定・取消後に操作してください
+Commit destination required	確定先を選択してください
+Field limit / clipboard kept	入力上限 / クリップボードを保持
+%u readings / %s / F4 IME / F9 reload	読数%u / %s / F4入力 F9再読込
+modified	編集中
+saved	保存済

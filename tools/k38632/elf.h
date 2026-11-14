@@ -12,7 +12,7 @@ typedef unsigned u32;
 #define K32_LIMIT 0xbfd000u
 #define K32_STACK 0xbff000u
 typedef struct {u32 offset,address,filesz,memsz,flags;} K32Segment;
-typedef struct {u32 entry,elf_offset,elf_size,count,rwbase,rwbytes;K32Segment segment[8];u32 abi,features;} K32Plan;
+typedef struct {u32 entry,elf_offset,elf_size,count,rwbase,rwbytes;K32Segment segment[8];u32 abi,features,stack_base,stack_top,heap_limit,min_heap;} K32Plan;
 typedef int (*K32Read)(void *,u32,void *,u32);
 int k32_plan(K32Read read,void *opaque,u32 bytes,K32Plan *out);
 #endif

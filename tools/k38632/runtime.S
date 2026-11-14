@@ -177,7 +177,7 @@ wait_finished:
     jae budget_end
 .ifdef LOADER
     cmp DWORD PTR results+768,257
-    jne legacy_keyboard
+    jb legacy_keyboard
     data32 call services_cancel
     test eax,eax
     jnz cleanup
@@ -588,7 +588,12 @@ map_data:
 .endif
     mov DWORD PTR context+60,USER_CS
     mov DWORD PTR context+64,0x202
+.ifdef LOADER
+    mov eax,DWORD PTR loader_stack_top
+    mov DWORD PTR context+68,eax
+.else
     mov DWORD PTR context+68,US+4096
+.endif
     mov DWORD PTR context+72,USER_DS
     mov DWORD PTR initialized,1
 tables_ready:
@@ -856,9 +861,9 @@ loader_trap:
 gui_old_service:
 .endif
     .ifdef HOST
-    cmp eax,17
+    cmp eax,18
     .else
-    cmp eax,12
+    cmp eax,18
     .endif
     ja unknown_service
 .ifdef GUI_HOST

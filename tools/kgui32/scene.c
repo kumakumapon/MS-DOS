@@ -154,6 +154,7 @@ int scene_event(Scene *s,const GuiEvent *e){
    if(inside((Rect){w->r.x+174,w->r.y+152,140,28},s->mx,s->my))return ACT_FILES;
    if(inside((Rect){w->r.x+18,w->r.y+188,140,28},s->mx,s->my))return ACT_EDITOR;
    if(inside((Rect){w->r.x+174,w->r.y+188,140,28},s->mx,s->my))return ACT_IMAGE;
+   if(inside((Rect){w->r.x+174,w->r.y+88,140,28},s->mx,s->my))return ACT_WORDS;
   }
   if(id==1&&inside((Rect){w->r.x+16,w->r.y+168+(s->slots-2)*24,94,28},s->mx,s->my))return ACT_START;
   if(id==1&&inside((Rect){w->r.x+124,w->r.y+168+(s->slots-2)*24,94,28},s->mx,s->my))return ACT_STOP;

@@ -106,3 +106,6 @@ webnp2 supplies the linked PEGC/Cirrus E2E for actual CG-ROM glyph pixels,
 Files/Editor, independent clipboard consumers, save/export/cold boot, invalid
 input retention and complete cleanup on HDD-only and explicit FD boot paths.
 Browser servers and E2E run only in GitHub Actions for this chat.
+
+The common input API, phrase/inflection conversion and explicit user dictionary
+workflow are documented in [COMMON-IME.md](COMMON-IME.md).

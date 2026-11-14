@@ -11,7 +11,7 @@ K32=ROOT.parent/'k38632'
 class Segment(c.Structure):
     _fields_=[(k,c.c_uint32) for k in ('offset','address','filesz','memsz','flags')]
 class Plan(c.Structure):
-    _fields_=[(k,c.c_uint32) for k in ('entry','elf_offset','elf_size','count','rwbase','rwbytes')]+[('segments',Segment*8),('abi',c.c_uint32),('features',c.c_uint32)]
+    _fields_=[(k,c.c_uint32) for k in ('entry','elf_offset','elf_size','count','rwbase','rwbytes')]+[('segments',Segment*8)]+[(k,c.c_uint32) for k in ('abi','features','stack_base','stack_top','heap_limit','min_heap')]
 READ=c.CFUNCTYPE(c.c_int,c.c_void_p,c.c_uint32,c.c_void_p,c.c_uint32)
 def parser(gui,host=False):
     path=ROOT/'build'/('host-parser.so' if host else 'gui-parser.so' if gui else 'old-parser.so')
@@ -43,13 +43,13 @@ class Image(unittest.TestCase):
             function,size,kind=row.split('\t')
             self.assertLessEqual(int(size),3072,function+' must leave headroom in the 4 KiB user stack')
     def test_graphical_client_packages(self):
-        for name in ('KGCALC','KGCLOCK','KGFILES','KGDIRBAD','KGEDIT','KGRECNEG','KGRECNON','KGIMAGE'):
+        for name in ('KGCALC','KGCLOCK','KGFILES','KGDIRBAD','KGEDIT','KGRECNEG','KGRECNON','KGIMAGE','KGWORDS'):
             data=(ROOT/f'build/{name}.EXE').read_bytes()
             self.assertNotEqual(parser(False)(data)[0],0)
             self.assertNotEqual(parser(True)(data)[0],0)
             error,p=parser(False,True)(data);self.assertEqual(error,0)
-            self.assertEqual((p.abi,p.features),(257,231 if name in ('KGEDIT','KGFILES','KGRECNEG') else 103 if name in ('KGDIRBAD','KGRECNON') else 239 if name=='KGIMAGE' else 39))
-            elf,stats={'KGCALC':('calculator.elf','calc_stats'),'KGCLOCK':('clock.elf','clock_stats'),'KGFILES':('files.elf','files_stats'),'KGDIRBAD':('directory-test.elf','directory_stats'),'KGEDIT':('editor.elf','editor_stats'),'KGRECNEG':('recovery-test.elf','recovery_stats'),'KGRECNON':('recovery-test.elf','recovery_stats'),'KGIMAGE':('image.elf','image_stats')}[name]
+            self.assertEqual((p.abi,p.features),(258 if name in ('KGIMAGE','KGEDIT','KGWORDS') else 257,487 if name=='KGEDIT' else 303 if name=='KGWORDS' else 231 if name in ('KGFILES','KGRECNEG') else 103 if name in ('KGDIRBAD','KGRECNON') else 495 if name=='KGIMAGE' else 39))
+            elf,stats={'KGCALC':('calculator.elf','calc_stats'),'KGCLOCK':('clock.elf','clock_stats'),'KGFILES':('files.elf','files_stats'),'KGDIRBAD':('directory-test.elf','directory_stats'),'KGEDIT':('editor.elf','editor_stats'),'KGRECNEG':('recovery-test.elf','recovery_stats'),'KGRECNON':('recovery-test.elf','recovery_stats'),'KGIMAGE':('image.elf','image_stats'),'KGWORDS':('words.elf','words_stats')}[name]
             self.assertEqual(symbols(elf)[stats],p.rwbase)
     def test_compact_packages_keep_all_loaded_bytes_and_page_alignment(self):
         for exe,elf in [('KGUI32','desktop'),('KGEDIT','editor'),('KGIMAGE','image')]:

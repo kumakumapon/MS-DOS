@@ -27,7 +27,20 @@ int main(void){
   for(unsigned y=0;y<192;y++)assert(!kg_bmp_row(&b,y,encoded+54+y*768,768,decoded,256*192));
   assert(!memcmp(all,decoded,sizeof all));
  }
- assert(kg_bmp_encode(all,257,1,encoded,sizeof encoded)==-22);
+ assert(kg_bmp_encode(all,385,1,encoded,sizeof encoded)==-22);
  assert(kg_bmp_encode(all,256,192,encoded,54)==-28);
+ static u16 large[KG_BITMAP_PIXELS],again[KG_BITMAP_PIXELS];static u8 large_bmp[54+KG_BITMAP_PIXELS*3];
+ for(unsigned i=0;i<KG_BITMAP_PIXELS;i++)large[i]=(u16)(i*19);
+ int bytes=kg_bmp_encode(large,384,256,large_bmp,sizeof large_bmp);assert(bytes==sizeof large_bmp);
+ assert(!kg_bmp_decode(large_bmp,bytes,&b,again,KG_BITMAP_PIXELS)&&!memcmp(large,again,sizeof large));
+ u8 small[80]={0};small[0]='B';small[1]='M';put(small,14,40);put(small,18,2);put(small,22,1);small[26]=1;
+ put(small,2,66);put(small,10,62);small[28]=8;put(small,46,2);small[56]=255;small[59]=255;small[62]=0;small[63]=1;
+ assert(!kg_bmp_decode(small,66,&b,pixels,8)&&pixels[0]==0xf800&&pixels[1]==0x7e0);
+ small[63]=2;u16 safe[8];memcpy(safe,pixels,sizeof safe);KgBmp safe_plan=b;assert(kg_bmp_decode(small,66,&b,pixels,8)==-22&&!memcmp(safe,pixels,sizeof safe)&&!memcmp(&b,&safe_plan,sizeof b));
+ memset(small+46,0,34);put(small,2,58);put(small,10,54);small[28]=16;small[54]=0;small[55]=0x7c;small[56]=0xe0;small[57]=3;
+ assert(!kg_bmp_decode(small,58,&b,pixels,8)&&pixels[0]==0xf800&&pixels[1]==0x7e0);
+ put(small,2,62);small[28]=32;small[54]=small[55]=0;small[56]=255;small[57]=0xaa;small[58]=0;small[59]=255;small[60]=0;small[61]=0x55;
+ assert(!kg_bmp_decode(small,62,&b,pixels,8)&&pixels[0]==0xf800&&pixels[1]==0x7e0);
+ put(small,30,1);assert(kg_bmp_decode(small,62,&b,pixels,8)==-22);
  return 0;
 }

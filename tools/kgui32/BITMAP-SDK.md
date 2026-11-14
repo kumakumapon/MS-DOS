@@ -1,5 +1,33 @@
 # Bitmap SDK and Images
 
+Current SDK2 adds capability 128: a primary surface up to 384x256 and a second
+surface up to 128x128 per client. All four clients reserve exactly 1835008
+desktop bytes for their two front/back pairs; no new DOS/XMS blocks are needed.
+The 4 MiB desktop presents through a 64-row buffer instead of a full-frame
+duplicate, reclaiming 857600 bytes. Link and stack guards remain enforced.
+The following sections record the original SDK1 baseline.
+
+`kg_surface_create_extra` selects the second slot; other operations identify
+the surface by its unique handle. CREATE count 0/1 selects the slot, transport
+title word 16 carries its index, and the existing version-1 wire size is kept.
+One acknowledged transfer is pending per client. Both surfaces retain complete
+old fronts until upload completes and are revoked on Close/fault/generation
+replacement. `kg_bitmap_scaled` uses nearest-neighbor sampling with bounded
+destination geometry and source rectangles; op 5 stores source width/height as
+two little-endian u16s in text[0..3]. Optional viewport x/y/w/h occupy four
+u16s in text[4..11]; all-zero means the whole client canvas. Remaining bytes
+are zero. Images supplies its image-panel viewport so zoom/pan never paints
+over its controls. `kg_bitmap_scaled_clip` validates this additional rectangle.
+
+Images supports uncompressed BMP8 with a bounded indexed palette, BMP16 RGB555,
+BMP24 and BMP32 RGBX, including top-down rows. It validates complete palette
+indices before adopting any pixels. Saving emits canonical BMP24. Images uses
+the common I/O broker for files exceeding legacy BMP bounds, preserving revision
+checks, original, Undo and TMP/BAK recovery. Existing small BMP saves retain the
+legacy writer. `+`/`-` select 50/100/200/400 percent, `0` restores 1:1 and pan,
+and V toggles an original-image preview in the second surface. Zoom does not
+alter image bytes or dirty state; painting maps back into source coordinates.
+
 The existing client ABI stays version 1 / 3144 bytes, with <=40 draw commands.
 Capability bit 32 adds one owned RGB565 surface per client, up to 256x192 pixels.
 The independent desktop stores two buffers per slot in its existing private
