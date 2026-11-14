@@ -1,7 +1,7 @@
 CC ?= gcc
 BUILD ?= build
 K32 = ../k38632
-CFLAGS = -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -msoft-float -mno-sse -mno-mmx -ffunction-sections -fdata-sections -Wall -Wextra -Werror -MMD -MP
+CFLAGS = -I$(BUILD) -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -msoft-float -mno-sse -mno-mmx -ffunction-sections -fdata-sections -Wall -Wextra -Werror -MMD -MP
 NATIVE = $(CFLAGS) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -DDOS -DPC98 -DK32_HOST -DK32_GUI
 all: $(BUILD)/KGUILDR.EXE $(BUILD)/KGUI32.EXE
 all: $(BUILD)/KGPROOF.COM
@@ -221,3 +221,13 @@ test-image-ui-run: $(BUILD)/test-image-ui
 	$(BUILD)/test-image-ui
 test: test-image-ui-run
 .PHONY: test-image-ui-run
+
+# Additive switchable UI; private tables include only labels used by a module.
+UI_HEADERS = $(addprefix $(BUILD)/ui-,$(addsuffix .h,desktop editor files image calculator clock picker recovery widgets))
+$(UI_HEADERS) &: ui-build.py ui/strings.tsv desktop.c apps/editor.c apps/files.c apps/image.c apps/calculator.c apps/clock.c sdk/picker.c sdk/recovery.c sdk/widgets-draw.c | $(BUILD)
+	python3 ui-build.py $(BUILD)
+$(BUILD)/desktop.o $(BUILD)/editor.app.o $(BUILD)/files.app.o $(BUILD)/image.app.o $(BUILD)/calculator.app.o $(BUILD)/clock.app.o $(BUILD)/picker.o $(BUILD)/recovery.o $(BUILD)/widgets-draw.o: $(UI_HEADERS)
+$(BUILD)/i18n.o: sdk/i18n.c sdk/i18n.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/desktop.elf $(BUILD)/editor.elf $(BUILD)/files.elf $(BUILD)/image.elf $(BUILD)/calculator.elf $(BUILD)/clock.elf: $(BUILD)/i18n.o
+$(BUILD)/test-image-ui: $(UI_HEADERS)

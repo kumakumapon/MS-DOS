@@ -2,6 +2,7 @@
 #include "../sdk/kgui.h"
 #include "../sdk/widgets.h"
 #include "../sdk/text.h"
+#include "ui-files.h"
 #define ENTRIES 192
 #define TEXT_BYTES (128*1024)
 #define LINES TEXT_BYTES /* even a file consisting entirely of newlines */
@@ -108,11 +109,11 @@ static void diagnostics(void){
 }
 static int draw(void){
  layout();unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
- kg_text(8,8,mode?filename:work?destination.root:"A: root / read only",0x20344a);
+ kg_label(8,8,mode?filename:work?destination.root:"A: root / read only",0x20344a);
  if(focus.current>=6)kg_rect(w-(focus.current==6?169:89),1,focus.current==6?78:82,22,0x327ac0);
  kg_button(104,w-168,2,76,20,work?"Root":"Work");kg_button(105,w-88,2,80,20,"Open app");
- if(mode)kg_text(8,30,"TXT preview / 40 columns",0x466581);
- else {kg_text(8,32,"Filter",0x466581);kw_draw_input((KwRect){64,24,(int)w-76,26},&filter,focus.current==0);}
+ if(mode)kg_label(8,30,"TXT preview / 40 columns",0x466581);
+ else {kg_label(8,32,"Filter",0x466581);kw_draw_input((KwRect){64,24,(int)w-76,26},&filter,focus.current==0);}
  kg_rect(8,52,w-40,list.rows*16,0xffffff);
  if(mode){
   for(unsigned row=0;row<scroll.rows&&row+preview_top<line_count;row++){
@@ -137,7 +138,7 @@ static int draw(void){
   if(focus.current==i+2)kg_rect(x-1,y-1,bw+2,30,0x327ac0);
   kg_button(100+i,x,y,bw,28,labels[i]);
  }
- char n[11];number(n,mode?bytes:list.count);kg_text(8,h-16,n,0x466581);kw_text(64,h-16,loading?"Loading...":"Ctrl W:root O:Editor",(w-72)/8,0x466581);
+ char n[11];number(n,mode?bytes:list.count);kg_text(8,h-16,n,0x466581);kw_label(64,h-16,loading?"Loading...":"Ctrl W:root O:Editor",(w-72)/8,0x466581);
  /* A modal uses its own frame, keeping even a maximized canvas inside the
   * 40-command ABI budget rather than silently losing its OK button. */
  if(message){kg_begin();kg_rect(0,0,w,h,0xb4c2d0);kw_draw_dialog(w,h,"Files",message);}

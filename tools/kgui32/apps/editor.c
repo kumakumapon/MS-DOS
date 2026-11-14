@@ -5,6 +5,7 @@
 #include "../sdk/recovery.h"
 #include "../sdk/text.h"
 #include "../sdk/ime.h"
+#include "ui-editor.h"
 static KeDocument doc;static KpPicker picker;static KrRecovery recovery;
 static KwInput find_text,replace_text;static KwFocus find_focus;static unsigned replacing,recovery_suggested;
 static const char *notice,*find_note;
@@ -105,8 +106,8 @@ static int ime_event(const KgEvent *e){
 }
 static int ime_draw(void){
  unsigned w=kg_width(),h=kg_height(),rows=ime_rows();char text[KI_TEXT+1];ki_preview(&ime,text);
- kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_text(8,4,ime_target==1?"IME / Find":ime_target==2?"IME / Replace":"IME / Document",0x20344a);
- kg_text(w-176,4,ime.scheme==KI_KANA?(ime.katakana?"Kana / Kata":"Kana / Hira"):(ime.katakana?"Romaji / Kata":"Romaji / Hira"),0x20344a);
+ kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_label(8,4,ime_target==1?"IME / Find":ime_target==2?"IME / Replace":"IME / Document",0x20344a);
+ kg_label(w-176,4,ime.scheme==KI_KANA?(ime.katakana?"Kana / Kata":"Kana / Hira"):(ime.katakana?"Romaji / Kata":"Romaji / Hira"),0x20344a);
  /* At minimum size show the cursor's whole-character window, at most 2 rows. */
  unsigned n=ki_length(text),capacity=(w-16)/8;if(capacity>47)capacity=47;
  unsigned start=0,visible=capacity*2,caret=ime.cursor+ime.pending;
@@ -120,7 +121,7 @@ static int ime_draw(void){
    for(unsigned j=0;j<bytes;j++)line[j+3]=ime.candidates[at][j];
    line[bytes+3]=0;
    kg_button(2200+i,8,60+i*20,w-16,18,line);
-  }}else kg_text(8,64,"Space: convert / Enter: commit",0x20344a);
+  }}else kg_label(8,64,"Space: convert / Enter: commit",0x20344a);
  kg_button(2190,8,h-44,88,24,"Commit");kg_button(2191,104,h-44,88,24,"Cancel");kg_button(2192,200,h-44,56,24,"Prev");kg_button(2193,264,h-44,64,24,ime.selecting?"Next":"Convert");
  char status[48]="Candidate ";unsigned p=10;
  if(ime.selected+1>=10){status[p++]='0'+(ime.selected+1)/10;}
@@ -212,11 +213,11 @@ static void search_event(const KgEvent *e){
  if(action==2){if(!selected_match()&&search_next()<=0)return;int r=ke_replace(&doc,replace_text.text,replace_text.length);if(r<0)find_note="Replacement exceeds 64 KiB";else{mode=0;notice="Replaced / Ctrl Z: undo";index_lines(1);}}
  if(action==3){int r=ke_replace_all(&doc,find_text.text,find_text.length,replace_text.text,replace_text.length);if(r<0)find_note=r==-27?"Replacement exceeds 64 KiB":"Enter a nonempty search";else if(!r)find_note="Not found";else{mode=0;notice="Replaced all / Ctrl Z: one undo";index_lines(1);}}
 }
-static int search_draw(void){unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_text(8,4,replacing?"Replace / literal, case sensitive":"Find / literal, wraps at end",0x20344a);
- kg_text(8,18,"Find",0x20344a);kw_draw_input((KwRect){8,34,(int)w-20,24},&find_text,find_focus.current==0);
- if(replacing){kg_text(8,62,"Replace with",0x20344a);kw_draw_input((KwRect){8,78,(int)w-20,24},&replace_text,find_focus.current==1);}
+static int search_draw(void){unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_label(8,4,replacing?"Replace / literal, case sensitive":"Find / literal, wraps at end",0x20344a);
+ kg_label(8,18,"Find",0x20344a);kw_draw_input((KwRect){8,34,(int)w-20,24},&find_text,find_focus.current==0);
+ if(replacing){kg_label(8,62,"Replace with",0x20344a);kw_draw_input((KwRect){8,78,(int)w-20,24},&replace_text,find_focus.current==1);}
  kg_button(840,8,h-72,80,28,"Find");if(replacing){kg_button(841,96,h-72,88,28,"Replace");kg_button(842,192,h-72,88,28,"All");}
- kg_button(843,8,h-40,80,24,"Cancel");kw_text(96,h-36,find_note?find_note:"Tab: controls / Esc: cancel",(w-104)/8,0x20344a);return kg_present();}
+ kg_button(843,8,h-40,80,24,"Cancel");kw_label(96,h-36,find_note?find_note:"Tab: controls / Esc: cancel",(w-104)/8,0x20344a);return kg_present();}
 static void recover_open(void){message=0;drag=mark=0;kr_open(&recovery,load_buffer);mode=6;}
 static void tools_event(const KgEvent *e){
  if(e->type==KG_KEY&&e->key==27){mode=0;return;}
@@ -224,7 +225,7 @@ static void tools_event(const KgEvent *e){
  if(kw_button(626,e)){mode=8;return;}
  if(kw_button(623,e)){ke_set_eol(&doc,0);mode=0;notice="LF selected / Ctrl Z: undo";}if(kw_button(624,e)){ke_set_eol(&doc,1);mode=0;notice="CRLF selected / Ctrl Z: undo";}if(kw_button(625,e))mode=0;
 }
-static int tools_draw(void){unsigned h=kg_height(),w=kg_width();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_text(8,4,"Editor tools",0x20344a);
+static int tools_draw(void){unsigned h=kg_height(),w=kg_width();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_label(8,4,"Editor tools",0x20344a);
  kg_button(620,8,28,128,24,"Find / Ctrl F");kg_button(621,144,28,144,24,"Replace / Ctrl H");kg_button(622,8,60,128,24,"Recovery");
  kg_button(626,144,60,144,24,"IME / F4");
  kg_button(623,8,100,128,24,"Use LF");kg_button(624,144,100,128,24,"Use CRLF");kg_button(625,8,h-48,80,28,"Back");return kg_present();}
@@ -239,13 +240,13 @@ static void selection_rects(unsigned a,unsigned b){
 }
 static int draw(void){
  layout();budget_rows();report();if(ki_active(&ime))return ime_draw();if(mode==1||mode==3)return kp_draw(&picker);if(mode==5)return search_draw();if(mode==6)return kr_draw(&recovery);if(mode==7)return tools_draw();
- if(mode==8){unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_text(8,4,"IME / input settings",0x20344a);
+ if(mode==8){unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_label(8,4,"IME / input settings",0x20344a);
   kg_button(2210,8,30,88,24,"Off");kg_button(2211,104,30,96,24,"Romaji");kg_button(2212,208,30,112,24,"JIS kana");
-  kg_text(8,64,ime.scheme==KI_ROMAJI?"Selected: Romaji":ime.scheme==KI_KANA?"Selected: JIS kana":"Selected: Off",0x20344a);
+  kg_label(8,64,ime.scheme==KI_ROMAJI?"Selected: Romaji":ime.scheme==KI_KANA?"Selected: JIS kana":"Selected: Off",0x20344a);
   kg_button(2213,8,88,128,24,"Hiragana / F6");kg_button(2214,144,88,128,24,"Katakana / F7");kg_button(2215,8,h-40,80,24,"Back");return kg_present();}
  unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xffffff);
- if(mode==2){kg_text(8,8,"Unsaved text",0x20344a);kw_text(8,32,"Save before continuing?",(w-16)/8,0x20344a);kg_button(803,8,64,64,28,"Save");kg_button(801,80,64,80,28,"Discard");kg_button(802,8,100,80,28,"Cancel");return kg_present();}
- if(mode==4){kw_text(8,8,"Replace workspace file?",(w-16)/8,0x20344a);kg_text(8,32,save_request.name,0x20344a);kg_button(811,8,64,100,28,"Replace");kg_button(812,8,100,100,28,"Cancel");return kg_present();}
+ if(mode==2){kg_label(8,8,"Unsaved text",0x20344a);kw_label(8,32,"Save before continuing?",(w-16)/8,0x20344a);kg_button(803,8,64,64,28,"Save");kg_button(801,80,64,80,28,"Discard");kg_button(802,8,100,80,28,"Cancel");return kg_present();}
+ if(mode==4){kw_label(8,8,"Replace workspace file?",(w-16)/8,0x20344a);kg_text(8,32,save_request.name,0x20344a);kg_button(811,8,64,100,28,"Replace");kg_button(812,8,100,100,28,"Cancel");return kg_present();}
  if(message){kw_draw_dialog(w,h,"Editor",message);if(recovery_suggested)kg_button(627,8,4,104,24,"Recovery");return kg_present();}
  kg_button(601,8,4,64,28,"New");kg_button(602,80,4,64,28,"Open");if(w>=224)kg_button(603,152,4,64,28,"Save");if(w>=312)kg_button(604,224,4,80,28,"Save As");kg_button(605,308,4,w>=380?64:28,28,w>=380?"Tools":"..");
  KeVersion *v=ke_view(&doc);unsigned a=v->anchor<v->cursor?v->anchor:v->cursor,b=v->anchor>v->cursor?v->anchor:v->cursor;

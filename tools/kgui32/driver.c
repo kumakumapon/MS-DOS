@@ -134,6 +134,7 @@ static int dispatch(void){
  case GUI_CLIENT_VIEW:error=kg_clients_snapshot(b,c);break;
  case GUI_CLIENT_EVENT:error=kg_clients_event(b,c);break;
  case GUI_SURFACE_ACK:error=kg_clients_surface_ack(b,c);break;
+ case GUI_LANGUAGE:{extern unsigned kg_language;error=b>1||c?-22:0;if(!error)kg_language=b;break;}
  default:gui_record.unknown++;return -38;
  }if(error<0)gui_record.rejected++;return error;
 }

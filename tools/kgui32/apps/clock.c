@@ -1,4 +1,5 @@
 #include "stats.h"
+#include "ui-clock.h"
 volatile KgStats clock_stats __attribute__((section(".data.gui_stats")))={.magic=0x324b474b,.version=1};
 static void two(char *p,unsigned v){p[0]='0'+v/10;p[1]='0'+v%10;}
 static int draw(unsigned seconds){

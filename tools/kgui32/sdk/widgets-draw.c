@@ -1,6 +1,7 @@
 #include "kgui.h"
 #include "widgets.h"
 #include "text.h"
+#include "ui-widgets.h"
 void kw_text(int x,int y,const char *s,unsigned cols,u32 color){char out[48];unsigned i=0;if(cols>47)cols=47;while(i<cols&&s[i]){unsigned k=kt_unit(s+i,s[i+1]?2:1);if(k){if(k>cols-i)break;for(unsigned j=0;j<k;j++)out[i+j]=s[i+j];i+=k;}else {out[i]='?';i++;}}out[i]=0;kg_text(x,y,out,color);}
 void kw_draw_input(KwRect r,const KwInput *v,int focus){
  kg_rect(r.x,r.y,r.w,r.h,focus?0x327ac0:0xb4c2d0);kg_rect(r.x+1,r.y+1,r.w-2,r.h-2,0xffffff);
