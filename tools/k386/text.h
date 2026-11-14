@@ -5,7 +5,7 @@
 #define K98_ROWS 25u
 #define K98_CELLS 2000u
 #define K98_WHITE 0xe1u
-typedef struct {unsigned short column,row,attribute,pending,escape,which,parameter[4],saved_column,saved_row;} K98Text;
+typedef struct {unsigned short column,row,attribute,pending,escape,which,parameter[4],saved_column,saved_row,columns,rows,pitch,start;} K98Text;
 typedef struct {
  void *context;
  unsigned (*get)(void *,unsigned,unsigned);

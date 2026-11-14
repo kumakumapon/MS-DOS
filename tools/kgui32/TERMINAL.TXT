@@ -34,3 +34,11 @@ preservation rules. The A: root is read-only through the app broker.
 Full contracts and historical K386 documentation:
 https://github.com/kumakumapon/MS-DOS/tree/main/tools/k386
 https://github.com/kumakumapon/MS-DOS/blob/main/tools/kgui32/TERMINAL.md
+
+ADDITIONAL TERMINAL MODES
+KV98VID.EXE loads before KGUILDR. Each DOS task has private CGRAM/VRAM.
+Run KVTERM.COM (or KVTERM.COM 2). Keys: g graphics, a analog palette,
+t text, 4 forty columns/twenty rows, 8 eighty columns/twenty-five rows,
+n normal attributes, f deliberate port fault, q quit. Semigraphic and
+gaiji cells and standard GDC 16-colour graphics fit the terminal viewport.
+Advanced GRCG/EGC, multiple partitions/pages and DOS FEP are not supported.

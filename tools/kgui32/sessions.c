@@ -116,3 +116,22 @@ int gui_snapshot(u32 pointer,unsigned bytes){
  }
  return gui_copy(pointer,&view,sizeof view,1);
 }
+
+int gui_video_read(u32 pointer,unsigned bytes){
+ GuiVideoRead r;if(bytes!=sizeof r)return -22;
+ int e=gui_copy(pointer,&r,sizeof r,0);if(e)return e;
+ if(r.version!=1||r.size!=sizeof r||r.slot>=k386_capacity()||!r.bytes||r.bytes>KV_READ_BYTES)return -22;
+ for(unsigned i=0;i<7;i++)if(r.reserved[i])return -22;
+ unsigned address;if(r.region?kv_region(r.region,r.offset,r.bytes,&address):(r.offset>128||r.bytes>128-r.offset))return -22;
+ if(!manager)return -38;
+ if(!gui_output_range(r.data,r.bytes))return -14;
+ K386Usage u;unsigned id=r.slot;
+ if(!k386_usage(id,&u))return -5;
+ if(r.generation!=u.generation||r.revision!=k386_word(id,6))return -116;
+ if(!owned[id]||owned_generation[id]!=r.generation)return -1;
+ if(k386_kind(id))return -38;
+ KvRead *chunk=(KvRead *)loader_buffer;
+ if(k386_video(id,r.region,r.offset,r.bytes,chunk))return -38;
+ if(chunk->packet.generation!=u.generation||k386_word(id,6)!=r.revision)return -116;
+ return gui_copy(r.data,chunk->data,r.bytes,1);
+}

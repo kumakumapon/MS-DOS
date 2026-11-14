@@ -32,5 +32,8 @@ int main(void){
  fresh(&a);out(&a,"\033[1;2;3;4;99999mX");assert(plane[0][0]=='X'&&a.column==1&&!a.escape);
  for(unsigned lead=0x81;lead<=0xef;lead++){if(!sjis_lead(lead))continue;for(unsigned trail=0x40;trail<=0xfc;trail++)if(sjis_trail(trail))assert(k98_sjis(sjis_vram(lead,trail))==lead*256+trail);}
  fresh(&a);plane[0][79]=sjis_vram(0x93,0xfa);assert(k98_glyph(plane[0],79,&half)=='?');assert(k98_glyph(plane[0],80,&half)==' ');
+ fresh(&a);a.columns=a.pitch=40;a.rows=20;out(&a,"\033[999;999H");assert(a.column==39&&a.row==19);out(&a,"\033[1;40H!");assert(a.row==1&&!a.column&&plane[0][39]=='!');
+ out(&a,"\033[31;4m\033[24mX");assert(plane[1][40]==0x41);out(&a,"\033[2J");assert(plane[0][799]==' ');
+ fresh(&a);k98_output(&a,0xeb,&surface);k98_output(&a,0x9f,&surface);assert(plane[0][0]==0xa156&&plane[0][1]==0xa156);
  puts("PC-98 terminal: SJIS, planes, colours/effects, split input, wrap, erase, scroll and malformed CSI passed");return 0;
 }

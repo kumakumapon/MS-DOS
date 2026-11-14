@@ -1,5 +1,6 @@
 #define K386_MONITOR
 #include "runtime.h"
+#include "video.h"
 #include "resources.h"
 #include "xmem.h"
 #include "extended.h"
@@ -16,7 +17,7 @@ static void usage(unsigned id){
     unsigned heap=0,handles=0;
     for(unsigned i=0;i<r->arena.count;i++)if(r->arena.block[i].owner)heap+=r->arena.block[i].size+1;
     for(unsigned i=0;i<K386_HANDLES;i++)if(sessions[id].handles[i])handles++;
-    u->memory_kb=r->backing.handle?(K386_BACKING+4095+1023)/1024:0;
+    u->memory_kb=r->backing.handle?(backing_size(&r->backing)+4095+1023)/1024:0;
     unsigned blocks;u->memory_kb+=xmem_used(id,0,&blocks);
     u->heap_kb=(heap+63)/64;u->handles=handles;u->depth=r->process.psp?r->depth+1:0;u->psp=r->process.psp;
     for(unsigned i=0;i<sizeof u->program;i++)u->program[i]=r->process.program[i];
@@ -140,6 +141,11 @@ void api_dispatch(void) {
         s->head=s->count=s->line_count=s->request=0;v->state=K386_ENDED;v->exit_code=0x103;
         k386_reap(id);limit(id);usage(id);v->flags++;break;
     case K386_DESCRIBE:k386_mailbox.error=resource_describe(id,k386_mailbox.key);break;
+    case K386_VIDEO:{
+        KvPacket *p=(KvPacket *)transfer;
+        /* Request fields fit the existing mailbox path, copied as binary. */
+        for(unsigned i=0;i<12;i++)((k8 *)&p->port)[i]=((k8 *)k386_mailbox.path)[i];
+        p->operation=4;k386_mailbox.error=k386_video_call(id,p)<0?50:0;break;}
     case K386_TEXT:{
         unsigned first=k386_mailbox.key&255,count=k386_mailbox.key>>8;
         if(first>=25||!count||count>3||count>25-first||!runtime[id].backing.handle){k386_mailbox.error=87;break;}

@@ -35,7 +35,7 @@ $(BUILD)/client.o: ../window/k386_client.c | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/verified-disk.o: ../filer/verified-disk.c ../filer/verified-disk.h | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
-$(BUILD)/driver.elf: $(BUILD)/verified-disk.o $(BUILD)/document.o $(BUILD)/clients.o $(BUILD)/client-policy.o $(BUILD)/surface.native.o $(BUILD)/client-gate.o $(BUILD)/runtime.o $(BUILD)/driver.o $(BUILD)/sessions.o $(BUILD)/loader.broker.o $(BUILD)/elf.broker.o $(BUILD)/services.broker.o $(BUILD)/services-dos.broker.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/cirrus.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/client.o driver.ld
+$(BUILD)/driver.elf: $(BUILD)/video-policy.o $(BUILD)/verified-disk.o $(BUILD)/document.o $(BUILD)/clients.o $(BUILD)/client-policy.o $(BUILD)/surface.native.o $(BUILD)/client-gate.o $(BUILD)/runtime.o $(BUILD)/driver.o $(BUILD)/sessions.o $(BUILD)/loader.broker.o $(BUILD)/elf.broker.o $(BUILD)/services.broker.o $(BUILD)/services-dos.broker.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/cirrus.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/client.o driver.ld
 	ld -m elf_i386 --gc-sections -T driver.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGUILDR.EXE: $(BUILD)/driver.elf ../mz/build.py
 	python3 ../mz/build.py --desktop-app 'KGUI32 native loader' $< $@
@@ -45,7 +45,7 @@ $(BUILD)/scene.o: scene.c scene.h gui.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/crt.o: $(K32)/sdk/crt1.S | $(BUILD)
 	as --32 $< -o $@
-$(BUILD)/desktop.elf: $(BUILD)/desktop.o $(BUILD)/scene.o $(BUILD)/surface.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+$(BUILD)/desktop.elf: $(BUILD)/terminal-video.o $(BUILD)/desktop.o $(BUILD)/scene.o $(BUILD)/surface.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGUI32.EXE: $(BUILD)/desktop.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 23 --gui --compact
@@ -60,7 +60,7 @@ $(BUILD)/KGPROOF.COM: $(BUILD)/proof.elf
 $(BUILD)/test-scene: test-scene.c scene.c scene.h gui.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-scene.c scene.c -o $@
 $(BUILD)/test-sessions: test-sessions.c sessions.c document.c document.h $(K32)/services.c $(K32)/services.h gui.h | $(BUILD)
-	$(CC) -Wall -Wextra -Werror test-sessions.c sessions.c document.c $(K32)/services.c -o $@
+	$(CC) -Wall -Wextra -Werror test-sessions.c sessions.c document.c $(K32)/services.c ../kvideo/video.c -o $@
 $(BUILD)/test-client-policy: test-client-policy.c client-policy.c surface.c document.c document.h $(K32)/services.c $(K32)/services.h client-policy.h sdk/protocol.h sdk/text.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-client-policy.c client-policy.c surface.c document.c $(K32)/services.c -o $@
 test: all $(BUILD)/test-bitmap $(BUILD)/test-surface $(BUILD)/test-scene $(BUILD)/test-sessions $(BUILD)/test-client-policy $(BUILD)/test-widgets $(BUILD)/test-editor
@@ -231,3 +231,19 @@ $(BUILD)/i18n.o: sdk/i18n.c sdk/i18n.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/desktop.elf $(BUILD)/editor.elf $(BUILD)/files.elf $(BUILD)/image.elf $(BUILD)/calculator.elf $(BUILD)/clock.elf: $(BUILD)/i18n.o
 $(BUILD)/test-image-ui: $(UI_HEADERS)
+
+$(BUILD)/video-policy.o: ../kvideo/video.c ../kvideo/video.h | $(BUILD)
+	$(CC) $(NATIVE) -c $< -o $@
+
+$(BUILD)/terminal-video.o: terminal-video.c terminal-video.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+
+$(BUILD)/test-terminal-video: test-terminal-video.c terminal-video.c terminal-video.h ../kvideo/video.c ../k386/text.c | $(BUILD)
+	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-terminal-video.c terminal-video.c ../kvideo/video.c ../k386/text.c -o $@
+$(BUILD)/test-video-read: test-video-read.c sessions.c gui.h ../kvideo/video.c | $(BUILD)
+	$(CC) -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Wl,--gc-sections test-video-read.c sessions.c ../kvideo/video.c -o $@
+test: test-terminal-video-run
+test-terminal-video-run: $(BUILD)/test-terminal-video $(BUILD)/test-video-read
+	$(BUILD)/test-terminal-video
+	$(BUILD)/test-video-read
+.PHONY: test-terminal-video-run

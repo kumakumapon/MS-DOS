@@ -21,12 +21,14 @@ void backing_free(K386Backing *p) {
     *p=(K386Backing){0};
 }
 int backing_new(K386Backing *p) {
-    unsigned b=0,d=(K386_BACKING+4095+1023)/1024;
-    *p=(K386Backing){0};if(call(9,&b,&d,0)!=1)return 0;
+    unsigned a=0xd39e,b=0;
+    __asm__ volatile("pushw %%es; int $0x2f; popw %%es":"+a"(a),"+b"(b)::"ecx","edx","esi","edi","cc","memory");
+    *p=(K386Backing){.pages=(a&65535)==0x39ed?0xe8:0xa5};
+    unsigned d=(backing_size(p)+4095+1023)/1024;b=0;if(call(9,&b,&d,0)!=1)return 0;
     k16 handle=d;p->handle=handle;
     if(call(12,&b,&d,0)!=1){unsigned h=handle;call(10,&b,&h,0);*p=(K386Backing){0};return 0;}
     k32 raw=(k32)d<<16|b;p->physical=(raw+4095)&~4095u;p->offset=p->physical-raw;
-    if(raw<0x100000||p->physical>0x2000000-K386_BACKING){backing_free(p);return 0;}
+    if(raw<0x100000||p->physical>0x2000000-backing_size(p)){backing_free(p);return 0;}
     return 1;
 }
 static int move(k16 from,k32 at,k16 to,k32 target,unsigned n) {
@@ -35,20 +37,20 @@ static int move(k16 from,k32 at,k16 to,k32 target,unsigned n) {
 }
 static k32 local(const void *p){k16 ds;__asm__ volatile("movw %%ds,%0":"=r"(ds));return (k32)ds<<16|((unsigned)p&65535);}
 int backing_read(const K386Backing *p,k32 at,void *out,unsigned n) {
-    if(!p->handle||at>K386_BACKING||n>K386_BACKING-at)return 0;
+    if(!p->handle||at>backing_size(p)||n>backing_size(p)-at)return 0;
     unsigned even=n&~1u;
     if(even&&!move(p->handle,p->offset+at,0,local(out),even))return 0;
     if(n&1){k8 tail[2];if(!move(p->handle,p->offset+at+even,0,local(tail),2))return 0;((k8 *)out)[even]=tail[0];}
     return 1;
 }
 int backing_write(const K386Backing *p,k32 at,const void *in,unsigned n) {
-    if(!p->handle||at>K386_BACKING||n>K386_BACKING-at)return 0;
+    if(!p->handle||at>backing_size(p)||n>backing_size(p)-at)return 0;
     unsigned even=n&~1u;
     if(even&&!move(0,local(in),p->handle,p->offset+at,even))return 0;
     if(n&1){k8 tail[2];if(!move(p->handle,p->offset+at+even,0,local(tail),2))return 0;tail[0]=((const k8 *)in)[even];if(!move(0,local(tail),p->handle,p->offset+at+even,2))return 0;}
     return 1;
 }
-int backing_copy(const K386Backing *p,k32 to,k32 from,unsigned count){return to<=K386_BACKING&&from<=K386_BACKING&&count<=K386_BACKING-to&&count<=K386_BACKING-from&&!(count&1)&&move(p->handle,p->offset+from,p->handle,p->offset+to,count);}
+int backing_copy(const K386Backing *p,k32 to,k32 from,unsigned count){return to<=backing_size(p)&&from<=backing_size(p)&&count<=backing_size(p)-to&&count<=backing_size(p)-from&&!(count&1)&&move(p->handle,p->offset+from,p->handle,p->offset+to,count);}
 
 /* Application blocks stay unlocked and are reachable only through the broker. */
 #include "xmem.h"

@@ -18,6 +18,7 @@ static unsigned head,count,segment,scratch,tables,started,quit;
 static u32 last_schedule,last_timer;
 static unsigned expanded_here;
 unsigned manager,owned[4],session_focus;u32 owned_generation[4];
+extern int gui_video_read(u32,unsigned);
 extern int gui_session(u32,unsigned),gui_snapshot(u32,unsigned),kg_clients_start(void),kg_clients_snapshot(u32,unsigned),kg_clients_event(u32,unsigned);
 extern int kg_clients_surface_ack(u32,unsigned);
 extern void kg_clients_close(void),kg_clients_tick(void);
@@ -134,6 +135,7 @@ static int dispatch(void){
  case GUI_CLIENT_VIEW:error=kg_clients_snapshot(b,c);break;
  case GUI_CLIENT_EVENT:error=kg_clients_event(b,c);break;
  case GUI_SURFACE_ACK:error=kg_clients_surface_ack(b,c);break;
+ case GUI_VIDEO_READ:error=gui_video_read(b,c);break;
  case GUI_LANGUAGE:{extern unsigned kg_language;error=b>1||c?-22:0;if(!error)kg_language=b;break;}
  default:gui_record.unknown++;return -38;
  }if(error<0)gui_record.rejected++;return error;
@@ -159,7 +161,7 @@ int gui_main(void){
  if(host_acquire()){gui_record.error=get(16);goto cleanup;}
  manager=k386_probe();if(manager&&k386_capacity()==2&&!k386_capacity_request(4))expanded_here=1;gfx_highcolor(1);gfx_start();started=1;
  if(gfx_colors()<256){gui_record.error=11;goto cleanup;}
- info=(GuiInfo){.magic=0x3149474b,.version=1,.size=sizeof info,.width=gfx_width(),.height=gfx_height(),.bpp=gfx_colors()>256?2:1,.features=1|(k386_capacity()==4?GUI_FOUR_SLOTS:0)};info.pitch=info.width*info.bpp;
+ info=(GuiInfo){.magic=0x3149474b,.version=1,.size=sizeof info,.width=gfx_width(),.height=gfx_height(),.bpp=gfx_colors()>256?2:1,.features=1|GUI_VIDEO_MODES|(k386_capacity()==4?GUI_FOUR_SLOTS:0)};info.pitch=info.width*info.bpp;
  for(unsigned i=0;i<16;i++)info.colors[i]=gfx_rgb(i);
  gui_record.width=info.width;gui_record.height=info.height;gui_record.bpp=info.bpp;gui_record.graphics=1;gui_record.ready=1;
  if(kg_clients_start()){gui_record.error=12;goto cleanup;}

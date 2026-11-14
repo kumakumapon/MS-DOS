@@ -19,3 +19,6 @@ int k386_usage(unsigned id,K386Usage *usage);
 int k386_history(unsigned age,K386Event *event);
 void k386_report_line(unsigned row,char *out);
 #endif
+
+#include "../kvideo/video.h"
+int k386_video(unsigned,unsigned,unsigned,unsigned,KvRead *);

@@ -10,6 +10,7 @@ enum { K386_CREATE=1,K386_STEP,K386_KEY,K386_STOP,K386_RESUME,K386_END,
 /* 13 belongs to the mixed manager's restart. Fixed read-only TVRAM transport
  * uses existing 1024-byte scratch and never exposes an arbitrary guest address. */
 #define K386_TEXT 14u
+#define K386_VIDEO 16u
 typedef struct {
  char signature[8];k16 version,size,slot,first,count,flags,column,row,state,reserved;
  k32 generation;
@@ -42,7 +43,7 @@ extern unsigned api_slot_bias;
 extern k32 monitor_base,page_directory[2],selected,saved_cr0,saved_cr3;
 extern k8 transfer[K386_TRANSFER];
 void pm_run(void);
-int kernel_trap(K386Frame *frame);
+int __attribute__((regparm(0))) kernel_trap(K386Frame *frame);
 void kernel_finish(void);
 #endif
 #endif
