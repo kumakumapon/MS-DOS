@@ -9,10 +9,11 @@ K386 profile retains its original backing allocation and port-denial behavior.
 Supported: 40/80 columns, 20/25 rows, semigraphic 2x4 cells, digital/analog
 16-colour palettes, a bounded standard GDC subset and up to 640x400 graphics.
 CGRAM uses A1/A3/A5/A9; text/graphics GDC use 60/62 and A0/A2. Byte IN/OUT
-instructions are decoded from the actual private CS:IP, including a single
-66 byte prefix. Word I/O, unsupported ports/commands and invalid parameters
-fault only that task. Direct stores target private user PTEs; C0000 font shadow
-is never mapped into guest code. Protection diagnostics target C0000, since
+instructions are decoded from the actual private CS:IP. Selected word I/O
+uses the PC-98 low-byte termination rule; a 66 prefix selecting dword I/O,
+unsupported ports/commands and invalid I/O parameters fault only that task.
+Direct stores target private user PTEs; the A5000 font shadow is never mapped
+into guest code. Protection diagnostics target the unmapped guest C0000, since
 E0000 is now a legitimate private graphics plane. FIFO-empty and vertical-sync status are bounded
 by the monitor ARTIC clock. GDC supports SYNC, START/STOP, PITCH, CURS, MASK,
 CCHAR, direction-2 FIGS, word/byte WDAT operations, RDAT/CURD and the first PRAM
