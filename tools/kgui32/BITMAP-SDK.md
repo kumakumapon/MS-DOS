@@ -103,3 +103,5 @@ actual request/reply/status/upload byte counts for readonly acceptance and
 performance measurements. Pixel validity, peer progress and resource recovery
 remain independent checks; elapsed time is recorded without a host-dependent
 pass threshold.
+
+The real-mode packed-row presentation scratch is 28 KiB (formerly 32 KiB). Band height is derived from that allocation and the actual pitch; a maximum 1600-byte RGB565 row always fits. This releases 4 KiB of conventional DOS memory so the resident process broker coexists with four PM32 applications. The pixel ABI, whole-range validation, stack guards and XMS budgets are unchanged.

@@ -16,6 +16,8 @@ extern char host_command[128];
 
 volatile GuiDriverRecord gui_record={.signature={'K','G','3','2','D','R','V','1'},.version=1,.size=sizeof(GuiDriverRecord)};
 static GuiInfo info;static GuiEvent queue[32];
+enum {GUI_SCRATCH_BYTES=28*1024};
+_Static_assert(GUI_SCRATCH_BYTES>=800*2,"one maximum RGB565 row fits");
 static unsigned head,count,segment,scratch,tables,started,quit;
 static u32 last_schedule,last_timer;
 static unsigned expanded_here;
@@ -99,7 +101,7 @@ static int present(u32 pointer,unsigned bytes){
  u32 length=r.pitch*r.height;
  extern u8 loader_map[1024];if(!k32_user_access(loader_map,r.pixels,length,0))return -14;
  gui_record.framebuffer=r.pixels;gui_record.rect[0]=r.x;gui_record.rect[1]=r.y;gui_record.rect[2]=r.width;gui_record.rect[3]=r.height;
- gfx_target(1);unsigned rows=32768/r.pitch;
+ gfx_target(1);unsigned rows=GUI_SCRATCH_BYTES/r.pitch;
  for(unsigned y=0;y<r.height;){
   unsigned n=r.height-y;if(n>rows)n=rows;
   /* Read full packed rows in even-sized bands. Odd indexed rows use a
@@ -158,7 +160,7 @@ int gui_main(void){
  host_command[n]=0;
  if(!n){const char *s="KGUI32.EXE";for(unsigned i=0;;i++){host_command[i]=s[i];if(!s[i])break;}}
  if(loader_open()||!(loader_plan.features&16)){gui_record.error=4;goto cleanup;}
- tables=mem_alloc(16384);scratch=mem_alloc(32768);gui_record.tables=tables;gui_record.scratch=scratch;
+ tables=mem_alloc(16384);scratch=mem_alloc(GUI_SCRATCH_BYTES);gui_record.tables=tables;gui_record.scratch=scratch;
  if(!tables||!scratch){gui_record.error=8;goto cleanup;}
  put(24,((u32)tables*16+4095)&~4095u);
  if(host_acquire()){gui_record.error=get(16);goto cleanup;}
