@@ -3,7 +3,7 @@
 #include "abi.h"
 typedef struct { k32 physical,offset; k16 handle,pages; } K386Backing;
 enum { K386_RAM=0xa0000, K386_BACKING=0xa5000 };
-static inline k32 backing_size(const K386Backing *b){return (b->pages&255)?(k32)(b->pages&255)*4096:K386_BACKING;}
+static inline k32 backing_size(const K386Backing *b){return (b->pages&4095)?(k32)(b->pages&4095)*4096:K386_BACKING;}
 int backing_init(void);
 int backing_a20(int on);
 int backing_new(K386Backing *b);

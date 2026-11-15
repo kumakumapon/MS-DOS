@@ -5,10 +5,10 @@
 #include "xmem.h"
 #include "extended.h"
 #include "../window/hardware.h"
-K386Mailbox k386_mailbox={{'K','3','8','6','A','B','I','1'},1,sizeof(K386Mailbox),1,0,0,0,0,0,{0},{{0}}};
-K386Session sessions[2];
+K386Mailbox k386_mailbox __attribute__((aligned(4)))={{'K','3','8','6','A','B','I','1'},1,sizeof(K386Mailbox),1,0,0,0,0,0,{0},{{0}}};
+K386Session sessions[2] __attribute__((aligned(4)));
 k32 monitor_base,page_directory[2],selected,saved_cr0,saved_cr3;
-k8 transfer[K386_TRANSFER];
+k8 transfer[K386_TRANSFER] __attribute__((aligned(4)));
 unsigned api_slot_bias;
 static k16 tables;
 static k16 ds_segment,owner_psp,indos_segment,indos_offset;

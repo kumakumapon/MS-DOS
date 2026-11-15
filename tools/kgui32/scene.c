@@ -36,7 +36,7 @@ void scene_window_damage(Scene *s,int id,Rect r){
 }
 void scene_init(Scene *s,int width,int height){
  *s=(Scene){.width=width,.height=height,.mx=320,.my=200,.active=0,.order={3,2,1,0},.slots=2};
- s->window[0]=(GuiWindow){{48,64,340,224},1,0};
+ s->window[0]=(GuiWindow){{48,64,340,260},1,0};
  s->window[1]=(GuiWindow){{width-272,120,244,224},1,0};
  for(int i=0;i<2;i++)s->window[i+2]=(GuiWindow){{16+i*8,40+i*8,width>688?656:width-32,height>576?496:height-80},0,0};
  scene_damage(s,(Rect){0,0,width,height});
@@ -155,6 +155,7 @@ int scene_event(Scene *s,const GuiEvent *e){
    if(inside((Rect){w->r.x+18,w->r.y+188,140,28},s->mx,s->my))return ACT_EDITOR;
    if(inside((Rect){w->r.x+174,w->r.y+188,140,28},s->mx,s->my))return ACT_IMAGE;
    if(inside((Rect){w->r.x+174,w->r.y+88,140,28},s->mx,s->my))return ACT_WORDS;
+   if(inside((Rect){w->r.x+18,w->r.y+224,140,28},s->mx,s->my))return ACT_SHELL32;
   }
   if(id==1&&inside((Rect){w->r.x+16,w->r.y+168+(s->slots-2)*24,94,28},s->mx,s->my))return ACT_START;
   if(id==1&&inside((Rect){w->r.x+124,w->r.y+168+(s->slots-2)*24,94,28},s->mx,s->my))return ACT_STOP;

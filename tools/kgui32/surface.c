@@ -44,7 +44,7 @@ int kg_surface_receive_n(KgImage *s,u16 *pixels,unsigned capacity,const KgReques
  u32 bytes=width*height*2;
  unsigned previous=s->uploaded==bytes&&!offset?0:s->uploaded;
  if(!r->count||r->count>KG_SURFACE_BYTES||(r->count&1)||offset!=previous||offset>bytes||r->count>bytes-offset)return -22;
- const u8 *p=(const u8 *)r->draw;for(unsigned i=0;i<r->count;i++)((u8 *)(pixels+(1-s->front)*capacity))[offset+i]=p[i];
+ kg_transport_copy((u8 *)(pixels+(1-s->front)*capacity)+offset,r->draw,r->count);
  s->uploaded=previous+r->count;if(s->uploaded==bytes){s->front^=1;s->valid=1;}s->revision=r->revision;return 0;
 }
 int kg_surface_receive(KgImage *s,u16 *pixels,const KgRequest *r,u32 generation,u32 token){return kg_surface_receive_n(s,pixels,KG_SURFACE_PIXELS,r,generation,token);}

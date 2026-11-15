@@ -199,7 +199,7 @@ character:
     jmp wait
 fault:
     mov dx,0xa2
-    out dx,ax
+    out dx,eax
 done:
     mov ax,0x4c00
     int 0x21

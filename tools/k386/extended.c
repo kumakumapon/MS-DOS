@@ -8,14 +8,14 @@
 extern void api_dispatch(void);
 extern int api_available(void),api_capacity(unsigned);
 extern unsigned api_slot_bias;
-K386Extended k386_extended={.signature={'K','3','8','6','E','X','T','1'},.version=1,.size=sizeof(K386Extended),.capacity=2};
+K386Extended k386_extended __attribute__((aligned(4)))={.signature={'K','3','8','6','E','X','T','1'},.version=1,.size=sizeof(K386Extended),.capacity=2};
 typedef struct {
  K386View view[2];K386Session session[2];K386Runtime runtime[2];k32 pd[2];
  K386Usage usage[2];k32 counts[2];K386Call calls[2][16];K386Frame frame[2];k8 memory[2][512];
  k16 pending[2];KXBlock blocks[2][KX_BLOCKS];
 } Bank;
 #define SPAN(field,local) {local,__builtin_offsetof(Bank,field),sizeof(((Bank *)0)->field)}
-static const KBankSpan spans[]={SPAN(view,k386_mailbox.view),SPAN(session,sessions),SPAN(runtime,runtime),SPAN(pd,page_directory),SPAN(usage,k386_resources.usage),SPAN(counts,k386_diagnostics.count),SPAN(calls,k386_diagnostics.calls),SPAN(frame,k386_diagnostics.frame),SPAN(memory,k386_diagnostics.memory),SPAN(pending,k386_xmem.pending),SPAN(blocks,k386_xmem.blocks)};
+static const KBankSpan spans[] __attribute__((aligned(4)))={SPAN(view,k386_mailbox.view),SPAN(session,sessions),SPAN(runtime,runtime),SPAN(pd,page_directory),SPAN(usage,k386_resources.usage),SPAN(counts,k386_diagnostics.count),SPAN(calls,k386_diagnostics.calls),SPAN(frame,k386_diagnostics.frame),SPAN(memory,k386_diagnostics.memory),SPAN(pending,k386_xmem.pending),SPAN(blocks,k386_xmem.blocks)};
 static unsigned cold,spare,extra_tables;
 static void copy(unsigned segment,int save){kbank_copy(segment,spans,sizeof spans/sizeof spans[0],save);}
 static void publish(void){

@@ -7,6 +7,9 @@ typedef struct {
  char title[32];KgEvent event[KG_EVENTS];
  u32 edit_pending,edit_namespace;int edit_result;char edit_name[13];KgSurface surface,extra_surface;
 } KgClient;
+#define KG_CLIENT_META 3200u
+#define KG_CLIENT_COMMAND 3968u
+_Static_assert(sizeof(KgClient)<=KG_CLIENT_COMMAND-KG_CLIENT_META,"client command storage cannot overlap metadata");
 KgSurface *kg_client_surface(KgClient *,const KgRequest *);
 int kg_validate(const KgRequest *,unsigned,unsigned);
 int kg_policy(KgClient *,KgRequest *,u32,u32 *,unsigned,unsigned);

@@ -39,3 +39,11 @@ remain authoritative; this does not invent a stack trace. Internal real-mode C
 uses size optimization and register arguments; all assembly-to-C entries take
 no arguments. Protected application calls/CRT keep their cdecl ABI. Resident
 snapshot and real/protected stack linker guards remain enforced.
+
+## Processes and streams
+
+The additive feature 512 process API uses ABI 258 and common I/O capability 256.
+See [the process/IPC/shell contract](../kproc/README.md) and `sdk/process.h`.
+The resident K32PROC service is separate from the graphical loader; KPRUN is a
+real-mode headless scheduling client. The single-app K32RUN interface remains
+unchanged and rejects applications requiring the process service.

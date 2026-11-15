@@ -78,8 +78,9 @@ static void output(k8 c) {
 void kernel_map(void) {
     k32 pd=page_directory[selected],physical=runtime[selected].backing.physical;
     for(k32 i=0;i<0xa4;i++)writen(0x400000+pd+4096+i*4,physical+i*4096+7,4);
-    if((runtime[selected].backing.pages&255)>=0xe8){
-        for(k32 i=0;i<32;i++){k32 page=i<24?0xa8+i:0xe0+i-24;writen(0x400000+pd+4096+page*4,physical+page*4096+7,4);}
+    if((runtime[selected].backing.pages&4095)>=0xe8){
+        k32 access=runtime[selected].backing.pages&0x2000;
+        for(k32 i=0;i<32;i++){k32 page=i<24?0xa8+i:0xe0+i-24;writen(0x400000+pd+4096+page*4,physical+kv_vram_page(page,access)*4096+7,4);}
     }
     /* COMMAND probes the model byte at FFFF:000Eh. Expose the actual PC-98
        firmware read-only; never map host DOS RAM or writable device apertures. */
@@ -134,13 +135,15 @@ static int service(K386Frame *f,k8 number) {
         f->eflags&=~1u;return 0;
     }
     if(number==0x18) {
-        if(ah==1){
-            f->ebx=(f->ebx&~0xff00u)|(s->count?0xff00:0);
-            if(s->count){f->eax=s->keys[s->head];f->eflags&=~0x40u;}else f->eflags|=0x40;
+        if(ah==1||ah==5){
+            f->ebx=(f->ebx&~0xff00u)|(s->count?0x100:0);
+            if(s->count){f->eax=ah==5?(unsigned)input():s->keys[s->head];f->eflags&=~0x40u;}else f->eflags|=0x40;
             return 0;
         }
         if(ah==0){c=input();if(c<0){v->state=K386_WAITING;return 2;}f->eax=c;f->eflags&=~0x40u;return 0;}
-        if(ah==0x0c){k98_reset(&runtime[selected].text);text_fill(0,0,2000,32,K98_WHITE);v->row=v->column=0;return 0;}
+        if(ah==2){f->eax&=~255u;return 0;}
+        if(ah==3){s->head=s->count=0;v->keys=0;return 0;}
+        if(((ah>=0x0a&&ah<=0x0e)||(ah>=0x11&&ah<=0x13))||ah==0x16||(ah>=0x40&&ah<=0x42)){s->request=KV_BIOS_REQUEST;return 1;}
         error(f,1);return 0;
     }
     if(number!=0x21){error(f,1);return 0;}

@@ -12,10 +12,10 @@ static void check(int width,int height){
  mouse(&s,GUI_BUTTON,83,84,0);
  assert(s.drag==0&&s.window[0].r.x==61&&s.window[0].r.y==73);
  assert(s.damage.x<=48&&s.damage.y<=64);
- assert(s.damage.x+s.damage.w>=407&&s.damage.y+s.damage.h>=303);
+ assert(s.damage.x+s.damage.w>=s.window[0].r.x+s.window[0].r.w+6&&s.damage.y+s.damage.h>=s.window[0].r.y+s.window[0].r.h+6);
  /* Clamp both edges and retain space for taskbar/shadows. */
  mouse(&s,GUI_BUTTON,83,84,1);mouse(&s,GUI_MOTION,10000,10000,1);
- assert(s.window[0].r.x==width-348&&s.window[0].r.y==height-264);
+ assert(s.window[0].r.x+s.window[0].r.w==width-8&&s.window[0].r.y+s.window[0].r.h==height-40);
  mouse(&s,GUI_MOTION,0,0,1);mouse(&s,GUI_BUTTON,0,0,0);
  assert(s.window[0].r.x==8&&s.window[0].r.y==40&&!s.drag);
  key(&s,9);assert(s.active==1);key(&s,258);
@@ -87,6 +87,7 @@ static void clients(int width,int height){
  assert(scene_event(&s,&e)==ACT_CLOCK);
  mouse(&s,GUI_BUTTON,e.x,e.y,0);e.x=r.x+40;e.y=r.y+164;
  assert(scene_event(&s,&e)==ACT_SHELL);
+ mouse(&s,GUI_BUTTON,e.x,e.y,0);e.y=r.y+236;assert(scene_event(&s,&e)==ACT_SHELL32);
  mouse(&s,GUI_BUTTON,e.x,e.y,0);
  /* Client controls remain usable at the minimum size. Text windows keep
   * their previous smaller minimum, including a final motion on release. */

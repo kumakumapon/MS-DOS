@@ -1,5 +1,6 @@
 #include "io.h"
 #include "libc.h"
+#include "process.h"
 /* One thread per app. Scratch is private BSS, leaving legacy 4 KiB stacks free. */
 static unsigned char scratch[4096];
 int k32_io(K32Io *r){return k32_call(18,(unsigned)r,sizeof *r);}
@@ -31,6 +32,6 @@ int k32_io_recover(const char *name,unsigned variant,const char *destination,con
  K32Io r=k32_io_name(K32_IO_RECOVER,name);r.flags=variant;r.data=(unsigned)destination;r.bytes=n;r.exists=old->exists;r.length=old->length;r.hash=old->hash;
  int e;do{e=k32_io(&r);}while(e==-11);if(e<0&&r.token){int closed=k32_io_abort(&r,1);if(closed<0)return closed;}return e;
 }
-int k32_getchar(void){for(;;){int key=k32_poll_key();if(key>=0){if(key&255)return key&255;}else if(key!=-11)return key;int e=k32_wait(K32_WAIT_KEY,0);if(e<0)return e;}}
-int k32_putchar(unsigned c){unsigned char byte=(unsigned char)c;int e=k32_write(&byte,1);return e==1?(int)byte:e<0?e:-5;}
-int k32_printf(const char *format,...){char text[256];va_list args;va_start(args,format);int n=k32_vsnprintf(text,sizeof text,format,args);va_end(args);if(n<0)return n;if((unsigned)n>=sizeof text)return -27;return k32_write(text,(unsigned)n);}
+int k32_getchar(void){if(k32_info()->features&K32_FEATURE_PROCESS){unsigned char byte;for(;;){int n=k32_pipe_read(0,&byte,1);if(n==-38)break;if(n==-11){k32_wait(K32_WAIT_TIME,16);continue;}return n==1?(int)byte:n<0?n:-1;}}for(;;){int key=k32_poll_key();if(key>=0){if(key&255)return key&255;}else if(key!=-11)return key;int e=k32_wait(K32_WAIT_KEY,0);if(e<0)return e;}}
+int k32_putchar(unsigned c){unsigned char byte=(unsigned char)c;int e=k32_stream_write(&byte,1);return e==1?(int)byte:e<0?e:-5;}
+int k32_printf(const char *format,...){char text[256];va_list args;va_start(args,format);int n=k32_vsnprintf(text,sizeof text,format,args);va_end(args);if(n<0)return n;if((unsigned)n>=sizeof text)return -27;return k32_stream_write(text,(unsigned)n);}

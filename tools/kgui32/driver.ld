@@ -6,6 +6,7 @@ SECTIONS {
  .rodata : { *(.rodata*) }
  .data : { *(.data*) }
  .task : { __task_start = .; *(.task.data) __task_end = .; }
+ host_command = loader_buffer + 3968;
  __mz_image_end = .;
  __bss_start = .;
  .bss : { *(.bss*) *(COMMON) }

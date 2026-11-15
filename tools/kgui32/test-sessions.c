@@ -9,8 +9,12 @@ unsigned owned[4],manager=1,session_focus;u32 owned_generation[4];
 static GuiSessionCommand request;static GuiSessionView snapshot;
 static GuiTerminalView terminal_request,terminal_result;static unsigned terminal_test,bad_chunk;
 static unsigned states[4],generation[4],kinds[4],last_command,last_key,calls,fail;
-static char launched[128];
 static unsigned capacity=2;
+static char launched[128],programs[4][16],commands[4][128];
+static unsigned process_pumps;
+void kg_process_tick(void){process_pumps++;}
+int kg_clients_command(unsigned id,char *path,unsigned write){assert(id<capacity);if(write){assert(strlen(path)<128);strcpy(commands[id],path);}else{strcpy(path,commands[id]);if(!path[0])return -22;}return 0;}
+
 unsigned k386_capacity(void){return capacity;}
 extern int gui_session(u32,unsigned),gui_snapshot(u32,unsigned),gui_open_document(unsigned,u32,unsigned,const char *);
 int gui_copy(u32 p,void *v,unsigned n,int write){
@@ -25,14 +29,14 @@ int k386_video(unsigned a,unsigned b,unsigned c,unsigned d,KvRead *e){(void)a;(v
 int k386_text(unsigned id,unsigned first,unsigned count,K386TextChunk *t){
  memset(t,0,sizeof *t);t->flags=bad_chunk;t->state=states[id];for(unsigned i=0;i<count*80;i++){t->codes[i]='A'+id;t->attributes[i]=0xe1;}assert(first<25);return 0;
 }
-int k386_usage(unsigned id,K386Usage *u){memset(u,0,sizeof *u);u->generation=generation[id];return 1;}
+int k386_usage(unsigned id,K386Usage *u){memset(u,0,sizeof *u);u->generation=generation[id];strcpy(u->program,programs[id]);return 1;}
 unsigned k386_word(unsigned id,unsigned o){return o?0:states[id];}
 unsigned k386_kind(unsigned id){return kinds[id];}
 unsigned k386_counter(unsigned id){return id+42;}
 void k386_screen(unsigned id,char *s){memset(s,'A'+id,2000);}
 int k386_command(unsigned c,unsigned id,unsigned k,const char *p){
  calls++;last_command=c;last_key=k;if(fail)return fail;
- if(c==K386_CREATE){assert(p);strcpy(launched,p);generation[id]++;states[id]=1;}
+ if(c==K386_CREATE){assert(p);strcpy(launched,p);unsigned n=0;while(n<15&&p[n]&&p[n]!=' '){programs[id][n]=p[n];n++;}programs[id][n]=0;generation[id]++;states[id]=1;}
  if(c==K386_END)states[id]=0;
  if(c==K386_STOP)states[id]=3;
  if(c==K386_RESUME)states[id]=1;
@@ -57,6 +61,7 @@ int main(void){
  assert(op(GS_PAUSE)==0&&states[0]==3);assert(op(GS_RESUME)==0&&states[0]==1);
  request.key=256;assert(op(GS_KEY)==-22);kinds[0]=1;assert(op(GS_KEY)==0&&last_key==0x3a00);
  request.key=3;assert(op(GS_KEY)==0&&last_command==K386_INTERRUPT);
+ strcpy(programs[0],"KSH32.EXE");assert(op(GS_KEY)==0&&last_command==K386_KEY&&last_key==3);strcpy(programs[0],"COUNT32.EXE");assert(process_pumps>0);
  unsigned count=calls;request.generation=0;assert(op(GS_END)==-116&&calls==count);request.generation=1;
  assert(op(GS_RESTART)==-16);assert(op(GS_END)==0);assert(op(GS_RESTART)==0&&!strcmp(launched,"COUNT32.EXE 1"));
  assert(generation[0]==2&&owned_generation[0]==2);

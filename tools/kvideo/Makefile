@@ -26,3 +26,10 @@ $(BUILD)/terminal.o: terminal.S | $(BUILD)
 $(BUILD)/KVTERM.COM: $(BUILD)/terminal.o ../k386/com.ld
 	ld -m elf_i386 -T ../k386/com.ld $< -o $(BUILD)/terminal.elf
 	objcopy -O binary $(BUILD)/terminal.elf $@
+
+all: $(BUILD)/KVEXT.COM
+$(BUILD)/extended.o: extended.S | $(BUILD)
+	as --32 $< -o $@
+$(BUILD)/KVEXT.COM: $(BUILD)/extended.o ../k386/com.ld
+	ld -m elf_i386 -T ../k386/com.ld $< -o $(BUILD)/extended.elf
+	objcopy -O binary $(BUILD)/extended.elf $@
