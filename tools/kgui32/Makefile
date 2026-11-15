@@ -272,7 +272,7 @@ $(BUILD)/menu.o: sdk/menu.c sdk/menu.h sdk/protocol.h | $(BUILD)
 $(BUILD)/menu-draw.o: sdk/menu-draw.c sdk/menu.h $(UI_HEADERS) | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/calculator.elf $(BUILD)/clock.elf $(BUILD)/files.elf $(BUILD)/editor.elf $(BUILD)/image.elf $(BUILD)/words.elf: $(BUILD)/menu.o $(BUILD)/menu-draw.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o
-$(BUILD)/test-menu: test-menu.c sdk/menu.c sdk/menu.h sdk/protocol.h | $(BUILD)
+$(BUILD)/test-menu: test-menu.c sdk/menu.c sdk/menu.h sdk/protocol.h sdk/stopwatch.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-menu.c sdk/menu.c -o $@
 test: test-menu-run
 test-menu-run: $(BUILD)/test-menu
