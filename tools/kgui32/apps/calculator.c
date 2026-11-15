@@ -26,6 +26,7 @@ static int draw(void){
 }
 int main(int argc,char **argv){
  kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
+ kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  int token=kg_open("Calculator",328,200);if(token<0){calc_stats.error=-token;return 1;}calc_stats.token=token;calc_init(&calc);
  if(draw()<0)return 2;
  if(argc>1&&same(argv[1],"fault"))*(volatile unsigned *)0x10000=1;

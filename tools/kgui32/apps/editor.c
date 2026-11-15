@@ -290,6 +290,7 @@ static int draw(void){
 }
 int main(int argc,char **argv){
  kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
+ kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  ke_load(&doc,"",0);if(kg_open("Editor / workspace TXT",576,320)<0)return 1;
  if((kg_capabilities()&KG_CAP_SUPPORTED)!=KG_CAP_SUPPORTED||kg_subscribe(KG_CAP_SUPPORTED))return 2;
  index_lines(1);if(!(k32_query()&K32_FEATURE_SAVE))return 2;

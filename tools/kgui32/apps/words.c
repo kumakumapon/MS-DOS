@@ -57,6 +57,7 @@ static void clear_fields(void){reading=value=(KwInput){0};}
 static void accept(void){char text[KI_TEXT+1];int n=ki_commit_text(&ime,text);if(n>0){if(kw_insert(field?&value:&reading,text,(unsigned)n))ki_clear(&ime);else ime.note="Field limit / input kept";}}
 int main(void){
  kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
+ kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  if(kg_open("User dictionary",480,264)<0)return 1;
  if(kg_subscribe(KG_INPUT_TAB|KG_INPUT_KEYS|KG_INPUT_CLOSE|KG_INPUT_MODIFIERS))return 2;
  ki_store_init(&store);int e=ki_store_load(&store);if(e)failure(e);refresh_user();system_load();int dirty=1,quit=0;

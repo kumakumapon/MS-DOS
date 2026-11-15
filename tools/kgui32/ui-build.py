@@ -39,7 +39,6 @@ def build(dest):
  for name,path in SOURCES.items():
   text=path.read_text()
   if name in ('editor','words'):text+='\n'+(ROOT/'sdk/ime.c').read_text()
-  if name=='menu':text+='\n'+''.join(p.read_text() for p in (ROOT/'apps').glob('*.c'))
   button_bounds(text,rows)
   keys=[key for key in rows if json.dumps(key) in text or name=='desktop' and key in ('Files','Editor','Images / BMP24','Images / BMP','User dictionary','Calculator','Clock')]
   assert keys,name

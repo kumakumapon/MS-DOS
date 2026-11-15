@@ -180,6 +180,7 @@ static int draw(void){
 }
 int main(int argc,char **argv){
  kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
+ kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  int token=kg_open("Images / BMP",328,196);if(token<0){image_stats.error=-token;return 1;}
  kg_subscribe(KG_INPUT_TAB|KG_INPUT_KEYS|KG_INPUT_MOTION);
  unsigned fault=argc>1&&equal(argv[1],"fault");

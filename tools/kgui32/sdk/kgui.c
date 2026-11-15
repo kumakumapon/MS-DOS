@@ -5,6 +5,7 @@
 static KmMenu menu;
 void kg_menu(const KmItem *items,unsigned count){menu=(KmMenu){.items=items,.count=count<=KM_MAX?count:0,.enabled=1};}
 void kg_menu_enable(unsigned enabled){menu.enabled=enabled;}
+void kg_menu_labels(const KuPair *labels,unsigned count){menu.labels=labels;menu.label_count=count;}
 unsigned ku_language;static unsigned language_dirty;
 static KgRequest request;static unsigned token,width,height,surface_handle[2],surface_width[2],surface_height[2];
 static void copy(char *to,const char *from,unsigned n){unsigned i=0;while(from[i]){unsigned k=kt_unit(from+i,from[i+1]?2:1);if(!k)k=1;if(k>=n-i)break;for(unsigned j=0;j<k;j++)to[i+j]=from[i+j];i+=k;}to[i]=0;}

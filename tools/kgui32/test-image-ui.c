@@ -44,7 +44,8 @@ int main(void){
  KmItem items[KM_MAX];for(unsigned i=0;i<KM_MAX;i++)items[i]=(KmItem){"Save As",KG_KEY,19,0};
  for(unsigned lang=0;lang<2;lang++)for(unsigned size=0;size<2;size++){
   ku_language=lang;canvas_w=size?784:344;canvas_h=size?416:168;
-  KmMenu m={.items=items,.count=KM_MAX,.enabled=1,.open=1,.rows=(canvas_h-88)/40};
+  const KuPair labels[]={{"Save As","\x95\xca\x96\xbc\x95\xdb\x91\xb6"}};
+  KmMenu m={.items=items,.count=KM_MAX,.enabled=1,.open=1,.rows=(canvas_h-88)/40,.labels=labels,.label_count=1};
   for(unsigned selected=0;selected<KM_MAX;selected++){m.selected=selected;km_draw(&m);assert(frame.count<=KG_COMMANDS);assert(!kg_validate(&frame,canvas_w,canvas_h));}
   m.enabled=0;km_draw(&m);assert(!kg_validate(&frame,canvas_w,canvas_h));
  }

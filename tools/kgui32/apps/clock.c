@@ -27,6 +27,7 @@ static int draw(unsigned seconds){
 }
 int main(int argc,char **argv){
  kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
+ kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  int token=kg_open("Clock",328,160);if(token<0){clock_stats.error=-token;return 1;}clock_stats.token=token;unsigned previous=~0u;
  for(;;){
   KgEvent event;int got=kg_poll(&event);if(got<0){clock_stats.error=-got;return 2;}clock_stats.heartbeat++;

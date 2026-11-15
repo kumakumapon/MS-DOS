@@ -156,6 +156,7 @@ static int draw(void){
 }
 int main(int argc,char **argv){
  kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
+ kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  int fault=argc>1&&k32_len(argv[1])==5&&contains(argv[1],"fault");
  holding=argc>1&&k32_len(argv[1])==4&&contains(argv[1],"hold");
  int t=kg_open("Files",576,320);if(t<0){files_stats.error=-t;return 1;}
