@@ -13,11 +13,11 @@ class Plan(c.Structure):
     _fields_=[(k,c.c_uint32) for k in ('entry','elf_offset','elf_size','count','rwbase','rwbytes')]+[('segments',Segment*8)]+[(k,c.c_uint32) for k in ('abi','features','stack_base','stack_top','heap_limit','min_heap')]
 READ=c.CFUNCTYPE(c.c_int,c.c_void_p,c.c_uint32,c.c_void_p,c.c_uint32)
 LIB=c.CDLL(str(ROOT/'build/elf-test.so'));LIB.k32_plan.argtypes=[READ,c.c_void_p,c.c_uint32,c.POINTER(Plan)]
-def parse(data):
+def parse(data,library=LIB):
     def read(_,at,dest,n):
         if at>len(data) or n>len(data)-at:return 0
         c.memmove(dest,bytes(data[at:at+n]),n);return 1
-    plan=Plan();error=LIB.k32_plan(READ(read),None,len(data),c.byref(plan));return error,plan
+    plan=Plan();error=library.k32_plan(READ(read),None,len(data),c.byref(plan));return error,plan
 def fixture():return bytearray((ROOT/'build/MEM32.EXE').read_bytes())
 class ElfValidation(unittest.TestCase):
     def test_resource_abi_stack_guard_and_heap_reservation(self):
@@ -33,6 +33,16 @@ class ElfValidation(unittest.TestCase):
         for stack in (0,4095,4097,266240):
             with self.assertRaises(ValueError):pkg.package(elf,258,15,stack_bytes=stack)
         with self.assertRaises(ValueError):pkg.package(elf,257,15,stack_bytes=4096)
+    def test_opt_in_process_capability_and_broker_stack(self):
+        subprocess.run(['cc','-shared','-fPIC','-DK32_HOST',str(ROOT/'elf.c'),'-o',str(ROOT/'build/process-parser.so')],check=True)
+        host=c.CDLL(str(ROOT/'build/process-parser.so'));host.k32_plan.argtypes=LIB.k32_plan.argtypes
+        for name in ('KTOOL32','KSH32','PROCTEST'):
+            data=(ROOT/f'build/{name}.EXE').read_bytes();self.assertNotEqual(parse(data)[0],0)
+            error,p=parse(data,host);self.assertEqual(error,0);self.assertEqual((p.abi,p.features),(258,783))
+            changed=bytearray(data);struct.pack_into('<I',changed,92,527);self.assertNotEqual(parse(changed,host)[0],0)
+        path=ROOT.parent/'kproc/build';syms={x.split()[2]:int(x.split()[0],16) for x in subprocess.check_output(['nm','-n',str(path/'driver.elf')],text=True).splitlines() if len(x.split())==3}
+        self.assertLess(syms['__bss_end'],0x4000);self.assertEqual(syms['__mz_sp'],0x5ff0)
+        data=(path/'K32PROC.EXE').read_bytes();h=struct.unpack_from('<14H',data);self.assertEqual(((len(data)-h[4]*16+15)//16+h[5])*16,24576)
     def test_real_sdk_applications(self):
         for name in ('HELLO32','MEM32','BADPTR32','SPIN32','FAULT32'):
             with self.subTest(name=name):self.assertEqual(parse((ROOT/f'build/{name}.EXE').read_bytes())[0],0)

@@ -50,7 +50,7 @@ $(BUILD)/drives.o: drives.c drives.h | $(BUILD)
 $(BUILD)/zero.o: zero.c backing.h | $(BUILD)
 	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -DDOS -c $< -o $@
 $(BUILD)/monitor.elf: $(BUILD)/video.o $(BUILD)/zero.o $(BUILD)/verified-disk.o $(BUILD)/drives.o $(BUILD)/transition.o $(BUILD)/monitor.o $(BUILD)/runtime.o $(BUILD)/loader.o $(BUILD)/backing.o $(BUILD)/arena.o $(BUILD)/engine.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/resources.o $(BUILD)/report.o monitor.ld
-	ld -m elf_i386 --gc-sections -T monitor.ld $(filter %.o,$^) -o $@
+	ld -m elf_i386 --gc-sections -T monitor.ld -Map $(BUILD)/monitor.map $(filter %.o,$^) -o $@
 $(BUILD)/K386.EXE: $(BUILD)/monitor.elf ../mz/build.py
 	python3 ../mz/build.py $< $@
 all: $(BUILD)/COUNTER.COM $(BUILD)/ECHO.COM $(BUILD)/FAULT.COM

@@ -26,6 +26,7 @@ test: all $(BUILD)/test-resources4
 	$(MAKE) $(BUILD)/test-libc
 	$(BUILD)/test-libc
 	$(MAKE) -C ../k32io test
+	$(MAKE) -C ../kproc test
 $(BUILD)/test-libc: test-libc.c sdk/libc.c sdk/libc.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror -DK32_LIBC_TEST -fsanitize=address,undefined test-libc.c sdk/libc.c -o $@
 $(BUILD)/test-workspace: test-workspace.c workspace.c workspace.h services.c services.h ../filer/sjis.h | $(BUILD)
@@ -154,6 +155,7 @@ $(BUILD)/workspace.host.o $(BUILD)/services-dos.host.o: workspace.h
 $(BUILD)/services-dos.host.o $(BUILD)/services-dos.o: io.h
 all:
 	$(MAKE) -C ../k32io all
+	$(MAKE) -C ../kproc all
 
 $(BUILD)/bank.host.o: ../k386/bank.c ../k386/bank.h | $(BUILD)
 	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -DK32_HOST -c $< -o $@
@@ -161,3 +163,33 @@ $(BUILD)/host.elf: $(BUILD)/bank.host.o $(BUILD)/host-bank.host.o
 
 $(BUILD)/test-resources4: resources4-test.c ../k386/resources.c ../k386/resources.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror -DK32_HOST resources4-test.c ../k386/resources.c -o $@
+
+$(BUILD)/services-dos.host.o $(BUILD)/services-dos.o: ../kproc/process.h
+
+$(BUILD)/tool.ext.elf: $(BUILD)/tool.ext.o $(BUILD)/io.app.o $(BUILD)/libc.app.o $(BUILD)/crt1.o sdk/app.ld
+	ld -m elf_i386 -T sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KTOOL32.EXE: $(BUILD)/tool.ext.elf package.py
+	python3 package.py $< $@ --abi 258 --features 783 --process --compact --stack-bytes 16384
+$(BUILD)/process-test.ext.elf: $(BUILD)/process-test.ext.o $(BUILD)/io.app.o $(BUILD)/libc.app.o $(BUILD)/crt1.o sdk/app.ld
+	ld -m elf_i386 -T sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/PROCTEST.EXE: $(BUILD)/process-test.ext.elf package.py
+	python3 package.py $< $@ --abi 258 --features 783 --process --compact --stack-bytes 16384
+apps: $(BUILD)/KTOOL32.EXE $(BUILD)/PROCTEST.EXE
+$(BUILD)/tool.ext.o $(BUILD)/process-test.ext.o $(BUILD)/io.app.o: sdk/process.h ../kproc/process.h
+
+$(BUILD)/shell-parse.app.o: ../kproc/shell.c ../kproc/shell.h | $(BUILD)
+	$(CC) -m32 $(CFLAGS) -c $< -o $@
+$(BUILD)/shell.ext.elf: $(BUILD)/shell.ext.o $(BUILD)/shell-parse.app.o $(BUILD)/io.app.o $(BUILD)/libc.app.o $(BUILD)/crt1.o sdk/app.ld
+	ld -m elf_i386 -T sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KSH32.EXE: $(BUILD)/shell.ext.elf package.py
+	python3 package.py $< $@ --abi 258 --features 783 --process --compact --stack-bytes 16384 --min-heap 65536
+apps: $(BUILD)/KSH32.EXE
+$(BUILD)/shell.ext.o: sdk/process.h ../kproc/shell.h
+
+$(BUILD)/process-run.o: process-run.c ../window/k386_client.h | $(BUILD)
+	$(CC) -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 $(CFLAGS) -Oz -mregparm=3 -DDOS -c $< -o $@
+$(BUILD)/process-run.elf: $(BUILD)/process-run.o $(BUILD)/mix-client.o $(BUILD)/mix-dos.o $(BUILD)/mix-start.o $(BUILD)/mix-core.o $(BUILD)/libmemory.o ../filer/com.ld
+	ld -m elf_i386 --gc-sections -T ../filer/com.ld $(filter %.o,$^) -o $@
+$(BUILD)/KPRUN.COM: $(BUILD)/process-run.elf
+	objcopy -O binary $< $@
+all: $(BUILD)/KPRUN.COM

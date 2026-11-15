@@ -36,7 +36,7 @@ $(BUILD)/client.o: ../window/k386_client.c | $(BUILD)
 $(BUILD)/verified-disk.o: ../filer/verified-disk.c ../filer/verified-disk.h | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/driver.elf: $(BUILD)/video-policy.o $(BUILD)/verified-disk.o $(BUILD)/document.o $(BUILD)/clients.o $(BUILD)/client-policy.o $(BUILD)/surface.native.o $(BUILD)/client-gate.o $(BUILD)/runtime.o $(BUILD)/driver.o $(BUILD)/sessions.o $(BUILD)/loader.broker.o $(BUILD)/elf.broker.o $(BUILD)/services.broker.o $(BUILD)/services-dos.broker.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/cirrus.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/client.o driver.ld
-	ld -m elf_i386 --gc-sections -T driver.ld $(filter %.o,$^) -o $@
+	ld -m elf_i386 --gc-sections -T driver.ld -Map $(BUILD)/driver.map $(filter %.o,$^) -o $@
 $(BUILD)/KGUILDR.EXE: $(BUILD)/driver.elf ../mz/build.py
 	python3 ../mz/build.py --desktop-app 'KGUI32 native loader' $< $@
 $(BUILD)/desktop.o: desktop.c gui.h | $(BUILD)

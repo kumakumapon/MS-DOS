@@ -3,6 +3,7 @@
 #include "directory.h"
 #include "workspace.h"
 #include "io.h"
+#include "../kproc/process.h"
 #include "../kgui32/sdk/protocol.h"
 extern u8 results[1024],loader_buffer[4096];
 extern u32 context[19],loader_request,xms_entry;
@@ -13,7 +14,8 @@ extern int loader_write(void);
 static K32Heap heap K32_STATE;
 static struct {u32 token,position,size;int handle;} files[K32_FILES] K32_STATE;
 static u32 serial K32_STATE,wait_start K32_STATE,wait_ticks K32_STATE,wait_mask K32_STATE;
-static u8 dta[43];
+/* File attribute queries have no data payload; reuse tail scratch. */
+#define dta (loader_buffer+4032)
 static u16 keys[64] K32_STATE;
 static unsigned key_head K32_STATE,key_count K32_STATE,escape_pending K32_STATE;
 static unsigned service_features(void){
@@ -22,7 +24,7 @@ static unsigned service_features(void){
  f|=loader_plan.features&K32_FEATURE_IO;
  #endif
  #if defined(K32_HOST) && !defined(K32_GUI)
- f|=loader_plan.features&(KG_FEATURE|K32_FEATURE_DIRECTORY|K32_FEATURE_SAVE);
+ f|=loader_plan.features&(KG_FEATURE|K32_FEATURE_DIRECTORY|K32_FEATURE_SAVE|K32_FEATURE_PROCESS);
  #endif
  return f;
 }
@@ -34,7 +36,7 @@ static void put(unsigned at,u32 n){*(u32 *)(results+at)=n;}
 static void inc(unsigned at){put(at,get(at)+1);}
 #ifndef K32_GUI
 /* The resident query returns ES:DI; C string operations require our ES=DS. */
-static int io_available(void){u32 a=0xd39f,b=0;__asm__ volatile("pushw %%es; int $0x2f; popw %%es":"+a"(a):"b"(b):"ecx","edx","esi","edi","cc","memory");return (a&65535)==0x39fd;}
+static int io_available(unsigned process){u32 a=process?0xd3a0:0xd39f,b=0;__asm__ volatile("pushw %%es; int $0x2f; popw %%es":"+a"(a):"b"(b):"ecx","edx","esi","edi","cc","memory");return (a&65535)==(process?0x3a0d:0x39fd);}
 #ifdef K32_HOST
 static int io_lock(const char *,unsigned);
 #endif
@@ -88,9 +90,10 @@ static void pte(unsigned i,u32 value){
 int services_start(void){
  if(loader_plan.abi<257)return 0;
  #ifndef K32_GUI
- if((loader_plan.features&K32_FEATURE_IO)&&!io_available())return 1;
+ if((loader_plan.features&K32_FEATURE_IO)&&!io_available(0))return 1;
  #endif
  #if defined(K32_HOST) && !defined(K32_GUI)
+ if((loader_plan.features&K32_FEATURE_PROCESS)&&!io_available(1))return 1;
  if(loader_plan.features&K32_FEATURE_SAVE)workspace_start();
  #endif
  u32 end=K32_BASE;
@@ -375,15 +378,16 @@ static int workspace(u32 pointer,u32 size){
 static unsigned io_handles K32_STATE;
 static int io_broker(K32Io *r,unsigned operation){
  K32IoPacket p={1,sizeof p,get(28),get(56),(unsigned)r,(unsigned)loader_buffer,operation,-16,io_handles};
- unsigned a=0xd39f,b=1,di=(unsigned)&p;
+ unsigned process=r&&r->operation>=KP_INFO;
+ unsigned a=process?0xd3a0:0xd39f,b=1,di=(unsigned)&p;
  __asm__ volatile("pushw %%es; pushw %%ds; popw %%es; int $0x2f; popw %%es":"+a"(a),"+b"(b),"+D"(di)::"ecx","edx","esi","cc","memory");
- if((a&65535)!=0x39fd)return -38;
+ if((a&65535)!=(process?0x3a0d:0x39fd))return -38;
  if(operation!=3){put(820,get(820)-io_handles+p.handles);io_handles=p.handles;if(get(820)>get(824))put(824,get(820));}
  return p.result;
 }
 #ifdef K32_HOST
 static int io_lock(const char *name,unsigned drive){
- if(!io_available())return 0;
+ if(!io_available(0))return 0;
  K32Io r={.version=1,.size=sizeof r,.offset=drive};for(unsigned i=0;i<16;i++)r.name[i]=name[i];
  return io_broker(&r,3);
 }
@@ -394,8 +398,9 @@ static int io_dispatch(u32 pointer,unsigned n){
  if(!k32_user_access(loader_map,pointer,n,1))return -14;
  K32Io r;if(!transfer(pointer-K32_BASE,&r,n,0))return -5;
  if(r.bytes>4096&&(r.operation==K32_IO_READ||r.operation==K32_IO_WRITE||r.operation==K32_IO_RECOVER))return -22;
- unsigned reading=r.operation==K32_IO_READ;
- unsigned payload=reading||r.operation==K32_IO_WRITE||r.operation==K32_IO_RECOVER;
+ if(r.operation>=KP_INFO){if(!(loader_plan.features&K32_FEATURE_PROCESS))return -38;if(r.bytes>256)return -22;}
+ unsigned reading=r.operation==K32_IO_READ||r.operation==KP_READ||r.operation==KP_RECEIVE;
+ unsigned payload=reading||r.operation==K32_IO_WRITE||r.operation==K32_IO_RECOVER||r.operation==KP_SPAWN||r.operation==KP_SEND||r.operation==KP_WRITE;
  if(payload&&!k32_user_access(loader_map,r.data,r.bytes,reading))return -14;
  if(payload&&!reading&&r.bytes&&!transfer(r.data-K32_BASE,loader_buffer,r.bytes,0))return -5;
  int result=io_broker(&r,1);
@@ -432,9 +437,11 @@ int services_dispatch(void){
   if(!(loader_plan.features&KG_FEATURE))return -38;
   if(c!=sizeof(KgRequest))return -22;
   if(!k32_user_access(loader_map,b,c,1))return -14;
-  if(!transfer(b-K32_BASE,loader_buffer,c,0))return -5;
+  if(!transfer(b-K32_BASE,loader_buffer,KG_REQUEST_HEADER,0))return -5;
+  unsigned input=kg_request_bytes(((KgRequest *)loader_buffer)->operation);
+  if(input>KG_REQUEST_HEADER&&!transfer(b-K32_BASE+KG_REQUEST_HEADER,loader_buffer+KG_REQUEST_HEADER,input-KG_REQUEST_HEADER,0))return -5;
   int e=host_graphics(loader_buffer,1);
-  if(e>=0&&!transfer(b-K32_BASE,loader_buffer,c,1))return -5;
+  if(e>=0&&!transfer(b-K32_BASE,loader_buffer,kg_reply_bytes(((KgRequest *)loader_buffer)->operation),1))return -5;
   return e;
  }
  #endif

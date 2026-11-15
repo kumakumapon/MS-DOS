@@ -23,7 +23,7 @@ void backing_free(K386Backing *p) {
 int backing_new(K386Backing *p) {
     unsigned a=0xd39e,b=0;
     __asm__ volatile("pushw %%es; int $0x2f; popw %%es":"+a"(a),"+b"(b)::"ecx","edx","esi","edi","cc","memory");
-    *p=(K386Backing){.pages=(a&65535)==0x39ed?0xe8:0xa5};
+    *p=(K386Backing){.pages=(a&65535)==0x39ed?0x108:0xa5};
     unsigned d=(backing_size(p)+4095+1023)/1024;b=0;if(call(9,&b,&d,0)!=1)return 0;
     k16 handle=d;p->handle=handle;
     if(call(12,&b,&d,0)!=1){unsigned h=handle;call(10,&b,&h,0);*p=(K386Backing){0};return 0;}

@@ -52,3 +52,39 @@ Further work: GRCG/EGC/PEGC/SVGA acceleration, multiple display partitions/pages
 additional raster/timing combinations, a complete BIOS mode API and DOS-resident
 Japanese FEP. Unsupported CG-ROM port reads are explicit faults; normal Japanese
 text continues to use the dedicated read-only GUI font API.
+
+## BIOS, word I/O and two private pages
+
+The additive display extension keeps KvMeta at 128 bytes and KvRead at 1024
+bytes. It adds independent A6 CPU access and A4 display selection for two full
+128 KiB planar pages. Each V86 backing is 0x108000 bytes (1056 KiB); the low
+12 bits of `backing.pages` hold the page count and bit 0x2000 selects the access
+page. Page 0 uses A8000/B0000/B8000/E0000 in private backing; page 1 uses the same
+four plane addresses plus 0x20000. Only the existing guest VRAM windows are
+mapped, to owned XMS, and no writable physical display aperture is exposed.
+The desktop's existing terminal cache reads only the displayed page. Creation
+zeros both pages; ending or faulting a task releases the full allocation.
+
+KVEXT.COM uses real V86 stores, IN/OUT AX and INT 18h. Keys 0/1 select the
+visible page, a changes the first word in access page 0, t exercises BIOS text
+mode/clear/cursor, g restores graphics, k tests nonblocking keyboard/reset, b checks refused BIOS mode, f
+requests a denied dword I/O and q exits. Argument 0 skips page initialization
+so a new generation's zeroed pages can be inspected.
+
+Supported word accesses are the PC-98 low-byte-terminated GDC/page ports 60,
+62, A0, A2, A4 and A6: OUT AX uses AL; IN AX returns zero in AH and preserves
+EAX's upper half. A 66-prefixed dword instruction is rejected before effects.
+KVTERM's f diagnostic now uses that unsupported dword operation. Arbitrary
+ports, GRCG/EGC acceleration, PEGC packed modes and SVGA are still refused.
+
+The limited INT 18h display API covers text mode/sense (0A/0B, AL 0..7),
+nondestructive display start/stop (0C/0D), text start (0E), bounded cursor
+visibility/position (11..13), private TVRAM fill (16, DL character and DH
+attribute), graphics start/stop (40/41) and 640x400/selected 640x200 modes (42).
+Mode 42 accepts CH C0/D0, 80/90 and 40/50; bit 4 selects display page. These are
+bounded modes, not complete BIOS/device emulation. Keyboard AH 01 senses, AH 05
+consumes without blocking, AH 03 clears only the private queue and AH 02 reports
+no held modifiers; no keyboard matrix or DOS FEP is claimed. The shared metadata
+uses flag 64 for access page 1 and 128 for display page 1.
+
+Unsupported BIOS display modes return CF set and an error in AL without changing the mode; unsupported I/O faults only its V86 task.

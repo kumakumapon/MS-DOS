@@ -8,7 +8,8 @@ extern int gui_copy(u32,void *,unsigned,int);
 extern int gui_output_range(u32,unsigned);
 extern unsigned owned[4],manager,session_focus;
 extern u32 owned_generation[4];
-static char commands[4][128];
+extern int kg_clients_command(unsigned,char *,unsigned);
+extern void kg_process_tick(void);
 /* Shared wire scratch: snapshot copies never schedule or call DOS. */
 extern u8 loader_buffer[4096];
 #define view (*(GuiSessionView *)loader_buffer)
@@ -18,7 +19,7 @@ static int launch(unsigned id,const char *path){
  int e=k386_command(K386_CREATE,id,0,path);if(e)return -e;
  K386Usage u;if(!k386_usage(id,&u)){k386_command(K386_END,id,0,0);return -5;}
  owned[id]=1;owned_generation[id]=u.generation;
- for(unsigned i=0;i<128;i++){commands[id][i]=path[i];if(!path[i])break;}
+ int saved=kg_clients_command(id,(char *)path,1);if(saved){k386_command(K386_END,id,0,0);owned[id]=0;return saved;}
  return 0;
 }
 int gui_open_document(unsigned requestor,u32 generation,unsigned work,const char *name){
@@ -42,6 +43,7 @@ int gui_session(u32 pointer,unsigned bytes){
   * affects GUI input only and grants no monitor operation. F10 always exits. */
  if(r.operation==GS_FOCUS&&r.key==2){session_focus=5;return 0;}
  if(!manager)return -38;
+ if(r.operation==GS_CREATE||r.operation==GS_RESTART)kg_process_tick();
  unsigned id=r.slot,s=k386_word(id,0);K386Usage u;
  if(!k386_usage(id,&u))return -5;
  if(owned[id]&&owned_generation[id]!=u.generation)owned[id]=0;
@@ -60,11 +62,11 @@ int gui_session(u32 pointer,unsigned bytes){
  case GS_END:command=K386_END;break;
  case GS_PAUSE:command=K386_STOP;break;
  case GS_RESUME:command=K386_RESUME;break;
- case GS_RESTART:if(live(s))return -16;if(!commands[id][0])return -22;return launch(id,commands[id]);
+ case GS_RESTART:{char command[128];if(live(s))return -16;int read=kg_clients_command(id,command,0);return read?read:launch(id,command);}
  case GS_FOCUS:if(r.key!=1)return -22;session_focus=id+1;return 0;
  case GS_KEY:
   command=K386_KEY;
-  if(r.key==3){command=K386_INTERRUPT;r.key=0;}
+  if(r.key==3){unsigned shell=k386_kind(id);const char *name="KSH32.EXE";for(unsigned i=0;i<10;i++)if(u.program[i]!=name[i])shell=0;if(!shell){command=K386_INTERRUPT;r.key=0;}}
   else if(r.key>=256&&r.key<=263){
    if(!k386_kind(id))return -22;
    static const u8 scan[]={0x3a,0x3d,0x3b,0x3c,0x3e,0x3f,0x36,0x37};r.key=(unsigned)scan[r.key-256]<<8;

@@ -56,7 +56,7 @@ int kg_surface_upload(unsigned handle,const u16 *pixels,unsigned bytes){
  if(!bytes||bytes!=surface_width[index]*surface_height[index]*2||(bytes&1)||bytes>384*256*2)return -22;
  for(unsigned at=0;at<bytes;){unsigned n=bytes-at;if(n>sizeof request.draw)n=sizeof request.draw;
   request.width=handle;request.height=at;request.count=n;
-  for(unsigned i=0;i<n;i++)((u8 *)request.draw)[i]=((const u8 *)pixels)[at+i];
+  kg_transport_copy(request.draw,(const u8 *)pixels+at,n);
   int e=call(KG_SURFACE_UPLOAD);if(e<0)return e;e=surface_wait(handle);if(e<0)return e;at+=n;
  }return 0;
 }

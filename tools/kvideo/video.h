@@ -2,7 +2,12 @@
 #ifndef KV98_VIDEO_H
 #define KV98_VIDEO_H
 #define KV_IO_REQUEST 0x38eu
-#define KV_BACKING_BYTES 0xe8000u
+#define KV_BIOS_REQUEST 0x38fu
+#define KV_PAGE_BASE 0xc8000u
+#define KV_PAGE_DELTA 0x20000u
+#define KV_BACKING_BYTES 0x108000u
+#define KV_ACCESS_PAGE 64u
+#define KV_DISPLAY_PAGE 128u
 #define KV_FONT_BASE 0xc0000u
 #define KV_FONT_BYTES (188u*32u)
 #define KV_TEXT 1u
@@ -44,10 +49,13 @@ _Static_assert(sizeof(KvPacket)==176,"trusted monitor display packet");
 #define KV_READ_BYTES 848u
 typedef struct {KvPacket packet;unsigned char data[KV_READ_BYTES];} KvRead;
 _Static_assert(sizeof(KvRead)==1024,"bounded private video read");
+int kv_decode(KvPacket *);
 void kv_reset(KvVideo *);
 int kv_out(KvVideo *,unsigned,unsigned,const KvMemory *);
 int kv_in(KvVideo *,unsigned,unsigned,unsigned *,const KvMemory *);
 unsigned kv_plane(unsigned);
+unsigned kv_page_plane(const KvVideo *,unsigned,unsigned);
+int kv_bios(KvVideo *,unsigned *,unsigned,unsigned,const KvMemory *);
 int kv_region(unsigned,unsigned,unsigned,unsigned *);
 unsigned kv_semigraph(unsigned,unsigned,unsigned);
 #endif

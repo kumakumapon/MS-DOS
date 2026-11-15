@@ -6,6 +6,9 @@ static int op(unsigned operation){r.operation=operation;return kg_policy(&c,&r,7
 static void receive(unsigned offset){r.generation=7;r.revision=c.surface.pending;kg_surface_set(&r,0,c.surface.handle);kg_surface_set(&r,4,offset);kg_surface_set(&r,8,c.surface.width);kg_surface_set(&r,12,c.surface.height);assert(!kg_surface_receive(&image,data,&r,7,r.token));}
 static void ack(void){assert(!kg_surface_ack(&c.surface,c.surface.pending,r.operation));}
 int main(void){
+ unsigned char source[80],destination[80];for(unsigned i=0;i<sizeof source;i++)source[i]=(unsigned char)(i*17);
+ for(unsigned offset=0;offset<4;offset++)for(unsigned n=0;n<65;n++){memset(destination,0xa5,sizeof destination);kg_transport_copy(destination+5,source+offset,n);for(unsigned i=0;i<sizeof destination;i++)assert(destination[i]==(i>=5&&i<5+n?source[offset+i-5]:0xa5));}
+
  r=(KgRequest){.version=1,.size=sizeof r,.width=344,.height=196};strcpy(r.title,"Test");assert(op(KG_OPEN)==1);r.token=1;r.width=3;r.height=2;
  assert(op(KG_SURFACE_CREATE)==2&&c.surface.pending);receive(0);assert(!image.valid);KgSurface old=c.surface;assert(kg_surface_ack(&c.surface,c.surface.pending+1,r.operation)==-116&&!memcmp(&old,&c.surface,sizeof old));ack();
  r.width=2;r.height=0;r.count=14;old=c.surface;assert(op(KG_SURFACE_UPLOAD)==-22&&!memcmp(&old,&c.surface,sizeof old));

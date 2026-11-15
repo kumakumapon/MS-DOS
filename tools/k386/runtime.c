@@ -8,9 +8,10 @@
 #include "../window/hardware.h"
 #include "../filer/filer.h"
 #include "../filer/verified-disk.h"
-K386Runtime runtime[2];
-K386Diagnostics k386_diagnostics={.signature={'K','3','8','6','D','O','S','1'},.version=2,.size=sizeof(K386Diagnostics)};
-static k8 host_dta[43];
+K386Runtime runtime[2] __attribute__((aligned(4)));
+K386Diagnostics k386_diagnostics __attribute__((aligned(4)))={.signature={'K','3','8','6','D','O','S','1'},.version=2,.size=sizeof(K386Diagnostics)};
+/* Directory service consumes no payload; borrow the end of common wire scratch. */
+#define host_dta (transfer+K386_TRANSFER-64)
 static unsigned resident(void){return monitor_base>>4;}
 static k16 word(const k8 *p){return p[0]|(k16)p[1]<<8;}
 static void physical32(k32 at,k32 value){for(int i=0;i<4;i++)mem_put(at>>4,(at&15)+i,value>>(i*8));}
@@ -210,7 +211,7 @@ static int directory(unsigned id,int next,const char *path){
 static void broker_inner(unsigned id){
     K386Session *s=&sessions[id];K386Frame *f=&s->frame;K386Runtime *r=&runtime[id];K386Process *p=&r->process;
     int result=0;unsigned handle=f->ebx&65535;char path[128];
-    if(s->request==KV_IO_REQUEST){k386_video_broker(id);return;}
+    if(s->request==KV_IO_REQUEST||s->request==KV_BIOS_REQUEST){k386_video_broker(id);return;}
     f->eflags&=~1u;
     if(s->request==KX_REQUEST){s->request=xmem_service(id,p->psp,f,transfer)?KX_REQUEST:0;return;}
     if(s->request==0x0e){unsigned drive=f->edx&255;result=-live_drive(&r->drives,drive);

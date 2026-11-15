@@ -39,29 +39,27 @@ void kv_dispatch(void){
  kv_record.busy=1;
  unsigned id=p.slot;
  if(generations[id]!=p.generation||handles[id]!=p.handle){kv_reset(&slots[id]);generations[id]=p.generation;handles[id]=p.handle;}
+ unsigned instruction=p.operation==3,original_eax=p.value;
  KvMemory io={&p,read_memory,write_memory};
- if(p.operation==3){
-  unsigned code=p.width,op=code&255,length=1,wide=0;
-  if(op==0x66){wide=1;code>>=8;op=code&255;length++;}
-  if(!((op>=0xe4&&op<=0xe7)||(op>=0xec&&op<=0xef))||(op&1)){p.result=-38;goto publish;}
-  (void)wide;
-  if(op<0xe8){p.port=code>>8&255;length++;}else p.port&=65535;
-  p.operation=(op&2)?1:0;p.width=length;p.value&=255;
- }else if(p.operation!=2&&p.operation!=4&&p.width!=1){p.result=-38;goto publish;}
+ if(p.operation==3){p.result=kv_decode(&p);if(p.result<0)goto publish;}
+ else if(p.operation!=2&&p.operation!=4&&p.operation!=5&&p.width!=1){p.result=-38;goto publish;}
 
  if(p.operation==4){
   unsigned at;unsigned char data[KV_READ_BYTES];
   p.result=-22;
   if(kv_sender_offset<=65536-sizeof(KvRead)&&p.width&&p.width<=sizeof data){
    if(!p.port){if(p.value<=sizeof(KvMeta)&&p.width<=sizeof(KvMeta)-p.value){mem_copy(self,(unsigned)data,self,(unsigned)&slots[id].meta+p.value,p.width);p.result=0;}}
-   else if(!kv_region(p.port,p.value,p.width,&at))p.result=read_memory(&p,at,data,p.width)?0:-5;
+   else if(!kv_region(p.port,p.value,p.width,&at)){if(p.port>=2&&p.port<=5)at=kv_page_plane(&slots[id],p.port-2,1)+p.value;p.result=read_memory(&p,at,data,p.width)?0:-5;}
    if(!p.result)mem_copy(monitor,kv_sender_offset+sizeof p,self,(unsigned)data,p.width);
   }
  }
+ else if(p.operation==5)p.result=kv_bios(&slots[id],&p.port,p.width,p.value,&io);
  else if(p.operation==2)p.result=0;
- else if(p.operation==1)p.result=kv_out(&slots[id],p.port,p.value,&io);
- else if(p.operation==0)p.result=kv_in(&slots[id],p.port,p.ticks,&p.value,&io);
+ else if(p.operation==1||p.operation==7)p.result=kv_out(&slots[id],p.port,p.value,&io);
+ else if(p.operation==0||p.operation==6)p.result=kv_in(&slots[id],p.port,p.ticks,&p.value,&io);
 publish:
+ if(instruction&&p.result>=0){if(!(p.operation&1)){unsigned mask=p.operation==6?65535:255;p.value=(original_eax&~mask)|(p.value&mask);}p.operation&=1;}
+ if(instruction||p.operation==5)p.ticks=(slots[id].meta.flags&KV_ACCESS_PAGE?0x2000:0)|(slots[id].meta.flags&KV_GRAPH?0x8000:0)|(slots[id].meta.font_writes||(slots[id].meta.flags&KV_SEMI)||slots[id].meta.columns!=80||slots[id].meta.rows!=25||slots[id].meta.text_start||slots[id].meta.text_pitch!=80?0x4000:0);
  p.meta=slots[id].meta;kv_record.generation[id]=p.generation;kv_record.handle[id]=p.handle;kv_record.meta[id]=p.meta;
  kv_record.busy=0;
 done:

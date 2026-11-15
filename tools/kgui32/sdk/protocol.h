@@ -29,6 +29,17 @@ typedef struct {
  u32 version,size,operation,slot,generation,token,revision,width,height,count;
  char title[32];KgDraw draw[KG_COMMANDS];KgEvent event;
 } KgRequest;
+/* The fixed public struct stays 3144 bytes. Status has no draw payload;
+ * replies need the event/draw tail only for poll and clipboard reads. */
+#define KG_REQUEST_HEADER 72u
+_Static_assert(__builtin_offsetof(KgRequest,draw)==KG_REQUEST_HEADER,"compact request header preserves draw offset");
+static inline unsigned kg_request_bytes(unsigned op){return op==KG_SURFACE_STATUS?KG_REQUEST_HEADER:sizeof(KgRequest);}
+static inline unsigned kg_reply_bytes(unsigned op){return op==KG_POLL||op==KG_CLIP_GET?sizeof(KgRequest):KG_REQUEST_HEADER;}
+static inline void kg_transport_copy(void *to,const void *from,unsigned bytes){
+ unsigned words=bytes/4,tail=bytes&3;unsigned char *d=to;const unsigned char *s=from;
+ __asm__ volatile("cld; rep movsl":"+D"(d),"+S"(s),"+c"(words)::"memory","cc");
+ __asm__ volatile("rep movsb":"+D"(d),"+S"(s),"+c"(tail)::"memory","cc");
+}
 /* Native-only envelope. Identity comes from K32HOST, never a user request. */
 typedef struct {u32 version,size,slot,generation,request,bytes,operation;int result;} KgPacket;
 _Static_assert(sizeof(KgDraw)==76,"graphical draw ABI");

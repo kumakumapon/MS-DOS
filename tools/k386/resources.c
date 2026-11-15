@@ -5,7 +5,7 @@
 #else
 #define RESOURCE_MAGIC {'K','3','8','6','S','Y','S','1'}
 #endif
-K386Resources k386_resources={.signature=RESOURCE_MAGIC,.version=1,.size=sizeof(K386Resources)};
+K386Resources k386_resources __attribute__((aligned(4)))={.signature=RESOURCE_MAGIC,.version=1,.size=sizeof(K386Resources)};
 #ifdef K32_HOST
 unsigned resource_slots=2;
 static K386Usage extra_usage[2];

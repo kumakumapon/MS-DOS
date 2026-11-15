@@ -11,16 +11,22 @@ extern void services_close(void),loader_close(void),services_pause(void),service
 extern int host_acquire(void);
 extern void host_enter(void),host_drop_xms(void);
 K32HostMailbox host_mailbox={.signature={'K','3','2','H','O','S','T','1'},.version=1,.size=sizeof(K32HostMailbox)};
-char host_command[128];
+extern char host_command[128];
+/* The serialized command already lives in the mailbox; avoid a second near buffer. */
+__asm__(".global host_command\n.set host_command,host_mailbox+32");
+_Static_assert(__builtin_offsetof(K32HostMailbox,path)==32,"resident command alias");
 extern u16 host_api_kind;
 /* Keep the immutable initial task image outside the near resident segment. */
 static unsigned seed;
 K32HostSlot host_slots[2];
 #define slots host_slots
 static unsigned active,ds_segment,task_bytes,indos_segment,indos_offset;
-static unsigned csi,parameter[2],which;
+
 /* Terminal parser belongs to the task, just like its syscall request. */
 static unsigned terminal_state K32_STATE,terminal_parameter[2] K32_STATE,terminal_which K32_STATE;
+#define csi terminal_state
+#define parameter terminal_parameter
+#define which terminal_which
 static u32 get(unsigned n){return *(u32 *)(results+n);}
 static void put(unsigned n,u32 x){*(u32 *)(results+n)=x;}
 static void copy(void *to,const void *from,unsigned n){u8 *d=to;const u8 *s=from;for(unsigned i=0;i<n;i++)d[i]=s[i];}
@@ -65,7 +71,7 @@ static void linefeed(K386View *v){
 }
 int host_write(const void *buffer,unsigned n){
  const u8 *s=buffer;K386View *v=&host_mailbox.task[active].view;
- csi=terminal_state;parameter[0]=terminal_parameter[0];parameter[1]=terminal_parameter[1];which=terminal_which;
+
  for(unsigned i=0;i<n;i++){
   unsigned c=s[i];
   if(csi==1){csi=c=='['?2:0;parameter[0]=parameter[1]=which=0;continue;}
@@ -82,7 +88,7 @@ int host_write(const void *buffer,unsigned n){
   if(c<32||c==127)continue;
   v->screen[v->row*80+v->column]=(char)c;if(++v->column==80){v->column=0;linefeed(v);}
  }
- terminal_state=csi;terminal_parameter[0]=parameter[0];terminal_parameter[1]=parameter[1];terminal_which=which;v->flags++;return (int)n;
+ v->flags++;return (int)n;
 }
 static int create(unsigned id){
  if(slots[id].state||(manager_v86_active(id+host_slot_bias)&&!manager_staging(id+host_slot_bias)))return 5;
@@ -92,7 +98,7 @@ static int create(unsigned id){
  mem_copy(ds_segment,(unsigned)__task_start,seed,0,task_bytes);active=id;
  u32 pd=((u32)tables*16+4095)&~4095u;
  put(20,(u32)ds_segment*16);put(24,pd);put(44,host_mailbox.owner);put(56,ticks()|1);put(492,~0u);put(504,(unsigned)results);
- copy(host_command,host_mailbox.path,128);host_command[127]=0;
+ host_command[127]=0;
  int e=loader_open();if(e){put(16,20);put(12,6);}
  else {extern K32Plan loader_plan;put(768,loader_plan.abi);if((loader_plan.features&32)&&!graphics_available())e=50;else if(host_acquire())e=get(16)==8?8:11;}
  if(e){

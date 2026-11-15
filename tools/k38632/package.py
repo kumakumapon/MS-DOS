@@ -21,8 +21,9 @@ def compact_elf(elf):
             out.extend(elf[offset:offset+size]);struct.pack_into('<8I',out,ph+i*ent,*p)
     return bytes(out)
 
-def package(elf,abi=256,features=0,gui=False,client=False,stack_bytes=None,min_heap=0):
-    if abi not in (256,257,258) or features&~(31 if gui else 495 if client else 271) or (features&128 and features&96!=96) or (abi==256 and features) or (gui and not features&16) or (client and (gui or not features&32)):raise ValueError("unsupported ABI/features")
+def package(elf,abi=256,features=0,gui=False,client=False,stack_bytes=None,min_heap=0,process=False):
+    if abi not in (256,257,258) or features&~(31 if gui else (1007 if process else 495) if client else (783 if process else 271)) or (features&128 and features&96!=96) or (abi==256 and features) or (gui and not features&16) or (client and (gui or not features&32)):raise ValueError("unsupported ABI/features")
+    if process and (gui or abi!=258 or features&768!=768):raise ValueError('process apps require ABI 258 and process/I/O capabilities')
     if abi!=258 and (stack_bytes is not None or min_heap):raise ValueError('resources require ABI 258')
     resource=b''
     if abi==258:
@@ -31,7 +32,7 @@ def package(elf,abi=256,features=0,gui=False,client=False,stack_bytes=None,min_h
         resource=struct.pack('<8sHHIII',b'K32RES01',1,24,stack_bytes,min_heap,0)
     header=bytearray(96)
     # DOS loads only this short stub, never the ELF overlay into conventional RAM.
-    code=bytes.fromhex('0e1fba1000b409cd21b8014ccd219090')+(b'Use KGUILDR KGUI32.EXE\r\n$' if gui else b'Start this app in KGUI32\r\n$' if client else b'Use K32RUN APP32.EXE\r\n$')
+    code=bytes.fromhex('0e1fba1000b409cd21b8014ccd219090')+(b'Use KGUILDR KGUI32.EXE\r\n$' if gui else b'Start this app in KGUI32\r\n$' if client else b'Start in KGUI32 (requires K32PROC)\r\n$' if process else b'Use K32RUN APP32.EXE\r\n$')
     load=96+len(code)
     struct.pack_into('<14H',header,0,0x5a4d,load%512,(load+511)//512,0,6,16,16,0,0x100,0,0,0,96,0)
     header[28:72]=b'K386APP1'+struct.pack('<HH',256,3)+b'K38632 application'.ljust(32,b'\0')
@@ -40,8 +41,8 @@ def package(elf,abi=256,features=0,gui=False,client=False,stack_bytes=None,min_h
     return bytes(header)+code+bytes(at-load-len(resource))+resource+elf
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('elf',type=Path);p.add_argument('output',type=Path);p.add_argument('--abi',type=lambda s:int(s,0),default=256);p.add_argument('--features',type=lambda s:int(s,0),default=0);p.add_argument('--gui',action='store_true');p.add_argument('--client',action='store_true');p.add_argument('--compact',action='store_true');p.add_argument('--stack-bytes',type=lambda s:int(s,0));p.add_argument('--min-heap',type=lambda s:int(s,0),default=0);p.add_argument('--debug-map',type=Path);a=p.parse_args()
-    elf=a.elf.read_bytes();output=package(compact_elf(elf) if a.compact else elf,a.abi,a.features,a.gui,a.client,a.stack_bytes,a.min_heap);a.output.write_bytes(output)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('elf',type=Path);p.add_argument('output',type=Path);p.add_argument('--abi',type=lambda s:int(s,0),default=256);p.add_argument('--features',type=lambda s:int(s,0),default=0);p.add_argument('--gui',action='store_true');p.add_argument('--client',action='store_true');p.add_argument('--compact',action='store_true');p.add_argument('--process',action='store_true');p.add_argument('--stack-bytes',type=lambda s:int(s,0));p.add_argument('--min-heap',type=lambda s:int(s,0),default=0);p.add_argument('--debug-map',type=Path);a=p.parse_args()
+    elf=a.elf.read_bytes();output=package(compact_elf(elf) if a.compact else elf,a.abi,a.features,a.gui,a.client,a.stack_bytes,a.min_heap,a.process);a.output.write_bytes(output)
     if a.debug_map:
         import hashlib,json
         a.debug_map.write_text(json.dumps({'version':1,'elf':a.elf.name,'elf_sha256':hashlib.sha256(elf).hexdigest(),'exe':a.output.name,'exe_sha256':hashlib.sha256(output).hexdigest()},indent=2)+'\n')

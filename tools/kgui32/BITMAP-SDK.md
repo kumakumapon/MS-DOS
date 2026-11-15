@@ -87,3 +87,19 @@ frame uses a negative destination to exercise exact one-pixel clipping. The
 native producer's reserved[8..23] publishes four surface handles, uploaded bytes,
 pending revisions and owner generations. CPL3 GUI debug fields after byte 192
 publish private cache metadata/pointers for read-only CPU/PTE-matched CI inspection.
+
+## Transport cost
+
+The public request remains 3144 bytes and the complete caller range must still
+be writable. Surface status transfers only the 72-byte header. Replies without
+an event or clipboard payload also transfer only that header. A successful
+status round trip therefore copies 144 rather than 6288 bytes at each service
+boundary (97.71% fewer); a successful upload copies 3216 rather than 6288
+(48.85% fewer). Pending/error responses copy no reply, as before. Payloads and
+surface acknowledgements retain their previous semantics. SDK/desktop transport
+uses dword copies with exact byte tails, and only the changed client's metadata
+is published. The original KGCLNT01 record stays unchanged. KGXFER01 publishes
+actual request/reply/status/upload byte counts for readonly acceptance and
+performance measurements. Pixel validity, peer progress and resource recovery
+remain independent checks; elapsed time is recorded without a host-dependent
+pass threshold.
