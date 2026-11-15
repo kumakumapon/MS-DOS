@@ -6,10 +6,11 @@ static KpFd *fd(KpProcess *p,unsigned value){for(unsigned i=0;i<KP_FDS;i++)if(va
 static void collect(KpState *s){for(unsigned i=0;i<KP_PIPES;i++)if(s->pipe[i].used){unsigned refs=0;for(unsigned j=0;j<KP_PROCESSES;j++)for(unsigned k=0;k<KP_FDS;k++)refs+=s->task[j].fd[k].token&&s->task[j].fd[k].pipe==i;if(!refs)s->pipe[i]=(KpPipe){0};}}
 static void streams_close(KpState *s,KpProcess *p){for(unsigned i=0;i<KP_FDS;i++)p->fd[i]=(KpFd){0};p->in=p->out=0;collect(s);}
 static void complete(KpState *s,KpProcess *p,unsigned code,unsigned reason){p->state=KP_DONE;p->code=code;p->reason=reason;p->count=0;streams_close(s,p);}
-static int empty(KpState *s){for(unsigned i=0;i<KP_PROCESSES;i++)if(!s->task[i].token)return (int)i;return -11;}
+static int empty(KpState *s){for(unsigned i=4;i<KP_PROCESSES;i++)if(!s->task[i].token)return (int)i;return -11;}
 int kp_attach(KpState *s,const KpIdentity *id){
  for(unsigned i=0;i<KP_PROCESSES;i++){KpProcess *p=&s->task[i];if(p->state==KP_RUNNING&&p->slot==id->slot&&p->generation==id->generation&&p->physical==id->physical&&p->epoch==id->epoch)return (int)p->token;}
- int i=empty(s);if(i<0)return i;unsigned t=token(s);if(!t)return -75;
+ if(id->slot>=4)return -116;
+ int i=(int)id->slot;if(s->task[i].token)return -16;unsigned t=token(s);if(!t)return -75;
  s->task[i]=(KpProcess){.token=t,.state=KP_RUNNING,.slot=id->slot,.generation=id->generation,.physical=id->physical,.epoch=id->epoch};return (int)t;
 }
 static int executable(const unsigned char *s,unsigned n){

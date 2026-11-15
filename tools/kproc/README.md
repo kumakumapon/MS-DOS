@@ -32,7 +32,9 @@ trusted K32HOST sender and checks its real-mode stack canary on every call.
 
 - Process and endpoint handles are opaque positive tokens from a monotonic
   counter. Exhaustion returns 75 instead of wrapping into an old authority.
-- There are eight process records including roots, queued children and zombies.
+- There are eight process records: four reserved root identities and four child
+  records including queued children and zombies. Filling the child pool cannot
+  prevent a newly launched root from acquiring its own identity.
   Physical execution slots remain two or four. A queued launch owns endpoint
   copies but consumes no XMS. No slot or record availability leaves the caller
   running; a failed launch is collected through WAIT with START_FAILED.
