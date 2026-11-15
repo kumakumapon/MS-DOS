@@ -5,6 +5,18 @@
 #include "../sdk/ime-store.h"
 #include "../../k38632/sdk/libc.h"
 #include "ui-words.h"
+#include "../sdk/menu.h"
+static const KmItem app_menu[]={
+ {"Add",KG_MOUSE,1,101},
+ {"Delete",KG_MOUSE,1,102},
+ {"Save",KG_KEY,19,0},
+ {"Reload",KG_KEY,288,0},
+ {"Inspect TMP",KG_MOUSE,1,105},
+ {"Inspect BAK",KG_MOUSE,1,106},
+ {"Restore",KG_MOUSE,1,107},
+ {"IME on / off",KG_KEY,283,0},
+ {"Close",KG_QUIT,1,0},
+};
 volatile unsigned words_stats[20] __attribute__((section(".data.gui_stats")))={0x32574b47,1};
 static KiStore store;static KiIme ime;static KiDictionary system_dictionary,user_dictionary;
 static unsigned char system_bytes[KI_DICTIONARY];static KwInput reading,value;
@@ -23,7 +35,7 @@ static const char *error_note(int e){return e==-116?"File changed / edits kept":
 static void failure(int e){words_stats[9]=e<0?(unsigned)-e:0;note=e<0?error_note(e):"Saved to Work";}
 static unsigned candidate_rows(void){unsigned n=(kg_height()-104)/20;return n>6?6:n?n:1;}
 static int draw(void){
- unsigned w=kg_width(),h=kg_height();report();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
+ kg_menu_enable(!modal&&!ki_active(&ime));unsigned w=kg_width(),h=kg_height();report();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
  if(modal){kg_label(8,8,modal==2?"Unsaved user dictionary":"Reload user dictionary?",0x20344a);kg_label(8,36,"Save, discard or cancel",0x20344a);kg_button(201,8,72,88,28,"Save");kg_button(202,104,72,88,28,"Discard");kg_button(203,200,72,88,28,"Cancel");if(note)kw_label(8,h-20,note,(w-16)/8,0x20344a);return kg_present();}
  if(ki_active(&ime)){
   char text[KI_TEXT+1],line[48];ki_preview(&ime,text);kg_label(8,4,field?"IME / Word":"IME / Reading",0x20344a);kw_text(8,28,text,(w-16)/8>47?47:(w-16)/8,0x174e87);
@@ -44,6 +56,8 @@ static int reload(void){int e=ki_store_load(&store);if(!e){refresh_user();inspec
 static void clear_fields(void){reading=value=(KwInput){0};}
 static void accept(void){char text[KI_TEXT+1];int n=ki_commit_text(&ime,text);if(n>0){if(kw_insert(field?&value:&reading,text,(unsigned)n))ki_clear(&ime);else ime.note="Field limit / input kept";}}
 int main(void){
+ kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
+ kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  if(kg_open("User dictionary",480,264)<0)return 1;
  if(kg_subscribe(KG_INPUT_TAB|KG_INPUT_KEYS|KG_INPUT_CLOSE|KG_INPUT_MODIFIERS))return 2;
  ki_store_init(&store);int e=ki_store_load(&store);if(e)failure(e);refresh_user();system_load();int dirty=1,quit=0;

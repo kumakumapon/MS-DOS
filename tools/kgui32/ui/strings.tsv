@@ -229,3 +229,41 @@ Field limit / clipboard kept	入力上限 / クリップボードを保持
 modified	編集中
 saved	保存済
 32-bit shell	32ビットシェル
+
+# Touch menu and utility extensions
+Menu	操作
+App menu	アプリ操作
+Finish current dialog	先に操作を完了
+Memory add	メモリ加算
+Memory subtract	メモリ減算
+Memory recall	メモリ呼出
+Memory clear	メモリ消去
+Clear calculator	計算を消去
+12 / 24 hour	１２／２４時間
+Stopwatch	経過時間
+Start / stop	開始／停止
+Reset stopwatch	経過時間を消去
+Select all	すべて選択
+Selection mode	選択モード
+Copy	コピー
+Cut	切り取り
+Paste	貼り付け
+Redo	やり直し
+IME settings	入力設定
+Preview / back	プレビュー／戻る
+Refresh / back	更新／戻る
+Root / Work	ルート／作業
+Page up	前のページ
+Page down	次のページ
+Original image	元の画像
+Zoom in	拡大
+Zoom out	縮小
+Actual size	等倍
+IME on / off	日本語入力切替
+Previous	前へ
+Stopwatch / running	計測中
+Stopwatch / stopped	停止中
+Watch	経過時間
+Reset	消去
+Selection mode on / tap end	選択モード：終点をタップ
+Selection mode off	選択モード解除

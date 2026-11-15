@@ -1,5 +1,6 @@
 #include <assert.h>
 #include "scene.h"
+#include "sdk/protocol.h"
 static void mouse(Scene *s,int type,int x,int y,int buttons){
  GuiEvent e={.type=type,.x=x,.y=y,.buttons=buttons};scene_event(s,&e);
 }
@@ -76,6 +77,10 @@ static void clients(int width,int height){
   * even when both app windows are open and the launcher is minimized. */
  GuiEvent e={.type=GUI_KEY,.key='t'};
  assert(scene_event(&s,&e)==ACT_KEY&&s.slot==0&&s.key=='t');
+ s.menu[0]=1;scene_focus(&s,2);
+ e=(GuiEvent){.type=GUI_BUTTON,.x=s.window[2].r.x+20,.y=s.window[2].r.y+16,.buttons=1};
+ assert(scene_event(&s,&e)==ACT_KEY&&s.key==KG_MENU_KEY&&!s.drag&&s.slot==0);
+ e.buttons=0;scene_event(&s,&e);e.type=GUI_KEY;
  s.window[0].hidden=1;e.key=281;
  assert(scene_event(&s,&e)==ACT_NONE&&s.active==0&&!s.window[0].hidden);
  scene_focus(&s,3);e.key=11;

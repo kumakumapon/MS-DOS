@@ -218,16 +218,16 @@ $(BUILD)/KGBITBAD.EXE: $(BUILD)/bitmap-test.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client --compact
 all: $(BUILD)/KGBITBAD.EXE
 
-$(BUILD)/test-image-ui: test-image-ui.c apps/image.c client-policy.c document.c $(K32)/services.c sdk/widgets.c sdk/widgets-draw.c | $(BUILD)
-	$(CC) -I$(BUILD) -Wall -Wextra -Werror -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -ffunction-sections -fdata-sections -fsanitize=address,undefined test-image-ui.c client-policy.c document.c $(K32)/services.c sdk/widgets.c sdk/widgets-draw.c $(wildcard sdk/i18n.c) -Wl,--gc-sections -o $@
+$(BUILD)/test-image-ui: test-image-ui.c apps/image.c client-policy.c document.c $(K32)/services.c sdk/widgets.c sdk/widgets-draw.c sdk/menu-draw.c sdk/menu.h sdk/stopwatch.h | $(BUILD)
+	$(CC) -I$(BUILD) -Wall -Wextra -Werror -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -ffunction-sections -fdata-sections -fsanitize=address,undefined test-image-ui.c client-policy.c document.c $(K32)/services.c sdk/widgets.c sdk/widgets-draw.c sdk/menu-draw.c $(wildcard sdk/i18n.c) -Wl,--gc-sections -o $@
 test-image-ui-run: $(BUILD)/test-image-ui
 	$(BUILD)/test-image-ui
 test: test-image-ui-run
 .PHONY: test-image-ui-run
 
 # Additive switchable UI; private tables include only labels used by a module.
-UI_HEADERS = $(addprefix $(BUILD)/ui-,$(addsuffix .h,desktop editor files image calculator clock picker recovery widgets words))
-$(UI_HEADERS) &: ui-build.py ui/strings.tsv desktop.c apps/editor.c apps/files.c apps/image.c apps/calculator.c apps/clock.c apps/words.c sdk/ime.c sdk/picker.c sdk/recovery.c sdk/widgets-draw.c | $(BUILD)
+UI_HEADERS = $(addprefix $(BUILD)/ui-,$(addsuffix .h,desktop editor files image calculator clock picker recovery widgets words menu))
+$(UI_HEADERS) &: ui-build.py ui/strings.tsv desktop.c apps/editor.c apps/files.c apps/image.c apps/calculator.c apps/clock.c apps/words.c sdk/ime.c sdk/picker.c sdk/recovery.c sdk/widgets-draw.c sdk/menu-draw.c sdk/menu.h sdk/stopwatch.h | $(BUILD)
 	python3 ui-build.py $(BUILD)
 $(BUILD)/desktop.o $(BUILD)/editor.app.o $(BUILD)/files.app.o $(BUILD)/image.app.o $(BUILD)/calculator.app.o $(BUILD)/clock.app.o $(BUILD)/words.app.o $(BUILD)/picker.o $(BUILD)/recovery.o $(BUILD)/widgets-draw.o: $(UI_HEADERS)
 $(BUILD)/i18n.o: sdk/i18n.c sdk/i18n.h | $(BUILD)
@@ -265,3 +265,16 @@ $(BUILD)/words.elf: $(BUILD)/words.app.o $(BUILD)/ime.o $(BUILD)/ime-user.o $(BU
 $(BUILD)/KGWORDS.EXE: $(BUILD)/words.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 258 --features 303 --client --compact --stack-bytes 16384 --min-heap 65536
 all: $(BUILD)/KGWORDS.EXE
+
+# Shared touch/keyboard menu remains inside each CPL3 client.
+$(BUILD)/menu.o: sdk/menu.c sdk/menu.h sdk/protocol.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/menu-draw.o: sdk/menu-draw.c sdk/menu.h $(UI_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/calculator.elf $(BUILD)/clock.elf $(BUILD)/files.elf $(BUILD)/editor.elf $(BUILD)/image.elf $(BUILD)/words.elf: $(BUILD)/menu.o $(BUILD)/menu-draw.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o
+$(BUILD)/test-menu: test-menu.c sdk/menu.c sdk/menu.h sdk/protocol.h sdk/stopwatch.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-menu.c sdk/menu.c -o $@
+test: test-menu-run
+test-menu-run: $(BUILD)/test-menu
+	$(BUILD)/test-menu
+.PHONY: test-menu-run

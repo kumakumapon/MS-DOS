@@ -8,6 +8,16 @@
 #define LINES TEXT_BYTES /* even a file consisting entirely of newlines */
 /* First 64 bytes are sampled from this slot's private RW mapping. */
 typedef struct {u32 magic,version,frames,events,focus,selected,entries,matches,top,mode,bytes,hash,heartbeat,error,name_hash,records;} FilesStats;
+#include "../sdk/menu.h"
+static const KmItem app_menu[]={
+ {"Preview / back",KG_MOUSE,1,100},
+ {"Refresh / back",KG_MOUSE,1,101},
+ {"Root / Work",KG_KEY,23,0},
+ {"Open app",KG_KEY,15,0},
+ {"Page up",KG_KEY,16643,0},
+ {"Page down",KG_KEY,16644,0},
+ {"Close",KG_MOUSE,1,103},
+};
 volatile FilesStats files_stats __attribute__((section(".data.gui_stats")))={.magic=0x3246474b,.version=2};
 static K32DirEntry entries[ENTRIES],entry;
 static unsigned matches[ENTRIES],count,cursor,loading,holding,mode,bytes,line_count,offsets[LINES],preview_top;
@@ -108,7 +118,7 @@ static void diagnostics(void){
  files_stats.records=metadata;
 }
 static int draw(void){
- layout();unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
+ kg_menu_enable(!message&&!holding);layout();unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
  kg_label(8,8,mode?filename:work?destination.root:"A: root / read only",0x20344a);
  if(focus.current>=6)kg_rect(w-(focus.current==6?169:89),1,focus.current==6?78:82,22,0x327ac0);
  kg_button(104,w-168,2,76,20,work?"Root":"Work");kg_button(105,w-88,2,80,20,"Open app");
@@ -145,6 +155,8 @@ static int draw(void){
  diagnostics();int e=kg_present();if(!e)files_stats.frames++;return e;
 }
 int main(int argc,char **argv){
+ kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
+ kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  int fault=argc>1&&k32_len(argv[1])==5&&contains(argv[1],"fault");
  holding=argc>1&&k32_len(argv[1])==4&&contains(argv[1],"hold");
  int t=kg_open("Files",576,320);if(t<0){files_stats.error=-t;return 1;}
@@ -160,6 +172,7 @@ int main(int argc,char **argv){
    if(mode)*(volatile unsigned *)0x10000=1;
   }
   if(got){files_stats.events++;layout();
+   if(e.type==KG_KEY&&(e.key==16643||e.key==16644)){focus.current=1;e.key=e.key==16643?262:263;}
    if(e.type==KG_RESIZE){scroll.dragging=0;dirty=1;}
    if(e.type==KG_FOCUS&&!e.key&&scroll.dragging){scroll.dragging=0;dirty=1;}
    if(holding&&e.type==KG_KEY&&e.key==32){holding=0;dirty=1;}

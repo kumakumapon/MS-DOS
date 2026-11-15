@@ -1,5 +1,7 @@
 # KGUI32 graphical client SDK, wire ABI 1
 
+現在のタップ操作・アプリ拡充は [WINDOW-MENU.md](WINDOW-MENU.md) を参照してください。
+
 KGCALC.EXE and KGCLOCK.EXE are independent protected-mode applications.
 They run in the existing two K32HOST slots (private 4 MiB each), alongside
 the dedicated 4 MiB CPL3 desktop. The desktop alone composes pixels and owns

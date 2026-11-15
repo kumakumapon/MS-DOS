@@ -134,7 +134,7 @@ static void refresh_graphical(unsigned id){
   else if(!client_io.token){scene_close(&scene,id+2);close_token[id]=0;capture=0;}
  }
  unsigned yes=views[id].owned&&views[id].kind==1&&client_io.generation==views[id].generation&&client_io.revision;
- scene.graphical[id]=yes;
+ scene.graphical[id]=yes;scene.menu[id]=yes&&client_io.token&&(client_io.event.control&KG_INPUT_MENU);
  if(yes&&client_io.token&&(clients[id].token!=client_io.token||clients[id].generation!=client_io.generation)){
   GuiWindow *w=&scene.window[id+2];scene_damage(&scene,(Rect){w->r.x,w->r.y,w->r.w+6,w->r.h+6});
   w->r.w=client_io.width+16;w->r.h=client_io.height+104;
@@ -200,7 +200,7 @@ static void action(int act){
  }else {
   unsigned op=act==ACT_KEY?GS_KEY:act==ACT_END?GS_END:act==ACT_PAUSE?GS_PAUSE:act==ACT_RESUME?GS_RESUME:GS_RESTART;
   if(act==ACT_KEY&&scene.graphical[id]){
-   if(clients[id].token){KgEvent event={.type=KG_KEY,.key=scene.key,.control=key_modifiers};errors[id]=client_event(id,&event);}
+   if(clients[id].token){KgEvent event={.type=KG_KEY,.key=scene.key,.control=scene.key==KG_MENU_KEY?0:key_modifiers};errors[id]=client_event(id,&event);}
   }else errors[id]=session_command(id,op,scene.key);
   if(act==ACT_KEY&&!scene.graphical[id])following[id]=3;
   if(act==ACT_RESTART&&!errors[id])scene.scroll_x[id]=scene.scroll_y[id]=0;
@@ -422,7 +422,8 @@ static void window(int id){
  box(x+5,y+5,width,height,rgb(8,16,28));box(x,y,width,height,color(11));box(x+1,y+1,width-2,height-2,color(2));
  box(x+2,y+2,width-4,28,color(scene.active==id?4:9));box(x+3,y+3,width-6,1,color(scene.active==id?13:3));
  char label[6]="DOS 1";if(id>=2){if(scene.graphical[id-2]){label[0]='A';label[1]='p';label[2]='p';}label[4]='1'+id-2;}
- ui_label(x+12,y+9,id>=2?label:id?"System":"Welcome to KGUI32",color(scene.active==id?7:0));
+ if(id>=2&&scene.menu[id-2]){box(x+8,y+3,56,26,color(3));ui_label(x+12,y+9,"Menu",color(0));}
+ else ui_label(x+12,y+9,id>=2?label:id?"System":"Welcome to KGUI32",color(scene.active==id?7:0));
  box(x+width-47,y+6,18,18,color(3));box(x+width-25,y+6,18,18,color(3));
  text(x+width-43,y+7,"_",color(0));text(x+width-21,y+7,"x",color(0));
  if(id>=2){

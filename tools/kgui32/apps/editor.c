@@ -20,6 +20,27 @@ static unsigned char dictionary_bytes[KI_DICTIONARY];
 static unsigned dictionary_checked,ime_target;
 /* Extension is app-private diagnostics. The original 64-byte v4 sample stays. */
 static const char *message;static KwScroll editor_scroll;
+#include "../sdk/menu.h"
+static const KmItem app_menu[]={
+ {"New",KG_KEY,14,0},
+ {"Open",KG_KEY,15,0},
+ {"Save",KG_KEY,19,0},
+ {"Save As",KG_KEY,23,0},
+ {"Find",KG_KEY,6,0},
+ {"Replace",KG_KEY,8,KG_MOD_CTRL},
+ {"Select all",KG_KEY,1,0},
+ {"Selection mode",KG_KEY,2,0},
+ {"Copy",KG_KEY,3,0},
+ {"Cut",KG_KEY,24,0},
+ {"Paste",KG_KEY,22,0},
+ {"Undo",KG_KEY,26,0},
+ {"Redo",KG_KEY,25,0},
+ {"Use LF",KG_KEY,16640,0},
+ {"Use CRLF",KG_KEY,16641,0},
+ {"Recovery",KG_KEY,20,0},
+ {"IME settings",KG_KEY,16642,0},
+ {"Close",KG_QUIT,1,0},
+};
 volatile struct {u32 magic,version,frames,events,bytes,hash,cursor,anchor,dirty,mode,top,heartbeat,error,history,redo,workspace;
  u32 ime_magic,ime_scheme,ime_script,ime_bytes,ime_pending,ime_cursor,ime_candidates,ime_selected,ime_selecting,ime_target,ime_dictionary,ime_hash;
  u32 user_readings,user_error;
@@ -182,7 +203,7 @@ static unsigned hit(const KgEvent *e){unsigned r=top+(e->y<40?0:(unsigned)(e->y-
 static void edit_key(unsigned k,unsigned modifiers){
  KeVersion *v=ke_view(&doc);unsigned at=v->cursor,r=row_at(at),col=at-lines[r];
  if(k==1){ke_select(&doc,0,v->n);return;}
- if(k==2){mark=!mark;if(mark)v->anchor=v->cursor;return;}
+ if(k==2){mark=!mark;if(mark)v->anchor=v->cursor;notice=mark?"Selection mode on / tap end":"Selection mode off";return;}
  if(k==3){copy_selection(0);return;}if(k==24){copy_selection(1);return;}
  if(k==22){int n=kg_clip_get(clipboard,sizeof clipboard);if(n>0&&ke_replace(&doc,clipboard,n)<0)message="Paste rejected: text or size limit";return;}
  if(k==26||k==25){ke_undo(&doc,k==25);return;}
@@ -244,7 +265,7 @@ static void selection_rects(unsigned a,unsigned b){
  if(lo<=hi)kg_rect(8,40+(lo-top)*16,cols*8,(hi-lo+1)*16,0xb4d6f0);
 }
 static int draw(void){
- layout();budget_rows();report();if(ki_active(&ime))return ime_draw();if(mode==1||mode==3)return kp_draw(&picker);if(mode==5)return search_draw();if(mode==6)return kr_draw(&recovery);if(mode==7)return tools_draw();
+ kg_menu_enable(!mode&&!message&&!ki_active(&ime));layout();budget_rows();report();if(ki_active(&ime))return ime_draw();if(mode==1||mode==3)return kp_draw(&picker);if(mode==5)return search_draw();if(mode==6)return kr_draw(&recovery);if(mode==7)return tools_draw();
  if(mode==8){unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_label(8,4,"IME / input settings",0x20344a);
   kg_button(2210,8,30,88,24,"Off");kg_button(2211,104,30,96,24,"Romaji");kg_button(2212,208,30,112,24,"JIS kana");
   kg_label(8,64,ime.scheme==KI_ROMAJI?"Selected: Romaji":ime.scheme==KI_KANA?"Selected: JIS kana":"Selected: Off",0x20344a);
@@ -268,6 +289,8 @@ static int draw(void){
  kw_label(8,h-16,notice?notice:"Ctrl F:Find H:Replace T:Recovery / Tools",(w-16)/8,0x466581);return kg_present();
 }
 int main(int argc,char **argv){
+ kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
+ kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  ke_load(&doc,"",0);if(kg_open("Editor / workspace TXT",576,320)<0)return 1;
  if((kg_capabilities()&KG_CAP_SUPPORTED)!=KG_CAP_SUPPORTED||kg_subscribe(KG_CAP_SUPPORTED))return 2;
  index_lines(1);if(!(k32_query()&K32_FEATURE_SAVE))return 2;
@@ -305,6 +328,9 @@ int main(int argc,char **argv){
    else if(mode==1||mode==3){unsigned was=mode;char name[13];int selected=kp_event(&picker,&e,name);if(selected){mode=0;if(selected<0)cancel_pending();else if(was==1)load(name,picker.work);else{save_request=k32_work_name(K32_WORK_STAT,name);int error=k32_work(&save_request);if(error<0){message="Workspace unavailable / file protected";editor_stats.error=-error;cancel_pending();}else if(save_request.exists)mode=4;else quit=commit_save();}}}
    else if(mode==4){if(kw_button(811,&e)||(e.type==KG_KEY&&e.key=='r'))quit=commit_save();else if(kw_button(812,&e)||(e.type==KG_KEY&&e.key==27)){mode=0;cancel_pending();}}
    else if(message){if(kw_button(627,&e)||(e.type==KG_KEY&&e.key==20))recover_open();else if(kw_dialog(&e))message=0;}
+   else if(e.type==KG_KEY&&e.key==16640){ke_set_eol(&doc,0);index_lines(1);}
+   else if(e.type==KG_KEY&&e.key==16641){ke_set_eol(&doc,1);index_lines(1);}
+   else if(e.type==KG_KEY&&e.key==16642){mode=8;drag=mark=0;}
    else if(kw_button(605,&e)){mode=7;drag=mark=0;}
    else if(e.type==KG_KEY&&e.key==6)search_open(0);
    else if(e.type==KG_KEY&&e.key==8&&(e.control&KG_MOD_CTRL))search_open(1);
@@ -320,7 +346,7 @@ int main(int argc,char **argv){
     if(kw_scroll(&editor_scroll,&e)){top=editor_scroll.top;drag=0;}
     else if(!(e.key&1))drag=0;
     else if(drag){ke_select(&doc,ke_view(&doc)->anchor,hit(&e));}
-    else if(e.type==KG_MOUSE&&kw_inside((KwRect){8,40,(int)cols*8,(int)rows*16},e.x,e.y)){unsigned at=hit(&e);ke_select(&doc,at,at);drag=1;}
+    else if(e.type==KG_MOUSE&&kw_inside((KwRect){8,40,(int)cols*8,(int)rows*16},e.x,e.y)){unsigned at=hit(&e);ke_select(&doc,mark?ke_view(&doc)->anchor:at,at);drag=1;}
 
    }
   }

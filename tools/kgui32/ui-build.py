@@ -5,7 +5,7 @@ ROOT=Path(__file__).resolve().parent
 SOURCES={name:ROOT/path for name,path in {
  'desktop':'desktop.c','editor':'apps/editor.c','files':'apps/files.c',
  'words':'apps/words.c','image':'apps/image.c','calculator':'apps/calculator.c','clock':'apps/clock.c',
- 'picker':'sdk/picker.c','recovery':'sdk/recovery.c','widgets':'sdk/widgets-draw.c'}.items()}
+ 'picker':'sdk/picker.c','recovery':'sdk/recovery.c','widgets':'sdk/widgets-draw.c','menu':'sdk/menu-draw.c'}.items()}
 def literal(text):return '"'+''.join('\\x%02x'%b for b in text.encode('shift_jis'))+'"'
 def button_bounds(text,rows):
  for match in re.finditer(r'\b(kg_button|button)\(',text):

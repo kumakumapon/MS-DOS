@@ -2,11 +2,20 @@
 #include "stats.h"
 #include "../../window/utilities.h"
 #include "ui-calculator.h"
+#include "../sdk/menu.h"
+static const KmItem app_menu[]={
+ {"Memory add",KG_KEY,CALC_PLUS,0},
+ {"Memory subtract",KG_KEY,CALC_MINUS,0},
+ {"Memory recall",KG_KEY,CALC_MR,0},
+ {"Memory clear",KG_KEY,CALC_MC,0},
+ {"Clear calculator",KG_KEY,'c',0},
+ {"Close",KG_KEY,'q',0},
+};
 volatile KgStats calc_stats __attribute__((section(".data.gui_stats")))={.magic=0x3243474b,.version=1};
 static Calculator calc;
 static int draw(void){
  unsigned w=kg_width(),h=kg_height();kg_begin();
- kg_rect(0,0,w,h,0xeaf0f5);kg_rect(8,6,w-16,30,0xffffff);kg_text(16,13,calc_text(&calc),0x182c46);
+ kg_rect(0,0,w,h,0xeaf0f5);kg_rect(8,6,w-16,30,0xffffff);kg_text(16,13,calc_text(&calc),0x182c46);if(calc.memory)kg_text(w-24,13,"M",0x327ac0);
  static const char *labels[]={"7","8","9","/","4","5","6","*","1","2","3","-","0",".","=","+","C","CE","+/-","%"};
  static const unsigned keys[]={'7','8','9','/','4','5','6','*','1','2','3','-','0','.','=','+','c',CALC_CE,CALC_SIGN,'%'};
  int bw=(w-24)/4,bh=(h-44)/5;
@@ -16,6 +25,8 @@ static int draw(void){
  const char *s=calc_text(&calc);unsigned negative=*s=='-',value=0;if(negative)s++;for(;*s>='0'&&*s<='9';s++)value=value*10+*s-'0';calc_stats.value=negative?0u-value:value;return e;
 }
 int main(int argc,char **argv){
+ kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
+ kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  int token=kg_open("Calculator",328,200);if(token<0){calc_stats.error=-token;return 1;}calc_stats.token=token;calc_init(&calc);
  if(draw()<0)return 2;
  if(argc>1&&same(argv[1],"fault"))*(volatile unsigned *)0x10000=1;
