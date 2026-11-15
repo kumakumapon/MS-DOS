@@ -28,7 +28,7 @@ static int execute(const char *line){
  if(out_pipe<3)destination=ends[out_pipe][0];else eof=1;
  shell_stats[1]=2;shell_stats[2]=children[0];shell_stats[3]=children[1];
  while(done<plan.count||!eof){
-  int key=k32_poll_key();if(key>=0&&(key&255)==3){error=-130;goto cleanup;}
+  int key=k32_poll_key();if(key>=0){shell_stats[9]++;shell_stats[11]=(unsigned)key;}if(key>=0&&(key&255)==3){error=-130;goto cleanup;}
   if(!plan.input[0]&&ends[in_pipe][1]){
    if(!console_input&&!stdin_eof&&keyboard_count<sizeof keyboard){unsigned char byte;int n=k32_pipe_read(0,&byte,1);if(n==-38)console_input=1;else if(!n)stdin_eof=1;else if(n==1){keyboard[(keyboard_head+keyboard_count++)%sizeof keyboard]=byte;}else if(n!=-11){error=n;goto cleanup;}}
    if(console_input&&key>=0&&(key&255)){unsigned c=key&255;if(c==4)stdin_eof=1;else if(keyboard_count+2<=sizeof keyboard){keyboard[(keyboard_head+keyboard_count++)%sizeof keyboard]=(unsigned char)c;if(c==13)keyboard[(keyboard_head+keyboard_count++)%sizeof keyboard]=10;}}
@@ -58,7 +58,7 @@ int main(int argc,char **argv){
  k32_printf("KSH32: protected processes, one pipe, Work <input >output\r\n");
  char line[128];unsigned used=0;
  if(argc>1&&!k32_strcmp(argv[1],"/C")){for(int i=2;i<argc;i++){unsigned n=k32_strlen(argv[i]);if(used+n+(used?1:0)>=sizeof line)return 22;if(used)line[used++]=' ';k32_memcpy(line+used,argv[i],n);used+=n;}line[used]=0;int e=run_line(line);k32_printf("KSH32 status %d\r\n",e);return e<0?-e:e;}
- for(;;){k32_printf("K32> ");used=0;for(;;){int c=k32_getchar();if(c<0)return 1;if(c==3){used=0;line[0]=0;k32_write("^C\r\n",4);break;}if(c=='\r'||c=='\n'){line[used]=0;k32_write("\r\n",2);break;}if(c==8){if(used){used--;k32_write("\b \b",3);}continue;}if(c>=32&&c<127&&used<126){line[used++]=(char)c;k32_putchar((unsigned)c);}}
+ for(;;){k32_printf("K32> ");used=0;shell_stats[10]=0;for(;;){int c=k32_getchar();if(c<0)return 1;shell_stats[9]++;shell_stats[11]=(unsigned)c;if(c==3){used=0;line[0]=0;k32_write("^C\r\n",4);break;}if(c=='\r'||c=='\n'){line[used]=0;k32_write("\r\n",2);break;}if(c==8){if(used){used--;k32_write("\b \b",3);}continue;}if(c>=32&&c<127&&used<126){line[used++]=(char)c;shell_stats[10]=used;k32_putchar((unsigned)c);}}
   if(!used)continue;
   if(!k32_strcmp(line,"exit"))return 0;
   if(!k32_strcmp(line,"help")){k32_printf("KTOOL32.EXE echo text | KTOOL32.EXE upper >OUT.TXT\r\nKTOOL32.EXE cat <IN.TXT >COPY.TXT\r\nexit; Ctrl+C cancels foreground; End closes shell and children\r\n");continue;}

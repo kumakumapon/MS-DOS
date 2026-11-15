@@ -75,7 +75,7 @@ published state; no application receives its address.
 
 ## KSH32
 
-Start `KSH32.EXE` in a GUI terminal, or use `/C "command"` for one batch command.
+Choose **F2 → 32-bit shell** to start `KSH32.EXE` in a GUI terminal, or use `/C "command"` for one batch command.
 `help` and `exit` are built in. For example:
 
 ```text
