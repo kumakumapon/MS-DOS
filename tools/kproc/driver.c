@@ -61,8 +61,11 @@ void kp_dispatch(void){
  if(kp_sender_segment!=host_segment||kp_sender_offset>65536-sizeof(K32IoPacket))return;
  K32IoPacket p;mem_copy(self,(unsigned)&p,host_segment,kp_sender_offset,sizeof p);p.result=-22;
  if(!safe()||p.version!=1||p.size!=sizeof p||p.operation!=1||p.request>65536-sizeof(K32Io)||p.buffer>65536-256)goto done;
- KpIdentity caller={0};unsigned slot=0;for(;slot<capacity();slot++)if(inspect(0,slot,&caller)&&caller.state==KP_RUNNING&&caller.physical==p.owner&&caller.epoch==p.epoch)break;
- if(slot==capacity()){p.result=-116;goto done;}
+ /* During an expanded-bank callback the first two near views are swapped.
+  * HOST supplies its real slot in this process-only envelope field; inspect
+  * only that producer, retaining physical/epoch and generation authority. */
+ KpIdentity caller={0};unsigned slot=p.handles;
+ if(slot>=capacity()||!inspect(0,slot,&caller)||caller.state!=KP_RUNNING||caller.physical!=p.owner||caller.epoch!=p.epoch){p.result=-116;goto done;}
  int owner=kp_attach(&model,&caller);if(owner<0){p.result=owner;goto done;}
  K32Io r;unsigned char data[256];mem_copy(self,(unsigned)&r,host_segment,p.request,sizeof r);
  if(r.bytes>sizeof data){p.result=-22;goto done;}

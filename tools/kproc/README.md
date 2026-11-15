@@ -119,3 +119,5 @@ GitHub Actions; do not start local preview or a local browser server.
 Further work includes more than two pipeline commands, background job control,
 explicit consent-based IPC between unrelated roots, broader stream-aware app
 ports and larger application address spaces. These are separate extensions.
+
+The process-only trusted envelope uses its final word for HOST's actual slot, not file-handle accounting. Expanded HOST banks swap the first two near views during a callback; only the explicitly selected producer is inspected, with physical address, epoch and manager generation retained. Common file I/O continues to use the final word for handle accounting.

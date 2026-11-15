@@ -377,12 +377,16 @@ static int workspace(u32 pointer,u32 size){
 #ifndef K32_GUI
 static unsigned io_handles K32_STATE;
 static int io_broker(K32Io *r,unsigned operation){
- K32IoPacket p={1,sizeof p,get(28),get(56),(unsigned)r,(unsigned)loader_buffer,operation,-16,io_handles};
  unsigned process=r&&r->operation>=KP_INFO;
+ unsigned authority=io_handles;
+#ifdef K32_HOST
+ extern unsigned host_active,host_slot_bias;if(process)authority=host_active+host_slot_bias;
+#endif
+ K32IoPacket p={1,sizeof p,get(28),get(56),(unsigned)r,(unsigned)loader_buffer,operation,-16,authority};
  unsigned a=process?0xd3a0:0xd39f,b=1,di=(unsigned)&p;
  __asm__ volatile("pushw %%es; pushw %%ds; popw %%es; int $0x2f; popw %%es":"+a"(a),"+b"(b),"+D"(di)::"ecx","edx","esi","cc","memory");
  if((a&65535)!=(process?0x3a0d:0x39fd))return -38;
- if(operation!=3){put(820,get(820)-io_handles+p.handles);io_handles=p.handles;if(get(820)>get(824))put(824,get(820));}
+ if(operation!=3&&!process){put(820,get(820)-io_handles+p.handles);io_handles=p.handles;if(get(820)>get(824))put(824,get(820));}
  return p.result;
 }
 #ifdef K32_HOST

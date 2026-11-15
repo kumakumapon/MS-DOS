@@ -20,7 +20,9 @@ extern u16 host_api_kind;
 static unsigned seed;
 K32HostSlot host_slots[2];
 #define slots host_slots
-static unsigned active,ds_segment,task_bytes,indos_segment,indos_offset;
+unsigned host_active;
+#define active host_active
+static unsigned ds_segment,task_bytes,indos_segment,indos_offset;
 
 /* Terminal parser belongs to the task, just like its syscall request. */
 static unsigned terminal_state K32_STATE,terminal_parameter[2] K32_STATE,terminal_which K32_STATE;
