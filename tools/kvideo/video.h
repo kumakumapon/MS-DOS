@@ -5,10 +5,12 @@
 #define KV_BIOS_REQUEST 0x38fu
 #define KV_PAGE_BASE 0xc8000u
 #define KV_PAGE_DELTA 0x20000u
-#define KV_BACKING_BYTES 0x108000u
+#define KV_BACKING_BYTES 0xe8000u
+/* Page-1 planes occupy C0000-DFFFF; private glyphs use A5000-A677F. */
+static inline unsigned kv_vram_page(unsigned page,unsigned access){return access?((page|64)^32):page;}
 #define KV_ACCESS_PAGE 64u
 #define KV_DISPLAY_PAGE 128u
-#define KV_FONT_BASE 0xc0000u
+#define KV_FONT_BASE 0xa5000u
 #define KV_FONT_BYTES (188u*32u)
 #define KV_TEXT 1u
 #define KV_GRAPH 2u

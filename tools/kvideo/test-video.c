@@ -41,12 +41,21 @@ int main(void){
  /* Independent complete pages, CPU access and displayed page are separate. */
  assert(kv_out(v,0xa6,1,io)&KV_MODE_CHANGED);assert(kv_page_plane(v,0,0)==KV_PAGE_BASE&&kv_page_plane(v,0,1)==0xa8000);
  cursor(v,0,io);assert(!kv_out(v,0xa2,0x20,io));assert(!kv_out(v,0xa0,0x12,io));assert(kv_out(v,0xa0,0x34,io)>=0);assert(ram[0][KV_PAGE_BASE]==0x12&&ram[0][0xa8000]==0xa5&&ram[1][KV_PAGE_BASE]==0);
- assert(kv_out(v,0xa4,1,io)&KV_MODE_CHANGED);assert(kv_page_plane(v,3,1)==0x100000);assert(!kv_in(v,0xa4,0,&got,io)&&got==1);
+ assert(kv_out(v,0xa4,1,io)&KV_MODE_CHANGED);assert(kv_page_plane(v,3,1)==0xc0000);assert(!kv_in(v,0xa4,0,&got,io)&&got==1);
  unsigned ax=0x0a03;assert(kv_bios(v,&ax,0,0,io)&KV_MODE_CHANGED);assert(v->meta.columns==40&&v->meta.rows==20);ax=0x0b00;assert(!kv_bios(v,&ax,0,0,io)&&(ax&255)==3);
  ax=0x1600;assert(kv_bios(v,&ax,0,0xe12a,io)==KV_CHANGED);for(unsigned i=0;i<4096;i++){assert(ram[0][0xa0000+i*2]==42&&ram[0][0xa2000+i*2]==0xe1);}ax=0x0d00;assert(kv_bios(v,&ax,0,0,io)&KV_CHANGED);ax=0x0c00;assert(kv_bios(v,&ax,0,0,io)&KV_CHANGED);assert(ram[0][0xa0000]==42);
  ax=0x1300;assert(kv_bios(v,&ax,0,242,io)&KV_CURSOR_CHANGED);assert(v->meta.text_cursor==121);assert(kv_bios(v,&ax,0,8192,io)==-22);ax=0x4200;assert(kv_bios(v,&ax,0xd000,0,io)&KV_MODE_CHANGED);assert(v->meta.height==400&&(v->meta.flags&KV_DISPLAY_PAGE));assert(kv_bios(v,&ax,0,0,io)==-38);
  for(unsigned op=0xe4;op<=0xef;op++){if(op>=0xe8&&op<=0xeb)continue;KvPacket p={.width=op|(0xa0u<<8),.port=0xa2,.value=0x12345678};assert(!kv_decode(&p));assert(p.width==(op<0xe8?2:1)&&p.value==0x78&&p.operation==((op&2)?1u:0u)+((op&1)?6u:0u));}
  KvPacket bad={.width=0xef66,.port=0xa2,.value=0x12345678},before_packet=bad;assert(kv_decode(&bad)==-38&&!memcmp(&bad,&before_packet,sizeof bad));bad=(KvPacket){.width=0xef,.port=2};assert(kv_decode(&bad)==-38);
  kv_reset(v);assert(!(v->meta.flags&(KV_ACCESS_PAGE|KV_DISPLAY_PAGE)));
+ /* Complete plane storage is unique; text, nested DOS state and private
+    * glyphs stay outside both pages. CPU PTEs agree with broker addresses. */
+ unsigned char seen[KV_BACKING_BYTES];memset(seen,0,sizeof seen);
+ for(unsigned page=0;page<2;page++)for(unsigned plane=0;plane<4;plane++)for(unsigned off=0;off<32768;off++){
+  v->meta.flags=page?KV_ACCESS_PAGE:0;unsigned at=kv_page_plane(v,plane,0)+off;
+  assert(at<KV_BACKING_BYTES&&!seen[at]);seen[at]=1;
+  assert(at<0xa4000||at>=0xa5000);assert(at<KV_FONT_BASE||at>=KV_FONT_BASE+KV_FONT_BYTES);
+  assert(at==kv_vram_page(kv_plane(plane)/4096+off/4096,page)*4096+off%4096);
+ }
  return 0;
 }

@@ -1,6 +1,6 @@
 /* Original K386 extension: trusted XMS handles never enter guest registers. */
 #include "xmem.h"
-KXMemory k386_xmem={.signature={'K','3','8','6','X','M','S','1'},
+KXMemory k386_xmem __attribute__((aligned(4)))={.signature={'K','3','8','6','X','M','S','1'},
     .version=KX_VERSION,.size=sizeof(KXMemory)};
 unsigned xmem_used(unsigned id,k16 owner,unsigned *count){
     unsigned kb=0;*count=0;

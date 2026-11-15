@@ -57,7 +57,7 @@ text continues to use the dedicated read-only GUI font API.
 
 The additive display extension keeps KvMeta at 128 bytes and KvRead at 1024
 bytes. It adds independent A6 CPU access and A4 display selection for two full
-128 KiB planar pages. Each V86 backing is 0x108000 bytes (1056 KiB); the low
+128 KiB planar pages. Each V86 backing is 0xe8000 bytes (928 KiB); the low
 12 bits of `backing.pages` hold the page count and bit 0x2000 selects the access
 page. Page 0 uses A8000/B0000/B8000/E0000 in private backing; page 1 uses the same
 four plane addresses plus 0x20000. Only the existing guest VRAM windows are
@@ -88,3 +88,5 @@ no held modifiers; no keyboard matrix or DOS FEP is claimed. The shared metadata
 uses flag 64 for access page 1 and 128 for display page 1.
 
 Unsupported BIOS display modes return CF set and an error in AL without changing the mode; unsupported I/O faults only its V86 task.
+
+Page 1 uses C8000h/D0000h/D8000h/C0000h for its four planes. Private glyphs move to A5000h-A677Fh, outside mapped guest RAM and the A4000h-A4FFFh nested-DOS snapshot area. Both full graphics pages and 188 glyphs fit the original 928 KiB backing. CPU PTEs and broker plane addresses share the layout, preserving the 16 MiB mixed V86/PM32 allocation behavior without extra XMS fragmentation.

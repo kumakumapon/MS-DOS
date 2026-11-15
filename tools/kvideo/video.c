@@ -1,6 +1,6 @@
 #include "video.h"
 unsigned kv_plane(unsigned p){return p==3?0xe0000u:0xa8000u+p*0x8000u;}
-unsigned kv_page_plane(const KvVideo *v,unsigned p,unsigned display){return v->meta.flags&(display?KV_DISPLAY_PAGE:KV_ACCESS_PAGE)?kv_plane(p)+KV_PAGE_DELTA:kv_plane(p);}
+unsigned kv_page_plane(const KvVideo *v,unsigned p,unsigned display){return v->meta.flags&(display?KV_DISPLAY_PAGE:KV_ACCESS_PAGE)?(p==3?0xc0000u:kv_plane(p)+KV_PAGE_DELTA):kv_plane(p);}
 int kv_region(unsigned region,unsigned offset,unsigned bytes,unsigned *address){
  unsigned base,limit;
  if(region==1){base=KV_FONT_BASE;limit=KV_FONT_BYTES;}

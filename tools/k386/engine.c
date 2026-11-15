@@ -79,8 +79,8 @@ void kernel_map(void) {
     k32 pd=page_directory[selected],physical=runtime[selected].backing.physical;
     for(k32 i=0;i<0xa4;i++)writen(0x400000+pd+4096+i*4,physical+i*4096+7,4);
     if((runtime[selected].backing.pages&4095)>=0xe8){
-        physical+=(runtime[selected].backing.pages&0x2000)?KV_PAGE_DELTA:0;
-        for(k32 i=0;i<32;i++){k32 page=i<24?0xa8+i:0xe0+i-24;writen(0x400000+pd+4096+page*4,physical+page*4096+7,4);}
+        k32 access=runtime[selected].backing.pages&0x2000;
+        for(k32 i=0;i<32;i++){k32 page=i<24?0xa8+i:0xe0+i-24;writen(0x400000+pd+4096+page*4,physical+kv_vram_page(page,access)*4096+7,4);}
     }
     /* COMMAND probes the model byte at FFFF:000Eh. Expose the actual PC-98
        firmware read-only; never map host DOS RAM or writable device apertures. */

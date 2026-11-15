@@ -166,7 +166,7 @@ second_page:
     call fill
     mov ax,0xe000
     mov es,ax
-    xor ax,ax
+    mov ax,0xa5a5
     call fill
     ret
 fill:
