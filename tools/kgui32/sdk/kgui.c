@@ -2,7 +2,7 @@
 #include "text.h"
 #include "i18n.h"
 #include "menu.h"
-static KmMenu menu;
+static KmMenu menu;static unsigned input_flags;
 void kg_menu(const KmItem *items,unsigned count){menu=(KmMenu){.items=items,.count=count<=KM_MAX?count:0,.enabled=1};}
 void kg_menu_enable(unsigned enabled){menu.enabled=enabled;}
 void kg_menu_labels(const KuPair *labels,unsigned count){menu.labels=labels;menu.label_count=count;}
@@ -13,7 +13,7 @@ static int call(unsigned op){request.version=1;request.size=sizeof request;reque
 int kg_open(const char *title,unsigned w,unsigned h){
  if(!(k32_query()&KG_FEATURE))return -38;
  request=(KgRequest){.width=w,.height=h};copy(request.title,title,sizeof request.title);
- int e=call(KG_OPEN);if(e<0)return e;token=e;width=request.width;height=request.height;surface_handle[0]=surface_handle[1]=0;request.count=KG_INPUT_LANGUAGE|(menu.count?KG_INPUT_MENU:0);call(KG_SUBSCRIBE);return e;
+ int e=call(KG_OPEN);if(e<0)return e;token=e;width=request.width;height=request.height;surface_handle[0]=surface_handle[1]=0;kg_subscribe(0);return e;
 }
 void kg_begin(void){request.count=0;request.width=width;request.height=height;}
 static KgDraw *add(unsigned op,int x,int y,int w,int h,u32 color){
@@ -30,13 +30,14 @@ int kg_poll(KgEvent *e){int n=call(KG_POLL);if(n>=0){
  if(language!=ku_language){ku_language=language;language_dirty=1;}
  if(!n&&language_dirty){language_dirty=0;*e=(KgEvent){.type=KG_RESIZE,.width=width,.height=height,.seconds=e->seconds};return 1;}
  if(n){unsigned was=menu.open;int handled=km_event(&menu,e,height);
+  if(was!=menu.open)kg_subscribe(input_flags);
   if(was&&!menu.open&&!handled)language_dirty=1;
   if(handled==1)*e=(KgEvent){.type=KG_RESIZE,.width=width,.height=height,.seconds=e->seconds};
  }
  }return n;}
 int kg_close(void){int e=call(KG_CLOSE);if(!e){token=0;surface_handle[0]=surface_handle[1]=0;}return e;}
 int kg_capabilities(void){return call(KG_CAPABILITIES);}
-int kg_subscribe(unsigned flags){request.count=flags|KG_INPUT_LANGUAGE|(menu.count?KG_INPUT_MENU:0);int e=call(KG_SUBSCRIBE);if(e==-22){request.count=flags;e=call(KG_SUBSCRIBE);}return e;}
+int kg_subscribe(unsigned flags){input_flags=flags;request.count=flags|KG_INPUT_LANGUAGE|(menu.count?KG_INPUT_MENU:0)|(menu.open?KG_INPUT_TAB:0);int e=call(KG_SUBSCRIBE);if(e==-22){request.count=flags;e=call(KG_SUBSCRIBE);}return e;}
 unsigned kg_width(void){return width;}
 unsigned kg_height(void){return height;}
 
