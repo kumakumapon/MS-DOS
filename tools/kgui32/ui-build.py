@@ -5,7 +5,7 @@ ROOT=Path(__file__).resolve().parent
 SOURCES={name:ROOT/path for name,path in {
  'desktop':'desktop.c','editor':'apps/editor.c','files':'apps/files.c',
  'words':'apps/words.c','image':'apps/image.c','calculator':'apps/calculator.c','clock':'apps/clock.c',
- 'picker':'sdk/picker.c','recovery':'sdk/recovery.c','widgets':'sdk/widgets-draw.c'}.items()}
+ 'picker':'sdk/picker.c','recovery':'sdk/recovery.c','widgets':'sdk/widgets-draw.c','menu':'sdk/menu-draw.c'}.items()}
 def literal(text):return '"'+''.join('\\x%02x'%b for b in text.encode('shift_jis'))+'"'
 def button_bounds(text,rows):
  for match in re.finditer(r'\b(kg_button|button)\(',text):
@@ -39,6 +39,7 @@ def build(dest):
  for name,path in SOURCES.items():
   text=path.read_text()
   if name in ('editor','words'):text+='\n'+(ROOT/'sdk/ime.c').read_text()
+  if name=='menu':text+='\n'+''.join(p.read_text() for p in (ROOT/'apps').glob('*.c'))
   button_bounds(text,rows)
   keys=[key for key in rows if json.dumps(key) in text or name=='desktop' and key in ('Files','Editor','Images / BMP24','Images / BMP','User dictionary','Calculator','Clock')]
   assert keys,name

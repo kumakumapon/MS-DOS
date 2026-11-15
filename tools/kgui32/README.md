@@ -1,5 +1,7 @@
 # KGUI32 independent protected-mode desktop
 
+現在のタップ操作・アプリ拡充は [WINDOW-MENU.md](WINDOW-MENU.md) を参照してください。
+
 KGUI32 is an original PC-98 desktop foundation. Its GUI executes in 32-bit
 protected mode without starting KDESK. KDESK and the original MS-DOS kernel
 remain available. Welcome/System share the desktop with two owned DOS/PM32

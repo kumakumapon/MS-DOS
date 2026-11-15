@@ -4,12 +4,14 @@
 #include <string.h>
 #include "sdk/kgui.h"
 #include "sdk/widgets.h"
+#include "sdk/menu.h"
 #include "client-policy.h"
 unsigned ku_language;
 static KgRequest frame;
 static unsigned canvas_w=344,canvas_h=196;
 unsigned kg_width(void){return canvas_w;}
 unsigned kg_height(void){return canvas_h;}
+void kg_menu_enable(unsigned enabled){(void)enabled;}
 void kg_begin(void){frame=(KgRequest){.version=1,.size=sizeof frame,.operation=KG_FRAME};}
 static KgDraw *command(unsigned op,int x,int y,int w,int h,unsigned color){
  assert(frame.count<KG_COMMANDS);KgDraw *d=&frame.draw[frame.count++];
@@ -38,6 +40,13 @@ int main(void){
    modal=mode;message=0;assert(!draw());
    message="Inspect TMP/BAK / original kept";assert(!draw());
   }
+ }
+ KmItem items[KM_MAX];for(unsigned i=0;i<KM_MAX;i++)items[i]=(KmItem){"Save As",KG_KEY,19,0};
+ for(unsigned lang=0;lang<2;lang++)for(unsigned size=0;size<2;size++){
+  ku_language=lang;canvas_w=size?784:344;canvas_h=size?416:168;
+  KmMenu m={.items=items,.count=KM_MAX,.enabled=1,.open=1,.rows=(canvas_h-88)/40};
+  for(unsigned selected=0;selected<KM_MAX;selected++){m.selected=selected;km_draw(&m);assert(frame.count<=KG_COMMANDS);assert(!kg_validate(&frame,canvas_w,canvas_h));}
+  m.enabled=0;km_draw(&m);assert(!kg_validate(&frame,canvas_w,canvas_h));
  }
  return 0;
 }

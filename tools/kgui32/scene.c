@@ -1,4 +1,5 @@
 #include "scene.h"
+#include "sdk/protocol.h"
 static int inside(Rect r,int x,int y){return x>=r.x&&y>=r.y&&x-r.x<r.w&&y-r.y<r.h;}
 static Rect covered(GuiWindow *w){return (Rect){w->r.x,w->r.y,w->r.w+6,w->r.h+6};}
 static int clamp(int n,int lo,int hi){return n<lo?lo:n>hi?hi:n;}
@@ -130,6 +131,7 @@ int scene_event(Scene *s,const GuiEvent *e){
   if(inside((Rect){w->r.x+w->r.w-47,w->r.y+6,18,18},s->mx,s->my)){w->hidden=1;scene_damage(s,covered(w));next_visible(s);return ACT_NONE;}
   if(id>=2){
    s->slot=id-2;
+   if(s->menu[id-2]&&inside((Rect){w->r.x+8,w->r.y+3,56,26},s->mx,s->my)){s->key=KG_MENU_KEY;return ACT_KEY;}
    if(inside((Rect){w->r.x+w->r.w-18,w->r.y+w->r.h-18,18,18},s->mx,s->my)){
     s->resize=id+1;s->dx=w->r.x+w->r.w-s->mx;s->dy=w->r.y+w->r.h-s->my;return ACT_NONE;
    }

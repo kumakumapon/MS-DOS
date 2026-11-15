@@ -5,6 +5,23 @@
 #include "../../k38632/sdk/io.h"
 #include "ui-image.h"
 typedef struct {u32 magic,version,frames,events,width,height,image_width,image_height,hash,original_hash,uploads,surface,heartbeat,error,dirty,mode,zoom,secondary,source_bits;} ImageStats;
+#include "../sdk/menu.h"
+static const KmItem app_menu[]={
+ {"Load",KG_KEY,'o',0},
+ {"Save",KG_KEY,19,0},
+ {"Root / Work",KG_KEY,23,0},
+ {"Recovery",KG_KEY,18,0},
+ {"Invert",KG_KEY,'i',0},
+ {"Flip H",KG_KEY,'h',0},
+ {"Undo",KG_KEY,'u',0},
+ {"Original image",KG_KEY,'r',0},
+ {"Paint",KG_KEY,'p',0},
+ {"Zoom in",KG_KEY,'+',0},
+ {"Zoom out",KG_KEY,'-',0},
+ {"Actual size",KG_KEY,'0',0},
+ {"Preview",KG_KEY,'v',0},
+ {"Close",KG_KEY,'q',0},
+};
 volatile ImageStats image_stats __attribute__((section(".data.gui_stats")))={.magic=0x3149474b,.version=1};
 static u16 pixels[KG_BITMAP_PIXELS],original[KG_BITMAP_PIXELS],undo_pixels[KG_BITMAP_PIXELS],candidate[KG_BITMAP_PIXELS],load_backup[KG_BITMAP_PIXELS],thumbnail[64*48];
 static KgBmp image;static KwInput filename;static unsigned handle,sw,sh,undo_valid,focused,paintmode,painting;static int panx,pany,lastx,lasty;
@@ -142,7 +159,7 @@ static int change(unsigned key){
  return upload();
 }
 static int draw(void){
- if(modal)return dialog();
+ kg_menu_enable(!modal);if(modal)return dialog();
  stats();unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
  kw_draw_input((KwRect){8,4,160,28},&filename,focused);kg_button('o',176,4,72,28,"Load");kg_button('q',w-80,4,72,28,"Close");
  kg_button('i',8,40,72,28,"Invert");kg_button('h',88,40,72,28,"Flip H");kg_button('u',168,40,72,28,"Undo");kg_button('p',248,40,80,28,paintmode?"Painting":"Paint");
@@ -162,6 +179,7 @@ static int draw(void){
  int e=kg_present();if(!e)image_stats.frames++;return e;
 }
 int main(int argc,char **argv){
+ kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
  int token=kg_open("Images / BMP",328,196);if(token<0){image_stats.error=-token;return 1;}
  kg_subscribe(KG_INPUT_TAB|KG_INPUT_KEYS|KG_INPUT_MOTION);
  unsigned fault=argc>1&&equal(argv[1],"fault");
@@ -200,7 +218,7 @@ int main(int argc,char **argv){
     }
    }else if(v.type==KG_MOUSE&&(v.key&1)){if(kw_inside((KwRect){8,4,160,28},v.x,v.y)){focused=1;dirty=1;}else{focused=0;key=v.control;}}
    if(v.type==KG_KEY){
-    if(v.key==19||v.key==23||v.key==18){key=v.key;focused=0;}
+    if(v.key==19||v.key==23||v.key==18||v.x==-1){key=v.key;focused=0;}
     else if(v.key==9){focused^=1;dirty=1;}
     else if(focused&&v.key==13)key='o';
     else if(focused){if(kw_input(&filename,&v)){dirty=1;message=0;}}
