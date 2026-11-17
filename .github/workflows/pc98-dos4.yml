@@ -1,5 +1,9 @@
 name: PC-98 MS-DOS 4.0
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -17,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: kumakumapon/webnp2
-          ref: dde99e952664e0a8b64d716ec98ac6ea75961eb6
+          ref: 3eefaf1f8b278fb64d82e2f3850e3e5a96d4b19a
           path: webnp2
           fetch-depth: 0
       - name: Require the pinned emulator to remain on master history
@@ -63,7 +67,7 @@ jobs:
         run: |
           mkdir -p webnp2/public/test
           cp dos/ports/pc98/build/dos4/msdos4-pc98.xdf webnp2/public/test/msdos4-pc98-ci.xdf
-          npm --prefix webnp2 run dev -- --host 127.0.0.1 --port 5173 --strictPort > /tmp/webnp2.log 2>&1 &
+          (cd webnp2 && exec node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5173 --strictPort) > /tmp/webnp2.log 2>&1 &
           preview_pid=$!
           trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
           timeout 30 bash -c 'until curl -fsS http://127.0.0.1:5173/ > /dev/null; do sleep 1; done'

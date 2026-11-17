@@ -1,7 +1,7 @@
 # Paired MS-DOS / webnp2 CI references
 
 Status: maintained. Native workflows currently use webnp2 master-line commit
-`dde99e952664e0a8b64d716ec98ac6ea75961eb6`. CI checks its ancestry against master.
+`3eefaf1f8b278fb64d82e2f3850e3e5a96d4b19a`. CI checks its ancestry against master.
 Never pin a development-only branch: it may disappear after branch deletion/GC.
 
 1. Choose an immutable webnp2 commit reachable from `origin/master` and set the
@@ -24,3 +24,8 @@ Browser/emulator servers run only inside bounded Actions jobs, never in chat.
 DOS 4 CI also runs the MZ builder unit suite and uploads native SDK, GUI, video,
 process and HDD OEM build artifacts. PR concurrency cancels superseded work;
 main runs and their diagnostics are retained. Artifact replacement permits reruns.
+
+Native validation runs on main pushes, pull requests and manual dispatch. Branch
+pushes are covered by their PR, avoiding duplicate native builds. The CI-only
+Vite command executes Node directly so the exit trap owns and terminates the
+actual server process. Browser assertions and media inputs remain unchanged.
