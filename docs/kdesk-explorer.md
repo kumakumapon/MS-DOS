@@ -1,5 +1,7 @@
 # KDESK 1.5: scrollbars and file icons
 
+Canonical native guide. Browser-specific setup and integration: [webnp2](https://github.com/kumakumapon/webnp2/blob/master/docs/kdesk-explorer.md).
+
 Files, Launcher, Memo, Help and About have independent vertical scroll positions.
 A scrollbar appears when their content exceeds the available rows. Click the
 arrows for a row, the track for a page, or drag the proportional thumb. Changing
