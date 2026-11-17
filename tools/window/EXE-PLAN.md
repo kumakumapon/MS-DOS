@@ -1,5 +1,9 @@
 # Native DOS MZ executables
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 Build KDESK.EXE with separate code and data/stack segments, DOS relocation of the
 data segment, an explicit stack allocation and PSP-aware child EXEC parameters.
 Keep shared COM applications on their existing startup/linker path.

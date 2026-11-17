@@ -1,5 +1,9 @@
 # K386 DOS execution continuation
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 The fresh DOS view currently contains NUL bytes until its first program starts.
 The desktop glyph renderer turns control characters into question marks. Clear
 new views and provide a usable guest command prompt instead of rendering NULs.

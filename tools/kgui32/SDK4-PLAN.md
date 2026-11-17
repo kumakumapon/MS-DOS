@@ -1,5 +1,9 @@
 # SDK4: workspace saving
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 Implementation: follow SDK3 with an opt-in, bounded real-mode file
 broker, Editor Save / Save As and a reusable save picker. Retain SDK1–3 ABI,
 two mixed slots / 4 MiB per app, the separate GUI and 16 MiB configuration.

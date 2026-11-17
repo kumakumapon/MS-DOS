@@ -1,5 +1,9 @@
 # KDESK scheduling under drawing load and XARRAY32
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 Baseline: MS-DOS f1589e072cf32d92821e4fdd9641a3b884559bf5 and WebNP2
 ea764c78bf0e4f1d123d2b002892f1b2c6d11c18. This is a development plan, not a
 claim that the following work is already implemented or verified.

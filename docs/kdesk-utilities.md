@@ -1,5 +1,7 @@
 # KDESK calculator, clock and icon launcher (1.3)
 
+Canonical native guide. Browser-specific setup and integration: [webnp2](https://github.com/kumakumapon/webnp2/blob/master/docs/kdesk-utilities.md).
+
 Start `KDESK` at the MS-DOS 4.0 PC-98 prompt in WebNP2, then open Calculator or
 Clock from Apps (F2). Both are built-in desktop windows, so the clock continues
 updating while you calculate or edit a memo. Minimize with F8, restore with the

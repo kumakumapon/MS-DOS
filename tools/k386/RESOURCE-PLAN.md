@@ -1,5 +1,9 @@
 # K386 resource control continuation
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 Base: MS-DOS `10b4a307e5ca35e4f2805d5b626c03ac8c07dbf8` and webnp2
 `e24309ad982ffd38a086ec7d094ba9dc789937f5` (merged PRs #18).
 

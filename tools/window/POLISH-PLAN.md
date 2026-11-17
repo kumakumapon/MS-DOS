@@ -1,5 +1,9 @@
 # KDESK 1.9 native desktop refinement
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 Use the MZ code/data layout for original color application artwork and clearer
 window/title/taskbar chrome. Add a native searchable command panel (Ctrl+K),
 left/right window placement with restoration, and grouped show-desktop/restore

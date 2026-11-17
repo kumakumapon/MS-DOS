@@ -1,5 +1,9 @@
 # K386 process-memory and interrupt continuation
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 The merged runtime provides two isolated V86 contexts, KSH, bounded COM/MZ,
 one child EXEC level, private cwd/DTA and read-only DOS services. General DOS
 compatibility is still incomplete. This continuation investigates the actual
