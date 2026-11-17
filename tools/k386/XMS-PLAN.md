@@ -1,5 +1,9 @@
 # K386 application XMS implementation plan
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 Provide a separate, versioned INT 2Fh application service for managed XMS data
 blocks. Keep the 16-bit executable ABI and use explicit bounded copies between
 private V86 conventional RAM and monitor-owned XMS. No host handles, physical

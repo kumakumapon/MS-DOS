@@ -1,5 +1,9 @@
 # Issue #1 implementation checkpoint
 
+> Status: completed historical checkpoint (PR #2). Current reproduction:
+> [build](build-msdos4.md) and [validation](validation-msdos4.md).
+> The resume instructions below are archived and must not start new work.
+
 Scope: build MS-DOS 4.0 with bundled DOS tools in DOSBox-X on Windows,
 create a reproducible FAT12 boot image, and verify it in QEMU.
 
@@ -13,7 +17,7 @@ create a reproducible FAT12 boot image, and verify it in QEMU.
 - [x] Verify VER, DIR, and file write/read in QEMU.
 - [x] Document clean reproduction (PR readiness is recorded below).
 
-## Resume
+## Historical resume instructions (obsolete)
 
 Read this file, inspect git status and the branch PR, then continue the first
 unchecked item. Keep source preparation separate from historical originals.

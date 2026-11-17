@@ -1,5 +1,9 @@
 # K386 compatibility and verification record
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 V86 read-only HDD drives and private current directories are implemented; see
 [HDD-READONLY.md](HDD-READONLY.md) for the supported profile and contracts.
 

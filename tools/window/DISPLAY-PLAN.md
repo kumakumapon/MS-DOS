@@ -1,5 +1,9 @@
 # KDESK high resolution and RGB565 display
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 First target: 800x600 RGB565 using NP2kai's existing PC-98 Cirrus/WAB device.
 Retain the 640x400 PEGC/planar backend and safe DOS return. Validate guest I/O,
 VRAM and actual browser framebuffer before enabling the desktop backend.

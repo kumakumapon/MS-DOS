@@ -1,5 +1,9 @@
 # Native tools and shell responsiveness
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 Port FD98, EDIT98 (and EDIT alias), CPANEL, KVIEW and KPAINT from COM to
 explicit MZ code/data/stack layouts. Preserve command tails, DOS allocation,
 file editing, configuration changes and clipboard/mouse return to KDESK.

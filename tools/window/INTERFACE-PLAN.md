@@ -1,5 +1,9 @@
 # KDESK interface refresh
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 Improve the native PC-98 desktop's visual hierarchy and window navigation while
 preserving normal KDESK, K386 guest execution and the existing 12 KiB stack guard.
 

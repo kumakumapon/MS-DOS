@@ -1,5 +1,9 @@
 # SDK3 / protected graphical editor
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 Status: implementation and acceptance completed in both repositories #43.
 Preserved below as the original SDK3 scope; SDK4 adds workspace saving.
 

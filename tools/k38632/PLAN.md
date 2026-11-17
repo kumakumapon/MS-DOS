@@ -1,5 +1,9 @@
 # K38632 first milestone: protected Ring-3 bring-up
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 Issue: https://github.com/kumakumapon/MS-DOS/issues/31
 
 Build an independent PC-98 DOS diagnostic, leaving the resident K386 runtime

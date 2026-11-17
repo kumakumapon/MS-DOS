@@ -1,5 +1,9 @@
 # KGUI32 HDD workspace implementation
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 Connect the SDK4 workspace broker, Editor and common Open/Save picker to the
 recognized PC-98 data HDD. Retain FD boot and an explicit FD fallback when no
 supported HDD is present. Select the drive in the privileged guest broker, never

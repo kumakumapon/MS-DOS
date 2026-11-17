@@ -1,5 +1,9 @@
 # Work recovery and Editor usability
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 MS-DOS #31 stage 4b and the requested Editor usability work form one coordinated
 native/webnp2 development change. Keep the existing wire sizes, two application
 slots, four MiB budgets and real-mode stack bounds. Use draft PRs before coding;

@@ -1,5 +1,9 @@
 # KGUI32: independent protected-mode desktop, first milestone
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 Baseline: MS-DOS main 1d5df51d27cd1c0801f014729fb547f89fb82a35 and WebNP2
 master 904bfa63ba84777dabfe048e3e1c7dedba62cfcd. This plan precedes functional
 implementation; it is not a completion claim.

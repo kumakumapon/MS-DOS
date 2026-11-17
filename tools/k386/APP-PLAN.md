@@ -1,5 +1,9 @@
 # KDESK/386 executable applications
 
+> Status: archived development record. Its original scope and constraints are
+> preserved below; use [the documentation index](../../docs/README.md) and the
+> adjacent README for current supported behavior. This is not an active task list.
+
 Convert the bundled V86 applications from flat COM programs to explicitly linked
 MZ executables with an entry point, allocation/stack bounds and relocation records.
 Provide a documented KDESK/386 application startup and contract; launch supported
