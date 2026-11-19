@@ -4,7 +4,7 @@
 #include "sdk/text.h"
 static int text(const char *p,unsigned n){return kt_cstr(p,n)>=0;}
 int kg_validate(const KgRequest *r,unsigned width,unsigned height){
- if(r->version!=1||r->size!=sizeof *r||r->operation<KG_OPEN||r->operation>KG_SURFACE_DESTROY)return -22;
+ if(r->version!=1||r->size!=sizeof *r||r->operation<KG_OPEN||r->operation>KG_DATE)return -22;
  if(r->operation==KG_OPEN)return r->width<160||r->width>640||r->height<80||r->height>400||!r->title[0]||!text(r->title,32)?-22:0;
  if(r->operation==KG_SUBSCRIBE&&(r->count&~(KG_CAP_SUPPORTED|KG_INPUT_LANGUAGE|KG_INPUT_MENU)))return -22;
  if(r->operation==KG_EDIT_DOCUMENT){char command[64];return kg_document_command(r->count,r->title,command);}
@@ -57,6 +57,7 @@ int kg_policy(KgClient *c,KgRequest *r,u32 generation,u32 *serial,unsigned width
   return 0;
  }
  if(r->operation==KG_EDIT_STATUS)return c->edit_result;
+ if(r->operation==KG_DATE)return 0;
  if(r->operation>=KG_SURFACE_CREATE){
   KgSurface *s=kg_client_surface(c,r);if(!s)return r->operation==KG_SURFACE_CREATE?-22:-116;
   if(r->operation==KG_SURFACE_CREATE&&s==&c->extra_surface&&(r->width>128||r->height>128))return -22;

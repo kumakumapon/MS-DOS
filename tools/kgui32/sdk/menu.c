@@ -21,7 +21,7 @@ int km_event(KmMenu *m,KgEvent *e,unsigned height){
   if(k==263)m->selected=m->selected+m->rows<m->count?m->selected+m->rows:m->count-1;
   if(k==13)chosen=m->selected;
  }
- if(chosen<m->count){const KmItem *i=&m->items[chosen];unsigned seconds=e->seconds;
+ if(chosen<m->count&&!(m->disabled&(1u<<chosen))){const KmItem *i=&m->items[chosen];unsigned seconds=e->seconds;
   *e=(KgEvent){.type=i->type,.key=i->key,.control=i->control,.x=-1,.y=-1,.seconds=seconds};m->open=0;return 2;
  }
  return 1;

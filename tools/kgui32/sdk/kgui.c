@@ -5,6 +5,7 @@
 static KmMenu menu;static unsigned input_flags;
 void kg_menu(const KmItem *items,unsigned count){menu=(KmMenu){.items=items,.count=count<=KM_MAX?count:0,.enabled=1};}
 void kg_menu_enable(unsigned enabled){menu.enabled=enabled;}
+void kg_menu_state(unsigned enabled,unsigned checked){menu.disabled=~enabled;menu.checked=checked;}
 void kg_menu_labels(const KuPair *labels,unsigned count){menu.labels=labels;menu.label_count=count;}
 unsigned ku_language;static unsigned language_dirty;
 static KgRequest request;static unsigned token,width,height,surface_handle[2],surface_width[2],surface_height[2];
@@ -36,6 +37,14 @@ int kg_poll(KgEvent *e){int n=call(KG_POLL);if(n>=0){
  }
  }return n;}
 int kg_close(void){int e=call(KG_CLOSE);if(!e){token=0;surface_handle[0]=surface_handle[1]=0;}return e;}
+int kg_date(unsigned *year,unsigned *month,unsigned *day){
+ int result=call(KG_DATE);
+ if(result<0)return result;
+ unsigned y=(unsigned)result>>16,m=(unsigned)result>>8&255u,d=(unsigned)result&255u;
+ if(y<1980||y>2099||m<1||m>12||d<1||d>31)return -5;
+ *year=y;*month=m;*day=d;
+ return 0;
+}
 int kg_capabilities(void){return call(KG_CAPABILITIES);}
 int kg_subscribe(unsigned flags){input_flags=flags;request.count=flags|KG_INPUT_LANGUAGE|(menu.count?KG_INPUT_MENU:0)|(menu.open?KG_INPUT_TAB:0);int e=call(KG_SUBSCRIBE);if(e==-22){request.count=flags;e=call(KG_SUBSCRIBE);}return e;}
 unsigned kg_width(void){return width;}

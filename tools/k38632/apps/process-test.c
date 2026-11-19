@@ -16,8 +16,58 @@ static int boundaries(void){
  process_stats[9]=6;return 0;
 }
 static unsigned hash(unsigned value,unsigned char byte){return (value^byte)*16777619u;}
+static unsigned peer_number(const char *text){
+ unsigned value=0;
+ while(*text){
+  unsigned digit=(unsigned char)*text++-'0';
+  if(digit>9||value>(0x7fffffffu-digit)/10)return 0;
+  value=value*10+digit;
+ }
+ return value;
+}
+static int peer_probe(int argc,char **argv){
+ K32Io info;
+ CHECK(!k32_process_info(&info)&&!info.offset);
+ process_stats[2]=info.token;
+ process_stats[3]=info.hash;
+ process_stats[4]=info.length;
+ if(!k32_strcmp(argv[1],"receive")){
+  CHECK(argc==3);
+  unsigned peer=peer_number(argv[2]);
+  CHECK(peer&&k32_message_allow_peer(peer)==0);
+  process_stats[1]=41;
+  unsigned sender=0;char data[6];int result=-11;
+  for(unsigned i=0;i<4096&&result==-11;i++){
+   result=k32_message_receive(&sender,data,sizeof data);
+   if(result==-11)k32_wait(K32_WAIT_TIME,16);
+  }
+  CHECK(result==6&&sender==peer&&!k32_memcmp(data,"hello",6));
+  CHECK(!k32_message_allow_peer(0));
+  process_stats[1]=42;
+ }else{
+  process_stats[1]=40;
+  char digits[11];unsigned count=0;
+  for(;;){
+   int ch=k32_getchar();CHECK(ch>=0);
+   if(ch=='\r'||ch=='\n')break;
+   CHECK(count<10&&ch>='0'&&ch<='9');digits[count++]=(char)ch;
+  }
+  digits[count]=0;unsigned target=peer_number(digits);
+  CHECK(target&&!k32_message_send(target,"hello",6));
+  process_stats[1]=43;
+  CHECK(k32_getchar()=='r');
+  CHECK(k32_message_send(target,"hello",6)==-1);
+  process_stats[1]=44;
+ }
+ for(;;){
+  int key=k32_poll_key();
+  if((key&255)=='q')return 0;
+  k32_wait(K32_WAIT_TIME,100);
+ }
+}
 int main(int argc,char **argv){
  if(argc>1&&argv[1][0]=='n'){K32Io denied=k32_process_request(KP_INFO);CHECK(k32_process_call(&denied)==-38);process_stats[1]=30;for(;;){int key=k32_poll_key();if(key>=0&&(key&255)=='q')return 0;k32_wait(K32_WAIT_TIME,100);}}
+ if(argc>1&&(!k32_strcmp(argv[1],"send")||!k32_strcmp(argv[1],"receive")))return peer_probe(argc,argv);
  if(boundaries())return 1;
  K32Io info;CHECK(!k32_process_info(&info));process_stats[2]=info.token;process_stats[3]=info.hash;process_stats[4]=info.length;unsigned capacity=argc>1&&argv[1][0]=='4'?4:2;
  int child=k32_spawn("KTOOL32.EXE exit 37",0,0);CHECK(child>0);process_stats[5]=(unsigned)child;CHECK(!wait_child((unsigned)child,37,KP_EXIT));CHECK(k32_process_wait((unsigned)child,0,0)==-10);child=k32_spawn("ARGS32.EXE \"two words\" three",0,0);CHECK(child>0);CHECK(!wait_child((unsigned)child,0,KP_EXIT));process_stats[1]=2;

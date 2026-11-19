@@ -38,5 +38,21 @@ int main(void){
  r=request(KP_SPAWN);unsigned char valid[]="KTOOL32.EXE wait";r.bytes=sizeof valid;assert(kp_request(&s,parent,&r,valid)==-11);assert(attach(2)>0);r=request(KP_SPAWN);unsigned char bad[]="../CON.EXE";r.bytes=sizeof bad;assert(kp_request(&s,parent,&r,bad)==-22);s.serial=0x7fffffffu;r=request(KP_PIPE);assert(kp_request(&s,parent,&r,msg)==-75);
  s=(KpState){0};memset(slots,0,sizeof slots);cancels=0;parent=attach(0);other=attach(3);r=request(KP_PIPE);assert(!kp_request(&s,parent,&r,0));rd=r.token;wr=r.offset;child=spawn(parent,rd,wr);kp_pump(&s,&host);
  slots[0].state=KP_RECLAIMING;slots[0].fault=23;slots[0].code=151;cancel_failures=1;kp_pump(&s,&host);assert(slots[0].state==KP_RECLAIMING&&!slots[1].state&&slots[3].state&&cancels==1);assert(s.task[0].token==parent&&s.task[0].fd[0].token);kp_pump(&s,&host);assert(!s.task[0].token&&cancels==2&&slots[3].state);for(unsigned i=0;i<KP_PIPES;i++)assert(!s.pipe[i].used);
+ /* Independent roots must opt in, and recycling a slot cannot renew access. */
+ s=(KpState){0};memset(slots,0,sizeof slots);parent=attach(0);other=attach(1);
+ assert(call(other,KP_SEND,parent,msg,1)==-1);
+ assert(!call(parent,KP_ALLOW_PEER,other,0,0));
+ assert(!call(other,KP_SEND,parent,msg,1));
+ assert(call(parent,KP_SEND,other,msg,1)==-1);
+ assert(call(other,KP_CANCEL,parent,0,0)==-10);
+ r=request(KP_RECEIVE);r.bytes=1;
+ assert(kp_request(&s,parent,&r,msg)==1&&r.token==other);
+ slots[1].state=0;kp_pump(&s,&host);unsigned replacement=attach(1);
+ assert(replacement!=other&&call(replacement,KP_SEND,parent,msg,1)==-1);
+ assert(call(parent,KP_ALLOW_PEER,other,0,0)==-116);
+ assert(!call(parent,KP_ALLOW_PEER,replacement,0,0));
+ assert(!call(replacement,KP_SEND,parent,msg,1));
+ assert(!call(parent,KP_ALLOW_PEER,0,0,0));
+ assert(call(replacement,KP_SEND,parent,msg,1)==-1);
  puts("process lifecycle, owned messages, pipe backpressure/EOF/EPIPE, generation isolation and reclamation PASS");
 }

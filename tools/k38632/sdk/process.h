@@ -11,6 +11,12 @@ static inline int k32_spawn(const char *command,unsigned input,unsigned output){
 }
 static inline int k32_process_wait(unsigned child,unsigned *code,unsigned *reason){K32Io r=k32_process_request(KP_WAIT);r.token=child;int e=k32_process_call(&r);if(!e){if(code)*code=r.length;if(reason)*reason=r.hash;}return e;}
 static inline int k32_process_cancel(unsigned child){K32Io r=k32_process_request(KP_CANCEL);r.token=child;return k32_process_call(&r);}
+/* The receiver alone admits one live peer token. Zero revokes admission. */
+static inline int k32_message_allow_peer(unsigned peer){
+ K32Io r=k32_process_request(KP_ALLOW_PEER);
+ r.token=peer;
+ return k32_process_call(&r);
+}
 static inline int k32_message_send(unsigned to,const void *p,unsigned n){K32Io r=k32_process_request(KP_SEND);r.token=to;r.data=(unsigned)p;r.bytes=n;return k32_process_call(&r);}
 static inline int k32_message_receive(unsigned *from,void *p,unsigned n){K32Io r=k32_process_request(KP_RECEIVE);r.data=(unsigned)p;r.bytes=n;int e=k32_process_call(&r);if(e>=0&&from)*from=r.token;return e;}
 static inline int k32_pipe(unsigned ends[2]){K32Io r=k32_process_request(KP_PIPE);int e=k32_process_call(&r);if(!e){ends[0]=r.token;ends[1]=r.offset;}return e;}
@@ -18,6 +24,8 @@ static inline int k32_pipe_close(unsigned value){K32Io r=k32_process_request(KP_
 static inline int k32_pipe_io(unsigned op,unsigned value,void *p,unsigned n){K32Io r=k32_process_request(op);r.token=value;r.data=(unsigned)p;r.bytes=n;return k32_process_call(&r);}
 static inline int k32_pipe_read(unsigned value,void *p,unsigned n){return k32_pipe_io(KP_READ,value,p,n);}
 static inline int k32_pipe_write(unsigned value,const void *p,unsigned n){return k32_pipe_io(KP_WRITE,value,(void *)p,n);}
+/* Diagnostics stay on the private DOS console when stdout is piped. */
+static inline int k32_stderr_write(const void *p,unsigned bytes){return k32_write(p,bytes);}
 /* Console fallback is explicit: EOF (zero) never becomes keyboard input. */
 static inline int k32_stream_write(const void *p,unsigned bytes){
  if(!(k32_info()->features&K32_FEATURE_PROCESS))return k32_write(p,bytes);

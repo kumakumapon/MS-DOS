@@ -36,7 +36,7 @@ int kg_clients_command(unsigned id,char *path,unsigned write){
  return 0;
 }
 static unsigned clipboard(void){return k386_capacity()*4096;}
-static u32 serial,seconds,last_clock,clip_bytes;
+static u32 serial,seconds,last_clock,clip_bytes,dos_date;
 volatile struct {
  char signature[8];u32 version,size,owner,arena,old_vector,vector,ready,requests,rejected;
  u32 generation[2],token[2],revision[2],events[2],dropped[2];
@@ -64,7 +64,12 @@ void kg_clients_tick(void){
   load(id);if(client.generation==generation&&client.token==token){client.edit_result=result;save(id);}
  }
  unsigned a=0x2c00,c=0,d=0;__asm__ volatile("int $0x21":"+a"(a),"=c"(c),"=d"(d)::"ebx","esi","edi","cc","memory");
- seconds=((c>>8)&255)*3600+(c&255)*60+((d>>8)&255);
+ unsigned next=((c>>8)&255)*3600+(c&255)*60+((d>>8)&255);
+ if(!dos_date||next!=seconds){
+  a=0x2a00;__asm__ volatile("int $0x21":"+a"(a),"=c"(c),"=d"(d)::"ebx","esi","edi","cc","memory");
+  dos_date=(c&65535u)<<16|(d&65535u);
+ }
+ seconds=next;
 }
 int kg_clients_start(void){
  kg_language=0;
@@ -107,6 +112,7 @@ void kg_dispatch(void){
  if(p.result>=0){
   r->slot=id;r->generation=p.generation;r->revision=client.revision;r->event.seconds=seconds;
   if(r->operation==KG_POLL&&(client.input_flags&KG_INPUT_LANGUAGE)&&kg_language)r->event.control|=KG_LANGUAGE_JA;
+  if(r->operation==KG_DATE)p.result=(int)dos_date;
   if(r->operation==KG_CLIP_SET){clip_bytes=r->count;mem_copy(arena,clipboard(),self,(unsigned)r->draw,clip_bytes);}
   if(r->operation==KG_CLIP_GET){unsigned n=r->count<clip_bytes?r->count:clip_bytes;mem_copy(self,(unsigned)r->draw,arena,clipboard(),n);p.result=n;}
   if(r->operation==KG_FRAME){r->width=client.width;r->height=client.height;for(unsigned i=0;i<32;i++)r->title[i]=client.title[i];}

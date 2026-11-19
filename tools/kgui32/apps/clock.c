@@ -22,6 +22,7 @@ static int draw(unsigned seconds){
  kg_label(20,72,watch?(stopwatch.running?"Stopwatch / running":"Stopwatch / stopped"):"PC-98 / DOS wall clock",0x263e58);
  kg_button('w',w-100,68,80,28,watch?"Clock":"Watch");
  kg_button(watch?'s':'t',20,104,132,28,watch?(stopwatch.running?"Stop":"Start"):clock_stats.mode?"24-hour":"12-hour");if(watch)kg_button('r',164,104,64,28,"Reset");kg_button('q',w-100,104,80,28,"Close");
+ kg_menu_state(watch?31:19,(watch?2u:0u)|(stopwatch.running?4u:0u));
  int e=kg_present();clock_stats.error=e<0?-e:0;if(!e)clock_stats.frames++;
  clock_stats.width=w;clock_stats.height=h;clock_stats.seconds=seconds;clock_stats.value=stopwatch.elapsed;clock_stats.reserved[0]=watch;clock_stats.reserved[1]=stopwatch.running;return e;
 }
