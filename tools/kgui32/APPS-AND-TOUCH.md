@@ -3,8 +3,8 @@
 **Calendar** reads the DOS date when it opens and when you tap Today. It
 highlights that day in the viewed month. Previous and Next change the month,
 and the titlebar Menu also changes the year. The app supports 1980–2099 and
-Gregorian leap days. It does not edit the DOS clock. The read is supplied by
-the native driver's existing real-mode clock tick, outside its client gate.
+Gregorian leap days. The date comes from the native driver's real-mode clock
+tick outside its client gate.
 
 The `+` title control maximizes a session and `=` restores it. The placement
 control to its left cycles through left, right and original geometry. On a
@@ -30,16 +30,16 @@ A failed stage or insufficient slots retains the original.
 
 `bg COMMAND` starts one background child with its own private console.
 `jobs` reports its token or its last exit status. `cancel` requests cancellation
-of that child. `status` reports the last foreground result. The shell rejects
-pipelines and redirection in background commands. Exit and End reclaim
-children. Applications can use `k32_stderr_write` to write to their own
-console when stdout is piped. KSH32 does not redirect stderr.
+of that child. `status` reports the last foreground result. Background jobs
+accept a single command with private console I/O. Exit and End reclaim
+children. `k32_stderr_write` displays application diagnostics in the
+child's private console while stdout follows the pipeline or redirection.
 
 Independent process receivers may admit one currently live sender token
 through `k32_message_allow_peer`. Passing zero revokes future sends. The same
-64-byte message and four-message queue limits apply. A recycled slot cannot
-inherit a grant, and sending cannot wait for, cancel or borrow another
-owner's process or pipe.
+64-byte message and four-message queue limits apply. The grant identifies the
+current process token. Parent ownership controls waiting, cancellation and
+pipe inheritance.
 
 The private V86 DOS console implements INT 21h/AH=0Ch (flush and selected
 input). For a blocking read, keys arriving after the flush reach the same

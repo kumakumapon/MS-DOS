@@ -9,9 +9,7 @@ const [checkout, imageName, output = 'ports/pc98/build/validation'] = process.ar
 if (!checkout || !/^[\w.-]+\.xdf$/.test(imageName ?? '')) {
   throw new Error('Usage: node verify-webnp2.mjs /path/to/webnp2 image.xdf [output-dir]');
 }
-const browser = await launchBrowser(checkout, {
-  protocolTimeout: 660000,
-});
+const browser = await launchBrowser(checkout);
 const results = [];
 const sourceImage = await readHostFile(join(resolve(checkout), 'public/test', imageName));
 const imageSha256 = createHash('sha256').update(sourceImage).digest('hex');

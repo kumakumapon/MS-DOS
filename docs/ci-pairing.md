@@ -1,7 +1,7 @@
 # Paired MS-DOS / webnp2 CI references
 
 Status: maintained. Native workflows currently use webnp2 master-line commit
-`3eefaf1f8b278fb64d82e2f3850e3e5a96d4b19a`. CI checks its ancestry against master.
+`f4b39f73972b620444c079206dc9e4085804a843`. CI checks its ancestry against master.
 Never pin a development-only branch: it may disappear after branch deletion/GC.
 
 1. Choose an immutable webnp2 commit reachable from `origin/master` and set the
@@ -19,7 +19,8 @@ Never pin a development-only branch: it may disappear after branch deletion/GC.
 This staged update avoids circular commit dependencies. Native CI validates its
 explicit emulator pin; webnp2 E2E validates the new distribution against the new
 native pin. They are separate, recorded checks rather than an implicit latest.
-Browser/emulator servers run only inside bounded Actions jobs, never in chat.
+The DOS verifiers load their Playwright adapter from the pinned webnp2 checkout.
+Browser/emulator servers run inside bounded Actions jobs.
 
 DOS 4 CI also runs the MZ builder unit suite and uploads native SDK, GUI, video,
 process and HDD OEM build artifacts. PR concurrency cancels superseded work;
