@@ -18,8 +18,12 @@ $(BUILD)/dos98.o: ../filer/dos.c ../filer/filer.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -DPC98 -c $< -o $@
 $(BUILD)/exe-dos98.o: ../filer/dos.c ../filer/filer.h ../filer/sjis.h | $(BUILD)
 	$(CC) $(CFLAGS) -DPC98 -DDOS_MZ -c $< -o $@
-$(BUILD)/window.raw.o: window.c commands.h k386_client.h ../k386/abi.h ../k386/resources.h tasks.h scroll.h hardware.h performance.h clipboard.h utilities.h ../filer/filer.h | $(BUILD)
-	$(CC) $(filter-out -flto,$(CFLAGS)) -c $< -o $@
+$(BUILD)/ui-window.h: ../kgui32/ui-build.py ../kgui32/ui/strings.tsv window.c | $(BUILD)
+	python3 $< $(BUILD) window
+$(BUILD)/ui-i18n.o: ../kgui32/sdk/i18n.c ../kgui32/sdk/i18n.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/window.raw.o: window.c commands.h k386_client.h ../k386/abi.h ../k386/resources.h tasks.h scroll.h hardware.h performance.h clipboard.h utilities.h ../filer/filer.h ../filer/sjis.h ../desktop-style.h $(BUILD)/ui-window.h | $(BUILD)
+	$(CC) $(filter-out -flto,$(CFLAGS)) -I$(BUILD) -I../kgui32/sdk -c $< -o $@
 $(BUILD)/k386_client.o: k386_client.c k386_client.h ../k386/abi.h ../k386/resources.h ../k38632/manager.h ../k38632/host.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/tasks.o: tasks.c tasks.h | $(BUILD)
@@ -36,7 +40,7 @@ $(BUILD)/clipboard.o: clipboard.c clipboard.h hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/memory.o: memory.c hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/hardware.o: hardware.c hardware.h ../filer/filer.h | $(BUILD)
+$(BUILD)/hardware.o: hardware.c hardware.h ../filer/filer.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/windowtools.raw.o: windowtools.c windowtools.h ../editor/editor.h | $(BUILD)
 	$(CC) $(filter-out -flto,$(CFLAGS)) -DKDESK_BANK_TOOLS -DED_CAP=8192 -c $< -o $@
@@ -64,6 +68,7 @@ $(BUILD)/bank-core.o: $(BUILD)/bank-core.raw.o
 	objcopy $(foreach f,fd_copy fd_move fd_rename fd_remove fd_mkdir,--rename-section .text.$(f)=.tools.text.$(f)) $< $@
 $(BUILD)/window.elf: $(BUILD)/bitmap-bank.o $(BUILD)/bank.o $(BUILD)/tools-entry.o $(BUILD)/windowtools.o $(BUILD)/windoweditor.o $(BUILD)/windowcontrol.o $(BUILD)/window.o $(BUILD)/cirrus.o $(BUILD)/app.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/bank-core.o $(BUILD)/exe-dos98.o banked.ld
 	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,--no-check-sections,-T,banked.ld $(filter %.o,$^) -o $@
+$(BUILD)/window.elf: $(BUILD)/ui-i18n.o
 $(BUILD)/KDESK.EXE: $(BUILD)/window.elf ../mz/build.py
 	python3 ../mz/build.py $< $@
 $(BUILD)/KDESK.TXT: KDESK.TXT | $(BUILD)

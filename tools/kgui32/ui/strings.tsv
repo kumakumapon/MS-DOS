@@ -276,3 +276,43 @@ Today	今日
 EOF	終了
 Enter	実行
 Esc	取消
+Welcome	ようこそ
+Shortcuts	キー操作
+Keyboard shortcuts	キーボード操作
+F1: Shortcuts	F1: キー操作
+F1: Shortcuts   F2: Apps	F1: キー操作　F2: アプリ
+Tab: Switch window	Tab: ウインドウ切替
+F8: Language   F10: Exit	F8: 言語　F10: 終了
+New DOS 1	DOS 1 起動
+New DOS 2	DOS 2 起動
+Exit to DOS	DOSへ戻る
+Again	再実行
+Test CPU	CPU検証
+Left	左
+Right	右
+Up	上
+Down	下
+Launcher	ランチャー
+Memo	メモ
+Help	案内
+Tasks	実行
+Text editor	編集
+System settings	システム設定
+Image viewer	画像閲覧
+Image editor	画像編集
+File manager	ファイル管理
+File menu	書類
+Settings	設定
+DOS shell (EXIT returns)	DOS シェル（EXITで戻る）
+Apps	起動
+Calc	電卓
+Switch	切替
+Desk	机
+Find apps	アプリを探す
+Type a name...	名前を入力
+Kuma Desktop	Kuma デスク
+Icons	画像
+Parent	上へ
+Ready - Ctrl+K finds apps / Ctrl+D shows desktop	Ctrl+K 検索 / Ctrl+D デスクトップ
+Exit	終了
+DOS shell	DOS シェル

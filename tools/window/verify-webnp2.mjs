@@ -23,6 +23,18 @@ try {
   await page.evaluate(() => window.np2debug.np2.sendKeys('F4'));
   await page.waitForFunction(() => window.np2debug.np2.getScreenText().text.includes('WINDOW MEMO OK'));
   results.push('saved desktop memo survives browser reload');
+  await page.evaluate(() => window.np2debug.np2.sendKeys('F10'));
+  await page.waitForFunction(() => window.np2debug.np2.getScreenText().lines.some(s => s.trim() === 'A>'));
+  await page.evaluate(() => window.np2debug.np2.typeText('ECHO JA>KUMAUI.CFG\rKDESK\r'));
+  await page.waitForFunction(() => {
+    const { base64 } = window.np2debug.np2.readMemoryBase64(0xa000c, 4);
+    const pair = atob(base64);
+    // First wide cell in "Kuma デスク", followed by its continuation cell.
+    return pair.charCodeAt(0) === 5 && pair.charCodeAt(1) === 0xc7 &&
+      pair.charCodeAt(2) === 0 && pair.charCodeAt(3) === 0;
+  });
+  await page.screenshot({ path: join(output, 'desktop-ja.png') });
+  results.push('KUMAUI.CFG selects Shift-JIS desktop labels at launch');
   assert.deepEqual(errors, []);
   await writeFile(join(output, 'verification.json'), JSON.stringify({ browser: await browser.version(), results }, null, 2) + '\n');
   console.log('PASS:', results);

@@ -7,16 +7,19 @@
 #include "windowtools.h"
 #include "performance.h"
 #include "../k386/app.h"
+#include "../desktop-style.h"
+#include "../filer/sjis.h"
+#include "ui-window.h"
+
+unsigned ku_language;
+static __attribute__((noinline)) const char *ui_label(const char *text) { return KU(text); }
 
 /* Window positions use 8 x 16 cells. Four graphics planes hold both the
  * 16-color scene and CG-ROM glyphs; hidden text VRAM mirrors the labels. */
 enum { LAUNCHER, FILES, MEMO, HELP, ABOUT, CALCULATOR, CLOCK, TASKS, DOS1, DOS2, EDITOR, SETTINGS, VIEWER, PAINTER, WINDOWS };
 enum { LAUNCH_APPS = 9 };
-#define SW (gfx_width())
-#define SH (gfx_height())
-#define COLS (SW/8)
-#define ROWS (SH/16)
-#define WORK ((ROWS-2)*16)
+/* Updated whenever a graphics mode is entered or restored after DOS exec. */
+static int SW, SH, COLS, ROWS, WORK;
 typedef struct { int x, y, w, h, open, hidden, selected, ox, oy, top; } Window;
 static Window windows[WINDOWS];
 /* Only geometry is restored: task state, text and scroll position stay live. */
@@ -92,14 +95,21 @@ static const char *window_title(int id){
         if(k386_usage(id-DOS1,&u))fd_text(title+8,u.program,sizeof title-8);
         return title;
     }
-    return titles[id];
+    return ui_label(titles[id]);
 }
 static const char *labels[] = {"File manager", "Text editor", "System settings", "Image viewer", "Image editor", "BASIC", "DOS shell (EXIT returns)", "Image viewer", "Image editor", "Calculator", "Clock"};
 static const char *icon_labels[] = {"File manager", "Text editor", "Settings", "BASIC", "DOS shell", "Image viewer", "Image editor", "Calculator", "Clock"};
 static const char *task_labels[] = {"Apps", "Files", "Memo", "Help", "About", "Calc", "Clock", "Tasks", "DOS 1", "DOS 2", "Text editor", "System settings", "Image viewer", "Image editor"};
 
 static void label(int x, int y, const char *s, int width, int fg, int bg, int selected) {
-    for (int i = 0; i < width && s[i]; i++) gfx_cell(x + i, y, s[i], fg, bg, selected);
+    for (int i = 0; i < width && s[i]; i++) {
+        u8 lead = s[i], trail = sjis_lead(lead) ? (u8)s[i+1] : 0;
+        if (sjis_trail(trail)) {
+            if (i+1 >= width) break;
+            gfx_pair_style(x+i, y, lead, trail, fg, bg, selected);
+            i++;
+        } else gfx_cell(x+i, y, lead, fg, bg, selected);
+    }
 }
 static void text(int x, int y, const char *s, int width, int selected) {
     label(x, y, s, width, selected ? WHITE : INK, selected ? SELECTED : PAPER, selected);
@@ -116,7 +126,7 @@ static void draw_resources(Window *w){
 static void button(int x, int y, int width, const char *caption, int pressed) {
     int bg = pressed ? ACCENT : BUTTON;
     gfx_rect(x * 8, y * 16, width * 8, 16, bg);
-    label(x + 1, y, caption, width - 2, pressed ? WHITE : INK, bg, pressed);
+    label(x + 1, y, ui_label(caption), width - 2, pressed ? WHITE : INK, bg, pressed);
     gfx_rect(x * 8, y * 16, width * 8, 1, pressed?ACCENT:WHITE);
     gfx_rect(x * 8, y * 16 + 15, width * 8, 1, pressed?GOLD:INACTIVE);
     gfx_rect((x + width) * 8 - 1, y * 16+1, 1, 14, SURFACE);
@@ -234,12 +244,12 @@ static int task_width(void) {
 }
 static void taskbar(void) {
     gfx_rect(0,WORK,SW,16,BORDER);gfx_rect(0,WORK+16,SW,SH-WORK-16,SURFACE);
-    gfx_clear_text(0,ROWS-2,COLS,2);label(1,ROWS-2,status,COLS-2,WHITE,BORDER,0);
+    gfx_clear_text(0,ROWS-2,COLS,2);label(1,ROWS-2,ui_label(status),COLS-2,WHITE,BORDER,0);
     button(0,ROWS-1,6,"Desk",active<0);
     int x=6,width=task_width();
     for(int id=0;id<WINDOWS;id++)if(windows[id].open) {
         button(x,ROWS-1,width,(id>=DOS1&&id<=DOS2&&k386_kind(id-DOS1))?window_title(id):task_labels[id],active==id);
-        gfx_rect(x*8+3,(ROWS-1)*16+13,width*8-6,2,windows[id].hidden?MUTED:active==id?GOLD:ACCENT);
+        gfx_rect(x*8+3,(ROWS-1)*16+13,width*8-6,DESKTOP_ACTIVE_MARKER_HEIGHT,windows[id].hidden?MUTED:active==id?GOLD:ACCENT);
         x+=width;
     }
 }
@@ -297,7 +307,11 @@ static void load(void) {
     }
     if (memo_blocked) { used = 0; message("NOTE.TXT needs Text editor; original file retained"); }
 }
-static void enter_graphics(void) { gfx_start(); clip_state(1); }
+static void enter_graphics(void) {
+    gfx_start();
+    SW=gfx_width(); SH=gfx_height(); COLS=SW/8; ROWS=SH/16; WORK=(ROWS-2)*16;
+    clip_state(1);
+}
 /* Tagged applications run in independent guest sessions. Never replace a live
  * session as a side effect of opening a file or search result. */
 static int window_tool(int id,const char *path){
@@ -527,7 +541,7 @@ static void draw_items(int id, Pane *v) {
         int x=v->x+col*14,y=v->y+row*v->step,selected=i==w->selected;
         int bg=selected?SELECTED:PAPER;
         Entry entry;if(id==FILES)file_entry(i,&entry);
-        const char *name=id==LAUNCHER?icon_labels[i]:entry.name;
+        const char *name=id==LAUNCHER?ui_label(icon_labels[i]):entry.name;
         if(icons(id)) {
             gfx_rect(x*8,y*16,13*8,3*16,bg);
             if(selected)gfx_rect(x*8,y*16,2,3*16,GOLD);
@@ -538,7 +552,7 @@ static void draw_items(int id, Pane *v) {
             if(id==FILES) {
                 fd_text(caption,entry.attr&FD_DIR?"<DIR> ":"      ",sizeof caption);
                 fd_text(caption+6,name,sizeof caption-6);name=caption;
-            } else name=labels[i];
+            } else name=ui_label(labels[i]);
             gfx_rect(x*8,y*16,v->cols*8,16,bg);
             label(x+(id==LAUNCHER),y,name,v->cols-1,selected?WHITE:INK,bg,selected);
         }
@@ -601,10 +615,10 @@ static void frame(int x, int y, int w, int h) {
 static void draw_panel(void) {
     frame(12,2,56,20);
     gfx_rect(99,37,442,31,ACCENT);
-    label(14,3,"Find apps",40,WHITE,ACCENT,0);
+    label(14,3,ui_label("Find apps"),40,WHITE,ACCENT,0);
     label(64,3,"x",1,WHITE,ACCENT,0);
     gfx_rect(111,79,418,34,ACCENT);gfx_rect(112,80,416,32,SURFACE);
-    label(15,5,panel_query[0]?panel_query:"Type a name...",49,panel_all?WHITE:INK,panel_all?SELECTED:SURFACE,panel_all);
+    label(15,5,panel_query[0]?panel_query:ui_label("Type a name..."),49,panel_all?WHITE:INK,panel_all?SELECTED:SURFACE,panel_all);
     if(panel_query[0]&&!panel_all)label(15+fd_len(panel_query),5,"_",1,ACCENT,SURFACE,0);
     if(!panel_count)text(16,9,"No matching apps",45,0);
     for(int row=0;row<5&&panel_top+row<(int)panel_count;row++) {
@@ -837,7 +851,7 @@ static void compose(int foreground) {
     button(0,0,14,"Kuma Desktop",panel_open);
     static const char *menus[] = {"Apps", "Files", "Memo", "Help", "About", "Paint", "Exit", "Tasks"};
     static const int menu_x[] = {22, 30, 39, 47, 55, 63, 71, 14};
-    for (int i = 0; i < 8; i++) button(menu_x[i], 0, 7, menus[i], 0);
+    for (int i = 0; i < 8; i++) button(menu_x[i], 0, 7, ku_language && i == 1 ? ui_label("File menu") : menus[i], 0);
     for (int i = 0; i < WINDOWS; i++) {
         int id = order[i];
         if (id != active && windows[id].open && !windows[id].hidden) draw_window(id);
@@ -1341,6 +1355,13 @@ static int dispatch_events(void) {
 }
 int main(void) {
     p_init();
+    int language_file=p_open(DESKTOP_LANGUAGE_FILE);
+    if(language_file>=0){
+        char value[3];
+        int length=p_read(language_file,value,sizeof value);
+        p_close(language_file);
+        ku_language=desktop_japanese(value,length);
+    }
     u16 segment;__asm__ volatile("movw %%ds,%0":"=r"(segment));data_segment=segment;
     entries_segment=mem_alloc(MEMO_OFFSET+MEMO_CAPACITY);
     if(!entries_segment){p_output("Cannot allocate directory buffer\r\n");return 1;}

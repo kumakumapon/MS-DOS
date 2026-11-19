@@ -1,5 +1,9 @@
 # KDESK rendering snapshot contract
 
+KGUI32 の起動配置は `tools/kgui32/test-scene.c` で 640×400 と 800×600 の
+両方を検証する。Welcome と System の矩形および影が画面内に収まり、
+ランチャー各ボタンと最下段の案内が重ならないことを確認する。
+
 The optional 64-byte KDPERF01 producer exposes ready and a nested busy counter.
 A debugger may read composed text/attributes only while ready is one and busy
 is zero. The counter must cover transient text writes as well as visible pixel

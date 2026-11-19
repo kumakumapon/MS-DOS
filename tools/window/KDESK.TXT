@@ -6,6 +6,9 @@ WebNP2 uses PC-9821 PEGC 256 colors; other supported machines retain 16 colors.
 On PEGC, drawing is composed offscreen before changed areas are presented.
 Selections/editing update the active window; switching restores damaged areas.
 The WebNP2 bundled disk starts KDESK automatically. F10 returns to DOS.
+Run ECHO JA>KUMAUI.CFG from KDESK's starting directory before the next launch
+to display the launcher, window titles and common controls in Japanese.
+Use EN or remove KUMAUI.CFG to start in English.
 
 KDESK.EXE is a DOS MZ executable with separate code and data/stack segments.
 Each near-address segment remains limited to 64 KiB; 12 KiB is reserved for the
