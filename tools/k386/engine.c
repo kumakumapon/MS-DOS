@@ -15,8 +15,18 @@ static k32 address(k32 seg,k32 off,k32 size) {
     k32 at=(seg&0xffff)*16+(off&0xffff);
     return size<=0x10000-(off&0xffff)&&at<K386_RAM&&size<=K386_RAM-at?at:0;
 }
-static k32 readn(k32 at,int n){k32 v=0;for(int i=0;i<n;i++)v|=(k32)read8(at+i)<<(i*8);return v;}
-static void writen(k32 at,k32 v,int n){for(int i=0;i<n;i++)write8(at+i,v>>(i*8));}
+/* Callers have checked the full guest range. The 386 supports unaligned
+ * word and dword operands, including guest stack entries across pages. */
+static k32 readn(k32 at,int size){
+    if(size==2)return read16(at);
+    k32 value;
+    __asm__ volatile("movl %%fs:(%1),%0":"=r"(value):"r"(at):"memory");
+    return value;
+}
+static void writen(k32 at,k32 value,int size){
+    if(size==2)__asm__ volatile("movw %w0,%%fs:(%1)"::"r"(value),"r"(at):"memory");
+    else __asm__ volatile("movl %0,%%fs:(%1)"::"r"(value),"r"(at):"memory");
+}
 static int name(k32 seg,k32 off){for(k32 i=0;i<128;i++){if(i>0xffff-(off&0xffff))return 0;k32 at=address(seg,off+i,1);if(!at)return 0;transfer[i]=read8(at);if(!transfer[i])return 1;}return 0;}
 static k32 dta_address(K386Process *r){return address(r->dta>>16,r->dta&65535,43);}
 static k32 flags(K386Frame *f){return (f->eflags&0xcd5)|2|(runtime[selected].process.vif?0x200:0);}
