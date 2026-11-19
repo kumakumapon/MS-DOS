@@ -59,6 +59,8 @@ wait:
     je modify
     cmp al,'b'
     je badbios
+    cmp al,'h'
+    je flush_read
     cmp al,'k'
     jne wait
     mov ax,0x0300
@@ -67,6 +69,20 @@ wait:
     int 0x18
     test al,al
     jnz failed
+    jmp wait
+flush_read:
+    mov ax,0x0c06
+    mov dl,0xff
+    int 0x21
+    jnz failed
+    mov ax,0x0a02
+    int 0x18
+    mov ax,0x0c07
+    int 0x21
+    cmp al,'z'
+    jne failed
+    mov ax,0x0a00
+    int 0x18
     jmp wait
 badbios:
     mov ax,0x0aff

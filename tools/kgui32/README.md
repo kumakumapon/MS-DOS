@@ -147,3 +147,5 @@ data HDD, with an explicit FD fallback; see [HDD-WORKSPACE.md](HDD-WORKSPACE.md)
 
 Work recovery and Editor Find/Replace, Shift selection, LF/CRLF and viewport
 controls are described in [RECOVERY-SDK.md](RECOVERY-SDK.md).
+
+[Calendar, window placement and shell touch controls](APPS-AND-TOUCH.md)

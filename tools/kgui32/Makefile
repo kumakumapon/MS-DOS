@@ -226,8 +226,8 @@ test: test-image-ui-run
 .PHONY: test-image-ui-run
 
 # Additive switchable UI; private tables include only labels used by a module.
-UI_HEADERS = $(addprefix $(BUILD)/ui-,$(addsuffix .h,desktop editor files image calculator clock picker recovery widgets words menu))
-$(UI_HEADERS) &: ui-build.py ui/strings.tsv desktop.c apps/editor.c apps/files.c apps/image.c apps/calculator.c apps/clock.c apps/words.c sdk/ime.c sdk/picker.c sdk/recovery.c sdk/widgets-draw.c sdk/menu-draw.c sdk/menu.h sdk/stopwatch.h | $(BUILD)
+UI_HEADERS = $(addprefix $(BUILD)/ui-,$(addsuffix .h,desktop editor files image calculator clock calendar picker recovery widgets words menu))
+$(UI_HEADERS) &: ui-build.py ui/strings.tsv desktop.c apps/editor.c apps/files.c apps/image.c apps/calculator.c apps/clock.c apps/calendar.c apps/words.c sdk/ime.c sdk/picker.c sdk/recovery.c sdk/widgets-draw.c sdk/menu-draw.c sdk/menu.h sdk/stopwatch.h | $(BUILD)
 	python3 ui-build.py $(BUILD)
 $(BUILD)/desktop.o $(BUILD)/editor.app.o $(BUILD)/files.app.o $(BUILD)/image.app.o $(BUILD)/calculator.app.o $(BUILD)/clock.app.o $(BUILD)/words.app.o $(BUILD)/picker.o $(BUILD)/recovery.o $(BUILD)/widgets-draw.o: $(UI_HEADERS)
 $(BUILD)/i18n.o: sdk/i18n.c sdk/i18n.h | $(BUILD)
@@ -278,3 +278,11 @@ test: test-menu-run
 test-menu-run: $(BUILD)/test-menu
 	$(BUILD)/test-menu
 .PHONY: test-menu-run
+
+
+$(BUILD)/calendar.app.o: sdk/calendar.h sdk/menu.h $(UI_HEADERS)
+$(BUILD)/calendar.elf: $(BUILD)/calendar.app.o $(BUILD)/sdk.o $(BUILD)/i18n.o $(BUILD)/menu.o $(BUILD)/menu-draw.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KGCAL.EXE: $(BUILD)/calendar.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client --compact
+all: $(BUILD)/KGCAL.EXE

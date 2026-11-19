@@ -1,4 +1,4 @@
-/* Deliberately bounded grammar: two executables, one pipe, Work redirections. */
+/* Deliberately bounded grammar: three executables, two pipes, Work redirections. */
 #include "shell.h"
 static unsigned upper(unsigned c){return c>='a'&&c<='z'?c-32:c;}
 static int name(const char *s,unsigned n,char out[13]){
@@ -21,7 +21,7 @@ int kp_shell_parse(const char *line,KpShell *out){
   }
   if(!quote&&c=='|'){
    while(length&&out->command[which][length-1]==' ')length--;
-   if(which||!length)return -22;
+   if(which+1>=KP_SHELL_COMMANDS||!length)return -22;
    out->command[which][length]=0;which++;length=0;continue;
   }
   if(!length&&c==' ')continue;

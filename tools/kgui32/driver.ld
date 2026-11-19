@@ -9,7 +9,7 @@ SECTIONS {
  host_command = loader_buffer + 3968;
  __mz_image_end = .;
  __bss_start = .;
- .bss : { *(.bss*) *(COMMON) }
+ .bss : { *(SORT_BY_ALIGNMENT(.bss*)) *(COMMON) }
  __bss_end = .;
  __mz_cs = 0; __mz_ss = 0; __mz_sp = 0xfff0;
  __mz_memory_bytes = 0x10000;

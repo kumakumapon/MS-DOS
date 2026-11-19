@@ -137,6 +137,7 @@ static void refresh_graphical(unsigned id){
  scene.graphical[id]=yes;scene.menu[id]=yes&&client_io.token&&(client_io.event.control&KG_INPUT_MENU);
  if(yes&&client_io.token&&(clients[id].token!=client_io.token||clients[id].generation!=client_io.generation)){
   GuiWindow *w=&scene.window[id+2];scene_damage(&scene,(Rect){w->r.x,w->r.y,w->r.w+6,w->r.h+6});
+  scene.restored[id]=(Rect){0};scene.placement[id]=0;
   w->r.w=client_io.width+16;w->r.h=client_io.height+104;
   w->r.x=id?scene.width-w->r.w-16:16;w->r.y=id?scene.height-w->r.h-40:40;
   if(w->r.y<40)w->r.y=40;
@@ -156,7 +157,7 @@ static void launch(int act){
  unsigned id=0;
  while(id<(unsigned)scene.slots&&(views[id].state==1||views[id].state==2||views[id].state==3||(views[id].state==4&&!views[id].owned)))id++;
  if(id==(unsigned)scene.slots){scene.action_result=-16;scene_damage(&scene,scene.window[0].r);return;}
- const char *path=act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":act==ACT_IMAGE?"KGIMAGE.EXE":act==ACT_WORDS?"KGWORDS.EXE":act==ACT_SHELL32?"KSH32.EXE":"KSH.EXE";
+ const char *path=act==ACT_CALENDAR?"KGCAL.EXE":act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":act==ACT_IMAGE?"KGIMAGE.EXE":act==ACT_WORDS?"KGWORDS.EXE":act==ACT_SHELL32?"KSH32.EXE":"KSH.EXE";
  for(unsigned i=0;i<128;i++){paths[id][i]=path[i];if(!path[i])break;}
  errors[id]=session_command(id,GS_CREATE,0);scene.action_result=errors[id];
  if(!errors[id])scene_focus(&scene,id+2);
@@ -192,6 +193,7 @@ static void action(int act){
   else if(k>=32&&k<=126&&n<127){paths[id][n++]=k;paths[id][n]=0;}
   else if(k==13&&n){errors[id]=session_command(id,GS_CREATE,0);if(!errors[id])editing[id]=0;}
   lengths[id]=n;
+  scene_damage(&scene,scene.window[id+2].r);
  }else if(act==ACT_NEW){
   if(!views[id].owned&&!views[id].state){
    const char *p="KSH.EXE";for(int i=0;i<8;i++)paths[id][i]=p[i];
@@ -333,8 +335,11 @@ static void terminal(unsigned id,int x,int y,int width,int height){
  clip=before;
  int yy=y+height-30;const char *arrows[]={"Left","Right","Up","Down"};
  for(int i=0;i<4;i++)button(x+8+i*48,yy,44,arrows[i]);
- ui_label(x+208,yy+6,errors[id]?"Error:":!v->owned&&v->state?"Other owner":v->state==1?"Running":v->state==2?"Waiting":v->state==3?"Stopped":v->state==4?"Faulted":"Ended",color(10));
- if(errors[id])number(x+264,yy+6,-errors[id],color(10));
+ if(scene.command[id]||scene.shell[id]){
+  button(x+206,yy,60,scene.command[id]?"Enter":"Cancel");
+  button(x+270,yy,60,scene.command[id]?"Esc":"EOF");
+ }else ui_label(x+208,yy+6,errors[id]?"Error:":!v->owned&&v->state?"Other owner":v->state==1?"Running":v->state==2?"Waiting":v->state==3?"Stopped":v->state==4?"Faulted":"Ended",color(10));
+ if(errors[id]&&!scene.command[id]&&!scene.shell[id])number(x+264,yy+6,-errors[id],color(10));
  text(x+width-18,y+height-18,"/",color(10));
  if(editing[id]){
   box(x+8,y+70,width-16,72,color(3));ui_label(x+16,y+78,"Run (End current first):",color(0));
@@ -427,13 +432,21 @@ static void window(int id){
  box(x+width-47,y+6,18,18,color(3));box(x+width-25,y+6,18,18,color(3));
  text(x+width-43,y+7,"_",color(0));text(x+width-21,y+7,"x",color(0));
  if(id>=2){
+  Rect saved=clip;
+  int title_right=x+width-126;
+  if(clip.x+clip.w>title_right)clip.w=title_right>clip.x?title_right-clip.x:0;
   ui_label(x+72,y+9,scene.graphical[id-2]?clients[id-2].title:views[id-2].program,color(7));
+  clip=saved;
+  box(x+width-120,y+3,32,26,color(3));
+  text(x+width-108,y+8,scene.placement[id-2]==2?">":scene.placement[id-2]==3?"=":"<",color(0));
+  box(x+width-84,y+3,32,26,color(3));
+  text(x+width-72,y+8,scene.placement[id-2]==1?"=":"+",color(0));
   if(scene.graphical[id-2])graphical(id-2,x,y,width,height);else terminal(id-2,x,y,width,height);
  }else if(!id){
   box(x+16,y+48,46,46,color(4));box(x+24,y+56,12,28,color(7));box(x+38,y+56,12,12,color(6));box(x+38,y+72,12,12,color(3));
   ui_label(x+78,y+48,"Your new desktop",color(0));ui_label(x+78,y+72,"32-bit protected mode",color(10));
   button(x+18,y+116,140,"Calculator");button(x+174,y+116,140,"Clock");button(x+18,y+152,140,"DOS Shell");button(x+174,y+152,140,"Files");button(x+18,y+188,140,"Editor");button(x+174,y+188,140,"Images");
-  button(x+174,y+88,140,"User dictionary");button(x+18,y+224,140,"32-bit shell");
+  button(x+174,y+88,140,"User dictionary");button(x+18,y+224,140,"32-bit shell");button(x+174,y+224,140,"Calendar");
   ui_label(x+18,y+92,scene.action_result<0?"Slots full / error":"F2 / F10",color(10));
  }else{
   ui_label(x+16,y+46,"Desktop: private context",color(0));
@@ -585,6 +598,10 @@ int main(int argc,char **argv){
    * its current generation/token, never the ended root's cached canvas. */
   if(event.type==GUI_KEY||event.type==GUI_BUTTON)refresh();
   int act;
+  for(unsigned id=0;id<(unsigned)scene.slots;id++){
+   scene.shell[id]=views[id].owned&&views[id].kind==1&&equal(views[id].program,"KSH32.EXE");
+   scene.command[id]=editing[id];
+  }
   if(event.type==GUI_KEY&&scene.active>=2&&event.key!=281&&event.key!=11&&event.key!=289&&
      ((editing[scene.active-2]&&event.key!=9)||(!editing[scene.active-2]&&clients[scene.active-2].token&&event.key!=289&&((event.key==9&&(clients[scene.active-2].event.control&KG_INPUT_TAB))||((clients[scene.active-2].event.control&KG_INPUT_KEYS)&&event.key!=9))))){
    scene.slot=scene.active-2;scene.key=event.key;act=ACT_KEY;

@@ -5,12 +5,13 @@ static KpProcess *find(KpState *s,unsigned value){for(unsigned i=0;i<KP_PROCESSE
 static KpFd *fd(KpProcess *p,unsigned value){for(unsigned i=0;i<KP_FDS;i++)if(value&&p->fd[i].token==value)return &p->fd[i];return 0;}
 static void collect(KpState *s){for(unsigned i=0;i<KP_PIPES;i++)if(s->pipe[i].used){unsigned refs=0;for(unsigned j=0;j<KP_PROCESSES;j++)for(unsigned k=0;k<KP_FDS;k++)refs+=s->task[j].fd[k].token&&s->task[j].fd[k].pipe==i;if(!refs)s->pipe[i]=(KpPipe){0};}}
 static void streams_close(KpState *s,KpProcess *p){for(unsigned i=0;i<KP_FDS;i++)p->fd[i]=(KpFd){0};p->in=p->out=0;collect(s);}
-static void complete(KpState *s,KpProcess *p,unsigned code,unsigned reason){p->state=KP_DONE;p->code=code;p->reason=reason;p->count=0;streams_close(s,p);}
+static void complete(KpState *s,KpProcess *p,unsigned code,unsigned reason){p->state=KP_DONE;p->code=code;p->reason=reason;p->count=0;s->peer[p-s->task]=0;streams_close(s,p);}
 static int empty(KpState *s){for(unsigned i=4;i<KP_PROCESSES;i++)if(!s->task[i].token)return (int)i;return -11;}
 int kp_attach(KpState *s,const KpIdentity *id){
  for(unsigned i=0;i<KP_PROCESSES;i++){KpProcess *p=&s->task[i];if(p->state==KP_RUNNING&&p->slot==id->slot&&p->generation==id->generation&&p->physical==id->physical&&p->epoch==id->epoch)return (int)p->token;}
  if(id->slot>=4)return -116;
  int i=(int)id->slot;if(s->task[i].token)return -16;unsigned t=token(s);if(!t)return -75;
+ s->peer[i]=0;
  s->task[i]=(KpProcess){.token=t,.state=KP_RUNNING,.slot=id->slot,.generation=id->generation,.physical=id->physical,.epoch=id->epoch};return (int)t;
 }
 static int executable(const unsigned char *s,unsigned n){
@@ -31,14 +32,14 @@ static int inherit(KpState *s,KpProcess *parent,KpProcess *child,unsigned source
 }
 int kp_request(KpState *s,unsigned caller,K32Io *r,unsigned char *data){
  KpProcess *p=find(s,caller);if(!p||p->state!=KP_RUNNING)return -116;
- if(r->version!=1||r->size!=sizeof *r||r->reserved||r->operation<KP_INFO||r->operation>KP_CLOSE)return -22;
+ if(r->version!=1||r->size!=sizeof *r||r->reserved||r->operation<KP_INFO||r->operation>KP_ALLOW_PEER)return -22;
  if(r->operation!=KP_SPAWN&&r->flags)return -22;
  switch(r->operation){
  case KP_INFO:r->token=p->token;r->offset=p->parent;r->length=p->slot;r->hash=p->generation;return 0;
  case KP_SPAWN:{
   if(r->flags&~3u)return -22;
   int e=executable(data,r->bytes);if(e)return e;int at=empty(s);if(at<0)return at;
-  unsigned t=token(s);if(!t)return -75;KpProcess *c=&s->task[at];*c=(KpProcess){.token=t,.parent=p->token,.state=KP_QUEUED,.slot=4};copy(c->command,data,r->bytes);
+  unsigned t=token(s);if(!t)return -75;s->peer[at]=0;KpProcess *c=&s->task[at];*c=(KpProcess){.token=t,.parent=p->token,.state=KP_QUEUED,.slot=4};copy(c->command,data,r->bytes);
   if(r->flags&1){e=inherit(s,p,c,r->offset,0);if(e)goto fail;}
   if(r->flags&2){e=inherit(s,p,c,r->exists,1);if(e)goto fail;}
   r->token=t;return 0;
@@ -50,10 +51,17 @@ int kp_request(KpState *s,unsigned caller,K32Io *r,unsigned char *data){
   if(c->state!=KP_DONE)return -11;
   r->length=c->code;r->hash=c->reason;*c=(KpProcess){0};return 0;
  }
+ case KP_ALLOW_PEER:{
+  if(r->bytes||r->data)return -22;
+  KpProcess *peer=find(s,r->token);
+  if(r->token&&(!peer||peer->state!=KP_RUNNING||peer==p))return -116;
+  s->peer[p-s->task]=r->token;
+  return 0;
+ }
  case KP_SEND:{
   if(!r->bytes||r->bytes>KP_MESSAGE_BYTES)return -22;
   KpProcess *c=find(s,r->token);if(!c||c->state==KP_DONE)return -116;
-  if(c->parent!=p->token&&p->parent!=c->token)return -1;
+  if(c->parent!=p->token&&p->parent!=c->token&&s->peer[c-s->task]!=p->token)return -1;
   if(c->count==KP_MESSAGES)return -11;
   KpMessage *m=&c->message[(c->head+c->count)%KP_MESSAGES];*m=(KpMessage){.sender=p->token,.bytes=r->bytes};copy(m->data,data,r->bytes);c->count++;return 0;
  }

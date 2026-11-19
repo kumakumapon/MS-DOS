@@ -94,6 +94,29 @@ static void clients(int width,int height){
  assert(scene_event(&s,&e)==ACT_SHELL);
  mouse(&s,GUI_BUTTON,e.x,e.y,0);e.y=r.y+236;assert(scene_event(&s,&e)==ACT_SHELL32);
  mouse(&s,GUI_BUTTON,e.x,e.y,0);
+ scene_focus(&s,2);Rect original=s.window[2].r;
+ mouse(&s,GUI_BUTTON,original.x+original.w-70,original.y+12,1);
+ mouse(&s,GUI_BUTTON,original.x+original.w-70,original.y+12,0);
+ Rect maximized=s.window[2].r;
+ assert(maximized.w==width-16&&maximized.h<=520&&s.restored[0].w==original.w);
+ mouse(&s,GUI_BUTTON,maximized.x+maximized.w-70,maximized.y+12,1);
+ mouse(&s,GUI_BUTTON,maximized.x+maximized.w-70,maximized.y+12,0);
+ r=s.window[2].r;assert(r.x==original.x&&r.y==original.y&&r.w==original.w&&r.h==original.h);
+ for(unsigned transition=0;transition<3;transition++){
+  Rect frame=s.window[2].r;
+  mouse(&s,GUI_BUTTON,frame.x+frame.w-106,frame.y+12,1);
+  mouse(&s,GUI_BUTTON,frame.x+frame.w-106,frame.y+12,0);
+  if(!transition)assert(s.placement[0]==2&&s.window[2].r.x==8);
+  else if(transition==1)assert(s.placement[0]==3&&s.window[2].r.x+s.window[2].r.w==width-8);
+  else assert(s.placement[0]==0&&s.window[2].r.x==original.x);
+ }
+ s.shell[0]=1;
+ e=(GuiEvent){.type=GUI_BUTTON,.x=r.x+230,.y=r.y+r.h-16,.buttons=1};
+ assert(scene_event(&s,&e)==ACT_KEY&&s.key==3);
+ e.buttons=0;scene_event(&s,&e);
+ s.command[0]=1;e.x=r.x+292;e.buttons=1;
+ assert(scene_event(&s,&e)==ACT_KEY&&s.key==27);
+ e.buttons=0;scene_event(&s,&e);s.command[0]=s.shell[0]=0;
  /* Client controls remain usable at the minimum size. Text windows keep
   * their previous smaller minimum, including a final motion on release. */
  scene_focus(&s,2);r=s.window[2].r;

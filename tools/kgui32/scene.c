@@ -67,6 +67,24 @@ static void move(Scene *s,int id,int x,int y){
  w->r.x=clamp(x,8,s->width-w->r.w-8);w->r.y=clamp(y,40,s->height-32-w->r.h-8);
  scene_damage(s,covered(w));
 }
+/* Tiling uses the minimum client width, overlapping only on 640px desktops. */
+static void place_window(Scene *s,int id,int mode){
+ GuiWindow *w=&s->window[id];
+ Rect *restored=&s->restored[id-2];
+ scene_damage(s,covered(w));
+ if(!mode){
+  if(restored->w)w->r=*restored;
+  *restored=(Rect){0};
+ }else{
+  if(!restored->w)*restored=w->r;
+  int width=s->width-16,height=s->height-80;
+  if(height>520)height=520; /* 416 client pixels plus 104 chrome. */
+  if(mode!=1)width=clamp((width-8)/2,360,width);
+  w->r=(Rect){mode==3?s->width-8-width:8,40,width,height};
+ }
+ s->placement[id-2]=mode;
+ scene_damage(s,covered(w));
+}
 int scene_event(Scene *s,const GuiEvent *e){
  if(e->type==GUI_TIMER){
   GuiWindow *w=&s->window[1];
@@ -131,8 +149,20 @@ int scene_event(Scene *s,const GuiEvent *e){
   if(inside((Rect){w->r.x+w->r.w-47,w->r.y+6,18,18},s->mx,s->my)){w->hidden=1;scene_damage(s,covered(w));next_visible(s);return ACT_NONE;}
   if(id>=2){
    s->slot=id-2;
+   if(inside((Rect){w->r.x+w->r.w-84,w->r.y+2,32,26},s->mx,s->my)){
+    place_window(s,id,s->placement[id-2]==1?0:1);return ACT_NONE;
+   }
+   if(inside((Rect){w->r.x+w->r.w-120,w->r.y+2,32,26},s->mx,s->my)){
+    int mode=s->placement[id-2];
+    place_window(s,id,mode==3?0:mode==2?3:2);return ACT_NONE;
+   }
+   if((s->command[id-2]||s->shell[id-2])&&s->my>=w->r.y+w->r.h-30){
+    int offset=s->mx-w->r.x;
+    if(offset>=206&&offset<266){s->key=s->command[id-2]?13:3;return ACT_KEY;}
+    if(offset>=270&&offset<330){s->key=s->command[id-2]?27:4;return ACT_KEY;}
+   }
    if(s->menu[id-2]&&inside((Rect){w->r.x+8,w->r.y+3,56,26},s->mx,s->my)){s->key=KG_MENU_KEY;return ACT_KEY;}
-   if(inside((Rect){w->r.x+w->r.w-18,w->r.y+w->r.h-18,18,18},s->mx,s->my)){
+   if(!s->restored[id-2].w&&inside((Rect){w->r.x+w->r.w-18,w->r.y+w->r.h-18,18,18},s->mx,s->my)){
     s->resize=id+1;s->dx=w->r.x+w->r.w-s->mx;s->dy=w->r.y+w->r.h-s->my;return ACT_NONE;
    }
    if(inside((Rect){w->r.x+8,w->r.y+36,w->r.w-16,28},s->mx,s->my)){
@@ -148,7 +178,7 @@ int scene_event(Scene *s,const GuiEvent *e){
     scene_damage(s,w->r);return ACT_SCROLL;
    }
   }
-  if(s->my<w->r.y+30){s->drag=id+1;s->dx=s->mx-w->r.x;s->dy=s->my-w->r.y;return ACT_NONE;}
+  if(s->my<w->r.y+30){if(id>=2&&s->restored[id-2].w)return ACT_NONE;s->drag=id+1;s->dx=s->mx-w->r.x;s->dy=s->my-w->r.y;return ACT_NONE;}
   if(!id){
    if(inside((Rect){w->r.x+18,w->r.y+116,140,28},s->mx,s->my))return ACT_CALCULATOR;
    if(inside((Rect){w->r.x+174,w->r.y+116,140,28},s->mx,s->my))return ACT_CLOCK;
@@ -158,6 +188,7 @@ int scene_event(Scene *s,const GuiEvent *e){
    if(inside((Rect){w->r.x+174,w->r.y+188,140,28},s->mx,s->my))return ACT_IMAGE;
    if(inside((Rect){w->r.x+174,w->r.y+88,140,28},s->mx,s->my))return ACT_WORDS;
    if(inside((Rect){w->r.x+18,w->r.y+224,140,28},s->mx,s->my))return ACT_SHELL32;
+   if(inside((Rect){w->r.x+174,w->r.y+224,140,28},s->mx,s->my))return ACT_CALENDAR;
   }
   if(id==1&&inside((Rect){w->r.x+16,w->r.y+168+(s->slots-2)*24,94,28},s->mx,s->my))return ACT_START;
   if(id==1&&inside((Rect){w->r.x+124,w->r.y+168+(s->slots-2)*24,94,28},s->mx,s->my))return ACT_STOP;

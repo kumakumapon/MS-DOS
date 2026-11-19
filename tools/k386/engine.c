@@ -148,6 +148,14 @@ static int service(K386Frame *f,k8 number) {
     }
     if(number!=0x21){error(f,1);return 0;}
     f->eflags&=~1;
+    if(ah==0x0c){
+        /* Flush this VM only. If the selected read blocks, retain its AH so
+         * resuming the same INT instruction does not discard the new key. */
+        s->head=s->count=s->line_count=0;v->keys=0;
+        unsigned read=f->eax&255;
+        if(read!=1&&read!=6&&read!=7&&read!=8&&read!=0x0a)return 0;
+        ah=read;f->eax=(f->eax&~0xff00u)|(ah<<8);
+    }
     switch(ah) {
     case 0: v->state=K386_ENDED;return 1;
     case 1:case 7:case 8:
