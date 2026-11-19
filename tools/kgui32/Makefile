@@ -21,7 +21,7 @@ $(BUILD)/sessions.o: sessions.c gui.h | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/%.broker.o: $(K32)/%.c $(K32)/elf.h $(K32)/services.h | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
-$(BUILD)/hardware.o: ../window/hardware.c ../window/hardware.h | $(BUILD)
+$(BUILD)/hardware.o: ../window/hardware.c ../window/hardware.h ../desktop-style.h | $(BUILD)
 	$(CC) $(NATIVE) -DKGUI32_DRIVER -c $< -o $@
 $(BUILD)/memory.o: ../window/memory.c Makefile | $(BUILD)
 	$(CC) $(NATIVE) -DK32_FAST_RAM -c $< -o $@
@@ -39,7 +39,7 @@ $(BUILD)/driver.elf: $(BUILD)/video-policy.o $(BUILD)/verified-disk.o $(BUILD)/d
 	ld -m elf_i386 --gc-sections -T driver.ld -Map $(BUILD)/driver.map $(filter %.o,$^) -o $@
 $(BUILD)/KGUILDR.EXE: $(BUILD)/driver.elf ../mz/build.py
 	python3 ../mz/build.py --desktop-app 'KGUI32 native loader' $< $@
-$(BUILD)/desktop.o: desktop.c gui.h | $(BUILD)
+$(BUILD)/desktop.o: desktop.c gui.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -fstack-usage -m32 -I$(K32)/sdk -c $< -o $@
 $(BUILD)/scene.o: scene.c scene.h gui.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@

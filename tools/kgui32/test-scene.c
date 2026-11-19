@@ -20,7 +20,7 @@ static void check(int width,int height){
  mouse(&s,GUI_MOTION,0,0,1);mouse(&s,GUI_BUTTON,0,0,0);
  assert(s.window[0].r.x==8&&s.window[0].r.y==40&&!s.drag);
  key(&s,9);assert(s.active==1);key(&s,258);
- assert(s.window[1].r.x==width-280);
+ assert(s.window[1].r.x==width-260);
  /* Minimize, restore and close/reopen through the actual taskbar hit test. */
  int x=s.window[1].r.x,y=s.window[1].r.y;
  mouse(&s,GUI_BUTTON,x+203,y+12,1);mouse(&s,GUI_BUTTON,x+203,y+12,0);
@@ -43,6 +43,22 @@ static void check(int width,int height){
  scene_damage(&s,(Rect){width-2,height-3,50,50});
  assert(s.damage.x+s.damage.w==width&&s.damage.y+s.damage.h==height);
 }
+static void launcher(int width,int height){
+ Scene s;scene_init(&s,width,height);
+ Rect w=s.window[0].r,system=s.window[1].r;
+ assert(w.x+w.w+6<=system.x&&system.x+system.w+6<=width);
+ assert(w.y+w.h+6<=height-32&&system.y+system.h+6<=height-32);
+ scene_slots(&s,4);assert(s.window[1].r.y+s.window[1].r.h+6<=height-32);
+ for(unsigned i=0;i<LAUNCHER_BUTTONS;i++){
+  Rect r=scene_launcher_button(i);
+  assert(r.x>=0&&r.x+r.w<=w.w&&r.y+r.h<=LAUNCHER_HINT_Y);
+  for(unsigned j=0;j<i;j++){
+   Rect q=scene_launcher_button(j);
+   assert(r.x>=q.x+q.w||q.x>=r.x+r.w||r.y>=q.y+q.h||q.y>=r.y+r.h);
+  }
+ }
+ key(&s,280);assert(s.help);key(&s,27);assert(!s.help);
+}
 static void sessions(int width,int height){
  Scene s;scene_init(&s,width,height);
  GuiEvent e={.type=GUI_BUTTON,.x=width-280,.y=15,.buttons=1};
@@ -50,7 +66,7 @@ static void sessions(int width,int height){
  assert(s.window[2].open&&s.order[3]==2);
  s.damage=(Rect){0};GuiEvent timer={.type=GUI_TIMER,.counters={1,0}};scene_event(&s,&timer);
  if(width==640)assert(!s.damage.w);
- else assert(s.damage.x==672&&s.damage.w==84&&s.damage.h==16);
+ else assert(s.damage.x==672&&s.damage.w==s.window[1].r.x+228-672&&s.damage.h==16);
  e.buttons=0;scene_event(&s,&e);
  e=(GuiEvent){.type=GUI_KEY,.key='q'};assert(scene_event(&s,&e)==ACT_KEY&&s.key=='q'&&s.slot==0);
  e.key='t';assert(scene_event(&s,&e)==ACT_KEY);e.key=12;assert(scene_event(&s,&e)==ACT_RUN);
@@ -139,4 +155,4 @@ static void four(int width,int height){
  assert(scene_event4(&s,&timer)==ACT_NONE&&s.states[3]==4&&s.counters[2]==30);
  scene_focus(&s,5);key(&s,16);assert(s.slot==3);scene_close(&s,5);assert(s.active!=5&&!s.window[5].open);
 }
-int main(void){four(640,400);four(800,600);check(640,400);check(800,600);sessions(640,400);sessions(800,600);clients(640,400);clients(800,600);return 0;}
+int main(void){four(640,400);four(800,600);launcher(640,400);launcher(800,600);check(640,400);check(800,600);sessions(640,400);sessions(800,600);clients(640,400);clients(800,600);return 0;}

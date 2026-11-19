@@ -9,6 +9,7 @@ unsigned ku_language;
 #include "../k386/text.h"
 #include "terminal-video.h"
 #include "../k38632/sdk/k32x.h"
+#include "../desktop-style.h"
 #include "ui-desktop.h"
 typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,presents,last_key,heartbeat,error;
  u32 terminal_magic,terminal0,terminal1,terminal_phase,terminal_valid;
@@ -428,7 +429,7 @@ static void window(int id){
  box(x+2,y+2,width-4,28,color(scene.active==id?4:9));box(x+3,y+3,width-6,1,color(scene.active==id?13:3));
  char label[6]="DOS 1";if(id>=2){if(scene.graphical[id-2]){label[0]='A';label[1]='p';label[2]='p';}label[4]='1'+id-2;}
  if(id>=2&&scene.menu[id-2]){box(x+8,y+3,56,26,color(3));ui_label(x+12,y+9,"Menu",color(0));}
- else ui_label(x+12,y+9,id>=2?label:id?"System":"Welcome to KGUI32",color(scene.active==id?7:0));
+ else ui_label(x+12,y+9,id>=2?label:id?"System":"Welcome",color(scene.active==id?7:0));
  box(x+width-47,y+6,18,18,color(3));box(x+width-25,y+6,18,18,color(3));
  text(x+width-43,y+7,"_",color(0));text(x+width-21,y+7,"x",color(0));
  if(id>=2){
@@ -443,11 +444,19 @@ static void window(int id){
   text(x+width-72,y+8,scene.placement[id-2]==1?"=":"+",color(0));
   if(scene.graphical[id-2])graphical(id-2,x,y,width,height);else terminal(id-2,x,y,width,height);
  }else if(!id){
-  box(x+16,y+48,46,46,color(4));box(x+24,y+56,12,28,color(7));box(x+38,y+56,12,12,color(6));box(x+38,y+72,12,12,color(3));
-  ui_label(x+78,y+48,"Your new desktop",color(0));ui_label(x+78,y+72,"32-bit protected mode",color(10));
-  button(x+18,y+116,140,"Calculator");button(x+174,y+116,140,"Clock");button(x+18,y+152,140,"DOS Shell");button(x+174,y+152,140,"Files");button(x+18,y+188,140,"Editor");button(x+174,y+188,140,"Images");
-  button(x+174,y+88,140,"User dictionary");button(x+18,y+224,140,"32-bit shell");button(x+174,y+224,140,"Calendar");
-  ui_label(x+18,y+92,scene.action_result<0?"Slots full / error":"F2 / F10",color(10));
+  static const char *const apps[LAUNCHER_BUTTONS]={"Shortcuts","User dictionary",
+   "Calculator","Clock","DOS Shell","Files","Editor","Images","32-bit shell","Calendar"};
+  ui_label(x+18,y+46,scene.help?"Keyboard shortcuts":"32-bit protected mode",color(0));
+  for(unsigned i=0;i<(scene.help?1u:LAUNCHER_BUTTONS);i++){
+   Rect b=scene_launcher_button(i);
+   button(x+b.x,y+b.y,b.w,scene.help?"Back":apps[i]);
+  }
+  if(scene.help){
+   ui_label(x+18,y+124,"F1: Shortcuts   F2: Apps",color(0));
+   ui_label(x+18,y+150,"Tab: Switch window",color(0));
+   ui_label(x+18,y+176,"F8: Language   F10: Exit",color(0));
+  }
+  ui_label(x+18,y+LAUNCHER_HINT_Y,scene.action_result<0?"Slots full / error":"F1: Shortcuts",color(10));
  }else{
   ui_label(x+16,y+46,"Desktop: private context",color(0));
   ui_label(x+16,y+70,scene.slots==4?"Application slots: 4":"Application slots: 2",color(0));
@@ -474,7 +483,8 @@ static int paint(void){
  for(int i=0;i<scene.slots+2;i++)window(scene.order[i]);
  box(0,info.height-32,info.width,32,color(0));box(0,info.height-32,info.width,1,color(4));
  button(6,info.height-29,136,"Welcome");button(152,info.height-29,136,"System");
- for(int i=0;i<scene.slots;i++)if(scene.window[i+2].open){char label[]="DOS 1";label[4]+=i;int step=scene.slots==2?146:(info.width-300)/4;button(300+i*step,info.height-29,step-10,scene.graphical[i]?clients[i].title:label);}
+ if(scene.active<=1)box(10+146*scene.active,info.height-5,128,DESKTOP_ACTIVE_MARKER_HEIGHT,color(6));
+ for(int i=0;i<scene.slots;i++)if(scene.window[i+2].open){char label[]="DOS 1";label[4]+=i;int step=scene.slots==2?146:(info.width-300)/4;button(300+i*step,info.height-29,step-10,scene.graphical[i]?clients[i].title:label);if(scene.active==i+2)box(304+i*step,info.height-5,step-18,DESKTOP_ACTIVE_MARKER_HEIGHT,color(6));}
  cursor();
  unsigned row_bytes=clip.w*info.bpp;
  for(int offset=0;offset<clip.h;offset+=64){
@@ -550,6 +560,13 @@ static int negative(void){
  ack.slot=0;if(k32_call(GUI_SURFACE_ACK,(u32)&ack,sizeof ack)!=-1)return 19;
  return 0;
 }
+static int startup_japanese(int argc,char **argv){
+ if(argc>1)return equal(argv[1],"ja");
+ char value[3];
+ int handle=k32_open(DESKTOP_LANGUAGE_FILE);if(handle<0)return 0;
+ int length=k32_read(handle,value,sizeof value);k32_close(handle);
+ return desktop_japanese(value,length);
+}
 int main(int argc,char **argv){
  terminal_phase=1;
  if((k32_query()&23)!=23)return 1;
@@ -561,6 +578,7 @@ int main(int argc,char **argv){
  gui_state.bitmap_magic=0x3153474b;gui_state.bitmap_meta=(u32)images;gui_state.bitmap_pixels=(u32)image_pixels;gui_state.bitmap_stride=sizeof image_pixels[0];gui_state.bitmap_frames=(u32)clients;
  gui_state.surfaces_version=2;gui_state.extra_meta=(u32)extra_images;gui_state.extra_pixels=(u32)extra_pixels;gui_state.extra_stride=sizeof extra_pixels[0];gui_state.surface_budget=sizeof image_pixels+sizeof extra_pixels;
  scene_init(&scene,info.width,info.height);scene_slots(&scene,info.features&GUI_FOUR_SLOTS?4:2);gui_state.x0=scene.window[0].r.x;gui_state.y0=scene.window[0].r.y;gui_state.x1=scene.window[1].r.x;gui_state.y1=scene.window[1].r.y;
+ if(startup_japanese(argc,argv)){ku_language=1;k32_call(GUI_LANGUAGE,1,0);}
  refresh();
  int once=argc>1&&equal(argv[1],"once"),proof=argc>1&&equal(argv[1],"proof");
  if(argc>1&&equal(argv[1],"sessionapi")){int bad=session_negative();gui_state.error=bad?200+bad:0;return bad?5:0;}

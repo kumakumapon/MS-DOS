@@ -1,11 +1,12 @@
 #include "../filer/sjis.h"
 #include "hardware.h"
 #include "../display/cirrus.h"
+#include "../desktop-style.h"
 
 /* PC-98 planar / PC-9821 PEGC VRAM and CG-ROM; no external font or TSR. */
 static const unsigned segments[] = {0xa800, 0xb000, 0xb800, 0xe000};
 static const u16 theme[] = {
-    0x223, 0x123, 0xfff, 0xdef, 0x36a, 0x246, 0xfb6, 0xfff,
+    0x223, 0x123, 0xfff, 0xdef, DESKTOP_PALETTE_ACCENT, 0x246, DESKTOP_PALETTE_FOCUS, 0xfff,
     0x112, 0xabc, 0x678, 0x456, 0x234, 0x7bc, 0xeee, 0xbcd,
 };
 static unsigned font_segment,palette_segment;
@@ -289,25 +290,14 @@ void gfx_rect(int x, int y, int w, int h, int color) {
         }
     }
 }
-void gfx_cell(int x, int y, char ch, int foreground, int background, int selected) {
+static int text_row(int y) {
+    return high && y >= gfx_height()/16-2 ? y-(gfx_height()/16-25) : y;
+}
+static __attribute__((noinline)) void draw_glyph(int x,int y,u8 *glyph,int foreground,int background) {
     static unsigned cells;
-    if ((u8)ch < 32) ch = '?';
-    u8 extra[16]; const u8 *glyph;
-    if ((u8)ch > 126 || !font_segment) {
-        /* Keep half-width kana/extended file names without reserving a full
-         * 4 KiB font table in the COM's code/data/stack segment. */
-        out(0xa1,0);out(0xa3,(u8)ch);
-        for(int row=0;row<16;row++){out(0xa5,row);extra[row]=in(0xa9);}
-        out(0xa3,0);out(0xa5,0);glyph=extra;
-    } else {u16 ds;__asm__ volatile("movw %%ds,%0":"=r"(ds));mem_copy(ds,(unsigned)extra,font_segment,((u8)ch-32)*16,16);glyph=extra;}
-    /* A heavier title/active-button face from the original CG-ROM bitmap. */
-    if(background==ACCENT)for(int row=0;row<16;row++)extra[row]|=extra[row]>>1;
     if (x < 0 || x >= gfx_width()/8 || y < 0 || y >= gfx_height()/16) return;
-    /* Mirror labels in text VRAM for accessibility/debugging; the visible
-     * glyphs are rendered into graphics so the pointer can cover them cleanly. */
-    int mirror=y;
-    if(high&&y>=gfx_height()/16-2)mirror=y-(gfx_height()/16-25);
-    if(x<80&&mirror<25)p_cell(x,mirror,ch,selected);
+    /* A heavier title/active-button face from the original CG-ROM bitmap. */
+    if(background==ACCENT)for(int row=0;row<16;row++)glyph[row]|=glyph[row]>>1;
     if(high){
         u16 pixels[8];unsigned ds;__asm__ volatile("movw %%ds,%w0":"=r"(ds));
         u16 fg=pixel16(foreground),bg=pixel16(background);
@@ -334,6 +324,19 @@ void gfx_cell(int x, int y, char ch, int foreground, int background, int selecte
         put(segments[p], (y * 16 + row) * 80 + x, value);
     }
     if (!(++cells & 7)) mouse_pump();
+}
+void gfx_cell(int x, int y, char ch, int foreground, int background, int selected) {
+    if ((u8)ch < 32) ch = '?';
+    u8 glyph[16];
+    if ((u8)ch > 126 || !font_segment) {
+        out(0xa1,0);out(0xa3,(u8)ch);
+        for(int row=0;row<16;row++){out(0xa5,row);glyph[row]=in(0xa9);}
+        out(0xa3,0);out(0xa5,0);
+    } else {u16 ds;__asm__ volatile("movw %%ds,%0":"=r"(ds));mem_copy(ds,(unsigned)glyph,font_segment,((u8)ch-32)*16,16);}
+    /* Mirror labels in text VRAM for accessibility/debugging. */
+    int mirror=text_row(y);
+    if(x>=0&&x<80&&y>=0&&mirror<25)p_cell(x,mirror,ch,selected);
+    draw_glyph(x,y,glyph,foreground,background);
 }
 void gfx_clear_text(int x, int y, int w, int h) {
     if (x < 0) { w += x; x = 0; }
@@ -616,12 +619,16 @@ void gfx_driver_release(void){
 }
 #endif
 
-void gfx_pair(int x,int y,u8 lead,u8 trail){
+void gfx_pair_style(int x,int y,u8 lead,u8 trail,int fg,int bg,int selected){
     unsigned code=sjis_vram(lead,trail)&0x7fff;
     out(0xa1,code>>8);out(0xa3,code);
     u8 glyph[32];
     for(int half=0;half<2;half++)for(int row=0;row<16;row++){out(0xa5,row+(half?0:32));glyph[half*16+row]=in(0xa9);}
     out(0xa1,0);out(0xa3,0);out(0xa5,0);
-    for(int row=0;row<16;row++)for(int col=0;col<16;col++)gfx_pixel(x*8+col,y*16+row,glyph[col/8*16+row]&(128>>(col%8))?INK:PAPER);
-    p_pair(x,y,lead,trail,0);
+    p_pair(x,text_row(y),lead,trail,selected);
+    draw_glyph(x,y,glyph,fg,bg);
+    draw_glyph(x+1,y,glyph+16,fg,bg);
+}
+void gfx_pair(int x,int y,u8 lead,u8 trail){
+    gfx_pair_style(x,y,lead,trail,INK,PAPER,0);
 }

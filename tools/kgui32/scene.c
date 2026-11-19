@@ -35,10 +35,17 @@ static void visible_damage(Scene *s,Rect r,int level){
 void scene_window_damage(Scene *s,int id,Rect r){
  for(int n=0;n<s->slots+2;n++)if(s->order[n]==id){visible_damage(s,r,n+1);return;}
 }
+Rect scene_launcher_button(unsigned index){
+ return (Rect){18+(int)(index%2)*156,80+(int)(index/2)*36,140,28};
+}
+static void launcher_help(Scene *s){
+ s->help^=1;
+ scene_damage(s,s->window[0].r);
+}
 void scene_init(Scene *s,int width,int height){
  *s=(Scene){.width=width,.height=height,.mx=320,.my=200,.active=0,.order={3,2,1,0},.slots=2};
- s->window[0]=(GuiWindow){{48,64,340,260},1,0};
- s->window[1]=(GuiWindow){{width-272,120,244,224},1,0};
+ s->window[0]=(GuiWindow){{48,64,332,280},1,0};
+ s->window[1]=(GuiWindow){{width-252,64,244,224},1,0};
  for(int i=0;i<2;i++)s->window[i+2]=(GuiWindow){{16+i*8,40+i*8,width>688?656:width-32,height>576?496:height-80},0,0};
  scene_damage(s,(Rect){0,0,width,height});
 }
@@ -99,7 +106,8 @@ int scene_event(Scene *s,const GuiEvent *e){
  }
  if(e->type==GUI_KEY){
   if(e->key==289)return ACT_EXIT;
-  if(e->key==11||e->key==281){scene_focus(s,0);return ACT_NONE;}
+  if(e->key==11||e->key==281){if(s->help)launcher_help(s);scene_focus(s,0);return ACT_NONE;}
+  if(s->active==0&&(e->key==280||(e->key==27&&s->help))){launcher_help(s);return ACT_NONE;}
   if(e->key==9){
    int id=(s->active+1)%(s->slots+2);
    while(id>=2&&id!=s->active&&!s->window[id].open)id=(id+1)%(s->slots+2);
@@ -180,15 +188,13 @@ int scene_event(Scene *s,const GuiEvent *e){
   }
   if(s->my<w->r.y+30){if(id>=2&&s->restored[id-2].w)return ACT_NONE;s->drag=id+1;s->dx=s->mx-w->r.x;s->dy=s->my-w->r.y;return ACT_NONE;}
   if(!id){
-   if(inside((Rect){w->r.x+18,w->r.y+116,140,28},s->mx,s->my))return ACT_CALCULATOR;
-   if(inside((Rect){w->r.x+174,w->r.y+116,140,28},s->mx,s->my))return ACT_CLOCK;
-   if(inside((Rect){w->r.x+18,w->r.y+152,140,28},s->mx,s->my))return ACT_SHELL;
-   if(inside((Rect){w->r.x+174,w->r.y+152,140,28},s->mx,s->my))return ACT_FILES;
-   if(inside((Rect){w->r.x+18,w->r.y+188,140,28},s->mx,s->my))return ACT_EDITOR;
-   if(inside((Rect){w->r.x+174,w->r.y+188,140,28},s->mx,s->my))return ACT_IMAGE;
-   if(inside((Rect){w->r.x+174,w->r.y+88,140,28},s->mx,s->my))return ACT_WORDS;
-   if(inside((Rect){w->r.x+18,w->r.y+224,140,28},s->mx,s->my))return ACT_SHELL32;
-   if(inside((Rect){w->r.x+174,w->r.y+224,140,28},s->mx,s->my))return ACT_CALENDAR;
+   static const unsigned actions[LAUNCHER_BUTTONS]={0,ACT_WORDS,ACT_CALCULATOR,ACT_CLOCK,
+    ACT_SHELL,ACT_FILES,ACT_EDITOR,ACT_IMAGE,ACT_SHELL32,ACT_CALENDAR};
+   for(unsigned i=0;i<LAUNCHER_BUTTONS;i++){
+    if(!inside(scene_launcher_button(i),s->mx-w->r.x,s->my-w->r.y))continue;
+    if(!i)launcher_help(s);
+    return s->help?ACT_NONE:actions[i];
+   }
   }
   if(id==1&&inside((Rect){w->r.x+16,w->r.y+168+(s->slots-2)*24,94,28},s->mx,s->my))return ACT_START;
   if(id==1&&inside((Rect){w->r.x+124,w->r.y+168+(s->slots-2)*24,94,28},s->mx,s->my))return ACT_STOP;
