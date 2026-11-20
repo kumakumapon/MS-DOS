@@ -14,6 +14,7 @@ Current user and build guides; archived plans are not the active backlog.
 - [MS-DOS 4.0 の PC-98 / WebNP2 移植](pc98-dos4.md)
 - [MS-DOS 2.0 を PC-98 / WebNP2 で起動する](pc98-webnp2.md)
 - [MS-DOS 4.00 検証記録](validation-msdos4.md)
+- [プログラム分類と整理方針（CUI / GUI の棚卸し）](program-catalog.md)
 - [Kuma Desktop for PC-98](window-desktop.md)
 
 ## Runtime and application contracts
