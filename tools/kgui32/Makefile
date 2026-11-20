@@ -41,11 +41,13 @@ $(BUILD)/KGUILDR.EXE: $(BUILD)/driver.elf ../mz/build.py
 	python3 ../mz/build.py --desktop-app 'KGUI32 native loader' $< $@
 $(BUILD)/desktop.o: desktop.c gui.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -fstack-usage -m32 -I$(K32)/sdk -c $< -o $@
-$(BUILD)/scene.o: scene.c scene.h gui.h | $(BUILD)
+$(BUILD)/gallery.o: gallery.c gallery.h ../desktop-style.h $(BUILD)/ui-gallery.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/scene.o: scene.c scene.h gui.h gallery.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/crt.o: $(K32)/sdk/crt1.S | $(BUILD)
 	as --32 $< -o $@
-$(BUILD)/desktop.elf: $(BUILD)/terminal-video.o $(BUILD)/desktop.o $(BUILD)/scene.o $(BUILD)/surface.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+$(BUILD)/desktop.elf: $(BUILD)/terminal-video.o $(BUILD)/desktop.o $(BUILD)/scene.o $(BUILD)/gallery.o $(BUILD)/surface.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGUI32.EXE: $(BUILD)/desktop.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 23 --gui --compact
@@ -57,7 +59,7 @@ $(BUILD)/proof.elf: $(BUILD)/proof.o $(BUILD)/proof-start.o $(BUILD)/hardware.o 
 	ld -m elf_i386 --gc-sections -T ../filer/com.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGPROOF.COM: $(BUILD)/proof.elf
 	objcopy -O binary $< $@
-$(BUILD)/test-scene: test-scene.c scene.c scene.h gui.h | $(BUILD)
+$(BUILD)/test-scene: test-scene.c scene.c scene.h gui.h gallery.h ../desktop-style.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-scene.c scene.c -o $@
 $(BUILD)/test-sessions: test-sessions.c sessions.c document.c document.h $(K32)/services.c $(K32)/services.h gui.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-sessions.c sessions.c document.c $(K32)/services.c ../kvideo/video.c -o $@
@@ -76,7 +78,7 @@ test: all $(BUILD)/test-bitmap $(BUILD)/test-surface $(BUILD)/test-scene $(BUILD
 -include $(wildcard $(BUILD)/*.d)
 
 # Independent graphical clients, using the same PM32 CRT and memory budget.
-$(BUILD)/sdk.o: sdk/kgui.c sdk/kgui.h sdk/protocol.h | $(BUILD)
+$(BUILD)/sdk.o: sdk/kgui.c sdk/kgui.h sdk/protocol.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/%.app.o: apps/%.c apps/stats.h sdk/kgui.h sdk/protocol.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
@@ -99,9 +101,9 @@ $(BUILD)/KGBAD.EXE: $(BUILD)/boundary.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client --compact
 all: $(BUILD)/KGBAD.EXE
 
-$(BUILD)/widgets.o: sdk/widgets.c sdk/widgets.h | $(BUILD)
+$(BUILD)/widgets.o: sdk/widgets.c sdk/widgets.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
-$(BUILD)/widgets-draw.o: sdk/widgets-draw.c sdk/widgets.h sdk/kgui.h | $(BUILD)
+$(BUILD)/widgets-draw.o: sdk/widgets-draw.c sdk/widgets.h sdk/kgui.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/files.elf: $(BUILD)/files.app.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
@@ -218,7 +220,7 @@ $(BUILD)/KGBITBAD.EXE: $(BUILD)/bitmap-test.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client --compact
 all: $(BUILD)/KGBITBAD.EXE
 
-$(BUILD)/test-image-ui: test-image-ui.c apps/image.c client-policy.c document.c $(K32)/services.c sdk/widgets.c sdk/widgets-draw.c sdk/menu-draw.c sdk/menu.h sdk/stopwatch.h | $(BUILD)
+$(BUILD)/test-image-ui: test-image-ui.c apps/image.c client-policy.c document.c $(K32)/services.c sdk/widgets.c sdk/widgets-draw.c sdk/menu-draw.c sdk/menu.h sdk/stopwatch.h ../desktop-style.h | $(BUILD)
 	$(CC) -I$(BUILD) -Wall -Wextra -Werror -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -ffunction-sections -fdata-sections -fsanitize=address,undefined test-image-ui.c client-policy.c document.c $(K32)/services.c sdk/widgets.c sdk/widgets-draw.c sdk/menu-draw.c $(wildcard sdk/i18n.c) -Wl,--gc-sections -o $@
 test-image-ui-run: $(BUILD)/test-image-ui
 	$(BUILD)/test-image-ui
@@ -226,8 +228,8 @@ test: test-image-ui-run
 .PHONY: test-image-ui-run
 
 # Additive switchable UI; private tables include only labels used by a module.
-UI_HEADERS = $(addprefix $(BUILD)/ui-,$(addsuffix .h,desktop editor files image calculator clock calendar picker recovery widgets words menu))
-$(UI_HEADERS) &: ui-build.py ui/strings.tsv desktop.c apps/editor.c apps/files.c apps/image.c apps/calculator.c apps/clock.c apps/calendar.c apps/words.c sdk/ime.c sdk/picker.c sdk/recovery.c sdk/widgets-draw.c sdk/menu-draw.c sdk/menu.h sdk/stopwatch.h | $(BUILD)
+UI_HEADERS = $(addprefix $(BUILD)/ui-,$(addsuffix .h,desktop gallery editor files image calculator clock calendar picker recovery widgets words menu))
+$(UI_HEADERS) &: ui-build.py ui/strings.tsv desktop.c gallery.c apps/editor.c apps/files.c apps/image.c apps/calculator.c apps/clock.c apps/calendar.c apps/words.c sdk/ime.c sdk/picker.c sdk/recovery.c sdk/widgets-draw.c sdk/menu-draw.c sdk/menu.h sdk/stopwatch.h | $(BUILD)
 	python3 ui-build.py $(BUILD)
 $(BUILD)/desktop.o $(BUILD)/editor.app.o $(BUILD)/files.app.o $(BUILD)/image.app.o $(BUILD)/calculator.app.o $(BUILD)/clock.app.o $(BUILD)/words.app.o $(BUILD)/picker.o $(BUILD)/recovery.o $(BUILD)/widgets-draw.o: $(UI_HEADERS)
 $(BUILD)/i18n.o: sdk/i18n.c sdk/i18n.h | $(BUILD)
@@ -267,12 +269,12 @@ $(BUILD)/KGWORDS.EXE: $(BUILD)/words.elf $(K32)/package.py
 all: $(BUILD)/KGWORDS.EXE
 
 # Shared touch/keyboard menu remains inside each CPL3 client.
-$(BUILD)/menu.o: sdk/menu.c sdk/menu.h sdk/protocol.h | $(BUILD)
+$(BUILD)/menu.o: sdk/menu.c sdk/menu.h sdk/protocol.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
-$(BUILD)/menu-draw.o: sdk/menu-draw.c sdk/menu.h $(UI_HEADERS) | $(BUILD)
+$(BUILD)/menu-draw.o: sdk/menu-draw.c sdk/menu.h ../desktop-style.h $(UI_HEADERS) | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/calculator.elf $(BUILD)/clock.elf $(BUILD)/files.elf $(BUILD)/editor.elf $(BUILD)/image.elf $(BUILD)/words.elf: $(BUILD)/menu.o $(BUILD)/menu-draw.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o
-$(BUILD)/test-menu: test-menu.c sdk/menu.c sdk/menu.h sdk/protocol.h sdk/stopwatch.h | $(BUILD)
+$(BUILD)/test-menu: test-menu.c sdk/menu.c sdk/menu.h sdk/protocol.h sdk/stopwatch.h ../desktop-style.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror -fsanitize=address,undefined test-menu.c sdk/menu.c -o $@
 test: test-menu-run
 test-menu-run: $(BUILD)/test-menu
@@ -281,7 +283,7 @@ test-menu-run: $(BUILD)/test-menu
 
 
 $(BUILD)/calendar.app.o: sdk/calendar.h sdk/menu.h $(UI_HEADERS)
-$(BUILD)/calendar.elf: $(BUILD)/calendar.app.o $(BUILD)/sdk.o $(BUILD)/i18n.o $(BUILD)/menu.o $(BUILD)/menu-draw.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+$(BUILD)/calendar.elf: $(BUILD)/calendar.app.o $(BUILD)/sdk.o $(BUILD)/i18n.o $(BUILD)/menu.o $(BUILD)/menu-draw.o $(BUILD)/widgets-draw.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGCAL.EXE: $(BUILD)/calendar.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client --compact

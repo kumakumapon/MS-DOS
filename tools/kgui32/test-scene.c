@@ -58,6 +58,29 @@ static void launcher(int width,int height){
   }
  }
  key(&s,280);assert(s.help);key(&s,27);assert(!s.help);
+ key(&s,280);
+ Rect components=scene_launcher_button(1);
+ mouse(&s,GUI_BUTTON,w.x+components.x+10,w.y+components.y+10,1);
+ mouse(&s,GUI_BUTTON,w.x+components.x+10,w.y+components.y+10,0);
+ assert(s.help==LAUNCHER_GALLERY);
+ key(&s,27);assert(s.help==LAUNCHER_GUIDE);
+ key(&s,281);assert(s.help==LAUNCHER_APPS);
+}
+static void notices(void){
+ Scene s;scene_init(&s,640,400);s.damage=(Rect){0};
+ const u32 start=0xfa0000,end=(start+4*307200u)&0xffffff;
+ Rect r=scene_notice_rect(&s);
+ assert(r.x>=0&&r.y>=32&&r.x+r.w<=640&&r.y+r.h<=400-32);
+ scene_notice_tick(&s,start);scene_notice_set(&s,GN_WORKERS_STARTED);
+ assert(s.notice==GN_WORKERS_STARTED&&s.damage.x==r.x&&s.damage.y==r.y&&s.damage.w==r.w&&s.damage.h==r.h);
+ scene_notice_tick(&s,start-1);assert(s.notice==GN_WORKERS_STARTED);
+ s.damage=(Rect){0};scene_notice_tick(&s,end-1);assert(!s.damage.w);
+ scene_notice_tick(&s,end);assert(s.notice==GN_NONE&&s.damage.w==r.w&&s.damage.h==r.h);
+
+ scene_focus(&s,2);scene_notice_set(&s,GN_APP_FAULTED);
+ GuiEvent click={.type=GUI_BUTTON,.x=r.x+16,.y=r.y+16,.buttons=1};
+ assert(scene_event(&s,&click)==ACT_NOTICE_INPUT&&s.notice==GN_NONE&&s.active==2);
+ click.buttons=0;assert(scene_event(&s,&click)==ACT_NOTICE_INPUT&&!s.notice_click);
 }
 static void sessions(int width,int height){
  Scene s;scene_init(&s,width,height);
@@ -155,4 +178,4 @@ static void four(int width,int height){
  assert(scene_event4(&s,&timer)==ACT_NONE&&s.states[3]==4&&s.counters[2]==30);
  scene_focus(&s,5);key(&s,16);assert(s.slot==3);scene_close(&s,5);assert(s.active!=5&&!s.window[5].open);
 }
-int main(void){four(640,400);four(800,600);launcher(640,400);launcher(800,600);check(640,400);check(800,600);sessions(640,400);sessions(800,600);clients(640,400);clients(800,600);return 0;}
+int main(void){four(640,400);four(800,600);launcher(640,400);launcher(800,600);notices();check(640,400);check(800,600);sessions(640,400);sessions(800,600);clients(640,400);clients(800,600);return 0;}

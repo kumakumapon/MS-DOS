@@ -10,6 +10,7 @@ unsigned ku_language;
 #include "terminal-video.h"
 #include "../k38632/sdk/k32x.h"
 #include "../desktop-style.h"
+#include "gallery.h"
 #include "ui-desktop.h"
 typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,presents,last_key,heartbeat,error;
  u32 terminal_magic,terminal0,terminal1,terminal_phase,terminal_valid;
@@ -83,6 +84,7 @@ static void refresh(void){
  for(unsigned id=0;id<(unsigned)scene.slots;id++){
   GuiSessionView v={.version=1,.size=sizeof v,.slot=id};
   if(k32_call(GUI_SNAPSHOT,(u32)&v,sizeof v))continue;
+  if(v.owned&&v.state==4&&(views[id].state!=4||views[id].generation!=v.generation))scene_notice_set(&scene,GN_APP_FAULTED);
   GuiWindow *w=&scene.window[id+2];
   if(v.kind||!v.owned){terminal_valid[id]=0;}
   else if(!terminal_valid[id]||terminals[id].generation!=v.generation||terminals[id].revision!=v.text_revision||terminals[id].state!=v.state){
@@ -157,12 +159,17 @@ static void launch(int act){
  refresh();
  unsigned id=0;
  while(id<(unsigned)scene.slots&&(views[id].state==1||views[id].state==2||views[id].state==3||(views[id].state==4&&!views[id].owned)))id++;
- if(id==(unsigned)scene.slots){scene.action_result=-16;scene_damage(&scene,scene.window[0].r);return;}
+ if(id==(unsigned)scene.slots){
+  scene.action_result=-16;scene_damage(&scene,scene.window[0].r);scene_notice_set(&scene,GN_SLOTS_FULL);return;
+ }
  const char *path=act==ACT_CALENDAR?"KGCAL.EXE":act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":act==ACT_IMAGE?"KGIMAGE.EXE":act==ACT_WORDS?"KGWORDS.EXE":act==ACT_SHELL32?"KSH32.EXE":"KSH.EXE";
  for(unsigned i=0;i<128;i++){paths[id][i]=path[i];if(!path[i])break;}
  errors[id]=session_command(id,GS_CREATE,0);scene.action_result=errors[id];
  if(!errors[id])scene_focus(&scene,id+2);
- else scene_damage(&scene,scene.window[0].r);
+ else {
+  scene_damage(&scene,scene.window[0].r);
+  scene_notice_set(&scene,errors[id]==-2?GN_APP_MISSING:GN_START_FAILED);
+ }
  refresh();
 }
 static void follow_cursor(unsigned id){
@@ -181,8 +188,13 @@ static void begin_run(unsigned id){
 static unsigned key_modifiers;
 static void action(int act){
  unsigned id=scene.slot;
+ if(act==ACT_NOTICE_INPUT)return;
  if(act>=ACT_CALCULATOR){launch(act);return;}
- if(act==ACT_START||act==ACT_STOP){scene.action_result=k32_call(GUI_PROOF,act==ACT_START?1:2,0);scene_damage(&scene,scene.window[1].r);refresh();return;}
+ if(act==ACT_START||act==ACT_STOP){
+  scene.action_result=k32_call(GUI_PROOF,act==ACT_START?1:2,0);scene_damage(&scene,scene.window[1].r);
+  scene_notice_set(&scene,scene.action_result<0?GN_WORKER_FAILED:act==ACT_START?GN_WORKERS_STARTED:GN_WORKERS_STOPPED);
+  refresh();return;
+ }
  if(act<ACT_NEW)return;
  if(act==ACT_SCROLL){following[id]=0;return;}
  if(act==ACT_RUN){begin_run(id);return;}
@@ -192,13 +204,18 @@ static void action(int act){
   if(k==27)editing[id]=0;
   else if(k==8&&n)paths[id][--n]=0;
   else if(k>=32&&k<=126&&n<127){paths[id][n++]=k;paths[id][n]=0;}
-  else if(k==13&&n){errors[id]=session_command(id,GS_CREATE,0);if(!errors[id])editing[id]=0;}
+  else if(k==13&&n){
+   errors[id]=session_command(id,GS_CREATE,0);
+   if(!errors[id])editing[id]=0;
+   else scene_notice_set(&scene,errors[id]==-2?GN_APP_MISSING:GN_SESSION_FAILED);
+  }
   lengths[id]=n;
   scene_damage(&scene,scene.window[id+2].r);
  }else if(act==ACT_NEW){
   if(!views[id].owned&&!views[id].state){
    const char *p="KSH.EXE";for(int i=0;i<8;i++)paths[id][i]=p[i];
    errors[id]=session_command(id,GS_CREATE,0);
+   if(errors[id])scene_notice_set(&scene,errors[id]==-2?GN_APP_MISSING:GN_SESSION_FAILED);
   }
  }else {
   unsigned op=act==ACT_KEY?GS_KEY:act==ACT_END?GS_END:act==ACT_PAUSE?GS_PAUSE:act==ACT_RESUME?GS_RESUME:GS_RESTART;
@@ -269,6 +286,42 @@ static void number(int x,int y,u32 n,u32 c){char rev[10],out[11];unsigned k=0,i=
 static void button(int x,int y,int w,const char *s){
  s=KU(s);
  box(x,y,w,28,color(11));box(x+1,y+1,w-2,26,color(3));box(x+2,y+2,w-4,1,color(7));text(x+(w-8*(int)k32_len(s))/2,y+6,s,color(0));
+}
+static u32 style_color(u32 value){return rgb(value>>16,(value>>8)&255,value&255);}
+static void style_box(int x,int y,int w,int h,u32 value){box(x,y,w,h,style_color(value));}
+static void style_label(int x,int y,const char *s,u32 value){text(x,y,s,style_color(value));}
+static void style_outline(int x,int y,int w,int h,int thickness,u32 value){
+ style_box(x,y,w,thickness,value);style_box(x,y+h-thickness,w,thickness,value);
+ style_box(x,y,thickness,h,value);style_box(x+w-thickness,y,thickness,h,value);
+}
+static void styled_button(int x,int y,int w,int h,const char *s,unsigned role,unsigned state){
+ style_box(x,y,w,h,desktop_button_fill(role,state));
+ style_outline(x,y,w,h,1,DESKTOP_COLOR_BORDER);
+ if(state&DESKTOP_CONTROL_FOCUSED)
+  style_outline(x,y,w,h,DESKTOP_FOCUS_WIDTH,DESKTOP_COLOR_FOCUS);
+ style_label(x+(w-8*(int)k32_len(s))/2,y+(h-16)/2,s,
+  state&DESKTOP_CONTROL_DISABLED?DESKTOP_COLOR_MUTED:DESKTOP_COLOR_INK);
+}
+static const KGalleryPainter gallery_painter={.label=style_label,.button=styled_button,.rectangle=style_box};
+static void draw_notice(void){
+ static const char *const messages[]={
+  [GN_SLOTS_FULL]="No free app slot. End a session.",
+  [GN_START_FAILED]="App could not start. Try again.",
+  [GN_APP_MISSING]="App missing. Check the boot disk.",
+  [GN_WORKERS_STARTED]="CPU workers started.",
+  [GN_WORKERS_STOPPED]="CPU workers stopped.",
+  [GN_WORKER_FAILED]="Worker action failed. Check the slots.",
+  [GN_SESSION_FAILED]="Session failed. Check the command.",
+  [GN_APP_FAULTED]="App stopped unexpectedly. Reopen it."
+ };
+ if(!scene.notice)return;
+ Rect r=scene_notice_rect(&scene);
+ int success=scene.notice==GN_WORKERS_STARTED||scene.notice==GN_WORKERS_STOPPED;
+ style_box(r.x,r.y,r.w,r.h,DESKTOP_COLOR_PAPER);
+ style_outline(r.x,r.y,r.w,r.h,1,DESKTOP_COLOR_BORDER);
+ style_box(r.x,r.y,DESKTOP_SPACE_SMALL,r.h,success?DESKTOP_COLOR_SUCCESS:DESKTOP_COLOR_DANGER);
+ style_label(r.x+DESKTOP_SPACE_LARGE,r.y+(r.h-16)/2,KU(messages[scene.notice]),DESKTOP_COLOR_INK);
+ style_label(r.x+r.w-DESKTOP_SPACE_LARGE,r.y+(r.h-16)/2,"x",DESKTOP_COLOR_INK);
 }
 static const u8 *video_glyph(void *unused,unsigned code){(void)unused;return code>=32&&code<=126?font+(code-32)*16:glyph(code);}
 static void terminal_video(unsigned id,Rect area){
@@ -426,7 +479,7 @@ static void window(int id){
  int x=w->r.x,y=w->r.y,width=w->r.w,height=w->r.h;
  if(x+width+6<=clip.x||x>=clip.x+clip.w||y+height+6<=clip.y||y>=clip.y+clip.h)return;
  box(x+5,y+5,width,height,rgb(8,16,28));box(x,y,width,height,color(11));box(x+1,y+1,width-2,height-2,color(2));
- box(x+2,y+2,width-4,28,color(scene.active==id?4:9));box(x+3,y+3,width-6,1,color(scene.active==id?13:3));
+ box(x+2,y+2,width-4,DESKTOP_TITLE_HEIGHT,color(scene.active==id?4:9));box(x+3,y+3,width-6,1,color(scene.active==id?13:3));
  char label[6]="DOS 1";if(id>=2){if(scene.graphical[id-2]){label[0]='A';label[1]='p';label[2]='p';}label[4]='1'+id-2;}
  if(id>=2&&scene.menu[id-2]){box(x+8,y+3,56,26,color(3));ui_label(x+12,y+9,"Menu",color(0));}
  else ui_label(x+12,y+9,id>=2?label:id?"System":"Welcome",color(scene.active==id?7:0));
@@ -446,15 +499,17 @@ static void window(int id){
  }else if(!id){
   static const char *const apps[LAUNCHER_BUTTONS]={"Shortcuts","User dictionary",
    "Calculator","Clock","DOS Shell","Files","Editor","Images","32-bit shell","Calendar"};
-  ui_label(x+18,y+46,scene.help?"Keyboard shortcuts":"32-bit protected mode",color(0));
-  for(unsigned i=0;i<(scene.help?1u:LAUNCHER_BUTTONS);i++){
+  if(scene.help==LAUNCHER_GALLERY){kgallery_draw(x,y,&gallery_painter);return;}
+  ui_label(x+18,y+46,scene.help==LAUNCHER_GUIDE?"Keyboard shortcuts":"32-bit protected mode",color(0));
+  for(unsigned i=0;i<(scene.help==LAUNCHER_GUIDE?2u:LAUNCHER_BUTTONS);i++){
    Rect b=scene_launcher_button(i);
-   button(x+b.x,y+b.y,b.w,scene.help?"Back":apps[i]);
+   button(x+b.x,y+b.y,b.w,scene.help==LAUNCHER_GUIDE?(i?"Components":"Back"):apps[i]);
   }
   if(scene.help){
    ui_label(x+18,y+124,"F1: Shortcuts   F2: Apps",color(0));
    ui_label(x+18,y+150,"Tab: Switch window",color(0));
    ui_label(x+18,y+176,"F8: Language   F10: Exit",color(0));
+   ui_label(x+18,y+202,"G: Components",color(0));
   }
   ui_label(x+18,y+LAUNCHER_HINT_Y,scene.action_result<0?"Slots full / error":"F1: Shortcuts",color(10));
  }else{
@@ -464,7 +519,8 @@ static void window(int id){
    int yy=y+98+i*24;number(x+16,yy,i+1,color(0));ui_label(x+32,yy,scene.states[i]==1?"Running":scene.states[i]==2?"Waiting":scene.states[i]==3?"Stopped":scene.states[i]==4?"Faulted":"Free",color(10));number(x+108,yy,scene.counters[i],color(0));
   }
   ui_label(x+16,y+146+(scene.slots-2)*24,scene.action_result<0?"Slots busy / unavailable":"CPU workers: T=start S=stop",color(10));
-  button(x+16,y+168+(scene.slots-2)*24,94,"Test CPU");button(x+124,y+168+(scene.slots-2)*24,94,"Stop");
+  styled_button(x+16,y+168+(scene.slots-2)*24,94,28,KU("Test CPU"),DESKTOP_BUTTON_PRIMARY,0);
+  styled_button(x+124,y+168+(scene.slots-2)*24,94,28,KU("Stop"),DESKTOP_BUTTON_DANGER,0);
  }
 }
 static void cursor(void){
@@ -485,6 +541,7 @@ static int paint(void){
  button(6,info.height-29,136,"Welcome");button(152,info.height-29,136,"System");
  if(scene.active<=1)box(10+146*scene.active,info.height-5,128,DESKTOP_ACTIVE_MARKER_HEIGHT,color(6));
  for(int i=0;i<scene.slots;i++)if(scene.window[i+2].open){char label[]="DOS 1";label[4]+=i;int step=scene.slots==2?146:(info.width-300)/4;button(300+i*step,info.height-29,step-10,scene.graphical[i]?clients[i].title:label);if(scene.active==i+2)box(304+i*step,info.height-5,step-18,DESKTOP_ACTIVE_MARKER_HEIGHT,color(6));}
+ draw_notice();
  cursor();
  unsigned row_bytes=clip.w*info.bpp;
  for(int offset=0;offset<clip.h;offset+=64){
@@ -591,6 +648,7 @@ int main(int argc,char **argv){
   GuiEvent4 event4={0};int got=k32_call(GUI_EVENT,(u32)&event4,sizeof event4);GuiEvent event=event4.base;
   if(got<0){gui_state.error=7;return 7;}
   if(!got){k32_wait(K32_WAIT_TIME,16);continue;}
+  scene_notice_tick(&scene,event.ticks);
   gui_state.events++;gui_state.heartbeat++;key_modifiers=event.type==GUI_KEY?event.buttons:0;if(event.type==GUI_KEY)gui_state.last_key=event.key;
   if(event.type==GUI_KEY&&event.key==287){ku_language^=1;k32_call(GUI_LANGUAGE,ku_language,0);scene_damage(&scene,(Rect){0,0,info.width,info.height});if(paint())return 7;continue;}
   if(!terminal_tick)terminal_tick=event.ticks;

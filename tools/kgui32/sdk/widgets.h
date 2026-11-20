@@ -2,6 +2,7 @@
 #ifndef KGUI_WIDGETS_H
 #define KGUI_WIDGETS_H
 #include "protocol.h"
+#include "../../desktop-style.h"
 #define KW_VERSION 2
 #define KW_INPUT_BYTES 64
 typedef struct {int x,y,w,h;} KwRect;
@@ -18,7 +19,11 @@ int kw_list(KwList *,KwRect,const KgEvent *);
 int kw_scroll(KwScroll *,const KgEvent *);
 int kw_button(unsigned,const KgEvent *);
 int kw_dialog(const KgEvent *);
+enum { KW_SECONDARY = DESKTOP_BUTTON_SECONDARY, KW_PRIMARY = DESKTOP_BUTTON_PRIMARY, KW_DANGER = DESKTOP_BUTTON_DANGER };
+enum { KW_FOCUSED = DESKTOP_CONTROL_FOCUSED, KW_DISABLED = DESKTOP_CONTROL_DISABLED, KW_PRESSED = DESKTOP_CONTROL_PRESSED };
 void kw_text(int,int,const char *,unsigned,u32);
+void kw_draw_focus(KwRect);
+int kw_draw_button(KwRect,unsigned,const char *,unsigned,unsigned);
 void kw_draw_input(KwRect,const KwInput *,int);
 void kw_draw_scroll(const KwScroll *);
 void kw_draw_dialog(unsigned,unsigned,const char *,const char *);

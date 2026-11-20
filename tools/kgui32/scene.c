@@ -1,5 +1,8 @@
 #include "scene.h"
+#include "gallery.h"
 #include "sdk/protocol.h"
+#include "../desktop-style.h"
+enum { NOTICE_WIDTH=512, NOTICE_TICKS=4*307200u };
 static int inside(Rect r,int x,int y){return x>=r.x&&y>=r.y&&x-r.x<r.w&&y-r.y<r.h;}
 static Rect covered(GuiWindow *w){return (Rect){w->r.x,w->r.y,w->r.w+6,w->r.h+6};}
 static int clamp(int n,int lo,int hi){return n<lo?lo:n>hi?hi:n;}
@@ -38,8 +41,23 @@ void scene_window_damage(Scene *s,int id,Rect r){
 Rect scene_launcher_button(unsigned index){
  return (Rect){18+(int)(index%2)*156,80+(int)(index/2)*36,140,28};
 }
-static void launcher_help(Scene *s){
- s->help^=1;
+Rect scene_notice_rect(const Scene *s){
+ return (Rect){(s->width-NOTICE_WIDTH)/2,s->height-32-DESKTOP_SPACE_MEDIUM-DESKTOP_CONTROL_HEIGHT,
+  NOTICE_WIDTH,DESKTOP_CONTROL_HEIGHT};
+}
+void scene_notice_set(Scene *s,unsigned kind){
+ if(!s->notice&&!kind)return;
+ s->notice=kind;s->notice_started=s->ticks;
+ scene_damage(s,scene_notice_rect(s));
+}
+void scene_notice_tick(Scene *s,u32 ticks){
+ s->ticks=ticks;
+ /* The PC-98 307.2 kHz input timer wraps at 24 bits. */
+ u32 elapsed=(ticks-s->notice_started)&0xffffff;
+ if(s->notice&&elapsed>=NOTICE_TICKS&&elapsed<0x800000)scene_notice_set(s,GN_NONE);
+}
+static void launcher_page(Scene *s,int page){
+ s->help=page;
  scene_damage(s,s->window[0].r);
 }
 void scene_init(Scene *s,int width,int height){
@@ -106,8 +124,12 @@ int scene_event(Scene *s,const GuiEvent *e){
  }
  if(e->type==GUI_KEY){
   if(e->key==289)return ACT_EXIT;
-  if(e->key==11||e->key==281){if(s->help)launcher_help(s);scene_focus(s,0);return ACT_NONE;}
-  if(s->active==0&&(e->key==280||(e->key==27&&s->help))){launcher_help(s);return ACT_NONE;}
+  if(e->key==11||e->key==281){if(s->help)launcher_page(s,LAUNCHER_APPS);scene_focus(s,0);return ACT_NONE;}
+  if(s->active==0&&e->key==280){launcher_page(s,s->help?LAUNCHER_APPS:LAUNCHER_GUIDE);return ACT_NONE;}
+  if(s->active==0&&e->key==27&&s->help){launcher_page(s,s->help==LAUNCHER_GALLERY?LAUNCHER_GUIDE:LAUNCHER_APPS);return ACT_NONE;}
+  if(s->active==0&&s->help==LAUNCHER_GUIDE&&(e->key=='g'||e->key=='G')){
+   launcher_page(s,LAUNCHER_GALLERY);return ACT_NONE;
+  }
   if(e->key==9){
    int id=(s->active+1)%(s->slots+2);
    while(id>=2&&id!=s->active&&!s->window[id].open)id=(id+1)%(s->slots+2);
@@ -139,6 +161,13 @@ int scene_event(Scene *s,const GuiEvent *e){
   scene_damage(s,covered(w));if(!(s->buttons&1))s->resize=0;return ACT_NONE;
  }
  if(s->drag){move(s,s->drag-1,s->mx-s->dx,s->my-s->dy);if(!(s->buttons&1))s->drag=0;return ACT_NONE;}
+ if(s->notice_click){
+  if(!(s->buttons&1))s->notice_click=0;
+  return ACT_NOTICE_INPUT;
+ }
+ if(down&&s->notice&&inside(scene_notice_rect(s),s->mx,s->my)){
+  scene_notice_set(s,GN_NONE);s->notice_click=1;return ACT_NOTICE_INPUT;
+ }
  if(!down)return ACT_NONE;
  if(inside((Rect){s->width-128,4,120,24},s->mx,s->my))return ACT_EXIT;
  for(int i=0;i<s->slots;i++)if(inside((Rect){s->width-(s->slots==2?312:360)+i*(s->slots==2?92:56),3,s->slots==2?84:52,28},s->mx,s->my)){
@@ -188,12 +217,22 @@ int scene_event(Scene *s,const GuiEvent *e){
   }
   if(s->my<w->r.y+30){if(id>=2&&s->restored[id-2].w)return ACT_NONE;s->drag=id+1;s->dx=s->mx-w->r.x;s->dy=s->my-w->r.y;return ACT_NONE;}
   if(!id){
+   int x=s->mx-w->r.x,y=s->my-w->r.y;
+   if(s->help==LAUNCHER_GALLERY){
+    if(inside((Rect){KGALLERY_BACK_X,KGALLERY_BACK_Y,KGALLERY_BACK_W,KGALLERY_BACK_H},x,y))launcher_page(s,LAUNCHER_GUIDE);
+    return ACT_NONE;
+   }
+   if(s->help==LAUNCHER_GUIDE){
+    if(inside(scene_launcher_button(0),x,y))launcher_page(s,LAUNCHER_APPS);
+    if(inside(scene_launcher_button(1),x,y))launcher_page(s,LAUNCHER_GALLERY);
+    return ACT_NONE;
+   }
    static const unsigned actions[LAUNCHER_BUTTONS]={0,ACT_WORDS,ACT_CALCULATOR,ACT_CLOCK,
     ACT_SHELL,ACT_FILES,ACT_EDITOR,ACT_IMAGE,ACT_SHELL32,ACT_CALENDAR};
    for(unsigned i=0;i<LAUNCHER_BUTTONS;i++){
-    if(!inside(scene_launcher_button(i),s->mx-w->r.x,s->my-w->r.y))continue;
-    if(!i)launcher_help(s);
-    return s->help?ACT_NONE:actions[i];
+    if(!inside(scene_launcher_button(i),x,y))continue;
+    if(!i)launcher_page(s,LAUNCHER_GUIDE);
+    return actions[i];
    }
   }
   if(id==1&&inside((Rect){w->r.x+16,w->r.y+168+(s->slots-2)*24,94,28},s->mx,s->my))return ACT_START;

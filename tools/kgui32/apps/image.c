@@ -121,14 +121,15 @@ static int restore(void){
 static const char *error_text(int e){return e==-116?"File changed / original kept":e==-17?"TMP or destination exists / kept":e==-117?"Inspect TMP/BAK / original kept":e==-28?"Disk full / original kept":e==-13?"Protected file / original kept":"Invalid BMP or I/O error / original kept";}
 static void hex(char out[9],unsigned v){for(unsigned i=0;i<8;i++)out[i]="0123456789ABCDEF"[v>>(28-i*4)&15];out[8]=0;}
 static int dialog(void){
- unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
+ unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,DESKTOP_COLOR_SURFACE);
  if(modal==1||modal==3){
   kg_label(8,8,modal==1?"Replace existing Work BMP?":"Unsaved image",0x263e58);
   kg_text(8,32,filename.text,0x263e58);
   kg_label(8,56,modal==1?"R: replace / Esc: cancel":"S: save / D: discard / Esc: cancel",0x263e58);
-  kg_button(modal==1?'R':'S',8,h-64,88,28,modal==1?"Replace":"Save");
-  if(modal==3)kg_button('D',104,h-64,88,28,"Discard");
-  kg_button(27,w-88,h-64,80,28,"Cancel");
+  unsigned role=modal==1?KW_DANGER:KW_PRIMARY;
+  kw_draw_button((KwRect){8,(int)h-64,88,DESKTOP_CONTROL_HEIGHT},modal==1?'R':'S',KU(modal==1?"Replace":"Save"),role,0);
+  if(modal==3)kw_draw_button((KwRect){104,(int)h-64,88,DESKTOP_CONTROL_HEIGHT},'D',KU("Discard"),KW_DANGER,0);
+  kw_draw_button((KwRect){(int)w-88,(int)h-64,80,DESKTOP_CONTROL_HEIGHT},27,KU("Cancel"),KW_SECONDARY,0);
  }else {
   kg_label(8,4,"Work BMP recovery / original kept",0x263e58);
   kg_text(8,28,recovery_base,0x263e58);
