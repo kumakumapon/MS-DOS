@@ -2,6 +2,7 @@
 #include "text.h"
 #include "i18n.h"
 #include "menu.h"
+#include "../../desktop-style.h"
 static KmMenu menu;static unsigned input_flags;
 void kg_menu(const KmItem *items,unsigned count){menu=(KmMenu){.items=items,.count=count<=KM_MAX?count:0,.enabled=1};}
 void kg_menu_enable(unsigned enabled){menu.enabled=enabled;}
@@ -23,7 +24,8 @@ static KgDraw *add(unsigned op,int x,int y,int w,int h,u32 color){
 }
 int kg_rect(int x,int y,int w,int h,u32 c){return add(KG_RECT,x,y,w,h,c)?0:-28;}
 int kg_text(int x,int y,const char *s,u32 c){KgDraw *d=add(KG_TEXT,x,y,0,0,c);if(!d)return -28;copy(d->text,s,sizeof d->text);return 0;}
-int kg_button(u32 id,int x,int y,int w,int h,const char *s){KgDraw *d=add(KG_BUTTON,x,y,w,h,0xdce7ef);if(!d)return -28;d->id=id;copy(d->text,s,sizeof d->text);return 0;}
+int kg_button_color(u32 id,int x,int y,int w,int h,const char *s,u32 color){KgDraw *d=add(KG_BUTTON,x,y,w,h,color);if(!d)return -28;d->id=id;copy(d->text,s,sizeof d->text);return 0;}
+int kg_button(u32 id,int x,int y,int w,int h,const char *s){return kg_button_color(id,x,y,w,h,s,DESKTOP_COLOR_SECONDARY_BUTTON);}
 int kg_present(void){if(menu.open)km_draw(&menu);return call(KG_FRAME);}
 int kg_poll(KgEvent *e){int n=call(KG_POLL);if(n>=0){
  *e=request.event;width=request.width;height=request.height;

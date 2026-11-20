@@ -271,8 +271,21 @@ static int draw(void){
   kg_label(8,64,ime.scheme==KI_ROMAJI?"Selected: Romaji":ime.scheme==KI_KANA?"Selected: JIS kana":"Selected: Off",0x20344a);
   kg_button(2213,8,88,128,24,"Hiragana / F6");kg_button(2214,144,88,128,24,"Katakana / F7");kg_button(2215,8,h-40,80,24,"Back");kg_button(2216,104,h-40,216,24,"Reload words / F9");return kg_present();}
  unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xffffff);
- if(mode==2){kg_label(8,8,"Unsaved text",0x20344a);kw_label(8,32,"Save before continuing?",(w-16)/8,0x20344a);kg_button(803,8,64,64,28,"Save");kg_button(801,80,64,80,28,"Discard");kg_button(802,8,100,80,28,"Cancel");return kg_present();}
- if(mode==4){kw_label(8,8,"Replace workspace file?",(w-16)/8,0x20344a);kg_text(8,32,save_request.name,0x20344a);kg_button(811,8,64,100,28,"Replace");kg_button(812,8,100,100,28,"Cancel");return kg_present();}
+ if(mode==2){
+  kg_label(8,8,"Unsaved text",DESKTOP_COLOR_INK);
+  kw_label(8,32,"Save before continuing?",(w-16)/8,DESKTOP_COLOR_INK);
+  kw_draw_button((KwRect){8,64,64,DESKTOP_CONTROL_HEIGHT},803,KU("Save"),KW_PRIMARY,0);
+  kw_draw_button((KwRect){80,64,80,DESKTOP_CONTROL_HEIGHT},801,KU("Discard"),KW_DANGER,0);
+  kw_draw_button((KwRect){8,104,80,DESKTOP_CONTROL_HEIGHT},802,KU("Cancel"),KW_SECONDARY,0);
+  return kg_present();
+ }
+ if(mode==4){
+  kw_label(8,8,"Replace workspace file?",(w-16)/8,DESKTOP_COLOR_INK);
+  kg_text(8,32,save_request.name,DESKTOP_COLOR_INK);
+  kw_draw_button((KwRect){8,64,100,DESKTOP_CONTROL_HEIGHT},811,KU("Replace"),KW_DANGER,0);
+  kw_draw_button((KwRect){8,104,100,DESKTOP_CONTROL_HEIGHT},812,KU("Cancel"),KW_SECONDARY,0);
+  return kg_present();
+ }
  if(message){kw_draw_dialog(w,h,"Editor",message);if(recovery_suggested)kg_button(627,8,4,104,24,"Recovery");return kg_present();}
  kg_button(601,8,4,64,28,"New");kg_button(602,80,4,64,28,"Open");if(w>=224)kg_button(603,152,4,64,28,"Save");if(w>=312)kg_button(604,224,4,80,28,"Save As");kg_button(605,308,4,w>=380?64:28,28,w>=380?"Tools":"..");
  KeVersion *v=ke_view(&doc);unsigned a=v->anchor<v->cursor?v->anchor:v->cursor,b=v->anchor>v->cursor?v->anchor:v->cursor;

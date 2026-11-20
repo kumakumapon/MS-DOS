@@ -3,6 +3,10 @@
 KGUI32 の起動配置は `tools/kgui32/test-scene.c` で 640×400 と 800×600 の
 両方を検証する。Welcome と System の矩形および影が画面内に収まり、
 ランチャー各ボタンと最下段の案内が重ならないことを確認する。
+webnp2 の `verify-kgui32.mjs` は、PEGC と Cirrus の部品見本でボタンの色、
+2 ドットのフォーカス枠、16／32 ドットのアイコン、F8 の日本語切替を確認する。
+通知の検証では、CPU 検証の開始で表示される帯をタップし、
+覆われた位置の画素が元に戻ることを確認する。
 
 The optional 64-byte KDPERF01 producer exposes ready and a nested busy counter.
 A debugger may read composed text/attributes only while ready is one and busy

@@ -37,7 +37,10 @@ and saved disks are not replaced. PEGC uses 640×400 indexed 256 colours;
 Cirrus uses 800×600 RGB565 (65,536 colours).
 
 Welcome has a two-column app launcher and a Shortcuts button. F1 opens or
-closes its key guide. F8 switches the desktop language for the current run.
+closes its key guide. Tap Components in the guide or press G to see the shared
+button states and icon sizes. F8 switches the desktop language for the current
+run. Desktop notices report launch failures, app faults and CPU test results.
+They clear after four seconds or when tapped.
 Use `ECHO JA>A:\KUMAUI.CFG` before starting the desktop to begin in Japanese;
 `KGUILDR KGUI32.EXE ja` selects Japanese for an explicit launch.
 See the [desktop guidelines](../../docs/design-guidelines.md).

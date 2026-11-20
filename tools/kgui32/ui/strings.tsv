@@ -285,6 +285,14 @@ Tab: Switch window	Tab: ウインドウ切替
 F8: Language   F10: Exit	F8: 言語　F10: 終了
 New DOS 1	DOS 1 起動
 New DOS 2	DOS 2 起動
+No free app slot. End a session.	実行枠が満杯です。アプリを終了してください。
+App could not start. Try again.	起動できませんでした。再試行してください。
+App missing. Check the boot disk.	アプリがありません。起動ディスクを確認。
+CPU workers started.	CPU検証を開始しました。
+CPU workers stopped.	CPU検証を停止しました。
+Worker action failed. Check the slots.	検証できません。実行枠を確認してください。
+Session failed. Check the command.	実行できません。コマンドを確認してください。
+App stopped unexpectedly. Reopen it.	アプリが停止しました。開き直してください。
 Exit to DOS	DOSへ戻る
 Again	再実行
 Test CPU	CPU検証
@@ -316,3 +324,13 @@ Parent	上へ
 Ready - Ctrl+K finds apps / Ctrl+D shows desktop	Ctrl+K 検索 / Ctrl+D デスクトップ
 Exit	終了
 DOS shell	DOS シェル
+Components	部品見本
+Component samples	部品見本
+G: Components	G: 部品見本
+Primary	主操作
+Secondary	副操作
+Danger	危険
+Focused	キー選択
+Disabled	無効
+Pressed	押下中
+Icon sizes	アイコン寸法

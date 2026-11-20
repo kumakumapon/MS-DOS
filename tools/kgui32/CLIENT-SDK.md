@@ -62,6 +62,16 @@ PM32 programs keep their existing APIs and feature mask 15.
 | kg_poll(event) | Return 1 for an event, 0 for none, negative error; always refresh viewport and seconds-of-day. |
 | kg_close() | Release this application's canvas/token. Process return releases remaining private resources. |
 
+Use `sdk/widgets.h` and link `sdk/widgets-draw.c` for role-based buttons.
+`kw_draw_button(rect, id, label, role, state)` supports
+`KW_PRIMARY`, `KW_SECONDARY`, and `KW_DANGER`. Combine the state bits
+`KW_FOCUSED`, `KW_PRESSED`, and `KW_DISABLED` as needed. A keyboard
+focus frame adds four bounded rectangle commands to the frame budget.
+A disabled button draws its surface and label without registering a hit.
+Labels are fitted at whole Shift-JIS character boundaries.
+`kg_button` continues to submit the standard secondary appearance.
+See the [desktop guidelines](../../docs/design-guidelines.md).
+
 No per-pixel traps are used. Frames are retained by the server and remain
 available during movement, occlusion and minimize. Hidden clients continue
 executing; hidden drawing damage is omitted. A resize delivers current canvas

@@ -3,7 +3,7 @@ import json,re,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 SOURCES={name:ROOT/path for name,path in {
- 'desktop':'desktop.c','editor':'apps/editor.c','files':'apps/files.c',
+ 'desktop':'desktop.c','gallery':'gallery.c','editor':'apps/editor.c','files':'apps/files.c',
  'words':'apps/words.c','image':'apps/image.c','calculator':'apps/calculator.c','clock':'apps/clock.c','calendar':'apps/calendar.c',
  'picker':'sdk/picker.c','recovery':'sdk/recovery.c','widgets':'sdk/widgets-draw.c','menu':'sdk/menu-draw.c'}.items()}
 def literal(text):return '"'+''.join('\\x%02x'%b for b in text.encode('shift_jis'))+'"'
