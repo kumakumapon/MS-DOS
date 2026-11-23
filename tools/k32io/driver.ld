@@ -10,10 +10,11 @@ SECTIONS {
  .bss : { *(.bss*) *(COMMON) }
  __bss_end = .;
  __mz_cs = 0; __mz_ss = 0;
- __mz_memory_bytes = 0xa800;
+ /* Four PM32 slots share the original conventional-memory budget. */
+ __mz_memory_bytes = 0x8000;
  __mz_sp = __mz_memory_bytes - 16;
  __resident_paragraphs = (__mz_memory_bytes + 0x100) / 16;
- __io_stack_guard = __mz_memory_bytes - 0x4000;
- ASSERT(__bss_end < __io_stack_guard,"I/O broker retains 16 KiB stack")
+ __io_stack_guard = __mz_memory_bytes - 0x1800;
+ ASSERT(__bss_end < __io_stack_guard,"I/O broker retains 6 KiB stack")
  /DISCARD/ : { *(.eh_frame) *(.comment) *(.note*) }
 }
