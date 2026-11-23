@@ -162,7 +162,7 @@ static void launch(int act){
  if(id==(unsigned)scene.slots){
   scene.action_result=-16;scene_damage(&scene,scene.window[0].r);scene_notice_set(&scene,GN_SLOTS_FULL);return;
  }
- const char *path=act==ACT_CALENDAR?"KGCAL.EXE":act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":act==ACT_IMAGE?"KGIMAGE.EXE":act==ACT_WORDS?"KGWORDS.EXE":act==ACT_SHELL32?"KSH32.EXE":"KSH.EXE";
+ const char *path=act==ACT_MEMO?"KGEDIT.EXE memo":act==ACT_SETTINGS?"KGSET.EXE":act==ACT_CALENDAR?"KGCAL.EXE":act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":act==ACT_IMAGE?"KGIMAGE.EXE":act==ACT_WORDS?"KGWORDS.EXE":act==ACT_SHELL32?"KSH32.EXE":"KSH.EXE";
  for(unsigned i=0;i<128;i++){paths[id][i]=path[i];if(!path[i])break;}
  errors[id]=session_command(id,GS_CREATE,0);scene.action_result=errors[id];
  if(!errors[id])scene_focus(&scene,id+2);
@@ -505,6 +505,7 @@ static void window(int id){
    Rect b=scene_launcher_button(i);
    button(x+b.x,y+b.y,b.w,scene.help==LAUNCHER_GUIDE?(i?"Components":"Back"):apps[i]);
   }
+  if(!scene.help)styled_button(x+216,y+38,98,36,KU("Memo  F4"),DESKTOP_BUTTON_SECONDARY,0);
   if(scene.help){
    ui_label(x+18,y+124,"F1: Shortcuts   F2: Apps",color(0));
    ui_label(x+18,y+150,"Tab: Switch window",color(0));
@@ -516,11 +517,13 @@ static void window(int id){
   ui_label(x+16,y+46,"Desktop: private context",color(0));
   ui_label(x+16,y+70,scene.slots==4?"Application slots: 4":"Application slots: 2",color(0));
   for(int i=0;i<scene.slots;i++){
-   int yy=y+98+i*24;number(x+16,yy,i+1,color(0));ui_label(x+32,yy,scene.states[i]==1?"Running":scene.states[i]==2?"Waiting":scene.states[i]==3?"Stopped":scene.states[i]==4?"Faulted":"Free",color(10));number(x+108,yy,scene.counters[i],color(0));
+   int yy=y+98+i*24;number(x+16,yy,i+1,color(0));ui_label(x+32,yy,scene.states[i]==1?"Running":scene.states[i]==2?"Waiting":scene.states[i]==3?"Stopped":scene.states[i]==4?"Faulted":"Free",color(10));if(views[i].owned&&views[i].program[0])text(x+108,yy,views[i].program,color(0));
+   else number(x+108,yy,scene.counters[i],color(0));
   }
   ui_label(x+16,y+146+(scene.slots-2)*24,scene.action_result<0?"Slots busy / unavailable":"CPU workers: T=start S=stop",color(10));
   styled_button(x+16,y+168+(scene.slots-2)*24,94,28,KU("Test CPU"),DESKTOP_BUTTON_PRIMARY,0);
   styled_button(x+124,y+168+(scene.slots-2)*24,94,28,KU("Stop"),DESKTOP_BUTTON_DANGER,0);
+  styled_button(x+16,y+198+(scene.slots-2)*24,202,24,KU("Settings  F9"),DESKTOP_BUTTON_SECONDARY,0);
  }
 }
 static void cursor(void){

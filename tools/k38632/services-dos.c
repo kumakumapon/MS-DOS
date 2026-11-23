@@ -391,9 +391,8 @@ static int io_broker(K32Io *r,unsigned operation){
 }
 #ifdef K32_HOST
 static int io_lock(const char *name,unsigned drive){
- if(!io_available(0))return 0;
  K32Io r={.version=1,.size=sizeof r,.offset=drive};for(unsigned i=0;i<16;i++)r.name[i]=name[i];
- return io_broker(&r,3);
+ int e=io_broker(&r,3);return e==-38?0:e;
 }
 #endif
 static int io_dispatch(u32 pointer,unsigned n){
@@ -401,12 +400,12 @@ static int io_dispatch(u32 pointer,unsigned n){
  if(n!=sizeof(K32Io))return -22;
  if(!k32_user_access(loader_map,pointer,n,1))return -14;
  K32Io r;if(!transfer(pointer-K32_BASE,&r,n,0))return -5;
- if(r.bytes>4096&&(r.operation==K32_IO_READ||r.operation==K32_IO_WRITE||r.operation==K32_IO_RECOVER))return -22;
+ if(r.bytes>4096)return -22;
  if(r.operation>=KP_INFO){if(!(loader_plan.features&K32_FEATURE_PROCESS))return -38;if(r.bytes>256)return -22;}
- unsigned reading=r.operation==K32_IO_READ||r.operation==KP_READ||r.operation==KP_RECEIVE;
- unsigned payload=reading||r.operation==K32_IO_WRITE||r.operation==K32_IO_RECOVER||r.operation==KP_SPAWN||r.operation==KP_SEND||r.operation==KP_WRITE;
- if(payload&&!k32_user_access(loader_map,r.data,r.bytes,reading))return -14;
- if(payload&&!reading&&r.bytes&&!transfer(r.data-K32_BASE,loader_buffer,r.bytes,0))return -5;
+ unsigned reading=r.operation==K32_IO_FS||r.operation==K32_IO_READ||r.operation==KP_READ||r.operation==KP_RECEIVE;
+ unsigned writing=r.operation==K32_IO_FS||r.operation==K32_IO_WRITE||r.operation==K32_IO_RECOVER||r.operation==KP_SPAWN||r.operation==KP_SEND||r.operation==KP_WRITE;
+ if((reading||writing)&&!k32_user_access(loader_map,r.data,r.bytes,reading))return -14;
+ if(writing&&r.bytes&&!transfer(r.data-K32_BASE,loader_buffer,r.bytes,0))return -5;
  int result=io_broker(&r,1);
  if(reading&&result>0){if((unsigned)result>r.bytes||!transfer(r.data-K32_BASE,loader_buffer,(unsigned)result,1))return -5;}
  if(!transfer(pointer-K32_BASE,&r,n,1))return -5;

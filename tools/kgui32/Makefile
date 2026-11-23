@@ -105,10 +105,10 @@ $(BUILD)/widgets.o: sdk/widgets.c sdk/widgets.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/widgets-draw.o: sdk/widgets-draw.c sdk/widgets.h sdk/kgui.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
-$(BUILD)/files.elf: $(BUILD)/files.app.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+$(BUILD)/files.elf: $(BUILD)/files.app.o $(BUILD)/files-manager.app.o $(BUILD)/io.sdk.o $(BUILD)/libc.sdk.o $(BUILD)/fs.sdk.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGFILES.EXE: $(BUILD)/files.elf $(K32)/package.py
-	python3 $(K32)/package.py $< $@ --abi 257 --features 231 --client --compact
+	python3 $(K32)/package.py $< $@ --abi 257 --features 487 --client --compact
 all: $(BUILD)/KGFILES.EXE
 $(BUILD)/directory-test.elf: $(BUILD)/directory-test.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
@@ -228,8 +228,8 @@ test: test-image-ui-run
 .PHONY: test-image-ui-run
 
 # Additive switchable UI; private tables include only labels used by a module.
-UI_HEADERS = $(addprefix $(BUILD)/ui-,$(addsuffix .h,desktop gallery editor files image calculator clock calendar picker recovery widgets words menu))
-$(UI_HEADERS) &: ui-build.py ui/strings.tsv desktop.c gallery.c apps/editor.c apps/files.c apps/image.c apps/calculator.c apps/clock.c apps/calendar.c apps/words.c sdk/ime.c sdk/picker.c sdk/recovery.c sdk/widgets-draw.c sdk/menu-draw.c sdk/menu.h sdk/stopwatch.h | $(BUILD)
+UI_HEADERS = $(addprefix $(BUILD)/ui-,$(addsuffix .h,desktop gallery editor files files-manager settings image calculator clock calendar picker recovery widgets words menu))
+$(UI_HEADERS) &: ui-build.py ui/strings.tsv desktop.c gallery.c apps/editor.c apps/files.c apps/files-manager.c apps/settings.c apps/image.c apps/calculator.c apps/clock.c apps/calendar.c apps/words.c sdk/ime.c sdk/picker.c sdk/recovery.c sdk/widgets-draw.c sdk/menu-draw.c sdk/menu.h sdk/stopwatch.h | $(BUILD)
 	python3 ui-build.py $(BUILD)
 $(BUILD)/desktop.o $(BUILD)/editor.app.o $(BUILD)/files.app.o $(BUILD)/image.app.o $(BUILD)/calculator.app.o $(BUILD)/clock.app.o $(BUILD)/words.app.o $(BUILD)/picker.o $(BUILD)/recovery.o $(BUILD)/widgets-draw.o: $(UI_HEADERS)
 $(BUILD)/i18n.o: sdk/i18n.c sdk/i18n.h | $(BUILD)
@@ -288,3 +288,21 @@ $(BUILD)/calendar.elf: $(BUILD)/calendar.app.o $(BUILD)/sdk.o $(BUILD)/i18n.o $(
 $(BUILD)/KGCAL.EXE: $(BUILD)/calendar.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client --compact
 all: $(BUILD)/KGCAL.EXE
+
+$(BUILD)/files-manager.app.o $(BUILD)/settings.app.o: $(UI_HEADERS) $(K32)/io.h
+$(BUILD)/fs.sdk.o: $(K32)/sdk/fs.c $(K32)/sdk/fs.h $(K32)/io.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/settings-model.o: settings-model.c settings-model.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/settings.elf: $(BUILD)/settings.app.o $(BUILD)/settings-model.o $(BUILD)/fs.sdk.o $(BUILD)/io.sdk.o $(BUILD)/libc.sdk.o $(BUILD)/sdk.o $(BUILD)/i18n.o $(BUILD)/menu.o $(BUILD)/menu-draw.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/KGSET.EXE: $(BUILD)/settings.elf $(K32)/package.py
+	python3 $(K32)/package.py $< $@ --abi 257 --features 295 --client --compact
+all: $(BUILD)/KGSET.EXE
+
+$(BUILD)/test-settings: test-settings.c settings-model.c settings-model.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror test-settings.c settings-model.c -o $@
+test: settings-test
+settings-test: $(BUILD)/test-settings
+	$(BUILD)/test-settings
+.PHONY: settings-test

@@ -172,6 +172,15 @@ static void load(const char *name,unsigned work){
  kp_workspace_info(&destination);
  top=0;index_lines(1);
 }
+static void memo_open(void){
+ static const char note[]="NOTE.TXT";
+ K32Work before=k32_work_name(K32_WORK_STAT,note);
+ int result=k32_work(&before);
+ if(result<0){message="Cannot inspect workspace file";editor_stats.error=-result;return;}
+ if(before.exists){load(note,1);return;}
+ for(unsigned i=0;i<sizeof note;i++)filename[i]=note[i];
+ in_work=1;revision=before;notice="Memo / Ctrl S saves NOTE.TXT";
+}
 static int perform(unsigned what){
  if(what==1)return 1;
  if(what==2){ke_load(&doc,"",0);filename[0]=0;in_work=0;top=0;index_lines(1);}
@@ -304,12 +313,14 @@ static int draw(void){
 int main(int argc,char **argv){
  kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
  kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
- ke_load(&doc,"",0);if(kg_open("Editor / workspace TXT",576,320)<0)return 1;
+ int memo=argc==2&&k32_len(argv[1])==4&&argv[1][0]=='m'&&argv[1][1]=='e'&&argv[1][2]=='m'&&argv[1][3]=='o';
+ ke_load(&doc,"",0);if(kg_open(memo?"Memo":"Editor / workspace TXT",576,320)<0)return 1;
  if((kg_capabilities()&KG_CAP_SUPPORTED)!=KG_CAP_SUPPORTED||kg_subscribe(KG_CAP_SUPPORTED))return 2;
  index_lines(1);if(!(k32_query()&K32_FEATURE_SAVE))return 2;
  kp_workspace_info(&destination);
  if(argc>1&&k32_len(argv[1])==5&&argv[1][0]=='f'&&argv[1][1]=='a'&&argv[1][2]=='u'&&argv[1][3]=='l'&&argv[1][4]=='t'){load("EDITTEST.TXT",0);draw();*(volatile u32 *)0x10000=1;}
- if(argc>1){
+ if(memo)memo_open();
+ else if(argc>1){
   unsigned work=argc==3&&k32_len(argv[1])==4&&argv[1][0]=='w'&&argv[1][1]=='o'&&argv[1][2]=='r'&&argv[1][3]=='k';
   unsigned root=argc==3&&k32_len(argv[1])==4&&argv[1][0]=='r'&&argv[1][1]=='o'&&argv[1][2]=='o'&&argv[1][3]=='t';char command[64];
   if((!root&&!work)||kg_document_command(work,argv[2],command)){message="Invalid document request";editor_stats.error=22;}

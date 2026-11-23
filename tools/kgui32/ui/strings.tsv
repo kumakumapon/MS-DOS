@@ -334,3 +334,67 @@ Focused	キー選択
 Disabled	無効
 Pressed	押下中
 Icon sizes	アイコン寸法
+Settings  F9	設定 F9
+Manage Work	作業領域を管理
+Manage	管理
+Name	名前
+Bytes	バイト
+Updated	更新日時
+Type	種類
+Trash	ごみ箱
+Folder	フォルダ
+File	ファイル
+New folder	新規フォルダ
+Mkdir	新規
+Rename	名前変更
+Restore from Trash	ごみ箱から復元
+Move to Trash?	ごみ箱へ移しますか？
+Copy to Work path	コピー先のパス
+Move to Work path	移動先のパス
+Work / Copy and Move use Work paths	コピー・移動先は作業領域内
+Trash / Select an item to restore	復元する項目を選択
+In Trash / Restore to undo	ごみ箱へ移動／復元で取消
+Restored	復元しました
+Copied	コピーしました
+Moved	移動しました
+Renamed	名前を変更しました
+Folder created	フォルダを作成しました
+Copying / Esc cancels	コピー中／Escで取消
+Copy cancelled	コピーを取り消しました
+Name already exists	同名の項目があります
+File or folder is missing	ファイルかフォルダがありません
+Read-only or protected item	読込専用または保護されています
+File is in use	使用中です
+Folder operation unsupported	そのフォルダ操作は未対応
+Use a DOS 8.3 Work path	DOS 8.3形式のパスを指定
+File exceeds the 1 MiB limit	ファイルは1 MiBまで
+Disk full / TMP kept	空き容量不足／TMPを保持
+TMP or BAK needs recovery	TMPまたはBAKの復旧が必要
+Disk operation failed	ディスク操作に失敗しました
+First 192 items shown	先頭192件を表示
+Open app requires Work TXT or BMP	作業領域のTXTかBMPを選択
+Opening app	アプリを起動しています
+Opened	開きました
+Open app is available at Work root	作業領域の直下から開けます
+Boot settings / A:	起動設定／A:
+XMS on	XMS 有効
+XMS off	XMS 無効
+EMS on	EMS 有効
+EMS off	EMS 無効
+FD98 startup on	FD98 自動起動あり
+FD98 startup off	FD98 自動起動なし
+Apply CONFIG	CONFIG に保存
+Apply AUTOEXEC	AUTOEXEC に保存
+Changes take effect after reboot	変更は再起動後に反映
+Unable to read boot settings	起動設定を読み込めません
+Saved / BAK kept	保存済み／BAKを保持
+Saved / reboot to apply	保存済み／再起動後に反映
+Boot file changed / reload	起動ファイルが変更済み／再読込
+Boot file save failed	起動ファイルを保存できません
+XMS off may stop KGUI32 after reboot	XMS無効でKGUI32が起動しない場合あり
+Discard edits and reload?	変更を破棄して再読込？
+Discard unsaved settings?	未保存の設定を破棄しますか？
+Only empty folders can be recycled	削除できるのは空のフォルダです
+EMS on may stop KGUI32 after reboot	EMS有効でKGUI32が起動しない場合あり
+Memo  F4	メモ F4
+Memo / Ctrl S saves NOTE.TXT	メモ／Ctrl S でNOTE.TXTを保存
