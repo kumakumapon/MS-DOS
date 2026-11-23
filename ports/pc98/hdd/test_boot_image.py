@@ -35,7 +35,8 @@ class BootImageTests(unittest.TestCase):
         cls.ipl = (HERE/'build/boot1.bin').read_bytes()
         cls.loader = (HERE/'build/boot2.bin').read_bytes()
         cls.files = {'IO.SYS':b'I'*17001, 'MSDOS.SYS':b'D'*37376,
-                     'COMMAND.COM':b'C'*99, 'EMPTY.TXT':b''}
+                     'COMMAND.COM':b'C'*99, 'EMPTY.TXT':b'',
+                     'CONFIG.SYS':b'FILES=40\r\n', 'AUTOEXEC.BAT':b'@ECHO OFF\r\n'}
 
     def test_native_sizes_and_copy_only_system_composition(self):
         base = base_volume()
@@ -59,6 +60,16 @@ class BootImageTests(unittest.TestCase):
                 self.assertEqual(actual,c+1 if c<cluster+(size+4095)//4096-1 else 0xffff)
         self.assertFalse(info['fd_required'])
         self.assertEqual(info['dos_boot_drive'],'A:')
+
+    def test_only_boot_settings_are_writable_in_packaged_root(self):
+        image, _ = compose(base_volume(), self.files, self.ipl, self.loader)
+        attrs = {}
+        for at in range(ROOT + 32, ROOT + 32 * (len(self.files) + 1), 32):
+            stem = image[at:at+8].decode('ascii').strip()
+            ext = image[at+8:at+11].decode('ascii').strip()
+            attrs[stem + '.' + ext] = image[at+11]
+        self.assertEqual(attrs, {'IO.SYS':6, 'MSDOS.SYS':6, 'COMMAND.COM':33,
+                                 'EMPTY.TXT':33, 'CONFIG.SYS':32, 'AUTOEXEC.BAT':32})
 
     def test_wrong_geometry_marker_or_fat_is_refused_without_source_changes(self):
         for offset in (0, HEADER+256, START+3, START+13, FAT+20*BPS+4):

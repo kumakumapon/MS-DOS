@@ -87,7 +87,12 @@ def compose(base, files, ipl, loader):
         at = empty[index]
         image[at:at+32] = bytes(32)
         image[at:at+11] = key
-        image[at+11] = 6 if name in ('IO.SYS', 'MSDOS.SYS') else 33
+        if name in ('IO.SYS', 'MSDOS.SYS'):
+            image[at+11] = 6
+        elif name in ('CONFIG.SYS', 'AUTOEXEC.BAT'):
+            image[at+11] = 32
+        else:
+            image[at+11] = 33
         struct.pack_into('<HHI', image, at+24, 0x21, chain[0] if chain else 0, len(content))
         entries.append({'name':name, 'bytes':len(content), 'cluster':chain[0] if chain else 0,
                         'sha256':hashlib.sha256(content).hexdigest()})

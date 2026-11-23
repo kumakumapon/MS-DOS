@@ -143,6 +143,8 @@ int scene_event(Scene *s,const GuiEvent *e){
    if(e->key==5)return ACT_END;
    return ACT_KEY;
   }
+  if(e->key==288)return ACT_SETTINGS;
+  if(e->key==283)return ACT_MEMO;
   if(e->key=='q'||e->key=='Q')return ACT_EXIT;
   if(e->key=='t'||e->key=='T')return ACT_START;
   if(e->key=='s'||e->key=='S')return ACT_STOP;
@@ -227,6 +229,7 @@ int scene_event(Scene *s,const GuiEvent *e){
     if(inside(scene_launcher_button(1),x,y))launcher_page(s,LAUNCHER_GALLERY);
     return ACT_NONE;
    }
+   if(inside((Rect){216,38,98,36},x,y))return ACT_MEMO;
    static const unsigned actions[LAUNCHER_BUTTONS]={0,ACT_WORDS,ACT_CALCULATOR,ACT_CLOCK,
     ACT_SHELL,ACT_FILES,ACT_EDITOR,ACT_IMAGE,ACT_SHELL32,ACT_CALENDAR};
    for(unsigned i=0;i<LAUNCHER_BUTTONS;i++){
@@ -235,7 +238,13 @@ int scene_event(Scene *s,const GuiEvent *e){
     return actions[i];
    }
   }
+  if(id==1)for(int i=0;i<s->slots;i++){
+   if(s->window[i+2].open&&inside((Rect){w->r.x+16,w->r.y+94+i*24,202,24},s->mx,s->my)){
+    scene_focus(s,i+2);return ACT_NONE;
+   }
+  }
   if(id==1&&inside((Rect){w->r.x+16,w->r.y+168+(s->slots-2)*24,94,28},s->mx,s->my))return ACT_START;
+  if(id==1&&inside((Rect){w->r.x+16,w->r.y+198+(s->slots-2)*24,202,24},s->mx,s->my))return ACT_SETTINGS;
   if(id==1&&inside((Rect){w->r.x+124,w->r.y+168+(s->slots-2)*24,94,28},s->mx,s->my))return ACT_STOP;
   break;
  }

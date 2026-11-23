@@ -61,6 +61,7 @@ KDESK を使い続けるので、KDESK 系は削除せず互換用として残�
 | `KGUI32.EXE` / `KGUILDR.EXE` | GUI | デスクトップ本体とローダ |
 | `KGCALC` / `KGCLOCK` / `KGCAL` | GUI | 電卓 / 時計 / カレンダー |
 | `KGFILES` / `KGEDIT` / `KGIMAGE` / `KGWORDS` | GUI | ファイル / エディタ / 画像 / ユーザー辞書 |
+| `KGSET.EXE` | GUI | 起動時のシステム設定 |
 | `KSH32.EXE` / `KTOOL32.EXE` | CUI | 32 ビットシェルとツール。KGUI32 のウィンドウからも開く |
 
 ### 3-3. 実行基盤（画面を持たない）
@@ -86,19 +87,18 @@ KGUI32 を正本にします。ただし、KGUI32 に同等の機能がない部
 
 | 機能 | 正本（移行後） | KGUI32 の現状 | 移行の条件 |
 | --- | --- | --- | --- |
-| ファイラ | `KGFILES` | あり（読込専用の A: 表示、作業用ディレクトリ） | FD の書込み、新規フォルダ、削除、名前変更を `FD` と同等にする |
+| ファイラ | `KGFILES` | Work を管理。HDD・FD でファイルのコピー、移動、名前変更、新規フォルダ、削除と復元 | フォルダ全体のコピー・移動・削除、複数ドライブの選択 |
 | エディタ | `KGEDIT` | あり（日本語 IME、Shift-JIS、復旧、Undo / Redo） | `EDIT` の機能との差を洗い出す |
 | 画像 | `KGIMAGE` | あり（読込、保存、反転、描画モード、復旧） | `KPAINT` の描画機能との差を洗い出す |
 | 電卓・時計 | `KGCALC` / `KGCLOCK` | あり | なし |
 | カレンダー | `KGCAL` | あり | なし |
 | ユーザー辞書 | `KGWORDS` | あり | なし |
-| システム設定 | （なし） | **未対応** | `CPANEL` の XMS/EMS、FILES/BUFFERS、FD98 自動起動の設定を移す |
-| Memo / Tasks | （なし） | **未対応** | KGEDIT で代替するか、タスク一覧を System ウィンドウへ移すかを決める |
+| システム設定 | `KGSET` | XMS/EMS、FILES/BUFFERS、FD98 自動起動を保存。System の Settings または F9 | 表示・入力・言語の設定 |
+| Memo / Tasks | `KGEDIT` / System | Memo（F4）は Work の `NOTE.TXT` を開く。System に実行枠ごとのプログラム名・状態を表示 | タスク操作の集約 |
 | DOS コマンド | `KSH32`、DOS 端末 | あり | なし |
 
-KGUI32 の側の `System` ウィンドウは、現在は検証用の表示（CPU workers など）が中心です。
-設定アプリへ育てる場合は、開発者向けの表示を分けます（kumakumapon/MS-DOS#71 の
-D 項目を参照）。
+KGUI32 の System から設定と稼働中のタスクにアクセスできます。CPU workers の検証操作を
+開発者向けの画面に移す計画は kumakumapon/MS-DOS#71 の D 項目にあります。
 
 ### 4-2. ディレクトリ構成
 `tools/` を、役割別の 3 つに分けます。

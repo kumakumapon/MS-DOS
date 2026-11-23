@@ -2,6 +2,7 @@
 #include "../sdk/kgui.h"
 #include "../sdk/widgets.h"
 #include "../sdk/text.h"
+#include "files-manager.h"
 #include "ui-files.h"
 #define ENTRIES 192
 #define TEXT_BYTES (128*1024)
@@ -17,12 +18,13 @@ static const KmItem app_menu[]={
  {"Page up",KG_KEY,16643,0},
  {"Page down",KG_KEY,16644,0},
  {"Close",KG_MOUSE,1,103},
+ {"Manage Work",KG_MOUSE,1,106},
 };
 volatile FilesStats files_stats __attribute__((section(".data.gui_stats")))={.magic=0x3246474b,.version=2};
 static K32DirEntry entries[ENTRIES],entry;
 static unsigned matches[ENTRIES],count,cursor,loading,holding,mode,bytes,line_count,offsets[LINES],preview_top;
 static unsigned char *contents;
-static unsigned work,work_stage,edit_pending;static K32WorkInfo destination;
+static unsigned work,work_stage,edit_pending,managing;static K32WorkInfo destination;
 static KwInput filter;
 static KwList list;static KwFocus focus;static KwScroll scroll;
 static const char *message;static char filename[13];
@@ -92,12 +94,13 @@ static void open_preview(void){
  if(!kt_valid((const char *)contents,bytes,KT_LINES|KT_CRLF)){k32_free(contents);contents=0;message="Select valid Shift-JIS text";return;}
  for(unsigned i=0;i<13;i++)filename[i]=d->name[i];
  files_stats.hash=hash(contents,bytes);files_stats.bytes=bytes;
- preview_lines();preview_top=0;mode=1;focus.current=1;scroll.dragging=0;
+ preview_lines();preview_top=0;mode=1;focus.current=1;focus.count=8;scroll.dragging=0;
 }
-static void back(void){if(contents)k32_free(contents);contents=0;mode=0;scroll.dragging=0;focus.current=1;}
+static void back(void){if(contents)k32_free(contents);contents=0;mode=0;scroll.dragging=0;focus.current=1;focus.count=work?9:8;}
 static void switch_root(void){
  back();close_cursor();work=!work;files_stats.error=0;
- if(work){int e=k32_work_info(&destination);if(e<0||destination.error){message="Workspace unavailable";files_stats.error=e<0?-e:-destination.error;count=list.count=0;return;}}
+ focus.count=work?9:8;if(focus.current>=focus.count)focus.current=1;
+ if(work){int e=k32_work_info(&destination);if(e<0||destination.error){message="Workspace unavailable";destination.error=-5;files_stats.error=e<0?-e:-destination.error;count=list.count=0;return;}}
  refresh();
 }
 static void edit_selected(void){
@@ -117,10 +120,20 @@ static void diagnostics(void){
  for(unsigned i=0;i<count;i++){K32DirEntry *d=&entries[i];metadata=(metadata^hash(d->name,k32_len(d->name)))*16777619;metadata=(metadata^d->bytes)*16777619;metadata=(metadata^d->attributes)*16777619;metadata=(metadata^d->date)*16777619;metadata=(metadata^d->time)*16777619;}
  files_stats.records=metadata;
 }
+static int manage_work(void){
+ if(!work)switch_root();
+ if(destination.error||!work)return 0;
+ back();close_cursor();files_manager_open(destination.root);
+ managing=1;files_stats.mode=160;return 1;
+}
 static int draw(void){
  kg_menu_enable(!message&&!holding);layout();unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
  kg_label(8,8,mode?filename:work?destination.root:"A: root / read only",0x20344a);
- if(focus.current>=6)kg_rect(w-(focus.current==6?169:89),1,focus.current==6?78:82,22,0x327ac0);
+ if(focus.current>=6&&focus.current<=7)kg_rect(w-(focus.current==6?169:89),1,focus.current==6?78:82,22,0x327ac0);
+ if(work&&!mode){
+  if(focus.current==8)kw_draw_focus((KwRect){(int)w-268,0,96,24});
+  kg_button(106,w-266,2,92,20,"Manage");
+ }
  kg_button(104,w-168,2,76,20,work?"Root":"Work");kg_button(105,w-88,2,80,20,"Open app");
  if(mode)kg_label(8,30,"TXT preview / 40 columns",0x466581);
  else {kg_label(8,32,"Filter",0x466581);kw_draw_input((KwRect){64,24,(int)w-76,26},&filter,focus.current==0);}
@@ -160,11 +173,24 @@ int main(int argc,char **argv){
  int fault=argc>1&&k32_len(argv[1])==5&&contains(argv[1],"fault");
  holding=argc>1&&k32_len(argv[1])==4&&contains(argv[1],"hold");
  int t=kg_open("Files",576,320);if(t<0){files_stats.error=-t;return 1;}
- if((k32_query()&K32_FEATURE_DIRECTORY)==0||kg_capabilities()<0||kg_subscribe(KG_INPUT_FLAGS)){kg_close();return 2;}
+ if((k32_query()&K32_FEATURE_DIRECTORY)==0||kg_capabilities()<0||kg_subscribe(KG_INPUT_FLAGS|KG_INPUT_CLOSE|KG_INPUT_MODIFIERS)){kg_close();return 2;}
  list.rows=1;focus.count=8;refresh();int dirty=1,quit=0;
  while(!quit){
   KgEvent e;int got=kg_poll(&e);files_stats.heartbeat++;
   if(got<0){files_stats.error=-got;break;}
+  if(got&&e.type==KG_QUIT){quit=1;break;}
+  if(managing){
+   if(got){files_stats.events++;int result=files_manager_event(&e);
+    if(result<0){files_manager_close();managing=0;refresh();focus.current=1;}
+    if(result)dirty=1;
+   }
+   if(managing){
+    if(files_manager_step())dirty=1;
+    if(dirty){int error=files_manager_draw();dirty=error==-22;if(error<0&&!dirty){files_stats.error=-error;break;}if(!error)files_stats.frames++;}
+    k32_wait(K32_WAIT_TIME,16);continue;
+   }
+   got=0;
+  }
   if(enumerate())dirty=1;
   if(edit_pending){int result=kg_edit_status();if(result!=-11){edit_pending=0;dirty=1;files_stats.error=result<0?-result:0;if(result<0)message=result==-16?"Both slots in use: close a task":"Cannot start Editor";}}
   if(fault&&!loading&&!mode){
@@ -183,7 +209,7 @@ int main(int argc,char **argv){
      if(!mode&&kw_inside((KwRect){64,24,(int)kg_width()-76,26},e.x,e.y))focus.current=0;
      if(kw_inside((KwRect){8,52,(int)kg_width()-40,(int)list.rows*16},e.x,e.y))focus.current=1;
      if(e.control>=100&&e.control<=103)focus.current=e.control-98;
-     if(e.control==104||e.control==105)focus.current=e.control-98;
+     if(e.control>=104&&e.control<=106)focus.current=e.control-98;
      dirty=1;
     }
     if(kw_scroll(&scroll,&e)){if(mode)preview_top=scroll.top;else {list.top=scroll.top;if(list.selected<list.top||list.selected>=list.top+list.rows)list.selected=list.top;}dirty=1;}
@@ -201,7 +227,7 @@ int main(int argc,char **argv){
      }
     }
     unsigned command=0;
-    if(e.type==KG_MOUSE&&(e.key&1)&&e.control>=100&&e.control<=105)command=e.control-99;
+    if(e.type==KG_MOUSE&&(e.key&1)&&e.control>=100&&e.control<=106)command=e.control-99;
     if(e.type==KG_KEY&&e.key==13)command=focus.current>=2?focus.current-1:focus.current==1&&!mode?1:0;
     if(e.type==KG_KEY&&e.key==27&&mode)command=1;
     if(e.type==KG_KEY&&e.key==23)command=5;
@@ -212,10 +238,11 @@ int main(int argc,char **argv){
     if(command==2){if(mode)back();else refresh();dirty=1;}
     if(command==3){message="Root: read only / Work: Editor";dirty=1;}
     if(command==4)quit=1;
+    if(command==7&&manage_work()){dirty=1;continue;}
    }
   }
   if(dirty&&!quit){int error=draw();if(error==-22)dirty=1;else if(error<0){files_stats.error=-error;break;}else dirty=0;}
   k32_wait(K32_WAIT_TIME,16);
  }
- close_cursor();if(contents)k32_free(contents);return kg_close()?3:0;
+ files_manager_close();close_cursor();if(contents)k32_free(contents);return kg_close()?3:0;
 }

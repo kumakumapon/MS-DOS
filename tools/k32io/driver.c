@@ -1,14 +1,18 @@
 /* Serialized DOS broker. User pointers/authority are checked by K32RUN/HOST.
  * Each call performs at most one 4 KiB data read/write, never a whole-file scan. */
 #include "../k38632/io.h"
+#include "../k38632/boot-settings.h"
+#include "../k38632/services.h"
 #include "../filer/verified-disk.h"
 #include "../window/hardware.h"
 extern unsigned short io_sender_segment,io_sender_offset;
+extern unsigned char __io_stack_guard[];
 extern unsigned io_old_vector;extern void io_api(void);
-typedef struct {int h;unsigned token,bytes,position;} File;
-typedef struct {unsigned token,phase,length,position,exists,old_length,old_hash,hash,scanned,reader,kind,lock[2];int writer;char target[24],temporary[24],backup[24],destination[24];} Transaction;
-typedef struct {unsigned owner,epoch,drive;File file[8];Transaction tx;} Owner;
-static Owner owners[8];static char locks[16][24];
+#define DOS_PATH 64
+typedef struct {int h;unsigned token,bytes,position,lock;} File;
+typedef struct {unsigned token,phase,length,position,limit,exists,old_length,old_hash,hash,scanned,reader,kind,lock[2];int writer;char target[DOS_PATH],temporary[DOS_PATH],backup[DOS_PATH],destination[24];} Transaction;
+typedef struct {unsigned owner,epoch,drive;File file[8];Transaction tx;unsigned cursor;unsigned char dta[43];} Owner;
+static Owner owners[8];static char locks[16][DOS_PATH];
 static unsigned self,psp,serial,indos_segment,indos_offset;
 static unsigned char buffer[4096];
 volatile struct {char signature[8];unsigned short version,size,ready,busy;unsigned owner,calls,rejected,stack_ok;struct {unsigned owner,epoch,handles,phase,bytes;} task[8];} io_record={.signature={'K','3','2','I','O','V','0','1'},.version=1,.size=sizeof io_record};
@@ -40,7 +44,12 @@ static int data_io(int,unsigned,int);
 static unsigned handles(const Owner *o){unsigned n=o->tx.phase&&o->tx.writer>=0;for(unsigned i=0;i<8;i++)n+=o->file[i].token!=0;return n;}
 static unsigned token(void){if(serial>=0x07ffffff)return 0;return ++serial<<4|1;}
 static int file_index(Owner *o,unsigned value){for(unsigned i=0;i<8;i++)if(value&&o->file[i].token==value)return (int)i;return -9;}
-static int file_close(Owner *o,unsigned value){int i=file_index(o,value);if(i<0)return i;int e=close_handle(o->file[i].h);if(!e)o->file[i]=(File){0};return e;}
+static int file_close(Owner *o,unsigned value){
+ int i=file_index(o,value);if(i<0)return i;
+ File *f=&o->file[i];int e=close_handle(f->h);
+ if(!e){if(f->lock)locks[f->lock-1][0]=0;*f=(File){0};}
+ return e;
+}
 static int file_open(Owner *o,const char *path){
  unsigned i=0;while(i<8&&o->file[i].token)i++;if(i==8)return -24;
  int a=attributes(path);if(a==-2)return -2;if(a<0)return -5;if(a&0x5e)return -13;
@@ -52,7 +61,7 @@ static int file_open(Owner *o,const char *path){
 }
 static int lock_path(const char *path){
  for(unsigned i=0;i<16;i++)if(locks[i][0]&&same(locks[i],path))return -16;
- for(unsigned i=0;i<16;i++)if(!locks[i][0]){copy(locks[i],path,24);return (int)i+1;}
+ for(unsigned i=0;i<16;i++)if(!locks[i][0]){for(unsigned n=0;;n++){locks[i][n]=path[n];if(!path[n])break;}return (int)i+1;}
  return -24;
 }
 static void unlock(Transaction *t){for(unsigned i=0;i<2;i++)if(t->lock[i])locks[t->lock[i]-1][0]=0;}
@@ -78,26 +87,37 @@ static int ready(Owner *o){
  return a<0?-5:!(a&16)?-20:a&0x4f?-13:0;
 #endif
 }
+static int begin_paths(Owner *o,Transaction *next,int creation){
+ if(o->tx.phase)return -16;
+ next->token=token();if(!next->token)return -75;
+ next->phase=1;next->writer=-1;
+ int lock=lock_path(next->temporary);if(lock<0)return lock;next->lock[0]=lock;
+ int e;
+ if(next->kind){
+  int a=attributes(next->target);if(a<0||(a&0x5f)){e=a<0?-2:-13;goto failed;}
+  char destlock[24];e=k32_io_path(o->drive,next->destination,1,destlock);if(e)goto failed;
+  char name[16];copy(name,next->destination,sizeof name);
+  e=k32_io_path(o->drive,name,0,next->destination);if(e)goto failed;
+  lock=lock_path(destlock);if(lock<0){e=lock;goto failed;}next->lock[1]=lock;
+  a=attributes(next->destination);if(a!=-2){e=a<0?-5:-17;goto failed;}
+  int h=file_open(o,next->target);if(h<0){e=h;goto failed;}
+  next->reader=(unsigned)h;next->phase=2;next->hash=2166136261u;
+ }else{
+  int a=attributes(next->target);
+  if(a!=-2&&(a<0||(a&0x5f)||creation)){e=a<0?-5:creation?-17:-13;goto failed;}
+  if(a==-2&&next->exists){e=-116;goto failed;}
+  a=attributes(next->backup);if(a!=-2){e=a<0?-5:-117;goto failed;}
+  int h=open_path(next->temporary,1);if(h<0){e=h;goto failed;}next->writer=h;
+ }
+ o->tx=*next;return 0;
+ failed:unlock(next);return e;
+}
 static int begin(Owner *o,K32Io *r,int recovery){
- Transaction *t=&o->tx;if(t->phase)return -16;
- Transaction next={.token=token(),.phase=1,.exists=r->exists,.old_length=r->length,.old_hash=r->hash,.writer=-1,.kind=recovery};
- if(!next.token)return -75;
+ Transaction next={.limit=K32_IO_LIMIT,.exists=r->exists,.old_length=r->length,.old_hash=r->hash,.kind=recovery};
  int e=k32_io_path(o->drive,r->name,recovery?r->flags:0,next.target);if(e)return e;
  k32_io_path(o->drive,r->name,1,next.temporary);k32_io_path(o->drive,r->name,2,next.backup);
- int lock=lock_path(next.temporary);if(lock<0)return lock;next.lock[0]=lock;
- if(recovery){
-  int source_attributes=attributes(next.target);if(source_attributes<0||(source_attributes&0x5f)){e=source_attributes<0?-2:-13;goto failed;}
-  char name[16]={0};copy(name,buffer,r->bytes);e=k32_io_path(o->drive,name,0,next.destination);if(e)goto failed;
-  char destlock[24];k32_io_path(o->drive,name,1,destlock);lock=lock_path(destlock);if(lock<0){e=lock;goto failed;}next.lock[1]=lock;
-  int a=attributes(next.destination);if(a!=-2){e=a<0?-5:-17;goto failed;}
-  int h=file_open(o,next.target);if(h<0){e=h;goto failed;}next.reader=(unsigned)h;next.phase=2;next.hash=2166136261u;
- }else{
-  int a=attributes(next.target);if(a!=-2&&(a<0||(a&0x5f))){e=a<0?-5:-13;goto failed;}
-  a=attributes(next.backup);if(a!=-2){e=a<0?-5:-117;goto failed;}
-  int h=open_path(next.temporary,1);if(h<0){e=h;goto failed;}next.writer=h;
- }
- *t=next;r->token=t->token;return 0;
- failed:unlock(&next);return e;
+ if(recovery)copy(next.destination,buffer,r->bytes);
+ e=begin_paths(o,&next,0);if(!e)r->token=o->tx.token;return e;
 }
 static int advance(Owner *o){
  Transaction *t=&o->tx;
@@ -123,8 +143,16 @@ static int advance(Owner *o){
  else {const K32IoPublish io={rename_path,remove_path};e=k32_io_publish(t->target,t->temporary,t->backup,t->exists,&io);}
  if(e>=0){unlock(t);*t=(Transaction){0};}return e;
 }
+#include "filesystem.inc"
 static int dispatch(Owner *o,K32Io *r){
- int e=k32_io_validate(r);if(e)return e;e=ready(o);if(e)return e;
+ if(r->operation==K32_IO_FS){
+  if(r->version!=1||r->size!=sizeof *r||r->flags||r->reserved||r->bytes!=sizeof(K32Fs))return -22;
+  K32Fs fs;copy(&fs,buffer,sizeof fs);
+  int e=filesystem(o,&fs);if(e<0)return e;
+  copy(buffer,&fs,sizeof fs);return sizeof fs;
+ }
+ int e=k32_io_validate(r);if(e)return e;
+ if(r->operation<=K32_IO_OPEN||r->operation==K32_IO_BEGIN||r->operation==K32_IO_RECOVER){e=ready(o);if(e)return e;}
  Transaction *t=&o->tx;char path[24];
  if(r->operation==K32_IO_STAT||r->operation==K32_IO_OPEN){
   k32_io_path(o->drive,r->name,r->flags,path);int h=file_open(o,path);
@@ -139,7 +167,7 @@ static int dispatch(Owner *o,K32Io *r){
   if(r->operation==K32_IO_ABORT)return abort_tx(o,r->flags);
   if(r->operation==K32_IO_COMMIT)return advance(o);
   if(t->phase!=1)return -16;
-  if(r->bytes>K32_IO_LIMIT-t->position)return -27;
+  if(r->bytes>t->limit-t->position)return -27;
   if(!r->bytes)return 0;
   int n=data_io(t->writer,r->bytes,1);if(n<0)return n;if((unsigned)n!=r->bytes){t->phase=4;return -28;}t->position+=r->bytes;if(t->length<t->position)t->length=t->position;return n;
  }
@@ -155,7 +183,7 @@ void io_dispatch(void){
  K32IoPacket p;mem_copy(self,(unsigned)&p,io_sender_segment,io_sender_offset,sizeof p);p.result=-22;
  unsigned short msw;__asm__ volatile("smsw %0":"=r"(msw));
  if(p.version!=1||p.size!=sizeof p||(msw&1)||mem_get(indos_segment,indos_offset)||p.owner<0x100000||p.owner>=0x2000000||(p.owner&4095)||!p.epoch||p.operation<1||p.operation>3)goto done;
- for(unsigned i=0;i<16;i++)if(mem_get(self,0x4000+i)!=0xa5)io_record.stack_ok=0;
+ for(unsigned i=0;i<16;i++)if(mem_get(self,(unsigned)__io_stack_guard+i)!=0xa5)io_record.stack_ok=0;
  if(!io_record.stack_ok){p.result=-75;goto done;}
  io_record.calls++;io_record.busy=1;
  unsigned previous,a=0x6200;__asm__ volatile("int $0x21":"+a"(a),"=b"(previous)::"cc","memory");a=0x5000;__asm__ volatile("int $0x21":"+a"(a):"b"(psp):"cc","memory");
@@ -167,9 +195,9 @@ void io_dispatch(void){
  if(!o){for(unsigned i=0;i<8;i++)if(!owners[i].owner){o=&owners[i];slot=i;*o=(Owner){.owner=p.owner,.epoch=p.epoch};for(unsigned drive=0;drive<26;drive++)if(fd_hdd_verified(drive)){o->drive=drive;break;}break;}}
  if(!o){p.result=-24;goto restore;}
  K32Io r;mem_copy(self,(unsigned)&r,io_sender_segment,p.request,sizeof r);
- if((r.operation==K32_IO_WRITE||r.operation==K32_IO_RECOVER)&&r.bytes<=4096)mem_copy(self,(unsigned)buffer,io_sender_segment,p.buffer,r.bytes);
+ if((r.operation==K32_IO_WRITE||r.operation==K32_IO_RECOVER||r.operation==K32_IO_FS)&&r.bytes<=4096)mem_copy(self,(unsigned)buffer,io_sender_segment,p.buffer,r.bytes);
  p.result=dispatch(o,&r);
- if(r.operation==K32_IO_READ&&p.result>0)mem_copy(io_sender_segment,p.buffer,self,(unsigned)buffer,(unsigned)p.result);
+ if((r.operation==K32_IO_READ||r.operation==K32_IO_FS)&&p.result>0)mem_copy(io_sender_segment,p.buffer,self,(unsigned)buffer,(unsigned)p.result);
  mem_copy(io_sender_segment,p.request,self,(unsigned)&r,sizeof r);
  restore:
  p.handles=o?handles(o):0;if(o){io_record.task[slot].owner=o->owner;io_record.task[slot].epoch=o->epoch;io_record.task[slot].handles=p.handles;io_record.task[slot].phase=o->tx.phase;io_record.task[slot].bytes=o->tx.length;}
@@ -183,7 +211,7 @@ int io_install(void){
  unsigned short seg;unsigned off;a=0x3400;__asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(off)::"cc","memory");indos_segment=seg;indos_offset=off&65535;
  a=0x352f;__asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(off)::"cc","memory");io_old_vector=(unsigned)seg<<16|(off&65535);
  a=0x252f;__asm__ volatile("int $0x21":"+a"(a):"d"((unsigned)io_api):"ebx","ecx","esi","edi","cc","memory");
- for(unsigned i=0;i<16;i++)mem_put(self,0x4000+i,0xa5);
+ for(unsigned i=0;i<16;i++)mem_put(self,(unsigned)__io_stack_guard+i,0xa5);
  io_record.owner=self;io_record.ready=io_record.stack_ok=1;return 1;
 }
 #endif

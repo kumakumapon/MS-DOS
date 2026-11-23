@@ -146,7 +146,10 @@ the optional image uses the existing standalone XMS driver instead.
 
 The launcher also includes **Files**, with read-only root and Work TXT preview,
 and selection-to-Editor launch; see [Files / Editor integration](FILES-EDITOR.md).
-See [GUI SDK 2 / Files](BROWSER-SDK.md) for usage, interfaces and limits.
+In Work, choose **Manage** for folders, sorting, copy, move, rename, and Trash.
+[Work management and boot settings](STANDARD-APPS.md) also covers **Memo** (F4),
+the System task list, and **Settings** (F9).
+See [GUI SDK 2 / Files](BROWSER-SDK.md) for the original read-only browser.
 
 SDK3 adds the temporary editor and reusable picker; see [EDITOR-SDK.md](EDITOR-SDK.md) for lifecycle, keyboard and clipboard contracts.
 
