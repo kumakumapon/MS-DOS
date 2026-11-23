@@ -398,3 +398,4 @@ Only empty folders can be recycled	削除できるのは空のフォルダです
 EMS on may stop KGUI32 after reboot	EMS有効でKGUI32が起動しない場合あり
 Memo  F4	メモ F4
 Memo / Ctrl S saves NOTE.TXT	メモ／Ctrl S でNOTE.TXTを保存
+Boot file is read-only	起動ファイルは読込専用です

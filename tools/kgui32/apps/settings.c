@@ -58,7 +58,7 @@ static void save(unsigned startup){
  }
  stats.error=e<0?-e:0;
  status=e==1?"Saved / BAK kept":e==0?"Saved / reboot to apply":e==-116?"Boot file changed / reload":
-  e==-17||e==-117?"TMP or BAK needs recovery":e==-28?"Disk full / TMP kept":"Boot file save failed";
+  e==-13?"Boot file is read-only":e==-17||e==-117?"TMP or BAK needs recovery":e==-28?"Disk full / TMP kept":"Boot file save failed";
 }
 static void button(int x,int y,int w,unsigned id,const char *label,unsigned disabled,unsigned primary){
  unsigned state=(disabled?KW_DISABLED:0)|(focus.current==id-S_XMS?KW_FOCUSED:0);

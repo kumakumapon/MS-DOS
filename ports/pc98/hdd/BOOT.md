@@ -31,7 +31,8 @@ The webnp2 preparation script fetches that source explicitly when its clone is
 shallow. Outputs remain under ignored build/work directories.
 
 `boot_image.compose()` takes a newly generated marked APPS/Work volume and
-returns a separate copy with IPL, loader and root system files. It rejects
+returns a separate copy with IPL, loader and root system files. CONFIG.SYS and
+AUTOEXEC.BAT are writable for KGUI32 Settings. It rejects
 unsupported geometry/BPB, disagreeing FATs, duplicate/device names, oversized
 payloads and unavailable contiguous system allocation. It never mounts a disk
 or updates a user's existing saved volume. The paired FD+data HDD and complete
