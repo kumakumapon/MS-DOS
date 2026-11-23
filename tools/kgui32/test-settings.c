@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <string.h>
-#include "settings-model.h"
+#include "../k38632/boot-settings.h"
 
 static unsigned build(KgBootSettings *old,KgBootSettings *next,unsigned autoexec,
  const char *input,char *output,unsigned size){

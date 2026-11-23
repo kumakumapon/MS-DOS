@@ -1,6 +1,6 @@
 #include "../sdk/kgui.h"
 #include "../sdk/widgets.h"
-#include "../settings-model.h"
+#include "../../k38632/boot-settings.h"
 #include "../../k38632/sdk/fs.h"
 #include "../../k38632/sdk/libc.h"
 #include "ui-settings.h"
@@ -11,7 +11,6 @@ volatile SettingsStats stats __attribute__((section(".data.gui_stats")))={.magic
 typedef struct {char data[K32_FS_BOOT_LIMIT];unsigned n,hash;int error;} BootFile;
 static BootFile boot[2];
 static const char *const boot_path[]={"CONFIG.SYS","AUTOEXEC.BAT"};
-static char output[K32_FS_BOOT_LIMIT];
 static KgBootSettings old,next;
 static KwFocus focus;
 static unsigned dialog;
@@ -43,23 +42,19 @@ static void reload(void){
 static void save(unsigned startup){
  BootFile *f=&boot[startup];
  if(f->error||!(modified()&(1u<<startup)))return;
- int e=kg_settings_build(&old,&next,startup,f->data,f->n,output,sizeof output);
- unsigned n=e>0?(unsigned)e:0;
  K32Fs r=k32_fs_request(K32_FS_BOOT_WRITE,boot_path[startup],0);
  r.length=f->n;r.hash=f->hash;
- if(e>=0)e=k32_fs(&r);
+ if(startup)r.flags=next.fd98?K32_BOOT_FD98:0;
+ else r.flags=kg_settings_config_flags(&next);
+ int e=k32_fs(&r);
  if(!e){
-  K32Io tx=k32_io_name(K32_IO_WRITE,0);tx.token=r.token;
-  e=k32_io_write(&tx,output,n);
-  if(e==(int)n)e=k32_io_commit(&tx);
-  else if(e>=0)e=-28;
-  if(e<0){int close=k32_io_abort(&tx,1);if(close<0)e=close;}
- }
- if(e>=0){
   stats.saved++;
-  if(startup)old.fd98=next.fd98;
-  else {unsigned fd98=old.fd98;old=next;old.fd98=fd98;}
-  k32_memcpy(f->data,output,n);f->n=n;f->hash=digest(output,n);
+  load(startup);
+  if(!f->error){
+   if(startup)next.fd98=old.fd98;
+   else {unsigned fd98=next.fd98;next=old;next.fd98=fd98;}
+  }
+  if(r.flags)e=1;
  }
  stats.error=e<0?-e:0;
  status=e==1?"Saved / BAK kept":e==0?"Saved / reboot to apply":e==-116?"Boot file changed / reload":

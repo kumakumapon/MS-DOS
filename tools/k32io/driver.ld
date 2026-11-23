@@ -9,8 +9,11 @@ SECTIONS {
  __bss_start = .;
  .bss : { *(.bss*) *(COMMON) }
  __bss_end = .;
- __mz_cs = 0; __mz_ss = 0; __mz_sp = 0x93f0;
- __mz_memory_bytes = 0x9400;
- ASSERT(__bss_end < 0x5400,"37 KiB I/O broker retains 16 KiB stack")
+ __mz_cs = 0; __mz_ss = 0;
+ __mz_memory_bytes = 0xa800;
+ __mz_sp = __mz_memory_bytes - 16;
+ __resident_paragraphs = (__mz_memory_bytes + 0x100) / 16;
+ __io_stack_guard = __mz_memory_bytes - 0x4000;
+ ASSERT(__bss_end < __io_stack_guard,"I/O broker retains 16 KiB stack")
  /DISCARD/ : { *(.eh_frame) *(.comment) *(.note*) }
 }

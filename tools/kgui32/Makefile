@@ -292,16 +292,16 @@ all: $(BUILD)/KGCAL.EXE
 $(BUILD)/files-manager.app.o $(BUILD)/settings.app.o: $(UI_HEADERS) $(K32)/io.h
 $(BUILD)/fs.sdk.o: $(K32)/sdk/fs.c $(K32)/sdk/fs.h $(K32)/io.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
-$(BUILD)/settings-model.o: settings-model.c settings-model.h | $(BUILD)
+$(BUILD)/boot-settings.o: $(K32)/boot-settings.c $(K32)/boot-settings.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
-$(BUILD)/settings.elf: $(BUILD)/settings.app.o $(BUILD)/settings-model.o $(BUILD)/fs.sdk.o $(BUILD)/io.sdk.o $(BUILD)/libc.sdk.o $(BUILD)/sdk.o $(BUILD)/i18n.o $(BUILD)/menu.o $(BUILD)/menu-draw.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+$(BUILD)/settings.elf: $(BUILD)/settings.app.o $(BUILD)/boot-settings.o $(BUILD)/fs.sdk.o $(BUILD)/io.sdk.o $(BUILD)/libc.sdk.o $(BUILD)/sdk.o $(BUILD)/i18n.o $(BUILD)/menu.o $(BUILD)/menu-draw.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGSET.EXE: $(BUILD)/settings.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 295 --client --compact
 all: $(BUILD)/KGSET.EXE
 
-$(BUILD)/test-settings: test-settings.c settings-model.c settings-model.h | $(BUILD)
-	$(CC) -Wall -Wextra -Werror test-settings.c settings-model.c -o $@
+$(BUILD)/test-settings: test-settings.c $(K32)/boot-settings.c $(K32)/boot-settings.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror test-settings.c $(K32)/boot-settings.c -o $@
 test: settings-test
 settings-test: $(BUILD)/test-settings
 	$(BUILD)/test-settings

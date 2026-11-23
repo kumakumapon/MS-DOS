@@ -159,6 +159,37 @@ static int fs_begin(Owner *o,K32Fs *r,const char *path,int boot){
  return e;
 }
 
+/* A protected app can select boot options, but cannot write arbitrary
+ * CONFIG.SYS or AUTOEXEC.BAT content. Build the edit from the current DOS
+ * file while holding the serialized broker. */
+static int boot_write(Owner *o,K32Fs *r,const char *path,int startup){
+ if(o->tx.phase)return -16;
+ int h=file_open(o,path);if(h<0)return h;
+ File *f=&o->file[file_index(o,h)];
+ unsigned n=f->bytes;
+ int e=n>K32_FS_BOOT_LIMIT?-27:n!=r->length?-116:data_io(f->h,n,0);
+ int closed=file_close(o,h);
+ if(closed)return -117;
+ if(e<0)return e;
+ if((unsigned)e!=n)return -5;
+ unsigned hash=2166136261u;for(unsigned i=0;i<n;i++)hash=(hash^buffer[i])*16777619u;
+ if(hash!=r->hash)return -116;
+ KgBootSettings old={0},next;
+ kg_settings_read(&old,startup,(const char *)buffer,n);
+ e=kg_settings_decode(&next,&old,startup,r->flags);if(e)return e;
+ char edited[K32_FS_BOOT_LIMIT];
+ e=kg_settings_build(&old,&next,startup,(const char *)buffer,n,edited,sizeof edited);
+ if(e<0)return e;
+ unsigned bytes=(unsigned)e;
+ e=fs_begin(o,r,path,1);if(e)return e;
+ copy(buffer,edited,bytes);
+ e=data_io(o->tx.writer,bytes,1);
+ if(e>=0&&(unsigned)e!=bytes)e=-28;
+ if(e>=0){do{e=advance(o);}while(e==-11);}
+ if(e<0){int abort=abort_tx(o,1);return abort<0?abort:e;}
+ r->token=0;r->flags=e;return 0;
+}
+
 /* DOS 4 only renames directories within the same parent. Recycle empty
  * directories by preparing an empty destination before DOS checks/removes
  * the source. A failed removal leaves the original contents in place. */
@@ -183,7 +214,7 @@ static void prune_trash(char path[DOS_PATH]){
 
 static int filesystem(Owner *o,K32Fs *r){
  if(r->version!=1||r->size!=sizeof *r||r->action<K32_FS_LIST||r->action>K32_FS_BOOT_WRITE||
-    r->flags>(r->action==K32_FS_LIST?K32_FS_LIST_TRASH:0)||
+    (r->action!=K32_FS_BOOT_WRITE&&r->flags>(r->action==K32_FS_LIST?K32_FS_LIST_TRASH:0))||
     (r->action!=K32_FS_NEXT&&r->token)||
     (r->action!=K32_FS_BOOT_WRITE&&(r->length||r->hash)))return -22;
  char path[DOS_PATH]={0},dest[DOS_PATH];
@@ -192,7 +223,7 @@ static int filesystem(Owner *o,K32Fs *r){
   if(r->length>K32_FS_BOOT_LIMIT)return -27;
   copy(path,"A:\\",3);
   for(unsigned i=0;;i++){path[3+i]=r->path[i];if(!r->path[i])break;}
-  return r->action==K32_FS_BOOT_OPEN?fs_open(o,r,path,1):fs_begin(o,r,path,1);
+  return r->action==K32_FS_BOOT_OPEN?fs_open(o,r,path,1):boot_write(o,r,path,same(r->path,"AUTOEXEC.BAT"));
  }
  int e=ready(o);
  if(e)return e;

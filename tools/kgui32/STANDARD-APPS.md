@@ -33,9 +33,9 @@ saved by the emulator to carry Work and Trash across browser sessions.
 Choose Settings in System or press F9 while a desktop window is active.
 Change XMS and EMS, the DOS FILES count and BUFFERS, or FD98 autostart.
 Apply CONFIG and Apply AUTOEXEC write their respective A: files separately.
-K32IO checks the revision read by Settings and retains TMP/BAK when
-publication fails. Boot directives and lines outside the selected options are
-retained. Reboot the saved medium to apply the settings. KGUI32 requires XMS
+K32IO accepts the selected boot options and verifies the revision previously read
+by Settings. It edits the selected directives and retains the other lines.
+TMP and BAK guard publication. Reboot the saved medium to apply the settings. KGUI32 requires XMS
 and cannot start under an EMM386 V86 owner. Settings asks for confirmation
 before saving either change. Use DOS or CPANEL to restore compatible settings
 if the changed boot configuration prevents KGUI32 from starting.

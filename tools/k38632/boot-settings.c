@@ -1,8 +1,27 @@
-#include "settings-model.h"
+#include "boot-settings.h"
+#include "io.h"
 
 typedef struct {unsigned first,end,next;} Line;
 typedef struct {char *data;unsigned length,capacity;int overflow;} Output;
 enum {OTHER,XMS,EMS,FILES,BUFFERS,FD98_MARK,FD98_CMD,KXMS,KGUI};
+
+unsigned kg_settings_config_flags(const KgBootSettings *s){
+ return (s->xms?K32_BOOT_XMS:0)|(s->ems?K32_BOOT_EMS:0)|(s->files<<8)|(s->buffers<<16);
+}
+int kg_settings_decode(KgBootSettings *next,const KgBootSettings *old,unsigned startup,unsigned flags){
+ *next=*old;
+ if(startup){
+  if(flags&~K32_BOOT_FD98)return -22;
+  next->fd98=!!(flags&K32_BOOT_FD98);return 0;
+ }
+ if(flags&~0xffff03u)return -22;
+ next->xms=!!(flags&K32_BOOT_XMS);next->ems=!!(flags&K32_BOOT_EMS);
+ next->files=(flags>>8)&255;next->buffers=(flags>>16)&255;
+ if(next->ems&&!next->xms)return -22;
+ if(next->files!=old->files&&(next->files<20||next->files>60))return -22;
+ if(next->buffers!=old->buffers&&next->buffers!=8&&next->buffers!=16)return -22;
+ return 0;
+}
 
 static int white(char c){return c==' '||c=='\t';}
 static char upper(char c){return c>='a'&&c<='z'?c-32:c;}

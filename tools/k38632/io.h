@@ -17,6 +17,9 @@ _Static_assert(sizeof(K32Io)==64,"common file request");
 enum {K32_FS_LIST=1,K32_FS_NEXT,K32_FS_OPEN,K32_FS_CREATE,K32_FS_MKDIR,
  K32_FS_MOVE,K32_FS_TRASH,K32_FS_RESTORE,K32_FS_BOOT_OPEN,K32_FS_BOOT_WRITE};
 #define K32_FS_LIST_TRASH 1u
+#define K32_BOOT_XMS 1u
+#define K32_BOOT_EMS 2u
+#define K32_BOOT_FD98 4u
 typedef struct {
  unsigned version,size,action,flags,token,length,hash;
  char path[K32_FS_PATH],destination[K32_FS_PATH];

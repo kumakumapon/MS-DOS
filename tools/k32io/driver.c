@@ -1,10 +1,12 @@
 /* Serialized DOS broker. User pointers/authority are checked by K32RUN/HOST.
  * Each call performs at most one 4 KiB data read/write, never a whole-file scan. */
 #include "../k38632/io.h"
+#include "../k38632/boot-settings.h"
 #include "../k38632/services.h"
 #include "../filer/verified-disk.h"
 #include "../window/hardware.h"
 extern unsigned short io_sender_segment,io_sender_offset;
+extern unsigned char __io_stack_guard[];
 extern unsigned io_old_vector;extern void io_api(void);
 #define DOS_PATH 64
 typedef struct {int h;unsigned token,bytes,position,lock;} File;
@@ -145,7 +147,9 @@ static int advance(Owner *o){
 static int dispatch(Owner *o,K32Io *r){
  if(r->operation==K32_IO_FS){
   if(r->version!=1||r->size!=sizeof *r||r->flags||r->reserved||r->bytes!=sizeof(K32Fs))return -22;
-  int e=filesystem(o,(K32Fs *)buffer);return e<0?e:(int)sizeof(K32Fs);
+  K32Fs fs;copy(&fs,buffer,sizeof fs);
+  int e=filesystem(o,&fs);if(e<0)return e;
+  copy(buffer,&fs,sizeof fs);return sizeof fs;
  }
  int e=k32_io_validate(r);if(e)return e;
  if(r->operation<=K32_IO_OPEN||r->operation==K32_IO_BEGIN||r->operation==K32_IO_RECOVER){e=ready(o);if(e)return e;}
@@ -179,7 +183,7 @@ void io_dispatch(void){
  K32IoPacket p;mem_copy(self,(unsigned)&p,io_sender_segment,io_sender_offset,sizeof p);p.result=-22;
  unsigned short msw;__asm__ volatile("smsw %0":"=r"(msw));
  if(p.version!=1||p.size!=sizeof p||(msw&1)||mem_get(indos_segment,indos_offset)||p.owner<0x100000||p.owner>=0x2000000||(p.owner&4095)||!p.epoch||p.operation<1||p.operation>3)goto done;
- for(unsigned i=0;i<16;i++)if(mem_get(self,0x5400+i)!=0xa5)io_record.stack_ok=0;
+ for(unsigned i=0;i<16;i++)if(mem_get(self,(unsigned)__io_stack_guard+i)!=0xa5)io_record.stack_ok=0;
  if(!io_record.stack_ok){p.result=-75;goto done;}
  io_record.calls++;io_record.busy=1;
  unsigned previous,a=0x6200;__asm__ volatile("int $0x21":"+a"(a),"=b"(previous)::"cc","memory");a=0x5000;__asm__ volatile("int $0x21":"+a"(a):"b"(psp):"cc","memory");
@@ -207,7 +211,7 @@ int io_install(void){
  unsigned short seg;unsigned off;a=0x3400;__asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(off)::"cc","memory");indos_segment=seg;indos_offset=off&65535;
  a=0x352f;__asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(off)::"cc","memory");io_old_vector=(unsigned)seg<<16|(off&65535);
  a=0x252f;__asm__ volatile("int $0x21":"+a"(a):"d"((unsigned)io_api):"ebx","ecx","esi","edi","cc","memory");
- for(unsigned i=0;i<16;i++)mem_put(self,0x5400+i,0xa5);
+ for(unsigned i=0;i<16;i++)mem_put(self,(unsigned)__io_stack_guard+i,0xa5);
  io_record.owner=self;io_record.ready=io_record.stack_ok=1;return 1;
 }
 #endif

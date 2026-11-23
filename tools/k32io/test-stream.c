@@ -72,14 +72,22 @@ static void test_management(Owner *o){
  }
  f=fs_request(K32_FS_BOOT_OPEN,"IO.SYS","");
  assert(filesystem(o,&f)==-22);
- int h=open_path("A:\\CONFIG.SYS",1);memcpy(buffer,"original",8);
- assert(data_io(h,8,1)==8&&!close_handle(h));
+ const char original[]="FILES=20\r\nBUFFERS=8\r\nREM keep\r\n";
+ const char updated[]="FILES=21\r\nBUFFERS=8\r\nREM keep\r\n";
+ int h=open_path("A:\\CONFIG.SYS",1);memcpy(buffer,original,sizeof original-1);
+ assert(data_io(h,sizeof original-1,1)==sizeof original-1&&!close_handle(h));
  f=fs_request(K32_FS_BOOT_WRITE,"CONFIG.SYS","");
- f.length=8;f.hash=digest("original",8)^1;assert(!filesystem(o,&f));
- tx=request(K32_IO_WRITE,0);tx.token=f.token;tx.bytes=3;memcpy(buffer,"new",3);
- assert(dispatch(o,&tx)==3&&commit(o,&tx)==-116);
- abort_request(o,&tx,1);
- assert(find("A:\\CONFIG.TMP")>=0&&!memcmp(disk[find("A:\\CONFIG.SYS")].data,"original",8));
+ f.length=sizeof original-1;f.hash=digest(original,f.length)^1;
+ f.flags=kg_settings_config_flags(&(KgBootSettings){.files=21,.buffers=8});
+ assert(filesystem(o,&f)==-116&&find("A:\\CONFIG.TMP")<0);
+ f.hash^=1;f.flags|=K32_BOOT_EMS;assert(filesystem(o,&f)==-22);
+ f.flags&=~K32_BOOT_EMS;
+ assert(!filesystem(o,&f)&&!f.token&&!f.flags);
+ assert(!memcmp(disk[find("A:\\CONFIG.SYS")].data,updated,sizeof updated-1));
+ assert(find("A:\\CONFIG.TMP")<0&&find("A:\\CONFIG.BAK")<0);
+ f.hash=digest(updated,sizeof updated-1);f.flags=kg_settings_config_flags(&(KgBootSettings){.files=22,.buffers=8});
+ fail_rename=renames+2;assert(filesystem(o,&f)==-5);
+ assert(find("A:\\CONFIG.TMP")>=0&&!memcmp(disk[find("A:\\CONFIG.SYS")].data,updated,sizeof updated-1));
 }
 int main(void){
  char p[24];assert(!k32_io_path(1,"abc.bin",2,p)&&!strcmp(p,"B:\\WORK\\ABC.BAK"));
