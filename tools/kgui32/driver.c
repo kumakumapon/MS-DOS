@@ -1,6 +1,7 @@
 /* Dedicated desktop context. Shared CPU engine, independent DOS allocation,
  * stacks, page tables and XMS owner; neither application slot is a GUI slot. */
 #include "gui.h"
+#include "sdk/protocol.h"
 #include "../k38632/services.h"
 #include "../window/hardware.h"
 #include "../window/k386_client.h"
@@ -24,7 +25,7 @@ enum {GUI_SCRATCH_BYTES=28*1024};
 _Static_assert(GUI_SCRATCH_BYTES>=800*2,"one maximum RGB565 row fits");
 static unsigned head,count,segment,scratch,tables,started,quit;
 static u32 last_schedule,last_timer;
-static unsigned expanded_here;
+static unsigned expanded_here,alt_f4_down;
 unsigned manager,owned[4],session_focus;u32 owned_generation[4];
 extern int gui_video_read(u32,unsigned);
 extern int gui_session(u32,unsigned),gui_snapshot(u32,unsigned),kg_clients_start(void),kg_clients_snapshot(u32,unsigned),kg_clients_event(u32,unsigned);
@@ -80,11 +81,25 @@ static void pump(void){
    enqueue((GuiEvent){.type=m.buttons!=previous.buttons?GUI_BUTTON:GUI_MOTION,.x=m.x,.y=m.y,.buttons=m.buttons,.ticks=m.ticks});
   previous=m;if(!mouse_queued())break;
  }
+ /* PC-98 BIOS suppresses the buffered F4 character under GRPH. Read
+  * the keyboard's F-key group and emit the close chord on the down edge. */
+ unsigned mods=input_modifiers(),pressed=0;
+ if(mods&KG_MOD_ALT){
+  unsigned a=0x040c;
+  __asm__ volatile("int $0x18":"+a"(a)::"ebx","ecx","edx","cc","memory");
+  pressed=!!(a&0x2000); /* Make code 65h = group 0Ch, bit 5. */
+ }
+ if(pressed&&!alt_f4_down){
+  gui_record.last_key=KEY_F1+3;
+  enqueue((GuiEvent){.type=GUI_KEY,.key=KEY_F1+3,.x=previous.x,.y=previous.y,.buttons=mods,.ticks=input_ticks()});
+ }
+ alt_f4_down=pressed;
  for(unsigned n=0;n<16&&key_ready();n++){
-  unsigned k=key_read();gui_record.last_key=k;
+  unsigned k=key_read(),m=key_modifiers();gui_record.last_key=k;
+  if(pressed&&k==KEY_F1+3&&(m&KG_MOD_ALT))continue;
   extern int kg_clients_close_guard(void);
   if(k==7||(k==KEY_F1+9&&!kg_clients_close_guard())||(k==27&&!session_focus))quit=1;
-  else enqueue((GuiEvent){.type=GUI_KEY,.key=k,.x=previous.x,.y=previous.y,.buttons=key_modifiers(),.ticks=input_ticks()});
+  else enqueue((GuiEvent){.type=GUI_KEY,.key=k,.x=previous.x,.y=previous.y,.buttons=m,.ticks=input_ticks()});
  }
 }
 static int event(u32 pointer,unsigned bytes){
@@ -124,6 +139,7 @@ static int present(u32 pointer,unsigned bytes){
  }
  gfx_present(r.x,r.y,r.width,r.height);gui_record.presents++;return 0;
 }
+static unsigned reboot_requested;
 static int dispatch(void){
  unsigned nr=loader_request;u32 b=context[8],c=context[10];
  if(nr<64)return services_dispatch();
@@ -148,8 +164,11 @@ static int dispatch(void){
  case GUI_CLIENT_EVENT:error=kg_clients_event(b,c);break;
  case GUI_SURFACE_ACK:error=kg_clients_surface_ack(b,c);break;
  case GUI_VIDEO_READ:error=gui_video_read(b,c);break;
+ case GUI_DESKTOP_CLOCK:{extern unsigned kg_clients_time(void);error=b||c?-22:(int)kg_clients_time();break;}
+ case GUI_REBOOT:error=b||c?-22:0;if(!error)reboot_requested=1;break;
+ case GUI_IMAGE_CLIP:{extern int kg_image_clip_register(u32,unsigned);error=kg_image_clip_register(b,c);break;}
  case GUI_PREFERENCES_REV:{extern unsigned kg_preferences_revision;error=b||c?-22:(int)kg_preferences_revision;break;}
- case GUI_LANGUAGE:{extern unsigned kg_language;error=b>1||c?-22:0;if(!error)kg_language=b;break;}
+ case GUI_LANGUAGE:{extern unsigned kg_language;error=b>3||c?-22:0;if(!error)kg_language=b;break;}
  default:gui_record.unknown++;return -38;
  }if(error<0)gui_record.rejected++;return error;
 }
@@ -210,5 +229,9 @@ done:
  gui_record.completed=1;
  gui_record.ready=0;gui_record.busy=0;
  p_output(gui_record.error?"KGUI32 REFUSED/FAILED\r\n":gui_record.state==4?"KGUI32 FAULT: resources reclaimed\r\n":"KGUI32 DONE: resources reclaimed\r\n");
+ if(reboot_requested&&!gui_record.error&&gui_record.state==3){
+  unsigned a=0x0d00; /* Flush DOS buffers after the last transaction. */
+  __asm__ volatile("int $0x21; xorb %%al,%%al; outb %%al,$0xf0":"+a"(a)::"ebx","ecx","edx","esi","edi","cc","memory");
+ }
  return gui_record.error||gui_record.state==4?1:0;
 }

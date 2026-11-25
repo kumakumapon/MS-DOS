@@ -195,6 +195,12 @@ static void shell_and_layout(void){
  assert(scene_event(&s,&alt_tab)==ACT_NOTICE_INPUT&&s.shell_page==SHELL_SWITCH);
  GuiEvent timer={.type=GUI_TIMER};scene_event(&s,&timer);
  assert(!s.shell_page&&s.active==2);
+ GuiEvent keys={.type=GUI_KEY,.key=11,.buttons=KG_MOD_SHIFT|KG_MOD_CTRL};
+ assert(scene_event(&s,&keys)==ACT_NOTICE_INPUT&&s.shell_page==SHELL_KUMA);
+ key(&s,27);
+ keys.key=258;keys.buttons=KG_MOD_ALT;scene_event(&s,&keys);
+ assert(s.placement[0]==2&&s.window[2].r.x==8);
+ keys.key=257;scene_event(&s,&keys);assert(!s.placement[0]);
  s.window[2].r=(Rect){385,120,400,280};
  WindowLayout layout={0};layout_validate(&layout);
  assert(layout_remember(&layout,&s,2,"KGCALC.EXE"));

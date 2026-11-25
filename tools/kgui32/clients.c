@@ -11,6 +11,8 @@ extern void kg_gate(void);
 extern u32 kg_old_vector;extern u16 kg_sender_segment,kg_sender_offset;
 unsigned kg_language,kg_preferences_revision;
 int kg_clients_command(unsigned,char *,unsigned);
+int kg_image_clip_request(KgRequest *,unsigned,u32);
+void kg_image_clip_drop(unsigned,u32);
 /* Pump process work only after returning from K32HOST, never inside INT 2F. */
 void kg_process_tick(void){
  unsigned a=0xd3a0,b=0,di;u16 es;
@@ -37,6 +39,7 @@ int kg_clients_command(unsigned id,char *path,unsigned write){
 }
 static unsigned clipboard(void){return k386_capacity()*4096;}
 static u32 serial,seconds,last_clock,clip_bytes,dos_date;
+unsigned kg_clients_time(void){return seconds;}
 volatile struct {
  char signature[8];u32 version,size,owner,arena,old_vector,vector,ready,requests,rejected;
  u32 generation[2],token[2],revision[2],events[2],dropped[2];
@@ -100,7 +103,7 @@ void kg_dispatch(void){
  p.result=-22;
  if(p.version!=1||p.size!=sizeof p||p.slot>=k386_capacity())goto done;
  id=p.slot;load(id);
- if(!p.operation){if(client.generation==p.generation){client.surface=client.extra_surface=(KgSurface){0};client.edit_pending=0;client.token=0;client.input_flags=0;client.revision++;client.head=client.count=0;}p.result=0;goto done;}
+ if(!p.operation){kg_image_clip_drop(id+1,p.generation);if(client.generation==p.generation){client.surface=client.extra_surface=(KgSurface){0};client.edit_pending=0;client.token=0;client.input_flags=0;client.revision++;client.head=client.count=0;}p.result=0;goto done;}
  if(p.operation!=1||p.bytes!=sizeof(KgRequest)||p.request>65536-sizeof(KgRequest))goto done;
  if(!owned[id]||owned_generation[id]!=p.generation){p.result=-1;goto done;}
  KgRequest *r=(KgRequest *)loader_buffer;
@@ -111,8 +114,13 @@ void kg_dispatch(void){
  p.result=kg_policy(&client,r,p.generation,&serial,gui_record.width,gui_record.height);
  if(p.result>=0){
   r->slot=id;r->generation=p.generation;r->revision=client.revision;r->event.seconds=seconds;
-  if(r->operation==KG_POLL&&(client.input_flags&KG_INPUT_LANGUAGE)&&kg_language)r->event.control|=KG_LANGUAGE_JA;
+  if(r->operation==KG_POLL&&(client.input_flags&KG_INPUT_LANGUAGE)){
+   if(kg_language&1)r->event.control|=KG_LANGUAGE_JA;
+   if(kg_language&2)r->event.control|=KG_LARGE_TEXT;
+  }
   if(r->operation==KG_DATE)p.result=(int)dos_date;
+  if(r->operation==KG_CLOSE)kg_image_clip_drop(id+1,p.generation);
+  if(r->operation>=KG_IMAGE_COPY_BEGIN)p.result=kg_image_clip_request(r,id+1,p.generation);
   if(r->operation==KG_PREFERENCES_CHANGED)kg_preferences_revision=(kg_preferences_revision+1)&0x7fffffffu;
   if(r->operation==KG_CLIP_SET){clip_bytes=r->count;mem_copy(arena,clipboard(),self,(unsigned)r->draw,clip_bytes);}
   if(r->operation==KG_CLIP_GET){unsigned n=r->count<clip_bytes?r->count:clip_bytes;mem_copy(self,(unsigned)r->draw,arena,clipboard(),n);p.result=n;}
@@ -123,7 +131,7 @@ void kg_dispatch(void){
   }
   if(r->operation==KG_FRAME||kg_surface_operation(r->operation))mem_copy(arena,id*4096,self,(unsigned)r,sizeof *r);
   if(r->operation==KG_OPEN)mem_fill(arena,id*4096,sizeof *r,0);
-  unsigned output=kg_reply_bytes(r->operation);mem_copy(host_segment,p.request,self,(unsigned)r,output);kg_transfer.reply_bytes+=output;
+  if(p.result>=0){unsigned output=kg_reply_bytes(r->operation);mem_copy(host_segment,p.request,self,(unsigned)r,output);kg_transfer.reply_bytes+=output;}
  }
  if(r->operation==KG_SURFACE_STATUS){kg_transfer.status_requests++;kg_transfer.status_bytes+=input+(p.result>=0?kg_reply_bytes(r->operation):0);}
  if(r->operation==KG_SURFACE_UPLOAD){kg_transfer.uploads++;kg_transfer.upload_bytes+=input+(p.result>=0?kg_reply_bytes(r->operation):0);}

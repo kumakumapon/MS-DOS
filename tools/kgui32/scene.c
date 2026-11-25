@@ -137,6 +137,11 @@ int scene_event(Scene *s,const GuiEvent *e){
  if(e->type==GUI_KEY){
   if(e->key==289)return ACT_EXIT;
   int shell=shell_key(s,e);if(shell>=0)return shell;
+  if((e->buttons&KG_MOD_ALT)&&s->active>=2){
+   int id=s->active;
+   if(e->key==283){s->slot=id-2;scene_close(s,id);return ACT_END;}
+   if(e->key>=256&&e->key<=259){static const unsigned mode[]={1,0,2,3};place_window(s,id,mode[e->key-256]);return ACT_NONE;}
+  }
   if(e->key==281){if(s->help)launcher_page(s,LAUNCHER_APPS);scene_focus(s,0);return ACT_NONE;}
   if(s->active==0&&e->key==280){launcher_page(s,s->help?LAUNCHER_APPS:LAUNCHER_GUIDE);return ACT_NONE;}
   if(s->active==0&&e->key==27&&s->help){launcher_page(s,s->help==LAUNCHER_GALLERY?LAUNCHER_GUIDE:LAUNCHER_APPS);return ACT_NONE;}

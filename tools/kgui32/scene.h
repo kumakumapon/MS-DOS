@@ -1,6 +1,7 @@
 #ifndef KGUI32_SCENE_H
 #define KGUI32_SCENE_H
 #include "gui.h"
+#include "sdk/protocol.h"
 typedef struct {int x,y,w,h;} Rect;
 typedef struct {Rect r;int open,hidden;} GuiWindow;
 enum {
@@ -16,8 +17,10 @@ typedef struct {
  unsigned notice,notice_click;
  unsigned shell_page,shell_selected,shell_top,shell_length,shell_swallow,shell_alt;
  char shell_query[28];
+ unsigned app_pins,app_recent[12],recent_apps,document_index;
+ const volatile KgRecentDocument *documents;
 } Scene;
-enum {ACT_NONE,ACT_EXIT,ACT_START,ACT_STOP,ACT_NEW,ACT_RUN,ACT_KEY,ACT_END,ACT_PAUSE,ACT_RESUME,ACT_RESTART,ACT_SCROLL,ACT_CALCULATOR,ACT_CLOCK,ACT_SHELL,ACT_FILES,ACT_EDITOR,ACT_IMAGE,ACT_WORDS,ACT_SHELL32,ACT_CALENDAR,ACT_SETTINGS,ACT_MEMO,ACT_NOTICE_INPUT};
+enum {ACT_NONE,ACT_EXIT,ACT_START,ACT_STOP,ACT_NEW,ACT_RUN,ACT_KEY,ACT_END,ACT_PAUSE,ACT_RESUME,ACT_RESTART,ACT_SCROLL,ACT_CALCULATOR,ACT_CLOCK,ACT_SHELL,ACT_FILES,ACT_EDITOR,ACT_IMAGE,ACT_WORDS,ACT_SHELL32,ACT_CALENDAR,ACT_SETTINGS,ACT_MEMO,ACT_NOTICE_INPUT,ACT_REBOOT,ACT_OPEN_RECENT,ACT_PIN_CHANGED};
 enum { LAUNCHER_BUTTONS=10, LAUNCHER_HINT_Y=258 };
 enum { LAUNCHER_APPS, LAUNCHER_GUIDE, LAUNCHER_GALLERY };
 Rect scene_launcher_button(unsigned index);

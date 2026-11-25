@@ -5,7 +5,7 @@
 #define KG_PREFERENCES_FILE "KGUIPREF.DAT"
 
 enum { KG_THEME_CLASSIC, KG_THEME_CONTRAST };
-typedef struct { unsigned language,theme,ime; } KgPreferences;
+typedef struct { unsigned language,theme,ime,large; } KgPreferences;
 
 int kg_state_read(const char *,void *,unsigned,K32Revision *);
 int kg_preferences_load(KgPreferences *,K32Revision *);

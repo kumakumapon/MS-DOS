@@ -414,7 +414,7 @@ static int io_dispatch(u32 pointer,unsigned n){
   * and revision checks as a client. It cannot use the general Work API. */
  if(r.operation<K32_IO_STAT||r.operation>K32_IO_ABORT||r.flags>1)return -13;
  if((r.operation<=K32_IO_OPEN||r.operation==K32_IO_BEGIN)&&
-    !gui_state_name(r.name,KG_PREFERENCES_FILE)&&!gui_state_name(r.name,KG_LAYOUT_FILE))return -13;
+    !gui_state_name(r.name,KG_PREFERENCES_FILE)&&!gui_state_name(r.name,KG_LAYOUT_FILE)&&!gui_state_name(r.name,KG_PINS_FILE))return -13;
  #endif
  if(r.operation>=KP_INFO){if(!(loader_plan.features&K32_FEATURE_PROCESS))return -38;if(r.bytes>256)return -22;}
  unsigned reading=r.operation==K32_IO_FS||r.operation==K32_IO_READ||r.operation==KP_READ||r.operation==KP_RECEIVE;

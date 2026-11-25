@@ -2,6 +2,7 @@
 #include "../sdk/preferences.h"
 #include "../sdk/editor.h"
 #include "../sdk/picker.h"
+#include "../../k38632/sdk/libc.h"
 #include "../document.h"
 #include "../sdk/recovery.h"
 #include "../sdk/text.h"
@@ -14,7 +15,7 @@ static const char *notice,*find_note;
 static unsigned lines[KE_BYTES+1],line_count,top,cols,rows,drag,mark,mode,pending;
 static unsigned in_work;static K32Work revision,save_request;
 static K32WorkInfo destination;
-static char filename[13],clipboard[1024],load_buffer[KE_BYTES];
+static char filename[13],file_path[K32_FS_PATH],save_path[K32_FS_PATH],clipboard[1024],load_buffer[KE_BYTES];
 static KiIme ime;static KiDictionary ime_dictionary;
 static KiDictionary user_dictionary;static KiStore user_store;
 static unsigned char dictionary_bytes[KI_DICTIONARY];
@@ -46,7 +47,12 @@ volatile struct {u32 magic,version,frames,events,bytes,hash,cursor,anchor,dirty,
  u32 ime_magic,ime_scheme,ime_script,ime_bytes,ime_pending,ime_cursor,ime_candidates,ime_selected,ime_selecting,ime_target,ime_dictionary,ime_hash;
  u32 user_readings,user_error;
 } editor_stats __attribute__((section(".data.gui_stats")))={.magic=0x3345474b,.version=4,.ime_magic=0x31454d49};
-static void layout(void){cols=(kg_width()-48)/8;if(cols>92)cols=92;rows=(kg_height()-80)/16;if(rows>21)rows=21;}
+static unsigned cell_width,line_height;
+static void layout(void){
+ cell_width=kg_large_text()?16:8;line_height=cell_width*2;
+ cols=(kg_width()-48)/cell_width;if(cols>92)cols=92;
+ rows=(kg_height()-80)/line_height;if(rows>21)rows=21;
+}
 static void budget_rows(void){
  KeVersion *v=ke_view(&doc);unsigned used=0,limit=rows,actual=0;
  for(unsigned row=0;row<limit;row++){unsigned cost=0;if(row+top<line_count){unsigned a=lines[row+top],b=row+top+1<line_count?lines[row+top+1]:v->n;if(b>a&&v->text[b-1]=='\n')b--;while(a<b){a+=kt_prefix(v->text+a,b-a,47);cost++;}}
@@ -159,20 +165,41 @@ static int ime_draw(void){
  kw_label(8,h-18,ime.note?ime.note:ime.selecting?status:"F6: hira / F7: kata / Esc: cancel",(w-16)/8,0x20344a);return kg_present();
 }
 static unsigned content_hash(const char *s,unsigned n){unsigned h=2166136261u;for(unsigned i=0;i<n;i++)h=(h^(unsigned char)s[i])*16777619u;return h;}
-static void load(const char *name,unsigned work){
- K32Work before=k32_work_name(K32_WORK_STAT,name);if(work&&k32_work(&before)<0){message="Cannot inspect workspace file";return;}
+static void remember_path(char *out,const char *path){
+ if(!path){out[0]=0;return;}k32_memcpy(out,path,k32_len(path)+1);
+}
+static void load_file(const char *name,unsigned work,const char *path,unsigned volume){
+ K32Work before=k32_work_name(K32_WORK_STAT,name);
+ if(work&&!path&&k32_work(&before)<0){message="Cannot inspect workspace file";return;}
  K32Work opened=k32_work_name(K32_WORK_OPEN,name);
- int h=work?k32_work(&opened):k32_open(name);if(h<0){message="Cannot open file";return;}unsigned n=0;int error=0;
- while(n<KE_BYTES){int got=k32_read(h,load_buffer+n,KE_BYTES-n>4096?4096:KE_BYTES-n);if(got<0){error=got;break;}if(!got)break;n+=got;}
- if(!error&&n==KE_BYTES){char extra;int got=k32_read(h,&extra,1);if(got)error=-27;}
- int closed=k32_close(h);if(!error&&closed<0)error=closed;
- if(work&&!error&&(!before.exists||before.length!=n||before.hash!=content_hash(load_buffer,n)))error=-116;
+ unsigned size=0;
+ int h=path?k32_fs_read(path,volume,&size):work?k32_work(&opened):k32_open(name);
+ if(h<0){message="Cannot open file";return;}
+ unsigned n=0;int error=path&&size>KE_BYTES?-27:0;
+ while(!error&&n<KE_BYTES){
+  unsigned want=KE_BYTES-n>4096?4096:KE_BYTES-n;
+  int got=path?k32_io_read(h,load_buffer+n,want):k32_read(h,load_buffer+n,want);
+  if(got<0){error=got;break;}if(!got)break;n+=got;
+ }
+ if(!error&&n==KE_BYTES){
+  char extra;int got=path?k32_io_read(h,&extra,1):k32_read(h,&extra,1);
+  if(got)error=got<0?got:-27;
+ }
+ int closed=path?k32_io_close(h):k32_close(h);
+ if(!error&&closed<0)error=closed;
+ if(path){
+  if(!error&&n!=size)error=-116;
+  if(work){before.exists=1;before.length=n;before.hash=content_hash(load_buffer,n);}
+ }else if(work&&!error&&(!before.exists||before.length!=n||before.hash!=content_hash(load_buffer,n)))error=-116;
  if(error||ke_load(&doc,load_buffer,n)){message="Open failed: Shift-JIS, max 64 KiB";editor_stats.error=error?-error:22;return;}
  for(unsigned i=0;i<13;i++){filename[i]=name[i];if(!name[i])break;}
+ remember_path(file_path,work?path:0);
  in_work=work;revision=before;
  kp_workspace_info(&destination);
  top=0;index_lines(1);
+ kg_note_document(path?path:name,work?0:volume?volume:1,0);
 }
+static void load(const char *name,unsigned work){load_file(name,work,0,0);}
 static void memo_open(void){
  static const char note[]="NOTE.TXT";
  K32Work before=k32_work_name(K32_WORK_STAT,note);
@@ -184,7 +211,7 @@ static void memo_open(void){
 }
 static int perform(unsigned what){
  if(what==1)return 1;
- if(what==2){ke_load(&doc,"",0);filename[0]=0;in_work=0;top=0;index_lines(1);}
+ if(what==2){ke_load(&doc,"",0);filename[0]=file_path[0]=0;in_work=0;top=0;index_lines(1);}
  if(what==3){kp_open(&picker);mode=1;}
  return 0;
 }
@@ -194,22 +221,25 @@ static int commit_save(void){
  KeVersion *v=ke_view(&doc);int serialized=ke_serialize(&doc,load_buffer,sizeof load_buffer);
  if(serialized<0){mode=0;editor_stats.error=-serialized;message="Serialized text exceeds 64 KiB";cancel_pending();return 0;}
  save_request.operation=K32_WORK_SAVE;save_request.flags=v->crlf?K32_WORK_CRLF:0;save_request.data=(unsigned)load_buffer;save_request.bytes=serialized;
- int e=k32_work(&save_request);mode=0;kp_workspace_info(&destination);
+ K32Revision old={save_request.exists,save_request.length,save_request.hash};
+ int e=save_path[0]?k32_fs_save(save_path,load_buffer,serialized,&old):k32_work(&save_request);
+ mode=0;kp_workspace_info(&destination);
  if(e<0){editor_stats.error=-e;recovery_suggested=e==-117||e==-17;message=e==-116?"File changed: reopen or Save As":e==-28?"Disk full: document kept":e==-117?"Recovery needed: keep TMP/BAK":e==-17?"Reserved TMP exists: use another name":"Save failed: document kept";cancel_pending();return 0;}
  for(unsigned i=0;i<13;i++){filename[i]=save_request.name[i];if(!filename[i])break;}
- in_work=1;revision=save_request;revision.exists=1;revision.length=serialized;revision.hash=content_hash(load_buffer,serialized);ke_saved(&doc);editor_stats.error=0;recovery_suggested=0;
+ remember_path(file_path,save_path);in_work=1;revision=save_request;revision.exists=1;revision.length=serialized;revision.hash=content_hash(load_buffer,serialized);ke_saved(&doc);editor_stats.error=0;recovery_suggested=0;
+ kg_note_document(file_path[0]?file_path:filename,0,0);
  unsigned next=pending;pending=0;if(next)return perform(next);
  if(e==1)message="Saved; old BAK retained for recovery";
  return 0;
 }
 static int save(int as){
  drag=mark=0;
- if(!as&&in_work&&filename[0]){save_request=revision;return commit_save();}
+ if(!as&&in_work&&filename[0]){save_request=revision;remember_path(save_path,file_path);return commit_save();}
  int bytes=ke_serialize(&doc,load_buffer,sizeof load_buffer);if(bytes<0){message="Serialized text exceeds 64 KiB";editor_stats.error=-bytes;cancel_pending();return 0;}
  kp_save_size(&picker,in_work?filename:"",bytes);mode=3;return 0;
 }
 static void copy_selection(int cut){KeVersion *v=ke_view(&doc);unsigned a=v->anchor<v->cursor?v->anchor:v->cursor,b=v->anchor>v->cursor?v->anchor:v->cursor;if(b-a>1024){message="Clipboard limit: 1024 bytes";return;}if(b==a)return;if(kg_clip_set(v->text+a,b-a)<0){message="Clipboard unavailable";return;}if(cut)ke_replace(&doc,"",0);}
-static unsigned hit(const KgEvent *e){unsigned r=top+(e->y<40?0:(unsigned)(e->y-40)/16);if(r>=line_count)return ke_view(&doc)->n;unsigned col=e->x<8?0:(unsigned)(e->x-8)/8;if(col>cols)col=cols;unsigned at=lines[r]+col,end=r+1<line_count?lines[r+1]:ke_view(&doc)->n;KeVersion *v=ke_view(&doc);if(end>lines[r]&&v->text[end-1]=='\n')end--;return kt_floor(v->text,v->n,at>end?end:at);}
+static unsigned hit(const KgEvent *e){unsigned r=top+(e->y<40?0:(unsigned)(e->y-40)/line_height);if(r>=line_count)return ke_view(&doc)->n;unsigned col=e->x<8?0:(unsigned)(e->x-8)/cell_width;if(col>cols)col=cols;unsigned at=lines[r]+col,end=r+1<line_count?lines[r+1]:ke_view(&doc)->n;KeVersion *v=ke_view(&doc);if(end>lines[r]&&v->text[end-1]=='\n')end--;return kt_floor(v->text,v->n,at>end?end:at);}
 static void edit_key(unsigned k,unsigned modifiers){
  KeVersion *v=ke_view(&doc);unsigned at=v->cursor,r=row_at(at),col=at-lines[r];
  if(k==1){ke_select(&doc,0,v->n);return;}
@@ -269,10 +299,10 @@ static void selection_rects(unsigned a,unsigned b){
  if(a==b)return;
  unsigned first=row_at(a),last=row_at(b),lo=first>top?first:top,hi=last<top+rows?last:top+rows-1;if(lo>hi)return;
  unsigned x=a-lines[first],z=b-lines[last];if(x>cols)x=cols;if(z>cols)z=cols;
- if(lo==hi){unsigned l=lo==first?x:0,r=lo==last?z:cols;if(r>l)kg_rect(8+l*8,40+(lo-top)*16,(r-l)*8,16,0xb4d6f0);return;}
- if(lo==first&&x){kg_rect(8+x*8,40+(lo-top)*16,(cols-x)*8,16,0xb4d6f0);lo++;}
- if(hi==last&&z<cols){if(z)kg_rect(8,40+(hi-top)*16,z*8,16,0xb4d6f0);hi--;}
- if(lo<=hi)kg_rect(8,40+(lo-top)*16,cols*8,(hi-lo+1)*16,0xb4d6f0);
+ if(lo==hi){unsigned l=lo==first?x:0,r=lo==last?z:cols;if(r>l)kg_rect(8+l*cell_width,40+(lo-top)*line_height,(r-l)*cell_width,line_height,0xb4d6f0);return;}
+ if(lo==first&&x){kg_rect(8+x*cell_width,40+(lo-top)*line_height,(cols-x)*cell_width,line_height,0xb4d6f0);lo++;}
+ if(hi==last&&z<cols){if(z)kg_rect(8,40+(hi-top)*line_height,z*cell_width,line_height,0xb4d6f0);hi--;}
+ if(lo<=hi)kg_rect(8,40+(lo-top)*line_height,cols*cell_width,(hi-lo+1)*line_height,0xb4d6f0);
 }
 static int draw(void){
  kg_menu_enable(!mode&&!message&&!ki_active(&ime));layout();budget_rows();report();if(ki_active(&ime))return ime_draw();if(mode==1||mode==3)return kp_draw(&picker);if(mode==5)return search_draw();if(mode==6)return kr_draw(&recovery);if(mode==7)return tools_draw();
@@ -302,10 +332,12 @@ static int draw(void){
  selection_rects(a,b);
  for(unsigned i=0;i<rows&&i+top<line_count;i++){
   unsigned start=lines[i+top],end=i+top+1<line_count?lines[i+top+1]:v->n;if(end>start&&v->text[end-1]=='\n')end--;
-  for(unsigned part=0;start+part<end;){char text[48];unsigned n=kt_prefix(v->text+start+part,end-start-part,47);for(unsigned j=0;j<n;j++){char c=v->text[start+part+j];text[j]=c=='\t'?' ':c;}text[n]=0;kg_text(8+part*8,40+i*16,text,0x20344a);part+=n;}
+  for(unsigned part=0;start+part<end;){char text[48];unsigned n=kt_prefix(v->text+start+part,end-start-part,47);for(unsigned j=0;j<n;j++){char c=v->text[start+part+j];text[j]=c=='\t'?' ':c;}text[n]=0;if(cell_width==16)kg_text_double(8+part*cell_width,40+i*line_height,text,0x20344a);
+   else kg_text(8+part*cell_width,40+i*line_height,text,0x20344a);
+   part+=n;}
  }
- unsigned r=row_at(v->cursor);if(r>=top&&r<top+rows){unsigned c=v->cursor-lines[r];if(c<cols)kg_rect(8+c*8,54+(r-top)*16,8,2,0x327ac0);}
- KwScroll scroll={.r={(int)w-28,40,20,(int)rows*16},.total=line_count,.rows=rows,.top=top};kw_draw_scroll(&scroll);
+ unsigned r=row_at(v->cursor);if(r>=top&&r<top+rows){unsigned c=v->cursor-lines[r];if(c<cols)kg_rect(8+c*cell_width,38+(r-top+1)*line_height,cell_width,2,0x327ac0);}
+ KwScroll scroll={.r={(int)w-28,40,20,(int)rows*line_height},.total=line_count,.rows=rows,.top=top};kw_draw_scroll(&scroll);
  char status[64];unsigned n=0;const char *parts[]={ke_dirty(&doc)?"Modified / ":"",v->crlf?"CRLF / ":"LF / ",!in_work&&filename[0]?"A: root":destination.root," / ",filename[0]?filename:"Untitled"};
  for(unsigned i=0;i<5;i++)for(unsigned j=0;parts[i][j]&&n<sizeof status-1;j++)status[n++]=parts[i][j];
  status[n]=0;kw_text(8,h-32,status,(w-16)/8,0x466581);
@@ -326,7 +358,13 @@ int main(int argc,char **argv){
  else if(argc>1){
   unsigned work=argc==3&&k32_len(argv[1])==4&&argv[1][0]=='w'&&argv[1][1]=='o'&&argv[1][2]=='r'&&argv[1][3]=='k';
   unsigned root=argc==3&&k32_len(argv[1])==4&&argv[1][0]=='r'&&argv[1][1]=='o'&&argv[1][2]=='o'&&argv[1][3]=='t';char command[64];
-  if((!root&&!work)||kg_document_command(work,argv[2],command)){message="Invalid document request";editor_stats.error=22;}
+  int recent=argc==3?kg_recent_volume(argv[1]):-1;
+  if(recent>=0){
+   const char *name=argv[2];
+   for(const char *c=argv[2];*c;c++)if(*c=='\\')name=c+1;
+   if(kg_document_command(!recent,name,command)){message="Invalid document request";editor_stats.error=22;}
+   else load_file(name,!recent,argv[2],recent);
+  }else if((!root&&!work)||kg_document_command(work,argv[2],command)){message="Invalid document request";editor_stats.error=22;}
   else load(argv[2],work);
  }
  int dirty=1,quit=0;
@@ -352,7 +390,18 @@ int main(int argc,char **argv){
     if(kw_button(2215,&e)||(e.type==KG_KEY&&e.key==27))mode=0;
    }
    else if(mode==2){if(kw_button(803,&e)||(e.type==KG_KEY&&e.key=='s')){mode=0;quit=save(0);}else if(kw_button(801,&e)||(e.type==KG_KEY&&e.key=='d')){mode=0;unsigned next=pending;pending=0;quit=perform(next);}else if(kw_button(802,&e)||(e.type==KG_KEY&&e.key==27)){mode=0;cancel_pending();}}
-   else if(mode==1||mode==3){unsigned was=mode;char name[13];int selected=kp_event(&picker,&e,name);if(selected){mode=0;if(selected<0)cancel_pending();else if(was==1)load(name,picker.work);else{save_request=k32_work_name(K32_WORK_STAT,name);int error=k32_work(&save_request);if(error<0){message="Workspace unavailable / file protected";editor_stats.error=-error;cancel_pending();}else if(save_request.exists)mode=4;else quit=commit_save();}}}
+   else if(mode==1||mode==3){unsigned was=mode;char name[13];int selected=kp_event(&picker,&e,name);if(selected){mode=0;if(selected<0)cancel_pending();else if(was==1)load_file(name,picker.work,picker.folder[0]||picker.volume>1?picker.target:0,picker.volume);
+    else{
+     remember_path(save_path,picker.folder[0]?picker.target:0);
+     save_request=k32_work_name(K32_WORK_STAT,name);
+     int error;
+     if(save_path[0]){
+      K32Revision old;error=k32_fs_revision(save_path,&old);
+      if(!error){save_request.exists=old.exists;save_request.length=old.length;save_request.hash=old.hash;}
+     }else error=k32_work(&save_request);
+     if(error<0){message="Workspace unavailable / file protected";editor_stats.error=-error;cancel_pending();}
+     else if(save_request.exists)mode=4;else quit=commit_save();
+    }}}
    else if(mode==4){if(kw_button(811,&e)||(e.type==KG_KEY&&e.key=='r'))quit=commit_save();else if(kw_button(812,&e)||(e.type==KG_KEY&&e.key==27)){mode=0;cancel_pending();}}
    else if(message){if(kw_button(627,&e)||(e.type==KG_KEY&&e.key==20))recover_open();else if(kw_dialog(&e))message=0;}
    else if(e.type==KG_KEY&&e.key==16640){ke_set_eol(&doc,0);index_lines(1);}
@@ -369,11 +418,11 @@ int main(int argc,char **argv){
    else if(kw_button(604,&e)||(e.type==KG_KEY&&e.key==23))quit=save(1);
    else if(e.type==KG_KEY){notice=0;edit_key(e.key,e.control);index_lines(1);}
    else if(e.type==KG_MOUSE||e.type==KG_POINTER){
-    editor_scroll.r=(KwRect){(int)kg_width()-28,40,20,(int)rows*16};editor_scroll.total=line_count;editor_scroll.rows=rows;editor_scroll.top=top;
+    editor_scroll.r=(KwRect){(int)kg_width()-28,40,20,(int)rows*line_height};editor_scroll.total=line_count;editor_scroll.rows=rows;editor_scroll.top=top;
     if(kw_scroll(&editor_scroll,&e)){top=editor_scroll.top;drag=0;}
     else if(!(e.key&1))drag=0;
     else if(drag){ke_select(&doc,ke_view(&doc)->anchor,hit(&e));}
-    else if(e.type==KG_MOUSE&&kw_inside((KwRect){8,40,(int)cols*8,(int)rows*16},e.x,e.y)){unsigned at=hit(&e);ke_select(&doc,mark?ke_view(&doc)->anchor:at,at);drag=1;}
+    else if(e.type==KG_MOUSE&&kw_inside((KwRect){8,40,(int)cols*cell_width,(int)rows*line_height},e.x,e.y)){unsigned at=hit(&e);ke_select(&doc,mark?ke_view(&doc)->anchor:at,at);drag=1;}
 
    }
   }

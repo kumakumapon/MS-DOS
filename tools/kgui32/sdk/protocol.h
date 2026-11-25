@@ -17,13 +17,14 @@
 #define KG_CAP_LANGUAGE 64u
 #define KG_CAP_SURFACES 128u
 #define KG_LANGUAGE_JA 0x80000000u
+#define KG_LARGE_TEXT 0x40000000u
 #define KG_CAP_SUPPORTED (KG_CAP_ALL|KG_INPUT_MODIFIERS)
 #define KG_MOD_SHIFT 1u
 #define KG_MOD_CTRL 2u
 #define KG_MOD_ALT 4u
 #define KG_INPUT_FLAGS (KG_INPUT_MOTION|KG_INPUT_TAB)
-enum {KG_OPEN=1,KG_FRAME,KG_POLL,KG_CLOSE,KG_CAPABILITIES,KG_SUBSCRIBE,KG_CLIP_SET,KG_CLIP_GET,KG_CANCEL_CLOSE,KG_EDIT_DOCUMENT,KG_EDIT_STATUS,KG_SURFACE_CREATE,KG_SURFACE_UPLOAD,KG_SURFACE_STATUS,KG_SURFACE_DESTROY,KG_DATE,KG_PREFERENCES_CHANGED};
-enum {KG_RECT=1,KG_TEXT,KG_BUTTON,KG_BITMAP,KG_BITMAP_SCALE};
+enum {KG_OPEN=1,KG_FRAME,KG_POLL,KG_CLOSE,KG_CAPABILITIES,KG_SUBSCRIBE,KG_CLIP_SET,KG_CLIP_GET,KG_CANCEL_CLOSE,KG_EDIT_DOCUMENT,KG_EDIT_STATUS,KG_SURFACE_CREATE,KG_SURFACE_UPLOAD,KG_SURFACE_STATUS,KG_SURFACE_DESTROY,KG_DATE,KG_PREFERENCES_CHANGED,KG_IMAGE_COPY_BEGIN,KG_IMAGE_COPY_DATA,KG_IMAGE_PASTE_INFO,KG_IMAGE_PASTE_DATA,KG_RECENT_DOCUMENT};
+enum {KG_RECT=1,KG_TEXT,KG_BUTTON,KG_BITMAP,KG_BITMAP_SCALE,KG_TEXT_DOUBLE};
 enum {KG_KEY=1,KG_MOUSE,KG_RESIZE,KG_FOCUS,KG_POINTER,KG_QUIT};
 typedef struct {u32 op;int x,y,w,h;u32 color,id;char text[48];} KgDraw;
 typedef struct {u32 type;int x,y;u32 key,width,height,seconds,control;} KgEvent;
@@ -34,9 +35,15 @@ typedef struct {
 /* The fixed public struct stays 3144 bytes. Status has no draw payload;
  * replies need the event/draw tail only for poll and clipboard reads. */
 #define KG_REQUEST_HEADER 72u
+#define KG_CLIP_IMAGE_SIDE 128u
+#define KG_CLIP_IMAGE_BYTES (2u*KG_CLIP_IMAGE_SIDE*KG_CLIP_IMAGE_SIDE)
 _Static_assert(__builtin_offsetof(KgRequest,draw)==KG_REQUEST_HEADER,"compact request header preserves draw offset");
-static inline unsigned kg_request_bytes(unsigned op){return (op==KG_SURFACE_STATUS||op==KG_PREFERENCES_CHANGED)?KG_REQUEST_HEADER:sizeof(KgRequest);}
-static inline unsigned kg_reply_bytes(unsigned op){return op==KG_POLL||op==KG_CLIP_GET?sizeof(KgRequest):KG_REQUEST_HEADER;}
+#define KG_RECENT_COUNT 6u
+#define KG_RECENT_PATH 40u
+typedef struct {u32 serial,volume,bitmap;char path[KG_RECENT_PATH];} KgRecentDocument;
+typedef struct {u16 images[2][KG_CLIP_IMAGE_BYTES/2];KgRecentDocument documents[KG_RECENT_COUNT];} KgDesktopShared;
+static inline unsigned kg_request_bytes(unsigned op){return (op==KG_SURFACE_STATUS||op==KG_PREFERENCES_CHANGED||op==KG_IMAGE_COPY_BEGIN||op==KG_IMAGE_PASTE_INFO||op==KG_IMAGE_PASTE_DATA)?KG_REQUEST_HEADER:sizeof(KgRequest);}
+static inline unsigned kg_reply_bytes(unsigned op){return op==KG_POLL||op==KG_CLIP_GET||op==KG_IMAGE_PASTE_DATA?sizeof(KgRequest):KG_REQUEST_HEADER;}
 static inline void kg_transport_copy(void *to,const void *from,unsigned bytes){
  unsigned words=bytes/4,tail=bytes&3;unsigned char *d=to;const unsigned char *s=from;
  __asm__ volatile("cld; rep movsl":"+D"(d),"+S"(s),"+c"(words)::"memory","cc");

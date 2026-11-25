@@ -7,7 +7,7 @@
 #include "../../k38632/sdk/libc.h"
 #include "ui-settings.h"
 
-enum {S_XMS=510,S_EMS,S_LESS,S_MORE,S_BUFFERS,S_FD98,S_CONFIG,S_AUTO,S_RELOAD,S_CLOSE,S_OK,S_CANCEL,S_PREFS,S_LANG,S_THEME,S_IME,S_APPLY,S_BACK};
+enum {S_XMS=510,S_EMS,S_LESS,S_MORE,S_BUFFERS,S_FD98,S_CONFIG,S_AUTO,S_RELOAD,S_CLOSE,S_OK,S_CANCEL,S_PREFS,S_LANG,S_THEME,S_IME,S_APPLY,S_BACK,S_SIZE};
 typedef struct {u32 magic,version,frames,saved,error,xms,ems,files,buffers,fd98,dirty,ready,control;} SettingsStats;
 volatile SettingsStats stats __attribute__((section(".data.gui_stats")))={.magic=0x3253474b,.version=1};
 typedef struct {char data[K32_FS_BOOT_LIMIT];unsigned n,hash;int error;} BootFile;
@@ -15,7 +15,7 @@ static BootFile boot[2];
 static const char *const boot_path[]={"CONFIG.SYS","AUTOEXEC.BAT"};
 static KgBootSettings old,next;
 static KwFocus focus;
-static unsigned dialog,page;
+static unsigned dialog,page,closing;
 static KgPreferences prefs,next_prefs;
 static K32Revision prefs_revision;
 static int prefs_error;
@@ -25,7 +25,7 @@ static unsigned digest(const char *data,unsigned n){
  unsigned h=2166136261u;for(unsigned i=0;i<n;i++)h=(h^(unsigned char)data[i])*16777619u;return h;
 }
 static int preferences_dirty(void){
- return next_prefs.language!=prefs.language||next_prefs.theme!=prefs.theme||next_prefs.ime!=prefs.ime;
+ return next_prefs.language!=prefs.language||next_prefs.theme!=prefs.theme||next_prefs.ime!=prefs.ime||next_prefs.large!=prefs.large;
 }
 static unsigned modified(void){
  return ((next.xms!=old.xms||next.ems!=old.ems||next.files!=old.files||next.buffers!=old.buffers)?1:0)|
@@ -80,9 +80,10 @@ static void preference_button(int x,int y,int w,unsigned id,const char *label,un
 static void draw_preferences(unsigned w){
  kg_label(8,8,"Desktop preferences",0x20344a);
  preference_button(8,34,w-16,S_LANG,next_prefs.language?"Language: Japanese":"Language: English",prefs_error);
- preference_button(8,74,w-16,S_THEME,next_prefs.theme?"Display: High contrast":"Display: Classic",prefs_error);
- preference_button(8,114,w-16,S_IME,next_prefs.ime==KI_ROMAJI?"Input: Romaji":next_prefs.ime==KI_KANA?"Input: JIS kana":"Input: IME off",prefs_error);
  int half=(w-24)/2;
+ preference_button(8,74,half,S_THEME,next_prefs.theme?"Display: High contrast":"Display: Classic",prefs_error);
+ preference_button(8,114,w-16,S_IME,next_prefs.ime==KI_ROMAJI?"Input: Romaji":next_prefs.ime==KI_KANA?"Input: JIS kana":"Input: IME off",prefs_error);
+ preference_button(16+half,74,half,S_SIZE,next_prefs.large?"Text: Large":"Text: Standard",prefs_error);
  preference_button(8,154,half,S_APPLY,"Apply preferences",prefs_error||!preferences_dirty());
  preference_button(16+half,154,half,S_BACK,"Boot settings",0);
  kw_label(8,198,prefs_error?"Desktop preferences unavailable":status,(w-16)/8,0x20344a);
@@ -90,6 +91,7 @@ static void draw_preferences(unsigned w){
 static void preference_command(unsigned cmd){
  if(cmd==S_LANG&&!prefs_error)next_prefs.language^=1;
  if(cmd==S_THEME&&!prefs_error)next_prefs.theme^=1;
+ if(cmd==S_SIZE&&!prefs_error)next_prefs.large^=1;
  if(cmd==S_IME&&!prefs_error)next_prefs.ime=(next_prefs.ime+1)%3;
  if(cmd==S_APPLY&&!prefs_error&&preferences_dirty()){
   int e=kg_preferences_save(&next_prefs,&prefs_revision);
@@ -161,9 +163,9 @@ int main(void){
   if(got){
    unsigned cmd=e.type==KG_MOUSE&&(e.key&1)?e.control:0;
    if(e.type==KG_QUIT){
-    if(modified()||preferences_dirty()){kg_cancel_close();dialog=S_CLOSE;}else closed=1;
+    if(modified()||preferences_dirty()){dialog=S_CLOSE;closing=1;}else closed=1;
    }else if(dialog){
-    if(cmd==S_CANCEL||(e.type==KG_KEY&&(e.key==27||e.key==13)))dialog=0;
+    if(cmd==S_CANCEL||(e.type==KG_KEY&&(e.key==27||e.key==13))){if(closing){kg_cancel_close();closing=0;}dialog=0;}
     else if(cmd==S_OK||(e.type==KG_KEY&&(e.key=='y'||e.key=='Y'))){
      unsigned confirm=dialog;dialog=0;
      if(confirm==S_CONFIG)save(0);
@@ -174,11 +176,11 @@ int main(void){
     if(page){
      if(e.type==KG_KEY&&e.key==13)cmd=S_LANG+focus.current;
      if(e.type==KG_KEY&&e.key==27)cmd=S_BACK;
-     if(cmd>=S_LANG&&cmd<=S_BACK){focus.current=cmd-S_LANG;preference_command(cmd);}
+     if(cmd>=S_LANG&&cmd<=S_SIZE){focus.current=cmd-S_LANG;preference_command(cmd);}
     }else {
     if(e.type==KG_KEY&&e.key==13)cmd=focus.current==10?S_PREFS:S_XMS+focus.current;
     if(cmd==S_PREFS||(e.type==KG_KEY&&(e.key=='p'||e.key=='P'))){
-     page=1;focus=(KwFocus){.count=5};status="Choose display, input, and language";
+     page=1;focus=(KwFocus){.count=6};status="Choose display, input, and language";
     }
     if(e.type==KG_KEY&&e.key==27)cmd=S_CLOSE;
     if(cmd>=S_XMS&&cmd<=S_CLOSE){focus.current=cmd-S_XMS;closed=command(cmd);}

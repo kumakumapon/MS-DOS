@@ -2,7 +2,7 @@ CC ?= gcc
 BUILD ?= build
 K32 = ../k38632
 CFLAGS = -I$(BUILD) -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -msoft-float -mno-sse -mno-mmx -ffunction-sections -fdata-sections -Wall -Wextra -Werror -MMD -MP
-NATIVE = $(CFLAGS) -Oz -mregparm=3 -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -DDOS -DPC98 -DK32_HOST -DK32_GUI
+NATIVE = $(CFLAGS) -Oz -flto -mregparm=3 -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -DDOS -DPC98 -DK32_HOST -DK32_GUI
 all: $(BUILD)/KGUILDR.EXE $(BUILD)/KGUI32.EXE
 all: $(BUILD)/KGPROOF.COM
 $(BUILD):
@@ -35,8 +35,10 @@ $(BUILD)/client.o: ../window/k386_client.c | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
 $(BUILD)/verified-disk.o: ../filer/verified-disk.c ../filer/verified-disk.h | $(BUILD)
 	$(CC) $(NATIVE) -c $< -o $@
-$(BUILD)/driver.elf: $(BUILD)/video-policy.o $(BUILD)/verified-disk.o $(BUILD)/document.o $(BUILD)/clients.o $(BUILD)/client-policy.o $(BUILD)/surface.native.o $(BUILD)/client-gate.o $(BUILD)/runtime.o $(BUILD)/driver.o $(BUILD)/sessions.o $(BUILD)/loader.broker.o $(BUILD)/elf.broker.o $(BUILD)/services.broker.o $(BUILD)/services-dos.broker.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/cirrus.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/client.o driver.ld
-	ld -m elf_i386 --gc-sections -T driver.ld -Map $(BUILD)/driver.map $(filter %.o,$^) -o $@
+$(BUILD)/image-clipboard.native.o: image-clipboard.c | $(BUILD)
+	$(CC) $(NATIVE) -c $< -o $@
+$(BUILD)/driver.elf: $(BUILD)/image-clipboard.native.o $(BUILD)/video-policy.o $(BUILD)/verified-disk.o $(BUILD)/document.o $(BUILD)/clients.o $(BUILD)/client-policy.o $(BUILD)/surface.native.o $(BUILD)/client-gate.o $(BUILD)/runtime.o $(BUILD)/driver.o $(BUILD)/sessions.o $(BUILD)/loader.broker.o $(BUILD)/elf.broker.o $(BUILD)/services.broker.o $(BUILD)/services-dos.broker.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/cirrus.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/client.o driver.ld
+	$(CC) $(NATIVE) -nostdlib -no-pie -Wl,--build-id=none,--gc-sections,-T,driver.ld,-Map,$(BUILD)/driver.map $(filter %.o,$^) -o $@
 $(BUILD)/KGUILDR.EXE: $(BUILD)/driver.elf ../mz/build.py
 	python3 ../mz/build.py --desktop-app 'KGUI32 native loader' $< $@
 $(BUILD)/desktop.o: desktop.c gui.h ../desktop-style.h | $(BUILD)
@@ -58,7 +60,7 @@ $(BUILD)/proof.o: proof.c ../k38632/host.h ../window/k386_client.h | $(BUILD)
 $(BUILD)/proof-start.o: ../filer/start.s | $(BUILD)
 	as --32 $< -o $@
 $(BUILD)/proof.elf: $(BUILD)/proof.o $(BUILD)/proof-start.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/dos.o $(BUILD)/core.o $(BUILD)/client.o ../filer/com.ld
-	ld -m elf_i386 --gc-sections -T ../filer/com.ld $(filter %.o,$^) -o $@
+	$(CC) $(NATIVE) -nostdlib -no-pie -Wl,--build-id=none,--gc-sections,-T,../filer/com.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGPROOF.COM: $(BUILD)/proof.elf
 	objcopy -O binary $< $@
 $(BUILD)/test-scene: test-scene.c scene.c shell-ui.c layout.c scene.h gui.h gallery.h ../desktop-style.h | $(BUILD)
@@ -313,7 +315,10 @@ $(BUILD)/preferences.o: sdk/preferences.c sdk/preferences.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/desktop.elf: $(BUILD)/io.sdk.o $(BUILD)/preferences.o
 $(BUILD)/editor.elf $(BUILD)/settings.elf $(BUILD)/words.elf: $(BUILD)/preferences.o
+$(BUILD)/editor.elf $(BUILD)/image.elf: $(BUILD)/fs.sdk.o
 
 $(BUILD)/layout.o: layout.c layout.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/desktop.elf: $(BUILD)/layout.o
+
+$(addprefix $(BUILD)/,driver.o clients.o client-policy.o sessions.o loader.broker.o elf.broker.o services.broker.o services-dos.broker.o hardware.o memory.o cirrus.o dos.o core.o client.o verified-disk.o image-clipboard.native.o proof.o document.o surface.native.o video-policy.o): Makefile
