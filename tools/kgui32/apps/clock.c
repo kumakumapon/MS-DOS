@@ -18,7 +18,8 @@ static int draw(unsigned seconds){
  else if(clock_stats.mode){hour%=12;if(!hour)hour=12;}
  two(text,hour);two(text+3,seconds/60%60);two(text+6,seconds%60);
  kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_rect(12,12,w-24,48,0x182c46);
- kg_text((w-64)/2,28,text,0xffffff);
+ if(kg_large_text())kg_text_double((w-128)/2,20,text,0xffffff);
+ else kg_text((w-64)/2,28,text,0xffffff);
  kg_label(20,72,watch?(stopwatch.running?"Stopwatch / running":"Stopwatch / stopped"):"PC-98 / DOS wall clock",0x263e58);
  kg_button('w',w-100,68,80,28,watch?"Clock":"Watch");
  kg_button(watch?'s':'t',20,104,132,28,watch?(stopwatch.running?"Stop":"Start"):clock_stats.mode?"24-hour":"12-hour");if(watch)kg_button('r',164,104,64,28,"Reset");kg_button('q',w-100,104,80,28,"Close");

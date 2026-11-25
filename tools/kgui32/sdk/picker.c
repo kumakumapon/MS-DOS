@@ -58,17 +58,22 @@ int kp_tick(KpPicker *p){
  }
  rebuild(p);return 1;
 }
+static unsigned picker_top(void){return kg_large_text()?54:44;}
 static void layout(KpPicker *p){
- unsigned h=kg_height(),limit=p->saving?128:96;
- p->list.rows=h>limit?(h-limit)/16:1;if(p->list.rows>20)p->list.rows=20;
+ unsigned h=kg_height(),top=picker_top(),limit=p->saving?82:48;
+ p->list.line_height=kg_large_text()?32:16;
+ p->list.rows=h>top+limit?(h-top-limit)/p->list.line_height:1;if(p->list.rows>20)p->list.rows=20;
  kw_reveal(&p->list);
- p->scroll.r=(KwRect){(int)kg_width()-28,44,20,(int)p->list.rows*16};
+ p->scroll.r=(KwRect){(int)kg_width()-28,(int)top,20,(int)(p->list.rows*p->list.line_height)};
  p->scroll.total=p->list.count;p->scroll.rows=p->list.rows;p->scroll.top=p->list.top;
 }
 int kp_event(KpPicker *p,const KgEvent *e,char name[13]){
  layout(p);
  unsigned key=e->type==KG_KEY?e->key:0;
- unsigned cancel=p->saving?4:3,drive=cancel+1,parent=cancel+2;
+ unsigned cancel=p->saving?4:3,drive=cancel+1,parent=cancel+2,top=picker_top();
+ if(key==6){p->focus.current=0;return 0;}
+ if(key==14&&p->saving){p->focus.current=2;return 0;}
+ if(!p->focus.current&&(key==256||key==257)){p->focus.current=1;return 0;}
  if(key==27||kw_button(702,e)||(key==13&&p->focus.current==cancel)){kp_close(p);return -1;}
  if(key==23){volume(p,p->work?1:0);return 0;}
  if(kw_button(703,e)||key==4||(key==13&&p->focus.current==drive)){
@@ -79,13 +84,13 @@ int kp_event(KpPicker *p,const KgEvent *e,char name[13]){
  if(kw_button(704,e)||(key==13&&p->focus.current==parent)||(key==8&&p->focus.current==1)){up(p);return 0;}
  if(kw_focus(&p->focus,e))return 0;
  if(e->type==KG_MOUSE&&(e->key&1)){
-  if(p->saving&&e->y>=(int)kg_height()-80&&e->y<(int)kg_height()-48)p->focus.current=2;
-  else if(e->y<40)p->focus.current=0;
+  if(p->saving&&e->y>=(int)kg_height()-82&&e->y<(int)kg_height()-48)p->focus.current=2;
+  else if(e->y<(int)top)p->focus.current=0;
   else if(e->y<(int)kg_height()-(p->saving?80:48))p->focus.current=1;
  }
  if(!p->focus.current&&kw_input(&p->filter,e)==2){p->list.selected=p->list.top=0;rebuild(p);}
  if(p->saving&&p->focus.current==2)kw_input(&p->name,e);
- int selected=p->focus.current==1&&kw_list(&p->list,(KwRect){8,44,(int)kg_width()-40,(int)p->list.rows*16},e);
+ int selected=p->focus.current==1&&kw_list(&p->list,(KwRect){8,(int)top,(int)kg_width()-40,(int)(p->list.rows*p->list.line_height)},e);
  K32DirEntry *d=p->list.count?&p->entries[p->matches[p->list.selected]]:0;
  if(selected&&p->saving&&d&&!(d->attributes&16)){
   p->name=(KwInput){0};
@@ -135,7 +140,22 @@ int kp_draw(KpPicker *p){layout(p);unsigned w=kg_width(),h=kg_height();char titl
   unsigned c=p->location.sector_bytes*p->location.cluster_sectors;
   if(p->saving&&c&&c<=65536&&p->document_bytes<=K32_WORK_LIMIT){append(status,&n,KU(" / temp "));number(status,&n,((p->document_bytes+c-1)/c*c+1023)/1024);append(status,&n," KiB");}
  }else append(status,&n,"Tab: controls / Esc: cancel");
- kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kw_text(8,4,title,(w-148)/8,0x20344a);kg_button(704,w-138,0,48,20,"Up");kg_button(703,w-84,0,76,20,"Drives");kw_draw_input((KwRect){8,20,(int)w-20,24},&p->filter,p->focus.current==0);
- if(p->list.count&&p->list.selected>=p->list.top&&p->list.selected<p->list.top+p->list.rows)kg_rect(8,44+(p->list.selected-p->list.top)*16,w-40,16,0xb4c2d0);
- for(unsigned i=0;i<p->list.rows&&p->list.top+i<p->list.count;i++)kg_text(12,44+i*16,p->entries[p->matches[p->list.top+i]].name,0x20344a);
- kw_draw_scroll(&p->scroll);if(p->saving)kw_draw_input((KwRect){8,(int)h-78,(int)w-20,24},&p->name,p->focus.current==2);kg_button(701,8,h-46,72,28,p->saving?"Save":"Open");kg_button(702,88,h-46,72,28,"Cancel");kw_text(8,h-16,status,(w-16)/8,0x20344a);return kg_present();}
+ unsigned top=picker_top(),row=p->list.line_height;
+ unsigned cancel=p->saving?4:3,drive=cancel+1,parent=cancel+2,large=kg_large_text();
+ kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kw_text(8,4,title,(w-148)/8,0x20344a);
+ KwRect up_button={(int)w-138,0,48,20},drives={(int)w-84,0,76,20};
+ KwRect accept={8,(int)h-46,72,28},back={88,(int)h-46,72,28};
+ kw_draw_button(up_button,704,"Up",KW_SECONDARY,p->focus.current==parent?KW_FOCUSED:0);
+ kw_draw_button(drives,703,"Drives",KW_SECONDARY,p->focus.current==drive?KW_FOCUSED:0);
+ kw_draw_input((KwRect){8,large?18:20,(int)w-20,large?36:24},&p->filter,p->focus.current==0);
+ if(p->list.count&&p->list.selected>=p->list.top&&p->list.selected<p->list.top+p->list.rows){
+  int y=top+(p->list.selected-p->list.top)*row;
+  kg_rect(8,y,w-40,row,0xb4c2d0);
+  if(p->focus.current==1)kg_rect(8,y,3,row,DESKTOP_COLOR_FOCUS);
+ }
+ for(unsigned i=0;i<p->list.rows&&p->list.top+i<p->list.count;i++)kw_readable(12,top+i*row,p->entries[p->matches[p->list.top+i]].name,w-46,0x20344a);
+ kw_draw_scroll(&p->scroll);
+ if(p->saving)kw_draw_input((KwRect){8,(int)h-(large?82:78),(int)w-20,large?36:24},&p->name,p->focus.current==2);
+ kw_draw_button(accept,701,p->saving?"Save":"Open",KW_PRIMARY,p->focus.current==cancel-1?KW_FOCUSED:0);
+ kw_draw_button(back,702,"Cancel",KW_SECONDARY,p->focus.current==cancel?KW_FOCUSED:0);
+ kw_text(8,h-16,status,(w-16)/8,0x20344a);return kg_present();}

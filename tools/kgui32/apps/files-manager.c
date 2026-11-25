@@ -16,9 +16,9 @@ static KwScroll scroll;
 static KwInput target;
 static KwFocus focus;
 static const char *root_name,*status;
-static char folder[K32_FS_PATH],selected[K32_FS_PATH];
+static char folder[K32_FS_PATH],selected[K32_FS_PATH],preview_stage[K32_FS_PATH];
 static unsigned count,cursor,loading,trash,archive_scan,action,sort,descending;
-static unsigned drive_mask,volume,recovery_view;
+static unsigned drive_mask,volume,recovery_view,preview,preview_ok;
 static unsigned selected_dir;
 static struct {
  unsigned phase,count,scan,item,cursor,bytes;
@@ -54,7 +54,7 @@ static void refresh(void){
  count=list.count=list.selected=list.top=cursor=archive_scan=0;loading=1;
 }
 void files_manager_open(const char *root,unsigned show_drive){
- root_name=root;status=0;folder[0]=0;trash=action=sort=descending=recovery_view=0;
+ root_name=root;status=0;folder[0]=0;trash=action=sort=descending=recovery_view=preview=0;
  K32Fs r=k32_fs_request(K32_FS_DRIVES,0,0);
  drive_mask=k32_fs(&r)?1:r.length;volume=show_drive?1:0;
  focus=(KwFocus){.count=RECOVERY_FOCUS+1};list.rows=1;refresh();
@@ -184,11 +184,11 @@ int files_manager_step(void){
  if(tree.phase)return folder_step();
  if(!loading)return 0;
  for(unsigned i=0;i<6;i++){
-  K32Fs r=k32_fs_request(cursor?K32_FS_NEXT:volume?K32_FS_DRIVE_LIST:K32_FS_LIST,folder,0);
-  r.token=cursor;r.flags=cursor?0:volume?volume-1:recovery_view?K32_FS_LIST_TMP:archive_scan?K32_FS_LIST_ARCHIVED:trash;
+  K32Fs r=k32_fs_request(cursor?K32_FS_NEXT:volume?K32_FS_DRIVE_LIST:K32_FS_LIST,preview?preview_stage:folder,0);
+  r.token=cursor;r.flags=cursor?0:volume?volume-1:preview?K32_FS_LIST_TMP_CONTENT:recovery_view?K32_FS_LIST_TMP:archive_scan?K32_FS_LIST_ARCHIVED:trash;
   int e=k32_fs(&r);cursor=r.token;
   if(!e&&!cursor&&trash&&!archive_scan){archive_scan=1;continue;}
-  if(e||!cursor||count==FILE_LIMIT){loading=0;if(e)status=error_text(e);else if(cursor)status="First 192 items shown";sort_entries();break;}
+  if(e||!cursor||count==FILE_LIMIT){loading=0;if(preview)preview_ok=!e;if(e)status=error_text(e);else if(cursor)status="First 192 items shown";sort_entries();break;}
   entries[count++]=r.entry;
  }
  return 1;
@@ -203,7 +203,7 @@ static void execute(void){
   K32Fs r=k32_fs_request(K32_FS_TREE_RECOVER,selected,target.text);
   int e=k32_fs(&r);
   status=e?error_text(e):"TMP folder recovered / inspect its files";
-  if(!e)refresh();
+  if(!e){preview=0;refresh();}
   return;
  }
  if(op==FM_DELETE||op==FM_TRASH){
@@ -233,6 +233,13 @@ static void execute(void){
  if(!e)refresh();
 }
 static void command(unsigned cmd){
+ if(preview){
+  if(cmd==FM_UP||cmd==FM_BACK){preview=0;status=0;focus.current=LIST_FOCUS;refresh();return;}
+  if(cmd==FM_DELETE&&!loading&&preview_ok){
+   copy_text(selected,preview_stage,sizeof selected);action=FM_RESCUE;target=(KwInput){0};
+  }
+  if(cmd!=FM_REFRESH&&(cmd<FM_NAME||cmd>FM_KIND))return;
+ }
  if(cmd==FM_DRIVE){
   do{volume=volume==26?0:volume+1;}while(volume&&!(drive_mask&(1u<<(volume-1))));
   status=0;trash=recovery_view=0;folder[0]=0;refresh();return;
@@ -249,7 +256,7 @@ static void command(unsigned cmd){
   status=0;refresh();return;
  }
  if(cmd==FM_TRASH){recovery_view=0;trash=!trash;status=0;refresh();return;}
- if(cmd==FM_REFRESH){status=0;refresh();return;}
+ if(cmd==FM_REFRESH){status=0;preview_ok=0;refresh();return;}
  if(cmd>=FM_NAME&&cmd<=FM_KIND){
   unsigned column=cmd-FM_NAME;descending=column==sort?!descending:0;sort=column;
   list.selected=list.top=0;sort_entries();return;
@@ -261,7 +268,8 @@ static void command(unsigned cmd){
  if(!join(selected,folder,d->name)){status=error_text(-22);return;}
  if(recovery_view){
   if(cmd==FM_OPEN||cmd==FM_DELETE){
-   selected[k32_len(selected)-4]=0;action=FM_RESCUE;target=(KwInput){0};
+   selected[k32_len(selected)-4]=0;copy_text(preview_stage,selected,sizeof preview_stage);
+   preview=1;preview_ok=0;status=0;focus.current=LIST_FOCUS;refresh();
   }
   return;
  }
@@ -284,7 +292,7 @@ static void command(unsigned cmd){
  }
 }
 static const unsigned controls[]={0,FM_NAME,FM_SIZE,FM_DATE,FM_KIND,FM_UP,FM_TRASH,FM_OPEN,FM_REFRESH,FM_FOLDER,FM_COPY,FM_MOVE,FM_RENAME,FM_DELETE,FM_BACK,FM_DRIVE,FM_RECOVERY};
-static KwRect list_rect(void){return (KwRect){8,66,(int)kg_width()-38,(int)list.rows*16};}
+static KwRect list_rect(void){return (KwRect){8,66,(int)kg_width()-38,(int)(list.rows*list.line_height)};}
 int files_manager_event(const KgEvent *e){
  if(reader||tree.phase){
   if(kw_button(FM_CANCEL,e)||(e->type==KG_KEY&&e->key==27))copy_finished(reader?finish_copy(-125,0):-125);
@@ -298,7 +306,9 @@ int files_manager_event(const KgEvent *e){
  }
  unsigned cmd=0;
  if(e->type==KG_KEY){
-  if(e->key==27)return -1;
+  if(e->key==27){if(!preview)return -1;command(FM_UP);return 1;}
+  if(preview&&(e->key=='r'||e->key=='R'))cmd=FM_DELETE;
+  if(preview&&e->key==8)cmd=FM_UP;
   if(e->key==4)cmd=FM_DRIVE;
   if(e->key==20&&!volume)cmd=FM_RECOVERY;
   if(e->key==13)cmd=focus.current?controls[focus.current]:FM_OPEN;
@@ -308,10 +318,10 @@ int files_manager_event(const KgEvent *e){
   for(unsigned i=1;i<sizeof controls/sizeof *controls;i++)if(controls[i]==cmd){focus.current=i;break;}
   if(kw_inside(list_rect(),e->x,e->y))focus.current=LIST_FOCUS;
  }
- if(cmd==FM_BACK)return -1;
+ if(cmd==FM_BACK){if(!preview)return -1;command(cmd);return 1;}
  if(cmd>=FM_UP&&cmd<=FM_RECOVERY){command(cmd);return 1;}
  if(kw_focus(&focus,e)){
-  while((focus.current==KIND_FOCUS&&kg_width()<468)||((trash||volume||recovery_view)&&focus.current>=FOLDER_FOCUS&&focus.current<DELETE_FOCUS+(volume!=0))||(volume&&(focus.current==TRASH_FOCUS||focus.current==RECOVERY_FOCUS)))kw_focus(&focus,e);
+  while((preview&&(focus.current==TRASH_FOCUS||focus.current==OPEN_FOCUS||focus.current>=DRIVE_FOCUS))||(focus.current==KIND_FOCUS&&kg_width()<468)||((trash||volume||recovery_view)&&focus.current>=FOLDER_FOCUS&&focus.current<DELETE_FOCUS+(volume!=0))||(volume&&(focus.current==TRASH_FOCUS||focus.current==RECOVERY_FOCUS)))kw_focus(&focus,e);
   return 1;
  }
  if(kw_scroll(&scroll,e)){list.top=scroll.top;if(list.selected<list.top||list.selected>=list.top+list.rows)list.selected=list.top;return 1;}
@@ -340,6 +350,11 @@ static void digits(char *out,unsigned n,unsigned width){
 }
 static void row(const K32DirEntry *d,unsigned y,unsigned w,int active){
  char line[48],num[12];
+ if(kg_large_text()){
+  if(d->attributes&16)k32_snprintf(line,sizeof line,"%s /",d->name);
+  else k32_snprintf(line,sizeof line,"%s %u",d->name,d->bytes);
+  kw_readable(12,y,line,w-42,active?0xffffff:0x20344a);return;
+ }
  k32_memset(line,' ',sizeof line);line[47]=0;
  k32_memcpy(line,d->name,k32_len(d->name));
  if(d->attributes&16)k32_memcpy(line+13,KU("Folder"),k32_len(KU("Folder")));
@@ -361,24 +376,26 @@ int files_manager_draw(void){
  if(action)modal(w,h);
  else {
   char crumb[64];
-  if(volume)k32_snprintf(crumb,sizeof crumb,"%c:\\%s",(int)('A'+volume-1),folder);
+  if(preview)k32_snprintf(crumb,sizeof crumb,"Preview %s.TMP",preview_stage);
+  else if(volume)k32_snprintf(crumb,sizeof crumb,"%c:\\%s",(int)('A'+volume-1),folder);
   else k32_snprintf(crumb,sizeof crumb,"%s%s%s",root_name,folder[0]?"\\":"",folder);
   kw_text(8,8,crumb,(w-(volume?130:198))/8,0x20344a);
-  if(!volume)button((KwRect){(int)w-184,0,62,28},FM_RECOVERY,recovery_view?"Work":"TMP",RECOVERY_FOCUS,KW_SECONDARY);
-  button((KwRect){(int)w-116,0,108,28},FM_DRIVE,"Drives",DRIVE_FOCUS,KW_SECONDARY);
+  if(!volume&&!preview)button((KwRect){(int)w-184,0,62,28},FM_RECOVERY,recovery_view?"Work":"TMP",RECOVERY_FOCUS,KW_SECONDARY);
+  if(!preview)button((KwRect){(int)w-116,0,108,28},FM_DRIVE,"Drives",DRIVE_FOCUS,KW_SECONDARY);
   button((KwRect){8,30,110,34},FM_NAME,"Name",NAME_FOCUS,KW_SECONDARY);
   button((KwRect){120,30,88,34},FM_SIZE,"Bytes",SIZE_FOCUS,KW_SECONDARY);
   button((KwRect){210,30,w>=468?136:(int)w-218,34},FM_DATE,"Updated",DATE_FOCUS,KW_SECONDARY);
   if(w>=468)button((KwRect){348,30,76,34},FM_KIND,"Type",KIND_FOCUS,KW_SECONDARY);
-  list.rows=bottom>84?(bottom-68)/16:1;if(list.rows>8)list.rows=8;
+  list.line_height=kg_large_text()?32:16;
+  list.rows=bottom>68+(int)list.line_height?(bottom-68)/list.line_height:1;if(list.rows>8)list.rows=8;
   kw_reveal(&list);
   KwRect area=list_rect();
   kg_rect(area.x,area.y,area.w,area.h,0xffffff);
   scroll=(KwScroll){.r={(int)w-28,66,20,area.h},.top=list.top,.rows=list.rows,.total=list.count,.dragging=scroll.dragging,.offset=scroll.offset};
   for(unsigned i=0;i<list.rows&&list.top+i<list.count;i++){
-   unsigned y=66+i*16,at=list.top+i;
+   unsigned y=66+i*list.line_height,at=list.top+i;
    int active=list.selected==at;
-   if(active)kg_rect(8,y,area.w,16,0x3270a2);
+   if(active)kg_rect(8,y,area.w,list.line_height,0x3270a2);
    row(&entries[at],y,w,active);
   }
   kw_draw_scroll(&scroll);
@@ -387,14 +404,14 @@ int files_manager_draw(void){
    static const unsigned top_ids[]={FM_UP,FM_TRASH,FM_OPEN,FM_REFRESH,FM_BACK};
    static const unsigned low_ids[]={FM_FOLDER,FM_COPY,FM_MOVE,FM_RENAME,FM_DELETE};
    const char *top_labels[]={"Up",trash?"Work":"Trash","Open","Refresh","Back"};
-   const char *low_labels[]={"New folder","Copy","Move","Rename",recovery_view?"Recover":trash?"Restore":"Delete"};
+   const char *low_labels[]={"New folder","Copy","Move","Rename",preview?"Recover":recovery_view?"Preview":trash?"Restore":"Delete"};
    unsigned width=(w-16)/5;
    for(unsigned i=0;i<5;i++){
-    if(!volume||i!=1)button((KwRect){8+i*width,bottom,width-3,36},top_ids[i],top_labels[i],i==4?BACK_FOCUS:UP_FOCUS+i,KW_SECONDARY);
-    if(!volume&&((!trash&&!recovery_view)||i==4))button((KwRect){8+i*width,bottom+38,width-3,36},low_ids[i],i==0&&width<87?"Mkdir":low_labels[i],FOLDER_FOCUS+i,i==4&&!trash?KW_DANGER:KW_SECONDARY);
+    if((!preview||(i!=1&&i!=2))&&(!volume||i!=1))button((KwRect){8+i*width,bottom,width-3,36},top_ids[i],top_labels[i],i==4?BACK_FOCUS:UP_FOCUS+i,KW_SECONDARY);
+    if(!volume&&(!preview||preview_ok)&&((!trash&&!recovery_view)||i==4))button((KwRect){8+i*width,bottom+38,width-3,36},low_ids[i],i==0&&width<87?"Mkdir":low_labels[i],FOLDER_FOCUS+i,i==4&&!trash?KW_DANGER:KW_SECONDARY);
    }
   }
-  kw_label(8,h-16,loading&&!tree.phase?"Loading...":status?status:volume?"Drive root / read only":recovery_view?"TMP folders / may be incomplete":trash?"Trash / Select an item to restore":"Work / Copy and Move use Work paths",(w-16)/8,0x20344a);
+  kw_label(8,h-16,loading&&!tree.phase?"Loading...":status?status:volume?"Drive root / read only":preview?count?"Read-only preview / TMP may be incomplete":"Empty TMP / partial copy":recovery_view?"TMP folders / may be incomplete":trash?"Trash / Select an item to restore":"Work / Copy and Move use Work paths",(w-16)/8,0x20344a);
  }
  return kg_present();
 }

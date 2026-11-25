@@ -1,8 +1,8 @@
 CC ?= gcc
 BUILD ?= build
 K32 = ../k38632
-CFLAGS = -I$(BUILD) -march=i386 -Os -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -msoft-float -mno-sse -mno-mmx -ffunction-sections -fdata-sections -Wall -Wextra -Werror -MMD -MP
-NATIVE = $(CFLAGS) -Oz -flto -mregparm=3 -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -DDOS -DPC98 -DK32_HOST -DK32_GUI
+CFLAGS = -I$(BUILD) -march=i386 -Oz -ffreestanding -fno-pie -fno-pic -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -msoft-float -mno-sse -mno-mmx -ffunction-sections -fdata-sections -Wall -Wextra -Werror -MMD -MP
+NATIVE = $(CFLAGS) -flto -mregparm=3 -m16 -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -DDOS -DPC98 -DK32_HOST -DK32_GUI
 all: $(BUILD)/KGUILDR.EXE $(BUILD)/KGUI32.EXE
 all: $(BUILD)/KGPROOF.COM
 $(BUILD):
