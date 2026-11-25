@@ -13,7 +13,7 @@ static int pan[2],color=196,image_tool,stroke,sx,sy,last_x,last_y,selection,x1,y
 static const char *image_tools[]={"Pencil","Line","Rectangle","Fill","Pick","Erase","Select"};
 static int inside(const Bitmap *b,int x,int y){return x>=0&&y>=0&&x<b->width&&y<b->height;}
 static void publish(const Bitmap *b){clip_image(b->segment,b->width,b->height);}
-static void pixel(Bitmap *b,int x,int y,int c){if(inside(b,x,y))mem_put(b->segment,y*(u32)b->width+x,c);}
+static void pixel(Bitmap *b,int x,int y,int c){if(inside(b,x,y))bitmap_set(b,y*(u32)b->width+x,c);}
 static void stroke_line(Bitmap *b,int ax,int ay,int bx,int by,int c){
  int dx=bx>ax?bx-ax:ax-bx,dy=by>ay?ay-by:by-ay;
  int xx=ax<bx?1:-1,yy=ay<by?1:-1,error=dx+dy;
@@ -40,25 +40,26 @@ static int overwrite;
 static int cx,cy,cw,ch,ct;
 const char *control_status(void);void control_open(void);void control_draw(void);int control_key(int key);
 static void say(const char *s){fd_text(notice[current_tool],s,sizeof notice[0]);}
-static int shared_path(char path[24]){
+static int shared_path(char path[24],const char *name){
  for(unsigned drive=0;drive<26;drive++)if(fd_hdd_verified(drive)){
-  fd_text(path,"A:\\WORK\\" KG_SHARED_IMAGE,24);path[0]='A'+drive;return 1;
+  fd_text(path,"A:\\WORK\\",24);fd_text(path+8,name,16);path[0]='A'+drive;return 1;
  }
  say("Shared clipboard requires verified HDD");return 0;
 }
-static void share_image(void){
+static void share_image(const Bitmap *bitmap){
  char path[24];unsigned old=fd_disk_critical(1,0);
- if(shared_path(path)){
-  int e=bitmap_save(&copied,path);
+ if(shared_path(path,KG_SHARED_IMAGE)){
+  int e=bitmap_save_shared(bitmap,path);
   say(e<0?"Shared save failed / original kept":e?"Shared with KGUI32 / BAK kept":"Shared with KGUI32");
  }
  fd_disk_critical(0,old);
 }
 static void paste_shared(int tool){
  char path[24];Bitmap next={0};unsigned old=fd_disk_critical(1,0);
- if(shared_path(path)){
-  if(bitmap_load(&next,path)<0)say("No readable shared image");
-  else if(next.width>128||next.height>128)say("Shared limit: 128 x 128");
+ if(shared_path(path,KG_SHARED_IMAGE)){
+  int e=bitmap_load_shared(&next,path);
+  if(e==-27)say("Shared limit: 256 x 192");
+  else if(e<0)say("No readable shared image");
   else {
    Bitmap *current=&pictures[tool-WT_VIEW];
    if(tool==WT_PAINT){bitmap_free(&undo);undo=*current;changed[tool]=1;stroke=selection=0;}
@@ -68,6 +69,24 @@ static void paste_shared(int tool){
   }
  }
  fd_disk_critical(0,old);bitmap_free(&next);
+}
+static void shared_text(int put){
+ static u8 contents[KG_SHARED_TEXT_MAX];
+ char path[24],recovery[FD_PATH];unsigned old=fd_disk_critical(1,0);
+ if(shared_path(path,KG_SHARED_TEXT)){
+  if(put){
+   if(!editor.length||(unsigned)editor.length>KG_SHARED_TEXT_MAX)say("Share 1 to 1024 bytes of text");
+   else {
+    int e=ed_write_text(path,editor.data,editor.length,recovery);
+    say(!e?"Shared text with KGUI32":e==ED_BACKUP_KEPT?"Shared text / original BAK kept":"Text share failed / recovery preserved");
+   }
+  }else{
+   int n=ed_read_text(path,contents,sizeof contents);
+   if(n>0&&!ed_insert(&editor,contents,n))say("Pasted text from KGUI32");
+   else say("No usable shared text / document kept");
+  }
+ }
+ fd_disk_critical(0,old);
 }
 static void label(int x,int y,const char *s,int width,int fg,int bg){
  for(int i=0;i<width&&s[i];i++)gfx_cell(x+i,y,s[i],fg,bg,0);
@@ -136,6 +155,7 @@ void wt_key(int tool,int key){
  }
  if(tool==WT_SETTINGS){int error=control_key(key);if((key=='s'||key=='S'||key=='r'||key=='R')&&!error)changed[tool]=0;else if(key=='x'||key=='X'||key=='e'||key=='E'||key=='f'||key=='F'||key=='+'||key=='-'||key=='['||key==']')changed[tool]=1;return;}
  if(tool==WT_EDITOR){
+  if(!pending&&(key==2||key==10)){shared_text(key==2);changed[0]=editor.dirty;return;}
   if(key==18){prompts[tool]=2;say("Discard edits? Enter confirms / Esc cancels");return;}
   if(key==23){prompts[tool]=1;fd_text(paths[0],editor.path,FD_PATH);say("Save as: type a DOS path / Enter / Esc");return;}
   if(key==19){edit_save();return;}
@@ -159,12 +179,15 @@ void wt_key(int tool,int key){
  if(key==2||key==3||key==24){
   Bitmap *b=&pictures[tool-WT_VIEW];int ax=tool==WT_PAINT&&selection?x1:0,ay=tool==WT_PAINT&&selection?y1:0;
   int ww=tool==WT_PAINT&&selection?x2-x1+1:b->width,hh=tool==WT_PAINT&&selection?y2-y1+1:b->height;
-  if(key==2&&(ww>128||hh>128)){say("Select at most 128 x 128 to share");return;}
-  if(!bitmap_new(&copied,ww,hh,WHITE)){say("Not enough clipboard memory");return;}
-  for(int y=0;y<hh;y++)mem_copy(copied.segment,y*(u32)ww,b->segment,(ay+y)*(u32)b->width+ax,ww);
+  if(key==2&&((unsigned)ww>KG_SHARED_WIDTH||(unsigned)hh>KG_SHARED_HEIGHT)){say("Select at most 256 x 192 to share");return;}
+  if(key==2&&!ax&&!ay&&ww==b->width&&hh==b->height){share_image(b);return;}
+  Bitmap next={0};
+  if(!bitmap_new(&next,ww,hh,WHITE)||(b->rgb&&!bitmap_enable_rgb(&next))){bitmap_free(&next);say("Not enough clipboard memory");return;}
+  for(int y=0;y<hh;y++)bitmap_transfer(&next,y*(u32)ww,b,(ay+y)*(u32)b->width+ax,ww);
+  bitmap_free(&copied);copied=next;
   publish(&copied);
-  if(key==2)share_image();else say("Copied image");
-  if(key==24&&tool==WT_PAINT&&checkpoint()){for(int y=0;y<hh;y++)mem_fill(b->segment,(ay+y)*(u32)b->width+ax,ww,WHITE);changed[tool]=1;}
+  if(key==2)share_image(&copied);else say("Copied image");
+  if(key==24&&tool==WT_PAINT&&checkpoint()){for(int y=0;y<hh;y++)for(int x=0;x<ww;x++)pixel(b,ax+x,ay+y,WHITE);changed[tool]=1;}
   return;
  }
  if(key==KEY_LEFT&&pan[tool-WT_VIEW]>=16)pan[tool-WT_VIEW]-=16;
@@ -176,8 +199,12 @@ void wt_key(int tool,int key){
  else if(key==18){prompts[tool]=2;say("Discard image edits? Enter confirms / Esc cancels");}
  else if(key==26&&undo.segment){Bitmap old=*b;*b=undo;undo=old;changed[tool]=1;publish(b);}
  else if(key==22&&copied.segment&&checkpoint()){
+  if(copied.rgb&&!b->rgb){
+   if(!bitmap_enable_rgb(b)){say("Not enough clipboard memory");return;}
+   for(u32 i=0,n=b->width*(u32)b->height;i<n;i++)bitmap_set(b,i,mem_get(b->segment,i));
+  }
   int ww=copied.width<b->width?copied.width:b->width,hh=copied.height<b->height?copied.height:b->height;
-  for(int y=0;y<hh;y++)mem_copy(b->segment,y*(u32)b->width,copied.segment,y*(u32)copied.width,ww);
+  for(int y=0;y<hh;y++)bitmap_transfer(b,y*(u32)b->width,&copied,y*(u32)copied.width,ww);
   changed[tool]=1;publish(b);say("Pasted image");
  }
  else if(key=='+'||key=='=')color=(color+1)&255;
@@ -216,7 +243,9 @@ __attribute__((noinline)) void wt_draw(int tool,int x,int y,int w,int h,int top,
   int colors=gfx_colors();
   if(colors>256&&!palette_ready){for(int i=0;i<256;i++){u32 rgb=gfx_rgb(i);image_palette[i]=((rgb>>19)<<11)|(((rgb>>10)&63)<<5)|((rgb>>3)&31);}palette_ready=1;}
   for(int yy=0;yy<height;yy++){
-   mem_copy(ds,(unsigned)image_row,b->segment,(yy+top*16)*(u32)b->width+*left,width);
+   u32 at=(yy+top*16)*(u32)b->width+*left;
+   if(colors>256&&b->rgb){gfx_write_span(x*8,(y+1)*16+yy,b->rgb,at*2,width);continue;}
+   mem_copy(ds,(unsigned)image_row,b->segment,at,width);
    if(colors>256){for(int xx=0;xx<width;xx++)image_pixels[xx]=image_palette[image_row[xx]];gfx_write_span(x*8,(y+1)*16+yy,ds,(unsigned)image_pixels,width);}
    else if(colors==256)gfx_write_span(x*8,(y+1)*16+yy,ds,(unsigned)image_row,width);
    else for(int xx=0;xx<width;xx++)gfx_pixel(x*8+xx,(y+1)*16+yy,image_row[xx]);
@@ -239,9 +268,9 @@ __attribute__((noinline)) void wt_draw(int tool,int x,int y,int w,int h,int top,
 
  if(prompts[tool]==1){label(x,y+h-2,"Save as:",w,INK,SURFACE);label(x+9,y+h-2,paths[tool],w-9,INK,SURFACE);}
  else label(x,y+h-2,tool==WT_SETTINGS?control_status():notice[tool],w,MUTED,PAPER);
- if(tool>=WT_VIEW){
+ if(tool!=WT_SETTINGS){
   label(x,y+h-1," Share ",7,WHITE,SELECTED);label(x+8,y+h-1," Get ",5,WHITE,SELECTED);
-  label(x+14,y+h-1,tool==WT_PAINT?"^C Copy ^V Paste ^S Save":"^C Copy / arrows pan",w-14,INK,SURFACE);
+  label(x+14,y+h-1,tool==WT_VIEW?"^C Copy / arrows pan":"^C Copy ^V Paste ^S Save",w-14,INK,SURFACE);
  }else label(x,y+h-1,tool==WT_SETTINGS?"S Save / R Reload / +/- FILES":tool==WT_VIEW?"^C Copy / arrows pan / PgUp PgDn":tool==WT_PAINT?"P L R F I E S / ^S Save ^Z Undo ^C ^V":"^S Save ^W SaveAs ^Z Undo ^R Reload",w,INK,SURFACE);
  if(changed[tool])gfx_cell(x+w-1,y+h-1,'*',WHITE,SELECTED,1);
 }
@@ -251,7 +280,7 @@ int wt_click(int tool,int x,int y,int w,int h,int top,int px,int py){
  if(px<0||px>=w*8||py<0||py>=h*16)return 0;
  if(py/16==h-1){
   int col=px/8;
-  if(tool>=WT_VIEW&&col<13)wt_key(tool,col<7?2:col>=8?10:0);
+  if(tool!=WT_SETTINGS&&col<13)wt_key(tool,col<7?2:col>=8?10:0);
   else wt_key(tool,tool==WT_SETTINGS?'s':19);
   return 1;
  }

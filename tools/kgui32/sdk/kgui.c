@@ -66,6 +66,17 @@ int kg_note_document(const char *path,unsigned volume,unsigned bitmap){
  out[n]=0;request.width=volume;request.height=bitmap;
  return call(KG_RECENT_DOCUMENT);
 }
+int kg_note_move(const char *path,const char *destination){
+ char *out=(char *)request.draw;
+ const char *paths[]={path,destination};
+ for(unsigned i=0;i<2;i++,out+=KG_RECENT_PATH){
+  unsigned n=0;
+  for(;n<KG_RECENT_PATH-1&&paths[i][n];n++)out[n]=paths[i][n];
+  if(!n||paths[i][n])return -22;
+  out[n]=0;
+ }
+ return call(KG_RECENT_MOVE);
+}
 int kg_recent_volume(const char *arg){
  if(arg[0]!='@'||!arg[1]||arg[2])return -1;
  if(arg[1]=='-')return 0;

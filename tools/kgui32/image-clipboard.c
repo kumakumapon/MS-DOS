@@ -20,19 +20,27 @@ void kg_image_clip_drop(unsigned owner,u32 generation){
  if(writer==owner&&writing_generation==generation)writer=0;
 }
 
+static unsigned recent_path(char *out,const char *in){
+ unsigned n=0;
+ while(n<KG_RECENT_PATH-1&&in[n]){
+  unsigned char ch=in[n];
+  if(ch<=32||ch>=127||ch=='"'||ch=='/'||ch==':'||ch=='='||ch=='>'||ch=='<'||ch=='|'||ch=='&')return 0;
+  out[n++]=ch;
+ }
+ return in[n]?0:n;
+}
 int kg_image_clip_request(KgRequest *r,unsigned owner,u32 generation){
  if(!storage)return -38;
- if(r->operation==KG_RECENT_DOCUMENT){
-  if(r->width>26||r->height>1)return -22;
+ if(r->operation>=KG_RECENT_DOCUMENT){
   const char *path=(const char *)r->draw;
-  KgRecentDocument doc={.volume=r->width,.bitmap=r->height};
-  unsigned n=0;
-  while(n<KG_RECENT_PATH-1&&path[n]){
-   unsigned char ch=path[n];
-   if(ch<=32||ch>=127||ch=='"'||ch=='/'||ch==':'||ch=='='||ch=='>'||ch=='<'||ch=='|'||ch=='&')return -22;
-   doc.path[n++]=ch;
+  KgRecentDocument doc={0};
+  unsigned n=recent_path(doc.path,path);
+  if(r->operation==KG_RECENT_MOVE){
+   if(!n||!recent_path(doc.destination,path+KG_RECENT_PATH))return -22;
+  }else{
+   if(n<5||r->width>26||r->height>1)return -22;
+   doc.volume=r->width;doc.bitmap=r->height;
   }
-  if(n<5||path[n])return -22;
   doc.serial=++document_serial;
   u32 slot=(doc.serial-1)%KG_RECENT_COUNT;
   return gui_copy(storage+__builtin_offsetof(KgDesktopShared,documents)+slot*sizeof doc,&doc,sizeof doc,1);

@@ -17,6 +17,7 @@ void shell_record_launch(Scene *,int);
 int shell_pinned(const Scene *,int);
 const ShellDocument *shell_document(const Scene *,int);
 int shell_accept_document(Scene *,const ShellDocument *);
+int shell_follow_move(Scene *,const char *,const char *);
 int shell_history_valid(const ShellHistory *);
 void shell_timer(Scene *,unsigned modifiers);
 int shell_key(Scene *s, const GuiEvent *e);

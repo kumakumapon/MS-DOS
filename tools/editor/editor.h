@@ -27,4 +27,6 @@ void ed_delete_line(Editor *e);
 void ed_undo(Editor *e);
 int ed_load(Editor *e, const char *path);
 int ed_save(Editor *e);
+int ed_read_text(const char *,u8 *,int);
+int ed_write_text(const char *,const u8 *,int,char [FD_PATH]);
 #endif

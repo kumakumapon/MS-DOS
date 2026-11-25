@@ -41,6 +41,8 @@ static const KmItem app_menu[]={
  {"Use CRLF",KG_KEY,16641,0},
  {"Recovery",KG_KEY,20,0},
  {"IME settings",KG_KEY,16642,0},
+ {"Share text with KDESK",KG_KEY,16643,0},
+ {"Get text from KDESK",KG_KEY,16644,0},
  {"Close",KG_QUIT,1,0},
 };
 volatile struct {u32 magic,version,frames,events,bytes,hash,cursor,anchor,dirty,mode,top,heartbeat,error,history,redo,workspace;
@@ -239,9 +241,36 @@ static int save(int as){
  kp_save_size(&picker,in_work?filename:"",bytes);mode=3;return 0;
 }
 static void copy_selection(int cut){KeVersion *v=ke_view(&doc);unsigned a=v->anchor<v->cursor?v->anchor:v->cursor,b=v->anchor>v->cursor?v->anchor:v->cursor;if(b-a>1024){message="Clipboard limit: 1024 bytes";return;}if(b==a)return;if(kg_clip_set(v->text+a,b-a)<0){message="Clipboard unavailable";return;}if(cut)ke_replace(&doc,"",0);}
+static void shared_text(int put){
+ K32WorkInfo work;kp_workspace_info(&work);
+ if(work.error||!(work.flags&K32_WORK_HDD)){notice="Shared clipboard requires verified HDD";return;}
+ if(put){
+  KeVersion *v=ke_view(&doc);
+  unsigned a=v->anchor<v->cursor?v->anchor:v->cursor,b=v->anchor>v->cursor?v->anchor:v->cursor;
+  if(a==b){a=0;b=v->n;}
+  if(!b||b-a>KG_SHARED_TEXT_MAX){notice="Share 1 to 1024 bytes of text";return;}
+  K32Revision previous;
+  int e=k32_io_revision(KG_SHARED_TEXT,0,&previous);
+  if(!e)e=k32_io_save(KG_SHARED_TEXT,v->text+a,b-a,&previous);
+  notice=e<0?"Text share failed / recovery preserved":e?"Shared text / original BAK kept":"Shared text with KDESK";
+  return;
+ }
+ unsigned bytes=0,total=0,n=0;
+ int file=k32_io_open(KG_SHARED_TEXT,0,&bytes),e=file<0?file:0;
+ if(!e&&bytes>2*KG_SHARED_TEXT_MAX)e=-27;
+ while(!e&&total<bytes){int got=k32_io_read(file,load_buffer+total,bytes-total);if(got<=0)e=-5;else total+=got;}
+ if(file>=0&&k32_io_close(file)<0)e=-5;
+ for(unsigned i=0;!e&&i<total;i++){
+  char c=load_buffer[i];
+  if(c=='\r'){if(i+1<total&&load_buffer[i+1]=='\n')i++;c='\n';}
+  if(n==sizeof clipboard)e=-27;else clipboard[n++]=c;
+ }
+ notice=!e&&n&&ke_replace(&doc,clipboard,n)>=0?"Pasted text from KDESK":"No usable shared text / document kept";
+}
 static unsigned hit(const KgEvent *e){unsigned r=top+(e->y<40?0:(unsigned)(e->y-40)/line_height);if(r>=line_count)return ke_view(&doc)->n;unsigned col=e->x<8?0:(unsigned)(e->x-8)/cell_width;if(col>cols)col=cols;unsigned at=lines[r]+col,end=r+1<line_count?lines[r+1]:ke_view(&doc)->n;KeVersion *v=ke_view(&doc);if(end>lines[r]&&v->text[end-1]=='\n')end--;return kt_floor(v->text,v->n,at>end?end:at);}
 static void edit_key(unsigned k,unsigned modifiers){
  KeVersion *v=ke_view(&doc);unsigned at=v->cursor,r=row_at(at),col=at-lines[r];
+ if(k==16643||k==16644||((k==2||k==10)&&(modifiers&(KG_MOD_SHIFT|KG_MOD_CTRL))==(KG_MOD_SHIFT|KG_MOD_CTRL))){shared_text(k==16643||k==2);return;}
  if(k==1){ke_select(&doc,0,v->n);return;}
  if(k==2){mark=!mark;if(mark)v->anchor=v->cursor;notice=mark?"Selection mode on / tap end":"Selection mode off";return;}
  if(k==3){copy_selection(0);return;}if(k==24){copy_selection(1);return;}

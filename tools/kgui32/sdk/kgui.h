@@ -20,6 +20,7 @@ int kg_subscribe(unsigned);
 /* Images are opaque, row-major RGB565 with up to 128 pixels per side.
  * Read into scratch and use the result only after all chunks succeed. */
 int kg_note_document(const char *,unsigned,unsigned);
+int kg_note_move(const char *,const char *);
 int kg_recent_volume(const char *);
 int kg_clip_image_copy(const u16 *,unsigned,unsigned);
 int kg_clip_image_paste(u16 *,unsigned,unsigned *,unsigned *);

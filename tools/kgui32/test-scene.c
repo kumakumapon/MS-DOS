@@ -229,6 +229,15 @@ static void document_history(void){
  assert(!shell_accept_document(&s,&bad));
  s.history.version=1;
  assert(shell_history_valid(&s.history));
+ shell_follow_move(&s,"docs","ARCHIVE\\NEW");
+ assert(!strcmp(shell_document(&s,shell_item(&s,0))->path,"ARCHIVE\\NEW\\FIRST.TXT"));
+ assert(shell_pinned(&s,shell_item(&s,0)));
+ shell_follow_move(&s,"ARCHIVE\\NEW\\FIRST.TXT","ARCHIVE\\NEW\\RENAMED.TXT");
+ assert(!strcmp(shell_label(&s,0),"RENAMED.TXT"));
+ assert(shell_pinned(&s,shell_item(&s,0))&&shell_history_valid(&s.history));
+ GuiEvent forget={.type=GUI_KEY,.key=264};
+ assert(shell_key(&s,&forget)==ACT_HISTORY_CHANGED&&s.history.document_count==SHELL_DOC_LIMIT-1);
+ assert(!strcmp(shell_label(&s,0),"DOC11.TXT"));
  s.history.documents[0]=bad;
  assert(!shell_history_valid(&s.history));
 }

@@ -192,7 +192,7 @@ static int shared_image(unsigned put){
  K32WorkInfo workspace;kp_workspace_info(&workspace);
  if(workspace.error||!(workspace.flags&K32_WORK_HDD))return -15;
  if(put){
-  if(!image.width||image.width>KG_CLIP_IMAGE_SIDE||image.height>KG_CLIP_IMAGE_SIDE)return -27;
+  if(!image.width||image.width>KG_SHARED_WIDTH||image.height>KG_SHARED_HEIGHT)return -27;
   int bytes=kg_bmp_encode(pixels,image.width,image.height,encoded,sizeof encoded);if(bytes<0)return bytes;
   K32Revision old;int e=k32_io_revision(KG_SHARED_IMAGE,0,&old);
   return e?e:k32_io_save(KG_SHARED_IMAGE,encoded,(unsigned)bytes,&old);
@@ -200,7 +200,7 @@ static int shared_image(unsigned put){
  common_read=1;int file=k32_io_open(KG_SHARED_IMAGE,0,0);if(file<0)return file;
  KgBmp next;int e=decode(file,&next,0);
  if(e)return e;
- if(next.width>KG_CLIP_IMAGE_SIDE||next.height>KG_CLIP_IMAGE_SIDE)return -27;
+ if(next.width>KG_SHARED_WIDTH||next.height>KG_SHARED_HEIGHT)return -27;
  return publish_paste(next);
 }
 static void image_button(unsigned focus,int x,int y,int w,int h,const char *label){
@@ -221,7 +221,7 @@ static int draw(void){
  if(modal>=5){stats();int e=kp_draw(&picker);if(!e)image_stats.frames++;return e;}
  if(modal)return dialog();
  stats();unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
- kw_draw_input((KwRect){8,4,160,28},&filename,focused);image_button(1,176,4,72,28,"Load");image_button(2,w-80,4,72,28,"Close");
+ kw_draw_input((KwRect){8,4,160,kg_large_text()?36:28},&filename,focused);image_button(1,176,4,72,28,"Load");image_button(2,w-80,4,72,28,"Close");
  image_button(3,8,40,72,28,"Invert");image_button(4,88,40,72,28,"Flip H");image_button(5,168,40,72,28,"Undo");image_button(6,248,40,80,28,paintmode?"Painting":"Paint");
  kg_rect(8,80,w-16,h-116,0x182c46);
  if(handle&&image.width&&zoom){unsigned z=zoom==3?1:2u<<zoom,dw=image.width*z/2,dh=image.height*z/2;kg_bitmap_scaled_clip(handle,16+panx,88+pany,0,0,image.width,image.height,dw?dw:1,dh?dh:1,8,80,w-16,h-116);}
@@ -309,7 +309,7 @@ int main(int argc,char **argv){
      if(!painting){backup();lastx=x;lasty=y;painting=1;}
      kg_bitmap_line(pixels,image.width,image.height,lastx,lasty,x,y,0xf81f);lastx=x;lasty=y;e=upload();if(!e){message=0;image_stats.error=0;}dirty=1;
     }
-   }else if(v.type==KG_MOUSE&&(v.key&1)){if(kw_inside((KwRect){8,4,160,28},v.x,v.y)){focused=1;image_focus.current=0;dirty=1;}else{focused=0;key=v.control;
+   }else if(v.type==KG_MOUSE&&(v.key&1)){if(kw_inside((KwRect){8,4,160,kg_large_text()?36:28},v.x,v.y)){focused=1;image_focus.current=0;dirty=1;}else{focused=0;key=v.control;
     for(unsigned i=1;i<image_focus.count;i++)if(image_controls[i]==key)image_focus.current=i;
    }}
    if(v.type==KG_KEY){
@@ -340,7 +340,7 @@ int main(int argc,char **argv){
   else if(key=='0'){zoom=0;panx=pany=0;dirty=1;}
   else if(key=='v'||key=='V'){if(image.width){preview^=1;if(preview){e=preview_upload();if(e)preview=0;}}dirty=1;}
   else if(key=='i'||key=='h'||key=='u'||key=='r'){e=change(key);dirty=1;}
-  if(dirty){if(e<0){image_stats.error=-e;message=key==3?"Image clipboard limit: 128 x 128":key==22?"No available clipboard image":(key==2||key==10)&&e==-15?"Shared clipboard requires verified HDD":(key==2||key==10)&&e==-27?"Shared limit: 128 x 128":error_text(e);}else if(key){image_stats.error=0;if(key==2)message=e?"Shared with KDESK / BAK retained":"Shared with KDESK";else if(key==10)message="Pasted from KDESK";else if(key==3)message="Image copied";else if(key==22)message="Image pasted";else if(key!=19&&key!=23&&key!=18&&key!='s'&&key!='S')message=0;}e=draw();if(e<0){image_stats.error=-e;return 4;}}
+  if(dirty){if(e<0){image_stats.error=-e;message=key==3?"Image clipboard limit: 128 x 128":key==22?"No available clipboard image":(key==2||key==10)&&e==-15?"Shared clipboard requires verified HDD":(key==2||key==10)&&e==-27?"Shared limit: 256 x 192":error_text(e);}else if(key){image_stats.error=0;if(key==2)message=e?"Shared with KDESK / BAK retained":"Shared with KDESK";else if(key==10)message="Pasted from KDESK";else if(key==3)message="Image copied";else if(key==22)message="Image pasted";else if(key!=19&&key!=23&&key!=18&&key!='s'&&key!='S')message=0;}e=draw();if(e<0){image_stats.error=-e;return 4;}}
   k32_wait(K32_WAIT_TIME,50);
  }
  if(handle)kg_surface_destroy(handle);

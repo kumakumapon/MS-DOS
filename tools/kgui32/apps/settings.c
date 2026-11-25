@@ -15,6 +15,7 @@ static BootFile boot[2];
 static const char *const boot_path[]={"CONFIG.SYS","AUTOEXEC.BAT"};
 static KgBootSettings old,next;
 static KwFocus focus;
+static const unsigned preference_order[]={S_LANG,S_THEME,S_SIZE,S_IME,S_APPLY,S_BACK};
 static unsigned dialog,page,closing;
 static KgPreferences prefs,next_prefs;
 static K32Revision prefs_revision;
@@ -75,7 +76,7 @@ static void button(int x,int y,int w,unsigned id,const char *label,unsigned disa
 }
 static void preference_button(int x,int y,int w,unsigned id,const char *label,unsigned disabled){
  kw_draw_button((KwRect){x,y,w,36},id,KU(label),id==S_APPLY?KW_PRIMARY:KW_SECONDARY,
-   (disabled?KW_DISABLED:0)|(focus.current==id-S_LANG?KW_FOCUSED:0));
+   (disabled?KW_DISABLED:0)|(preference_order[focus.current]==id?KW_FOCUSED:0));
 }
 static void draw_preferences(unsigned w){
  kw_readable(8,kg_large_text()?0:8,KU("Desktop preferences"),w-16,0x20344a);
@@ -113,7 +114,9 @@ static int draw(void){
  button(18+half,30,half,S_EMS,next.ems?"EMS on":"EMS off",boot[0].error||!next.xms,0);
  button(8,70,40,S_LESS,"-",boot[0].error||next.files<=20,0);
  button(52,70,40,S_MORE,"+",boot[0].error||next.files>=60,0);
- k32_snprintf(label,sizeof label,"FILES=%u",next.files);kg_text(100,80,label,0x20344a);
+ k32_snprintf(label,sizeof label,"FILES=%u",next.files);
+ if(kg_large_text()&&half>=94+16*k32_len(label))kg_text_double(100,72,label,0x20344a);
+ else kg_text(100,80,label,0x20344a);
  k32_snprintf(label,sizeof label,"BUFFERS=%u",next.buffers);button(18+half,70,half,S_BUFFERS,label,boot[0].error,0);
  button(8,110,half,S_FD98,next.fd98?"FD98 startup on":"FD98 startup off",boot[1].error,0);
  button(18+half,110,half,S_AUTO,"Apply AUTOEXEC",boot[1].error||!(dirty&2),1);
@@ -174,9 +177,9 @@ int main(void){
     }
    }else if(!kw_focus(&focus,&e)){
     if(page){
-     if(e.type==KG_KEY&&e.key==13)cmd=S_LANG+focus.current;
+     if(e.type==KG_KEY&&e.key==13)cmd=preference_order[focus.current];
      if(e.type==KG_KEY&&e.key==27)cmd=S_BACK;
-     if(cmd>=S_LANG&&cmd<=S_SIZE){focus.current=cmd-S_LANG;preference_command(cmd);}
+     for(unsigned i=0;i<focus.count;i++)if(preference_order[i]==cmd){focus.current=i;preference_command(cmd);break;}
     }else {
     if(e.type==KG_KEY&&e.key==13)cmd=focus.current==10?S_PREFS:S_XMS+focus.current;
     if(cmd==S_PREFS||(e.type==KG_KEY&&(e.key=='p'||e.key=='P'))){

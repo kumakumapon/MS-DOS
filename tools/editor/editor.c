@@ -106,20 +106,9 @@ void ed_undo(Editor *e) {
     undo_length = length; undo_cursor = cursor; undo_dirty = dirty;
     e->desired = -1;
 }
-int ed_load(Editor *e, const char *path) {
-    Entry entry;
-    int stat = p_stat(path, &entry);
-    if (stat == -2) {
-        ed_init(e); fd_text(e->path, path, FD_PATH);
-        return 0;
-    }
-    if (stat < 0) return -stat;
-    if (entry.attr & FD_DIR) return 5;
-    int handle = p_open(path);
-    if (handle < 0) return -handle;
+static int read_text(int handle,u8 *data,int capacity) {
     u8 chunk[512];
     int size = 0, error = 0, previous_cr = 0;
-    e->undo_valid = 0;
     for (;;) {
         int count = p_read(handle, chunk, sizeof chunk);
         if (count < 0) { error = -count; break; }
@@ -128,15 +117,28 @@ int ed_load(Editor *e, const char *path) {
             u8 c = chunk[i];
             if (c == '\n' && previous_cr) { previous_cr = 0; continue; }
             previous_cr = c == '\r';
-            if (size == ED_CAP) { error = 8; break; }
-            scratch[size++] = c == '\r' ? '\n' : c;
+            if (size == capacity) { error = 8; break; }
+            data[size++] = c == '\r' ? '\n' : c;
         }
         if (error) break;
     }
     int closed = p_close(handle);
     if (!error && closed < 0) error = -closed;
-    if (!error && !valid_text(scratch, size)) error = ED_BAD_TEXT;
-    if (error) return error;
+    if (!error && !valid_text(data, size)) error = ED_BAD_TEXT;
+    return error?-error:size;
+}
+int ed_read_text(const char *path,u8 *data,int capacity){
+    int handle=p_open(path);return handle<0?handle:read_text(handle,data,capacity);
+}
+int ed_load(Editor *e, const char *path) {
+    Entry entry;
+    int stat=p_stat(path,&entry);
+    if(stat==-2){ed_init(e);fd_text(e->path,path,FD_PATH);return 0;}
+    if(stat<0)return -stat;
+    if(entry.attr&FD_DIR)return 5;
+    int handle=p_open(path);if(handle<0)return -handle;
+    e->undo_valid=0;
+    int size=read_text(handle,scratch,ED_CAP);if(size<0)return -size;
     ed_init(e);
     for (int i = 0; i < size; i++) e->data[i] = scratch[i];
     e->length = size; e->read_only = entry.attr & 1;
@@ -157,60 +159,64 @@ static int reserve(const char *path, const char *extension, char *out) {
     }
     return -FD_EXISTS;
 }
-static int cleanup(Editor *e, const char *temporary, int error) {
+static int cleanup(char *recovery, const char *temporary, int error) {
     if (p_unlink(temporary) < 0) {
-        fd_text(e->recovery, temporary, FD_PATH);
+        fd_text(recovery, temporary, FD_PATH);
         return ED_RECOVERY;
     }
     return error;
 }
-int ed_save(Editor *e) {
+int ed_write_text(const char *path,const u8 *data,int length,char recovery[FD_PATH]) {
     char temporary[FD_PATH], backup[FD_PATH];
     Entry entry;
-    e->recovery[0] = 0;
-    if (!e->path[0]) return FD_BADNAME;
-    int stat = p_stat(e->path, &entry);
+    recovery[0] = 0;
+    if (!path[0]) return FD_BADNAME;
+    int stat = p_stat(path, &entry);
     if (!stat && (entry.attr & (FD_DIR | 1))) return 5;
     if (stat && stat != -2) return -stat;
-    int handle = reserve(e->path, "TMP", temporary);
+    int handle = reserve(path, "TMP", temporary);
     if (handle < 0) return -handle;
     u8 chunk[512];
     int error = 0, used = 0;
-    for (int at = 0; at <= e->length; at++) {
-        if (at == e->length || used >= 510) {
+    for (int at = 0; at <= length; at++) {
+        if (at == length || used >= 510) {
             int written = used ? p_write(handle, chunk, used) : 0;
             if (written != used) { error = written < 0 ? -written : 112; break; }
             used = 0;
         }
-        if (at == e->length) break;
-        if (e->data[at] == '\n') chunk[used++] = '\r';
-        chunk[used++] = e->data[at];
+        if (at == length) break;
+        if (data[at] == '\n') chunk[used++] = '\r';
+        chunk[used++] = data[at];
     }
     int closed = p_close(handle);
     if (!error && closed < 0) error = -closed;
-    if (error) return cleanup(e, temporary, error);
+    if (error) return cleanup(recovery, temporary, error);
     if (!stat) {
         error = p_attrs(temporary, entry.attr & 0x26);
-        if (error < 0) return cleanup(e, temporary, -error);
-        handle = reserve(e->path, "BAK", backup);
-        if (handle < 0) return cleanup(e, temporary, -handle);
+        if (error < 0) return cleanup(recovery, temporary, -error);
+        handle = reserve(path, "BAK", backup);
+        if (handle < 0) return cleanup(recovery, temporary, -handle);
         closed = p_close(handle);
         error = p_unlink(backup);
-        if (closed < 0 || error < 0) return cleanup(e, temporary, 5);
-        error = p_rename(e->path, backup);
-        if (error < 0) return cleanup(e, temporary, -error);
+        if (closed < 0 || error < 0) return cleanup(recovery, temporary, 5);
+        error = p_rename(path, backup);
+        if (error < 0) return cleanup(recovery, temporary, -error);
     }
-    error = p_rename(temporary, e->path);
+    error = p_rename(temporary, path);
     if (error < 0) {
-        int restore = !stat ? p_rename(backup, e->path) : 0;
-        int result = cleanup(e, temporary, -error);
-        if (restore < 0) { fd_text(e->recovery, backup, FD_PATH); return ED_RECOVERY; }
+        int restore = !stat ? p_rename(backup, path) : 0;
+        int result = cleanup(recovery, temporary, -error);
+        if (restore < 0) { fd_text(recovery, backup, FD_PATH); return ED_RECOVERY; }
         return result;
     }
-    e->dirty = e->undo_valid = e->read_only = 0;
     if (!stat && p_unlink(backup) < 0) {
-        fd_text(e->recovery, backup, FD_PATH);
+        fd_text(recovery, backup, FD_PATH);
         return ED_BACKUP_KEPT;
     }
     return 0;
+}
+int ed_save(Editor *e){
+    int error=ed_write_text(e->path,e->data,e->length,e->recovery);
+    if(!error||error==ED_BACKUP_KEPT)e->dirty=e->undo_valid=e->read_only=0;
+    return error;
 }

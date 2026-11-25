@@ -1,8 +1,10 @@
 #include "stats.h"
-#include "ui-clock.h"
 #include "../sdk/stopwatch.h"
 static KmStopwatch stopwatch;static unsigned watch;
 #include "../sdk/menu.h"
+#include "../sdk/widgets.h"
+#include "ui-clock.h"
+static KwFocus focus;
 static const KmItem app_menu[]={
  {"12 / 24 hour",KG_KEY,'t',0},
  {"Stopwatch",KG_KEY,'w',0},
@@ -21,29 +23,37 @@ static int draw(unsigned seconds){
  if(kg_large_text())kg_text_double((w-128)/2,20,text,0xffffff);
  else kg_text((w-64)/2,28,text,0xffffff);
  kg_label(20,72,watch?(stopwatch.running?"Stopwatch / running":"Stopwatch / stopped"):"PC-98 / DOS wall clock",0x263e58);
- kg_button('w',w-100,68,80,28,watch?"Clock":"Watch");
- kg_button(watch?'s':'t',20,104,132,28,watch?(stopwatch.running?"Stop":"Start"):clock_stats.mode?"24-hour":"12-hour");if(watch)kg_button('r',164,104,64,28,"Reset");kg_button('q',w-100,104,80,28,"Close");
+ kw_draw_button((KwRect){(int)w-100,68,80,28},'w',KU(watch?"Clock":"Watch"),KW_SECONDARY,focus.current==0?KW_FOCUSED:0);
+ kw_draw_button((KwRect){20,104,132,28},watch?'s':'t',KU(watch?(stopwatch.running?"Stop":"Start"):clock_stats.mode?"24-hour":"12-hour"),KW_SECONDARY,focus.current==1?KW_FOCUSED:0);
+ if(watch)kw_draw_button((KwRect){164,104,64,28},'r',KU("Reset"),KW_SECONDARY,focus.current==2?KW_FOCUSED:0);
+ kw_draw_button((KwRect){(int)w-100,104,80,28},'q',KU("Close"),KW_SECONDARY,focus.current==focus.count-1?KW_FOCUSED:0);
  kg_menu_state(watch?31:19,(watch?2u:0u)|(stopwatch.running?4u:0u));
  int e=kg_present();clock_stats.error=e<0?-e:0;if(!e)clock_stats.frames++;
  clock_stats.width=w;clock_stats.height=h;clock_stats.seconds=seconds;clock_stats.value=stopwatch.elapsed;clock_stats.reserved[0]=watch;clock_stats.reserved[1]=stopwatch.running;return e;
 }
 int main(int argc,char **argv){
+ focus.count=3;
  kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
  kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  int token=kg_open("Clock",328,160);if(token<0){clock_stats.error=-token;return 1;}clock_stats.token=token;unsigned previous=~0u;
+ kg_subscribe(KG_INPUT_TAB|KG_INPUT_MODIFIERS);
  for(;;){
   KgEvent event;int got=kg_poll(&event);if(got<0){clock_stats.error=-got;return 2;}clock_stats.heartbeat++;
   unsigned elapsed=stopwatch.elapsed;km_stopwatch_tick(&stopwatch,event.seconds);
   int dirty=elapsed!=stopwatch.elapsed;unsigned k=0;
   if(got){clock_stats.events++;
-   if(event.type==KG_KEY){k=event.key;clock_stats.keys++;}
+   if(event.type==KG_KEY){
+    k=event.key;clock_stats.keys++;
+    if(kw_focus(&focus,&event))dirty=1;
+    if(k==13)k=focus.current==0?'w':focus.current==1?(watch?'s':'t'):focus.current==focus.count-1?'q':'r';
+   }
    if(event.type==KG_MOUSE&&(event.key&1)){k=event.control;clock_stats.clicks++;}
    if(event.type==KG_RESIZE)dirty=1;
   }
   if(k=='q'||k=='Q')break;
   if(k=='t'||k=='T'){clock_stats.mode^=1;dirty=1;}
-  if(k=='w'||k=='W'){watch^=1;dirty=1;}
-  if(k=='s'||k=='S'){stopwatch.running^=1;watch=1;dirty=1;}
+  if(k=='w'||k=='W'){watch^=1;focus.count=watch?4:3;focus.current=0;dirty=1;}
+  if(k=='s'||k=='S'){stopwatch.running^=1;watch=1;focus.count=4;dirty=1;}
   if(k=='r'||k=='R'){stopwatch.elapsed=0;dirty=1;}
   if(previous!=event.seconds||dirty){previous=event.seconds;int e=draw(previous);if(e==-22)previous=~0u;else if(e<0)return 3;}
   if(argc>1&&same(argv[1],"fault"))*(volatile unsigned *)0x10000=1;
