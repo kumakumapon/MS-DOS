@@ -125,6 +125,11 @@ The launcher includes both tools; F9 / Paint starts KPAINT. See KIMAGE.TXT
 for pencil, line, rectangle, fill, color picker, eraser, selection, clipboard,
 undo/redo and safe BMP saving. COLORS.BMP is an original 256-index color chart.
 
+In the KDESK image windows, Share / Ctrl+B and Get / Ctrl+D exchange a
+BMP up to 128x128 with KGUI32 via KGCLIP.BMP on a verified HDD's Work.
+In Paint, select a smaller rectangle to share part of a larger image.
+KDESK converts the imported bitmap to its display palette.
+
 WebNP2: the toolbar's More menu contains KDESK Clipboard and Images. Explicit
 buttons exchange text and images with the host clipboard, export PNG, and
 import PNG/JPEG/etc. or a host clipboard image as BMP on FDD1 (max 320x200).

@@ -19,6 +19,8 @@ static KgDraw *command(unsigned op,int x,int y,int w,int h,unsigned color){
  *d=(KgDraw){.op=op,.x=x,.y=y,.w=w,.h=h,.color=color};return d;
 }
 int kg_rect(int x,int y,int w,int h,u32 c){command(KG_RECT,x,y,w,h,c);return 0;}
+unsigned kg_large_text(void){return 0;}
+int kg_text_double(int x,int y,const char *text,u32 color){return kg_text(x,y,text,color);}
 int kg_text(int x,int y,const char *s,u32 c){assert(strlen(s)<48);strcpy(command(KG_TEXT,x,y,0,0,c)->text,s);return 0;}
 int kg_button_color(u32 id,int x,int y,int w,int h,const char *s,u32 color){
  assert(strlen(s)<48);KgDraw *d=command(KG_BUTTON,x,y,w,h,color);d->id=id;strcpy(d->text,s);return 0;

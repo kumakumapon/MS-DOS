@@ -454,3 +454,13 @@ Paste image	画像を貼り付け
 Image copied	画像をコピーしました
 Image pasted	画像を貼り付けました
 Read only / choose Work to save	読取専用 / 保存先はWorkを選択
+Copy to KDESK	KDESKへコピー
+Paste from KDESK	KDESKから貼り付け
+Shared with KDESK	KDESKへ共有しました
+Pasted from KDESK	KDESKから貼り付けました
+Shared clipboard requires verified HDD	画像の共有には対応HDDが必要です
+Shared limit: 128 x 128	共有サイズの上限：128 x 128
+Recent items could not be saved.	最近使った項目を保存できませんでした
+Unpin a document before adding another.	文書の固定を1件解除してください
+Read-only preview / TMP may be incomplete	読み取り専用 / TMPは未完了の可能性あり
+Empty TMP / partial copy	空のTMP / 中断されたコピー

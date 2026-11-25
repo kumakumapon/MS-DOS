@@ -20,6 +20,13 @@ void kw_text(int x,int y,const char *s,unsigned cols,u32 color){
  char out[48];fit_text(out,s,cols);kg_text(x,y,out,color);
 }
 
+void kw_readable(int x,int y,const char *s,unsigned pixels,u32 color){
+ char out[48];unsigned large=kg_large_text();
+ fit_text(out,s,pixels/(large?16:8));
+ if(large)kg_text_double(x,y,out,color);
+ else kg_text(x,y,out,color);
+}
+
 void kw_draw_focus(KwRect r){
  const int edge=DESKTOP_FOCUS_WIDTH;
  if(r.w<=2*edge||r.h<=2*edge)return;
@@ -48,11 +55,13 @@ void kw_draw_input(KwRect r,const KwInput *v,int focus){
  int edge=focus?DESKTOP_FOCUS_WIDTH:1;
  kg_rect(r.x,r.y,r.w,r.h,focus?DESKTOP_COLOR_FOCUS:DESKTOP_COLOR_BORDER);
  kg_rect(r.x+edge,r.y+edge,r.w-2*edge,r.h-2*edge,DESKTOP_COLOR_PAPER);
- unsigned cols=(r.w-12)/8;if(cols>47)cols=47;
+ unsigned cell=kg_large_text()&&r.h>=36?16:8;
+ unsigned cols=(r.w-12)/cell;if(cols>47)cols=47;
  unsigned start=v->cursor>=cols?v->cursor-cols+1:0;
  unsigned floor=kt_floor(v->text,v->length,start);if(floor<start)start=kt_next(v->text,v->length,floor);
- kw_text(r.x+DESKTOP_SPACE_SMALL,r.y+DESKTOP_SPACE_SMALL,v->text+start,cols,DESKTOP_COLOR_INK);
- if(focus)kg_rect(r.x+DESKTOP_SPACE_SMALL+(v->cursor-start)*8,r.y+20,8,DESKTOP_FOCUS_WIDTH,DESKTOP_COLOR_FOCUS);
+ if(cell==16)kw_readable(r.x+DESKTOP_SPACE_SMALL,r.y+2,v->text+start,cols*cell,DESKTOP_COLOR_INK);
+ else kw_text(r.x+DESKTOP_SPACE_SMALL,r.y+DESKTOP_SPACE_SMALL,v->text+start,cols,DESKTOP_COLOR_INK);
+ if(focus)kg_rect(r.x+DESKTOP_SPACE_SMALL+(v->cursor-start)*cell,r.y+(cell==16?32:20),cell,DESKTOP_FOCUS_WIDTH,DESKTOP_COLOR_FOCUS);
 }
 void kw_draw_scroll(const KwScroll *s){
  if(s->r.h<48||s->r.w<12||!s->rows)return;

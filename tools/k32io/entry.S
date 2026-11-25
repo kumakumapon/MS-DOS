@@ -40,6 +40,8 @@ io_api:
     jne chain
     test bx,bx
     jz query
+    cmp bx,2
+    je activity
     cmp bx,1
     jne reply
     cmp WORD PTR cs:gate_busy,0
@@ -70,6 +72,9 @@ io_api:
 reply:
     mov ax,0x39fd
     iretw
+activity:
+    mov edx,DWORD PTR cs:io_disk_counts
+    jmp reply
 query:
     mov ax,cs
     mov es,ax

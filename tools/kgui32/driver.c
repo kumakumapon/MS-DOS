@@ -164,6 +164,12 @@ static int dispatch(void){
  case GUI_CLIENT_EVENT:error=kg_clients_event(b,c);break;
  case GUI_SURFACE_ACK:error=kg_clients_surface_ack(b,c);break;
  case GUI_VIDEO_READ:error=gui_video_read(b,c);break;
+ case GUI_DISK_ACTIVITY:{
+  unsigned ax=0xd39f,activity=0;
+  if(b||c){error=-22;break;}
+  __asm__ volatile("pushw %%es; int $0x2f; popw %%es":"+a"(ax),"+d"(activity):"b"(2):"ecx","esi","edi","cc","memory");
+  error=(ax&65535)==0x39fd?(int)(activity&0x7fff7fffu):0;break;
+ }
  case GUI_DESKTOP_CLOCK:{extern unsigned kg_clients_time(void);error=b||c?-22:(int)kg_clients_time();break;}
  case GUI_REBOOT:error=b||c?-22:0;if(!error)reboot_requested=1;break;
  case GUI_IMAGE_CLIP:{extern int kg_image_clip_register(u32,unsigned);error=kg_image_clip_register(b,c);break;}

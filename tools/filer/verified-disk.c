@@ -21,7 +21,7 @@ extern void fd_disk_fail(void);
 unsigned fd_disk_critical(int install,unsigned previous){
  unsigned a,b;unsigned short seg;
  if(install){a=0x3524;__asm__ volatile("pushw %%es; int $0x21; movw %%es,%1; popw %%es":"+a"(a),"=c"(seg),"=b"(b)::"cc","memory");previous=(unsigned)seg<<16|(b&65535);
-  a=0x2524;__asm__ volatile("int $0x21":"+a"(a):"d"((unsigned)fd_disk_fail):"cc","memory");
+  a=0x2524;__asm__ volatile("pushw %%ds; pushw %%cs; popw %%ds; int $0x21; popw %%ds":"+a"(a):"d"((unsigned)fd_disk_fail):"cc","memory");
  }else{a=0x2524;__asm__ volatile("pushw %%ds; movw %w2,%%ds; int $0x21; popw %%ds":"+a"(a):"d"(previous&65535),"r"(previous>>16):"cc","memory");}
  return previous;
 }

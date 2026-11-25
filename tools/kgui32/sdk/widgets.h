@@ -7,7 +7,7 @@
 #define KW_INPUT_BYTES 64
 typedef struct {int x,y,w,h;} KwRect;
 typedef struct {char text[KW_INPUT_BYTES];unsigned length,cursor;} KwInput;
-typedef struct {unsigned count,selected,top,rows;} KwList;
+typedef struct {unsigned count,selected,top,rows,line_height;} KwList;
 typedef struct {KwRect r;int dragging,offset;unsigned top,total,rows;} KwScroll;
 typedef struct {unsigned current,count;} KwFocus;
 int kw_inside(KwRect,int,int);
@@ -22,6 +22,7 @@ int kw_dialog(const KgEvent *);
 enum { KW_SECONDARY = DESKTOP_BUTTON_SECONDARY, KW_PRIMARY = DESKTOP_BUTTON_PRIMARY, KW_DANGER = DESKTOP_BUTTON_DANGER };
 enum { KW_FOCUSED = DESKTOP_CONTROL_FOCUSED, KW_DISABLED = DESKTOP_CONTROL_DISABLED, KW_PRESSED = DESKTOP_CONTROL_PRESSED };
 void kw_text(int,int,const char *,unsigned,u32);
+void kw_readable(int,int,const char *,unsigned,u32);
 void kw_draw_focus(KwRect);
 int kw_draw_button(KwRect,unsigned,const char *,unsigned,unsigned);
 void kw_draw_input(KwRect,const KwInput *,int);

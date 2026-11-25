@@ -37,7 +37,7 @@ void kw_reveal(KwList *l){
 }
 int kw_list(KwList *l,KwRect r,const KgEvent *e){
  if(e->type==KG_MOUSE&&(e->key&1)&&kw_inside(r,e->x,e->y)){
-  unsigned i=l->top+(e->y-r.y)/16;if(i>=l->count)return 0;l->selected=i;return 1;
+  unsigned i=l->top+(e->y-r.y)/(l->line_height?l->line_height:16);if(i>=l->count)return 0;l->selected=i;return 1;
  }
  if(e->type!=KG_KEY)return 0;
  unsigned n=l->selected,k=e->key;

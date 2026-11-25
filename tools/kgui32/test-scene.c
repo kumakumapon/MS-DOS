@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <string.h>
 #include "scene.h"
 #include "shell-ui.h"
 #include "layout.h"
@@ -210,5 +211,26 @@ static void shell_and_layout(void){
  assert(pegc.window[3].r.x==232&&pegc.window[3].r.y==80);
  assert(!layout_restore(&layout,&pegc,2,"KGCLOCK.EXE"));
 }
+static void document_history(void){
+ Scene s;scene_init(&s,640,400);s.shell_page=SHELL_RECENT;
+ ShellDocument doc={.path="DOCS\\FIRST.TXT"};
+ assert(shell_accept_document(&s,&doc));
+ GuiEvent pin={.type=GUI_KEY,.key=16};
+ assert(shell_key(&s,&pin)==ACT_HISTORY_CHANGED&&shell_pinned(&s,shell_item(&s,0)));
+ for(unsigned i=0;i<12;i++){
+  ShellDocument next={.path="DOC00.TXT"};
+  next.path[3]='0'+i/10;next.path[4]='0'+i%10;
+  assert(shell_accept_document(&s,&next));
+ }
+ assert(s.history.document_count==SHELL_DOC_LIMIT);
+ assert(!strcmp(shell_label(&s,0),"FIRST.TXT")&&shell_pinned(&s,shell_item(&s,0)));
+ assert(!strcmp(shell_label(&s,1),"DOC11.TXT"));
+ ShellDocument bad={.path="..\\WORK.TXT"};
+ assert(!shell_accept_document(&s,&bad));
+ s.history.version=1;
+ assert(shell_history_valid(&s.history));
+ s.history.documents[0]=bad;
+ assert(!shell_history_valid(&s.history));
+}
 int main(void){
- shell_and_layout();four(640,400);four(800,600);launcher(640,400);launcher(800,600);notices();check(640,400);check(800,600);sessions(640,400);sessions(800,600);clients(640,400);clients(800,600);return 0;}
+ document_history();shell_and_layout();four(640,400);four(800,600);launcher(640,400);launcher(800,600);notices();check(640,400);check(800,600);sessions(640,400);sessions(800,600);clients(640,400);clients(800,600);return 0;}

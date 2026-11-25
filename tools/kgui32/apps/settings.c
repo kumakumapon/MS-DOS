@@ -78,7 +78,7 @@ static void preference_button(int x,int y,int w,unsigned id,const char *label,un
    (disabled?KW_DISABLED:0)|(focus.current==id-S_LANG?KW_FOCUSED:0));
 }
 static void draw_preferences(unsigned w){
- kg_label(8,8,"Desktop preferences",0x20344a);
+ kw_readable(8,kg_large_text()?0:8,KU("Desktop preferences"),w-16,0x20344a);
  preference_button(8,34,w-16,S_LANG,next_prefs.language?"Language: Japanese":"Language: English",prefs_error);
  int half=(w-24)/2;
  preference_button(8,74,half,S_THEME,next_prefs.theme?"Display: High contrast":"Display: Classic",prefs_error);

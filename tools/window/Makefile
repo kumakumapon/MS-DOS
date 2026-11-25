@@ -3,7 +3,7 @@ BUILD ?= build
 # Native desktop and image tools use separate MZ code/data/stack segments.
 CFLAGS = -m16 -march=i386 -mregparm=3 -mpreferred-stack-boundary=2 -Oz -flto -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -fno-builtin -ffunction-sections -fdata-sections -Wall -Wextra -Werror -DDOS
 
-all: $(BUILD)/KVIEW.EXE $(BUILD)/KPAINT.EXE $(BUILD)/COLORS.BMP $(BUILD)/KIMAGE.TXT $(BUILD)/KDESK.EXE $(BUILD)/KDESK.TXT $(BUILD)/KDLIC.TXT
+all: $(BUILD)/KVIEW.EXE $(BUILD)/KPAINT.EXE $(BUILD)/COLORS.BMP $(BUILD)/COLORS-FD.BMP $(BUILD)/KIMAGE.TXT $(BUILD)/KDESK.EXE $(BUILD)/KDESK.TXT $(BUILD)/KDLIC.TXT
 $(BUILD):
 	mkdir -p $@
 $(BUILD)/start.o: ../filer/start.s | $(BUILD)
@@ -42,7 +42,7 @@ $(BUILD)/memory.o: memory.c hardware.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/hardware.o: hardware.c hardware.h ../filer/filer.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/windowtools.raw.o: windowtools.c windowtools.h ../editor/editor.h | $(BUILD)
+$(BUILD)/windowtools.raw.o: windowtools.c windowtools.h ../editor/editor.h ../filer/verified-disk.h ../k38632/io.h | $(BUILD)
 	$(CC) $(filter-out -flto,$(CFLAGS)) -DKDESK_BANK_TOOLS -DED_CAP=8192 -c $< -o $@
 $(BUILD)/windoweditor.raw.o: ../editor/editor.c ../editor/editor.h | $(BUILD)
 	$(CC) $(filter-out -flto,$(CFLAGS)) -DKDESK_BANK_TOOLS -DED_CAP=8192 -c $< -o $@
@@ -66,9 +66,13 @@ $(BUILD)/bank-core.raw.o: ../filer/core.c ../filer/filer.h | $(BUILD)
 	$(CC) $(filter-out -flto,$(CFLAGS)) -c $< -o $@
 $(BUILD)/bank-core.o: $(BUILD)/bank-core.raw.o
 	objcopy $(foreach f,fd_copy fd_move fd_rename fd_remove fd_mkdir,--rename-section .text.$(f)=.tools.text.$(f)) $< $@
+$(BUILD)/verified-disk.raw.o: ../filer/verified-disk.c ../filer/verified-disk.h | $(BUILD)
+	$(CC) $(filter-out -flto,$(CFLAGS)) -c $< -o $@
+$(BUILD)/verified-disk.o: $(BUILD)/verified-disk.raw.o bank-sections.py
+	python3 bank-sections.py $< $@ tools
 $(BUILD)/window.elf: $(BUILD)/bitmap-bank.o $(BUILD)/bank.o $(BUILD)/tools-entry.o $(BUILD)/windowtools.o $(BUILD)/windoweditor.o $(BUILD)/windowcontrol.o $(BUILD)/window.o $(BUILD)/cirrus.o $(BUILD)/app.o $(BUILD)/k386_client.o $(BUILD)/tasks.o $(BUILD)/scroll.o $(BUILD)/utilities.o $(BUILD)/art.o $(BUILD)/commands.o $(BUILD)/hardware.o $(BUILD)/memory.o $(BUILD)/clipboard.o $(BUILD)/exe-start.o $(BUILD)/bank-core.o $(BUILD)/exe-dos98.o banked.ld
 	$(CC) $(CFLAGS) -nostdlib -no-pie -Wl,--gc-sections,--no-check-sections,-T,banked.ld $(filter %.o,$^) -o $@
-$(BUILD)/window.elf: $(BUILD)/ui-i18n.o
+$(BUILD)/window.elf: $(BUILD)/ui-i18n.o $(BUILD)/verified-disk.o
 $(BUILD)/KDESK.EXE: $(BUILD)/window.elf ../mz/build.py
 	python3 ../mz/build.py $< $@
 $(BUILD)/KDESK.TXT: KDESK.TXT | $(BUILD)
@@ -93,6 +97,8 @@ $(BUILD)/KVIEW.EXE: $(BUILD)/view.elf ../mz/build.py
 	python3 ../mz/build.py --desktop-app 'Image viewer' $< $@
 $(BUILD)/COLORS.BMP: sample.py | $(BUILD)
 	python3 $< $@
+$(BUILD)/COLORS-FD.BMP: sample.py | $(BUILD)
+	python3 $< $@ --compact
 $(BUILD)/KIMAGE.TXT: KIMAGE.TXT | $(BUILD)
 	python3 -c "from pathlib import Path; Path('$@').write_bytes(Path('$<').read_text().replace('\n', '\r\n').encode('ascii'))"
 

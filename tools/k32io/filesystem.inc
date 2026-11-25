@@ -145,14 +145,21 @@ static int append_path(char out[DOS_PATH],const char *base,const char *relative)
  copy(out,base,n);out[n]='\\';copy(out+n+1,relative,m+1);return 0;
 }
 
-enum { DRIVE_LIST = K32_FS_LIST_TMP+1 };
+enum { DRIVE_LIST = K32_FS_LIST_TMP_CONTENT+1 };
 static int list_entry(Owner *o,K32Fs *r,char path[DOS_PATH]){
  int next=r->action==K32_FS_NEXT;
  if(next){if(!r->token||r->token!=o->cursor)return -9;}
  else{
   o->cursor=0;
   o->list_kind=r->action==K32_FS_DRIVE_LIST?DRIVE_LIST:r->flags;
-  int e=o->list_kind==DRIVE_LIST?0:parents(path,o->list_kind==K32_FS_LIST_TRASH,0,1);
+  int preview=o->list_kind==K32_FS_LIST_TMP_CONTENT;
+  int e=o->list_kind==DRIVE_LIST?0:parents(path,o->list_kind==K32_FS_LIST_TRASH,0,!preview);
+  if(!e&&preview){
+   char stage[DOS_PATH];sibling(path,"TMP",stage);
+   if(tree.owner)return -16;
+   if((attributes(stage)&0x5f)!=16)return -2;
+   copy(path,stage,path_length(stage)+1);
+  }
   if(e==-2&&o->list_kind==K32_FS_LIST_TRASH)goto empty;
   if(e)return e;
   unsigned end=path_length(path);
@@ -314,7 +321,7 @@ static int folder_copy(Owner *o,K32Fs *r){
 
 static int filesystem(Owner *o,K32Fs *r){
  unsigned drive=r->action==K32_FS_DRIVE_LIST||r->action==K32_FS_DRIVE_OPEN;
- unsigned limit=r->action==K32_FS_LIST?K32_FS_LIST_TMP:drive?25:r->action==K32_FS_TREE_BEGIN||r->action==K32_FS_SAVE?1:0;
+ unsigned limit=r->action==K32_FS_LIST?K32_FS_LIST_TMP_CONTENT:drive?25:r->action==K32_FS_TREE_BEGIN||r->action==K32_FS_SAVE?1:0;
  if(r->version!=1||r->size!=sizeof *r||r->action<K32_FS_LIST||r->action>K32_FS_TREE_RECOVER||
     (r->action!=K32_FS_BOOT_WRITE&&r->flags>limit)||
     (r->action!=K32_FS_NEXT&&r->token)||
@@ -350,7 +357,7 @@ static int filesystem(Owner *o,K32Fs *r){
  if(e)return e;
  if(r->action>=K32_FS_TREE_BEGIN&&r->action<=K32_FS_TREE_CANCEL)return folder_copy(o,r);
  int trash=r->action==K32_FS_RESTORE||(r->action==K32_FS_LIST&&r->flags==K32_FS_LIST_TRASH);
- e=work_path(o,r->path,trash,r->action==K32_FS_LIST,path);if(e)return e;
+ e=work_path(o,r->path,trash,r->action==K32_FS_LIST&&r->flags!=K32_FS_LIST_TMP_CONTENT,path);if(e)return e;
  if(r->action==K32_FS_LIST)return list_entry(o,r,path);
  if(r->action==K32_FS_RESTORE){
   int mirror=attributes(path);

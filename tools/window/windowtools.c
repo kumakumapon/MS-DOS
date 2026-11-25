@@ -2,6 +2,8 @@
 #include "bitmap.h"
 #include "clipboard.h"
 #include "../editor/editor.h"
+#include "../filer/verified-disk.h"
+#include "../k38632/io.h"
 static Editor editor;
 static Bitmap pictures[2],undo,copied;
 static u8 image_row[IMAGE_WIDTH];
@@ -38,6 +40,35 @@ static int overwrite;
 static int cx,cy,cw,ch,ct;
 const char *control_status(void);void control_open(void);void control_draw(void);int control_key(int key);
 static void say(const char *s){fd_text(notice[current_tool],s,sizeof notice[0]);}
+static int shared_path(char path[24]){
+ for(unsigned drive=0;drive<26;drive++)if(fd_hdd_verified(drive)){
+  fd_text(path,"A:\\WORK\\" KG_SHARED_IMAGE,24);path[0]='A'+drive;return 1;
+ }
+ say("Shared clipboard requires verified HDD");return 0;
+}
+static void share_image(void){
+ char path[24];unsigned old=fd_disk_critical(1,0);
+ if(shared_path(path)){
+  int e=bitmap_save(&copied,path);
+  say(e<0?"Shared save failed / original kept":e?"Shared with KGUI32 / BAK kept":"Shared with KGUI32");
+ }
+ fd_disk_critical(0,old);
+}
+static void paste_shared(int tool){
+ char path[24];Bitmap next={0};unsigned old=fd_disk_critical(1,0);
+ if(shared_path(path)){
+  if(bitmap_load(&next,path)<0)say("No readable shared image");
+  else if(next.width>128||next.height>128)say("Shared limit: 128 x 128");
+  else {
+   Bitmap *current=&pictures[tool-WT_VIEW];
+   if(tool==WT_PAINT){bitmap_free(&undo);undo=*current;changed[tool]=1;stroke=selection=0;}
+   else bitmap_free(current);
+   *current=next;next=(Bitmap){0};pan[tool-WT_VIEW]=0;
+   publish(current);say("Pasted from KGUI32");
+  }
+ }
+ fd_disk_critical(0,old);bitmap_free(&next);
+}
 static void label(int x,int y,const char *s,int width,int fg,int bg){
  for(int i=0;i<width&&s[i];i++)gfx_cell(x+i,y,s[i],fg,bg,0);
 }
@@ -124,12 +155,15 @@ void wt_key(int tool,int key){
   else if(key==13||key==9||(key>=32&&key<=255)){u8 c=key==13?'\n':key;ed_insert(&editor,&c,1);}
   changed[0]=editor.dirty;return;
  }
- if(key==3||key==24){
+ if(key==4){paste_shared(tool);return;}
+ if(key==2||key==3||key==24){
   Bitmap *b=&pictures[tool-WT_VIEW];int ax=tool==WT_PAINT&&selection?x1:0,ay=tool==WT_PAINT&&selection?y1:0;
   int ww=tool==WT_PAINT&&selection?x2-x1+1:b->width,hh=tool==WT_PAINT&&selection?y2-y1+1:b->height;
+  if(key==2&&(ww>128||hh>128)){say("Select at most 128 x 128 to share");return;}
   if(!bitmap_new(&copied,ww,hh,WHITE)){say("Not enough clipboard memory");return;}
   for(int y=0;y<hh;y++)mem_copy(copied.segment,y*(u32)ww,b->segment,(ay+y)*(u32)b->width+ax,ww);
-  publish(&copied);say("Copied image");
+  publish(&copied);
+  if(key==2)share_image();else say("Copied image");
   if(key==24&&tool==WT_PAINT&&checkpoint()){for(int y=0;y<hh;y++)mem_fill(b->segment,(ay+y)*(u32)b->width+ax,ww,WHITE);changed[tool]=1;}
   return;
  }
@@ -205,14 +239,22 @@ __attribute__((noinline)) void wt_draw(int tool,int x,int y,int w,int h,int top,
 
  if(prompts[tool]==1){label(x,y+h-2,"Save as:",w,INK,SURFACE);label(x+9,y+h-2,paths[tool],w-9,INK,SURFACE);}
  else label(x,y+h-2,tool==WT_SETTINGS?control_status():notice[tool],w,MUTED,PAPER);
- label(x,y+h-1,tool==WT_SETTINGS?"S Save / R Reload / +/- FILES":tool==WT_VIEW?"^C Copy / arrows pan / PgUp PgDn":tool==WT_PAINT?"P L R F I E S / ^S Save ^Z Undo ^C ^V":"^S Save ^W SaveAs ^Z Undo ^R Reload",w,INK,SURFACE);
+ if(tool>=WT_VIEW){
+  label(x,y+h-1," Share ",7,WHITE,SELECTED);label(x+8,y+h-1," Get ",5,WHITE,SELECTED);
+  label(x+14,y+h-1,tool==WT_PAINT?"^C Copy ^V Paste ^S Save":"^C Copy / arrows pan",w-14,INK,SURFACE);
+ }else label(x,y+h-1,tool==WT_SETTINGS?"S Save / R Reload / +/- FILES":tool==WT_VIEW?"^C Copy / arrows pan / PgUp PgDn":tool==WT_PAINT?"P L R F I E S / ^S Save ^Z Undo ^C ^V":"^S Save ^W SaveAs ^Z Undo ^R Reload",w,INK,SURFACE);
  if(changed[tool])gfx_cell(x+w-1,y+h-1,'*',WHITE,SELECTED,1);
 }
 int wt_click(int tool,int x,int y,int w,int h,int top,int px,int py){
  current_tool=tool;
  px-=x*8;py-=y*16;
  if(px<0||px>=w*8||py<0||py>=h*16)return 0;
- if(py/16==h-1){wt_key(tool,tool==WT_SETTINGS?'s':19);return 1;}
+ if(py/16==h-1){
+  int col=px/8;
+  if(tool>=WT_VIEW&&col<13)wt_key(tool,col<7?2:col>=8?4:0);
+  else wt_key(tool,tool==WT_SETTINGS?'s':19);
+  return 1;
+ }
  if(tool==WT_PAINT&&py/16==h-3){color=(color&240)+px/16;return 1;}
  if(tool==WT_PAINT&&py>=16&&py<(h-3)*16)return wt_pointer(tool,x,y,w,h,top,px+x*8,py+y*16,1);
  if(tool==WT_EDITOR&&py<(h-3)*16){

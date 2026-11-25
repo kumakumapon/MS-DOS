@@ -11,17 +11,19 @@ extern unsigned io_old_vector;extern void io_api(void);
 #define DOS_PATH 64
 #define WORK_PATH_BYTES (8+K32_FS_PATH)
 /* DOS handles are below the broker PSP's 96-handle ceiling. */
-typedef struct __attribute__((packed)) {unsigned token,bytes;unsigned char h,lock;} File;
+typedef struct __attribute__((packed)) {unsigned token,bytes;unsigned char h,lock,hdd;} File;
 typedef struct {
  unsigned token,length,limit,old_length,old_hash,hash,scanned,reader;
  short writer;unsigned char phase,exists,kind,lock[2];
  char target[WORK_PATH_BYTES],destination[21];
 } Transaction;
-typedef struct {unsigned owner,epoch,cursor;File file[8];Transaction tx;unsigned char drive,list_kind,dta[43];} Owner;
+typedef struct {unsigned owner,epoch,cursor;File file[8];Transaction tx;unsigned char drive,hdd,list_kind,list_hdd,dta[43];} Owner;
 #define LOCK_PATH WORK_PATH_BYTES
 static Owner owners[8];static char locks[16][LOCK_PATH];
 static unsigned self,psp,serial,indos_segment,indos_offset;
 static unsigned char buffer[4096];
+volatile unsigned short io_disk_counts[2];
+static void disk_access(unsigned hdd){io_disk_counts[hdd]++;}
 typedef struct {Owner *owner;char source[WORK_PATH_BYTES],target[WORK_PATH_BYTES];unsigned move;} FolderCopy;
 static FolderCopy tree;
 volatile struct {char signature[8];unsigned short version,size,ready,busy;unsigned owner,calls,rejected,stack_ok;struct {unsigned owner,epoch,handles,phase,bytes;} task[8];} io_record={.signature={'K','3','2','I','O','V','0','1'},.version=1,.size=sizeof io_record};
@@ -65,7 +67,7 @@ static int file_open(Owner *o,const char *path){
  unsigned value=token();if(!value)return -75;
  int h=open_path(path,0);if(h<0)return h;
  /* Publish ownership before size/seek so failed close cannot leak authority. */
- File *f=&o->file[i];*f=(File){.h=h,.token=value};unsigned bytes=0;int e=size_handle(h,&bytes);if(!e&&bytes>K32_IO_LIMIT)e=-27;f->bytes=bytes;
+ File *f=&o->file[i];*f=(File){.h=h,.token=value,.hdd=o->hdd&&path[0]=='A'+o->drive};unsigned bytes=0;int e=size_handle(h,&bytes);if(!e&&bytes>K32_IO_LIMIT)e=-27;f->bytes=bytes;
  if(e){if(file_close(o,f->token))return -117;return e;}return (int)f->token;
 }
 static int lock_path(const char *path){
@@ -159,22 +161,32 @@ static int dispatch(Owner *o,K32Io *r){
  if(r->operation==K32_IO_FS){
   if(r->version!=1||r->size!=sizeof *r||r->flags||r->reserved||r->bytes!=sizeof(K32Fs))return -22;
   K32Fs fs;copy(&fs,buffer,sizeof fs);
-  int e=filesystem(o,&fs);if(e<0)return e;
+  unsigned action=fs.action,hdd=o->hdd;
+  if(action==K32_FS_NEXT)hdd=o->list_hdd;
+  else if(action==K32_FS_DRIVE_LIST||action==K32_FS_DRIVE_OPEN)hdd=hdd&&fs.flags==o->drive;
+  else if(action==K32_FS_BOOT_OPEN||action==K32_FS_BOOT_WRITE)hdd=hdd&&!o->drive;
+  int e=filesystem(o,&fs);
+  if(action!=K32_FS_DRIVES&&e!=-22&&e!=-9&&e!=-15){
+   disk_access(hdd);
+   if(action==K32_FS_LIST||action==K32_FS_DRIVE_LIST)o->list_hdd=hdd;
+  }
+  if(e<0)return e;
   copy(buffer,&fs,sizeof fs);return sizeof fs;
  }
  int e=k32_io_validate(r);if(e)return e;
  if(r->operation<=K32_IO_OPEN||r->operation==K32_IO_BEGIN||r->operation==K32_IO_RECOVER){e=ready(o);if(e)return e;}
  Transaction *t=&o->tx;char path[24];
  if(r->operation==K32_IO_STAT||r->operation==K32_IO_OPEN){
-  k32_io_path(o->drive,r->name,r->flags,path);int h=file_open(o,path);
+  k32_io_path(o->drive,r->name,r->flags,path);disk_access(o->hdd);int h=file_open(o,path);
   if(r->operation==K32_IO_STAT){r->exists=0;r->length=r->hash=0;if(h==-2)return 0;if(h<0)return h;r->exists=1;r->length=o->file[file_index(o,(unsigned)h)].bytes;return file_close(o,(unsigned)h);}
   if(h<0)return h;
   r->token=(unsigned)h;r->length=o->file[file_index(o,r->token)].bytes;return 0;
  }
- if(r->operation==K32_IO_BEGIN)return begin(o,r,0);
+ if(r->operation==K32_IO_BEGIN){disk_access(o->hdd);return begin(o,r,0);}
  if(r->operation==K32_IO_RECOVER){if(!r->token){e=begin(o,r,1);if(e)return e;}else if(r->token!=t->token||!t->kind)return -9;return advance(o);}
  if(r->operation>=K32_IO_WRITE&&r->operation<=K32_IO_ABORT){
   if(!t->phase||!r->token||r->token!=t->token||(t->kind&&r->operation!=K32_IO_ABORT))return -9;
+  disk_access(o->hdd);
   if(r->operation==K32_IO_ABORT)return abort_tx(o,r->flags);
   if(r->operation==K32_IO_COMMIT)return advance(o);
   if(t->phase!=1)return -16;
@@ -185,7 +197,7 @@ static int dispatch(Owner *o,K32Io *r){
  int i=file_index(o,r->token);if(i<0)return i;File *f=&o->file[i];
  if(r->operation==K32_IO_CLOSE)return file_close(o,r->token);
  if(r->operation==K32_IO_SEEK){if(r->offset>f->bytes)return -22;return seek_handle(f->h,r->offset);}
- if(r->operation==K32_IO_READ){if(!r->bytes)return 0;int n=data_io(f->h,r->bytes,0);if(n>4096||(n>=0&&(unsigned)n>r->bytes))return -5;return n;}
+ if(r->operation==K32_IO_READ){if(!r->bytes)return 0;disk_access(f->hdd);int n=data_io(f->h,r->bytes,0);if(n>4096||(n>=0&&(unsigned)n>r->bytes))return -5;return n;}
  return -38;
 }
 #ifndef K32IO_TEST
@@ -203,11 +215,11 @@ void io_dispatch(void){
  if(p.operation==2){p.result=o?cleanup(o):0;goto restore;}
  if(p.request>65536-sizeof(K32Io)||p.buffer>65536-sizeof buffer)goto restore;
  if(p.operation==3){K32Io query;char path[24];mem_copy(self,(unsigned)&query,io_sender_segment,p.request,sizeof query);p.result=k32_io_path(query.offset,query.name,1,path);if(!p.result)for(unsigned i=0;i<16;i++)if(locks[i][0]&&same(locks[i],path)){p.result=-16;break;}goto restore;}
- if(!o){for(unsigned i=0;i<8;i++)if(!owners[i].owner){o=&owners[i];slot=i;*o=(Owner){.owner=p.owner,.epoch=p.epoch};for(unsigned drive=0;drive<26;drive++)if(fd_hdd_verified(drive)){o->drive=drive;break;}break;}}
+ if(!o){for(unsigned i=0;i<8;i++)if(!owners[i].owner){o=&owners[i];slot=i;*o=(Owner){.owner=p.owner,.epoch=p.epoch};for(unsigned drive=0;drive<26;drive++)if(fd_hdd_verified(drive)){o->drive=drive;o->hdd=1;break;}break;}}
  if(!o){p.result=-24;goto restore;}
  K32Io r;mem_copy(self,(unsigned)&r,io_sender_segment,p.request,sizeof r);
  if((r.operation==K32_IO_WRITE||r.operation==K32_IO_RECOVER||r.operation==K32_IO_FS)&&r.bytes<=4096)mem_copy(self,(unsigned)buffer,io_sender_segment,p.buffer,r.bytes);
- if((r.operation==K32_IO_OPEN||r.operation==K32_IO_BEGIN)&&same(r.name,KG_LAYOUT_FILE)&&!fd_hdd_verified(o->drive))p.result=-13;
+ if((r.operation==K32_IO_OPEN||r.operation==K32_IO_BEGIN)&&(same(r.name,KG_LAYOUT_FILE)||same(r.name,KG_HISTORY_FILE))&&!fd_hdd_verified(o->drive))p.result=-13;
  else p.result=dispatch(o,&r);
  if((r.operation==K32_IO_READ||r.operation==K32_IO_FS)&&p.result>0)mem_copy(io_sender_segment,p.buffer,self,(unsigned)buffer,(unsigned)p.result);
  mem_copy(io_sender_segment,p.request,self,(unsigned)&r,sizeof r);

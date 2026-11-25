@@ -120,6 +120,13 @@ static void test_folders(void){
  assert(find("A:\\WORK\\COPY\\FILE.TXT")>=0&&attributes("A:\\WORK\\MOVED.TMP")==16);
  r=fs_request(K32_FS_TREE_CANCEL,"","");
  assert(!filesystem(o,&r)&&!tree.owner);
+ r=fs_request(K32_FS_LIST,"MOVED","");r.flags=K32_FS_LIST_TMP_CONTENT;
+ unsigned prior=renames;assert(!filesystem(o,&r));
+ assert(attributes("A:\\WORK\\MOVED.TMP")==16&&renames==prior);
+ r=fs_request(K32_FS_LIST,"..\\MOVED","");r.flags=K32_FS_LIST_TMP_CONTENT;
+ assert(filesystem(o,&r)==-22);
+ r=fs_request(K32_FS_LIST,"COPY","");r.flags=K32_FS_LIST_TMP_CONTENT;
+ assert(filesystem(o,&r)==-2);
 }
 int main(void){
  test_folders();

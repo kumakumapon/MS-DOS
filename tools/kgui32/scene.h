@@ -4,9 +4,16 @@
 #include "sdk/protocol.h"
 typedef struct {int x,y,w,h;} Rect;
 typedef struct {Rect r;int open,hidden;} GuiWindow;
+enum { SHELL_APP_LIMIT=12, SHELL_DOC_LIMIT=10, SHELL_PIN_LIMIT=4 };
+typedef struct { unsigned volume,bitmap,pinned;char path[KG_RECENT_PATH]; } ShellDocument;
+typedef struct {
+ unsigned version,recent_apps,document_count;
+ unsigned app_recent[SHELL_APP_LIMIT];
+ ShellDocument documents[SHELL_DOC_LIMIT];
+} ShellHistory;
 enum {
  GN_NONE, GN_SLOTS_FULL, GN_START_FAILED, GN_APP_MISSING, GN_WORKERS_STARTED, GN_WORKERS_STOPPED,
- GN_WORKER_FAILED, GN_SESSION_FAILED, GN_APP_FAULTED, GN_LAYOUT_SAVE_FAILED
+ GN_WORKER_FAILED, GN_SESSION_FAILED, GN_APP_FAULTED, GN_LAYOUT_SAVE_FAILED, GN_HISTORY_SAVE_FAILED, GN_DOCUMENT_PIN_LIMIT
 };
 typedef struct {
  int width,height,mx,my,buttons,active,drag,dx,dy;
@@ -17,10 +24,10 @@ typedef struct {
  unsigned notice,notice_click;
  unsigned shell_page,shell_selected,shell_top,shell_length,shell_swallow,shell_alt;
  char shell_query[28];
- unsigned app_pins,app_recent[12],recent_apps,document_index;
- const volatile KgRecentDocument *documents;
+ unsigned app_pins,document_index,history_dirty;
+ ShellHistory history;
 } Scene;
-enum {ACT_NONE,ACT_EXIT,ACT_START,ACT_STOP,ACT_NEW,ACT_RUN,ACT_KEY,ACT_END,ACT_PAUSE,ACT_RESUME,ACT_RESTART,ACT_SCROLL,ACT_CALCULATOR,ACT_CLOCK,ACT_SHELL,ACT_FILES,ACT_EDITOR,ACT_IMAGE,ACT_WORDS,ACT_SHELL32,ACT_CALENDAR,ACT_SETTINGS,ACT_MEMO,ACT_NOTICE_INPUT,ACT_REBOOT,ACT_OPEN_RECENT,ACT_PIN_CHANGED};
+enum {ACT_NONE,ACT_EXIT,ACT_START,ACT_STOP,ACT_NEW,ACT_RUN,ACT_KEY,ACT_END,ACT_PAUSE,ACT_RESUME,ACT_RESTART,ACT_SCROLL,ACT_CALCULATOR,ACT_CLOCK,ACT_SHELL,ACT_FILES,ACT_EDITOR,ACT_IMAGE,ACT_WORDS,ACT_SHELL32,ACT_CALENDAR,ACT_SETTINGS,ACT_MEMO,ACT_NOTICE_INPUT,ACT_REBOOT,ACT_OPEN_RECENT,ACT_PIN_CHANGED,ACT_HISTORY_CHANGED};
 enum { LAUNCHER_BUTTONS=10, LAUNCHER_HINT_Y=258 };
 enum { LAUNCHER_APPS, LAUNCHER_GUIDE, LAUNCHER_GALLERY };
 Rect scene_launcher_button(unsigned index);
