@@ -114,6 +114,36 @@ int shell_accept_document(Scene *s,const ShellDocument *doc){
  if(s->shell_page==SHELL_RECENT)scene_damage(s,shell_panel());
  return 1;
 }
+int shell_follow_move(Scene *s,const char *source,const char *target){
+ ShellHistory *h=&s->history;
+ unsigned prefix=0,destination=0,changed=0;
+ while(prefix<KG_RECENT_PATH&&source[prefix])prefix++;
+ while(destination<KG_RECENT_PATH&&target[destination])destination++;
+ if(!prefix||!destination||prefix==KG_RECENT_PATH||destination==KG_RECENT_PATH)return 0;
+ for(unsigned i=0;i<h->document_count;i++){
+  ShellDocument *doc=&h->documents[i],moved=*doc;
+  if(doc->volume)continue;
+  unsigned n=0;
+  while(n<prefix&&upper(doc->path[n])==upper(source[n]))n++;
+  if(n!=prefix||(doc->path[n]&&doc->path[n]!='\\'))continue;
+  unsigned at=0;
+  for(;at<destination;at++)moved.path[at]=target[at];
+  while(at<KG_RECENT_PATH-1&&doc->path[n])moved.path[at++]=doc->path[n++];
+  moved.path[at]=0;changed=1;
+  if(doc->path[n]||!valid_document(&moved)){doc->path[0]=0;continue;}
+  for(unsigned j=0;j<h->document_count;j++)if(j!=i&&same_document(&moved,&h->documents[j])){
+   moved.pinned|=h->documents[j].pinned;h->documents[j].path[0]=0;
+  }
+  *doc=moved;
+ }
+ if(changed){
+  unsigned count=0;
+  for(unsigned i=0;i<h->document_count;i++)if(h->documents[i].path[0])h->documents[count++]=h->documents[i];
+  h->document_count=count;s->history_dirty=1;
+  if(s->shell_page==SHELL_RECENT){s->shell_selected=s->shell_top=0;scene_damage(s,shell_panel());}
+ }
+ return changed;
+}
 int shell_item(const Scene *s,unsigned index){
  if(s->shell_page==SHELL_KUMA)return index<SHELL_ROWS?(int)index:-1;
  if(s->shell_page==SHELL_SEARCH){
@@ -194,6 +224,23 @@ static int toggle_pin(Scene *s){
  }
  return ACT_NOTICE_INPUT;
 }
+static int forget_recent(Scene *s){
+ if(s->shell_page!=SHELL_RECENT)return ACT_NOTICE_INPUT;
+ ShellHistory *h=&s->history;
+ int action=shell_item(s,s->shell_selected);
+ const ShellDocument *doc=shell_document(s,action);
+ if(doc){
+  for(unsigned i=action-DOCUMENT_ITEM;i+1<h->document_count;i++)h->documents[i]=h->documents[i+1];
+  h->document_count--;
+ }else{
+  unsigned i=0;while(i<h->recent_apps&&apps[h->app_recent[i]].action!=action)i++;
+  if(i==h->recent_apps)return ACT_NOTICE_INPUT;
+  for(;i+1<h->recent_apps;i++)h->app_recent[i]=h->app_recent[i+1];
+  h->recent_apps--;
+ }
+ s->shell_selected=s->shell_top=0;s->history_dirty=1;scene_damage(s,shell_panel());
+ return ACT_HISTORY_CHANGED;
+}
 void shell_timer(Scene *s,unsigned modifiers){
  if(s->shell_alt&&!(modifiers&KG_MOD_ALT))activate(s);
 }
@@ -210,6 +257,7 @@ int shell_key(Scene *s,const GuiEvent *e){
  if(s->shell_page==SHELL_KUMA&&(e->key=='b'||e->key=='B')){open_page(s,SHELL_REBOOT);return ACT_NOTICE_INPUT;}
  if(s->shell_page==SHELL_REBOOT&&(e->key=='r'||e->key=='R')){s->shell_selected=0;return activate(s);}
  if((s->shell_page==SHELL_SEARCH||s->shell_page==SHELL_RECENT)&&e->key==16)return toggle_pin(s);
+ if(s->shell_page==SHELL_RECENT&&(e->key==264||e->key=='d'||e->key=='D'))return forget_recent(s);
  if(e->key==13)return activate(s);
  if(e->key==256||e->key==257||e->key==9){select_row(s,e->key==256?-1:1);return ACT_NOTICE_INPUT;}
  if(s->shell_page==SHELL_SEARCH){
@@ -236,6 +284,7 @@ int shell_mouse(Scene *s,const GuiEvent *e,int down){
  }
  for(unsigned i=0;i<SHELL_ROWS;i++)if(inside(shell_row(i),e->x,e->y)){
   s->shell_selected=s->shell_top+i;
+  if(s->shell_page==SHELL_RECENT&&e->x>=174&&e->x<238)return forget_recent(s);
   if((s->shell_page==SHELL_SEARCH||(s->shell_page==SHELL_RECENT&&shell_document(s,shell_item(s,s->shell_selected))))&&e->x>=244)return toggle_pin(s);
   return activate(s);
  }

@@ -28,6 +28,7 @@ static unsigned work,work_stage,edit_pending,managing;static K32WorkInfo destina
 static KwInput filter;
 static KwList list;static KwFocus focus;static KwScroll scroll;
 static const char *message;static char filename[13];
+static unsigned list_y(void){return kg_large_text()?68:52;}
 static unsigned hash(const void *p,unsigned n){const unsigned char *b=p;unsigned h=2166136261u;while(n--)h=(h^*b++)*16777619;return h;}
 static unsigned upper(unsigned c){return c>='a'&&c<='z'?c-32:c;}
 static int contains(const char *s,const char *part){
@@ -55,7 +56,8 @@ static int enumerate(void){
 }
 static void layout(void){
  unsigned h=kg_height(),w=kg_width();
- list.rows=(h-104)/16;if(list.rows<1)list.rows=1;
+ list.line_height=kg_large_text()?32:16;
+ list.rows=(h-list_y()-52)/list.line_height;if(list.rows<1)list.rows=1;
  /* Reserve commands for all eight controls at maximum canvas height. */
  if(list.rows>18)list.rows=18;
  if(!mode)kw_reveal(&list);
@@ -63,7 +65,7 @@ static void layout(void){
  unsigned total=mode?line_count:list.count,top=mode?preview_top:list.top;
  unsigned max=total>rows?total-rows:0;if(top>max)top=max;
  if(mode)preview_top=top;else list.top=top;
- scroll=(KwScroll){.r={(int)w-28,52,20,(int)rows*16},.dragging=scroll.dragging,.offset=scroll.offset,.total=total,.rows=rows,.top=top};
+ scroll=(KwScroll){.r={(int)w-28,list_y(),20,(int)(rows*list.line_height)},.dragging=scroll.dragging,.offset=scroll.offset,.total=total,.rows=rows,.top=top};
 }
 static void number(char *s,unsigned n){char rev[10];unsigned i=0,k=0;do{rev[k++]=(char)('0'+n%10);n/=10;}while(n);while(k)s[i++]=rev[--k];s[i]=0;}
 static void preview_lines(void){
@@ -136,22 +138,22 @@ static int draw(void){
  }
  kg_button(104,w-168,2,76,20,work?"Root":"Work");kg_button(105,w-88,2,80,20,"Open app");
  if(mode)kg_label(8,30,"TXT preview / 40 columns",0x466581);
- else {kg_label(8,32,"Filter",0x466581);kw_draw_input((KwRect){64,24,(int)w-76,26},&filter,focus.current==0);}
- kg_rect(8,52,w-40,list.rows*16,0xffffff);
+ else {kg_label(8,32,"Filter",0x466581);kw_draw_input((KwRect){64,24,(int)w-76,kg_large_text()?36:26},&filter,focus.current==0);}
+ kg_rect(8,list_y(),w-40,list.rows*list.line_height,0xffffff);
  if(mode){
   for(unsigned row=0;row<scroll.rows&&row+preview_top<line_count;row++){
    char line[41];unsigned at=offsets[row+preview_top],i=0;
    while(at<bytes&&i<40&&contents[at]!='\n'){unsigned c=contents[at];if(c=='\r'){at++;continue;}unsigned n=kt_next((const char *)contents,bytes,at)-at;if(n>40-i)break;for(unsigned j=0;j<n;j++)line[i++]=c=='\t'?' ':contents[at+j];at+=n;}line[i]=0;
-   kw_text(12,52+row*16,line,(w-48)/8,0x20344a);
+   kw_readable(12,list_y()+row*list.line_height,line,w-48,0x20344a);
   }
  }else {
-  if(list.count&&list.selected>=list.top&&list.selected<list.top+list.rows)kg_rect(8,52+(list.selected-list.top)*16,w-40,16,focus.current==1?0x327ac0:0xdce7ef);
+  if(list.count&&list.selected>=list.top&&list.selected<list.top+list.rows)kg_rect(8,list_y()+(list.selected-list.top)*list.line_height,w-40,list.line_height,focus.current==1?0x327ac0:0xdce7ef);
   for(unsigned row=0;row<list.rows&&row+list.top<list.count;row++){
    K32DirEntry *d=&entries[matches[row+list.top]];char line[44];unsigned n=0;
    for(;d->name[n]&&n<12;n++)line[n]=d->name[n];
    for(;n<12;n++)line[n]=' ';
    line[12]=' ';line[13]=' ';if(d->attributes&16){line[14]='<';line[15]='D';line[16]='I';line[17]='R';line[18]='>';line[19]=0;}else number(line+14,d->bytes);
-   kw_text(12,52+row*16,line,(w-48)/8,row+list.top==list.selected&&focus.current==1?0xffffff:0x20344a);
+   kw_readable(12,list_y()+row*list.line_height,line,w-48,row+list.top==list.selected&&focus.current==1?0xffffff:0x20344a);
   }
  }
  kw_draw_scroll(&scroll);
@@ -206,8 +208,8 @@ int main(int argc,char **argv){
    else if(kw_focus(&focus,&e))dirty=1;
    else {
     if(e.type==KG_MOUSE&&(e.key&1)){
-     if(!mode&&kw_inside((KwRect){64,24,(int)kg_width()-76,26},e.x,e.y))focus.current=0;
-     if(kw_inside((KwRect){8,52,(int)kg_width()-40,(int)list.rows*16},e.x,e.y))focus.current=1;
+     if(!mode&&kw_inside((KwRect){64,24,(int)kg_width()-76,kg_large_text()?36:26},e.x,e.y))focus.current=0;
+     if(kw_inside((KwRect){8,list_y(),(int)kg_width()-40,(int)(list.rows*list.line_height)},e.x,e.y))focus.current=1;
      if(e.control>=100&&e.control<=103)focus.current=e.control-98;
      if(e.control>=104&&e.control<=106)focus.current=e.control-98;
      dirty=1;
@@ -215,7 +217,7 @@ int main(int argc,char **argv){
     if(kw_scroll(&scroll,&e)){if(mode)preview_top=scroll.top;else {list.top=scroll.top;if(list.selected<list.top||list.selected>=list.top+list.rows)list.selected=list.top;}dirty=1;}
     if(!mode&&focus.current==0){int changed=kw_input(&filter,&e);if(changed){if(changed==2){list.selected=list.top=0;rebuild();}dirty=1;}}
     if(focus.current==1){
-     if(!mode){if(kw_list(&list,(KwRect){8,52,(int)kg_width()-40,(int)list.rows*16},&e))dirty=1;}
+     if(!mode){if(kw_list(&list,(KwRect){8,list_y(),(int)kg_width()-40,(int)(list.rows*list.line_height)},&e))dirty=1;}
      else if(e.type==KG_KEY){unsigned k=e.key,max=line_count>scroll.rows?line_count-scroll.rows:0;
       if(k==256&&preview_top)preview_top--;
       if(k==257&&preview_top<max)preview_top++;

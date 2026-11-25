@@ -174,8 +174,9 @@ controls are described in [RECOVERY-SDK.md](RECOVERY-SDK.md).
 
 ### 最近使った項目とファイル操作
 
-- Kumaメニュー（Ctrl+Shift+K）の「最近」でアプリとTXT／BMPを開けます。「固定」または Ctrl+P で文書を先頭に表示できます。文書の固定は4件までです。対応HDDでは、文書の固定時と通常の終了・再起動時に、アプリ履歴とWorkの最大10件の文書を保存します。読取専用ドライブの文書履歴は起動中に保持します。
+- Kumaメニュー（Ctrl+Shift+K）の「最近」でアプリとTXT／BMPを開けます。「固定」または Ctrl+P で文書を先頭に表示できます。固定は4件までです。「除外」またはDeleteで選んだ履歴を消し、文書は媒体に残します。FilesでWorkの文書や親フォルダを移動・改名すると、履歴が新しいパスへ移り、固定を引き継ぎます。対応HDDにアプリ履歴とWorkの最大10件の文書を保存します。読取専用ドライブの文書履歴は起動中に保持します。
 - FD・HDDの表示は、Workや共通ダイアログがDOSのファイルブローカーを使ったときに点灯します。Alt+矢印で配置・最大化・復元、Alt+F4で閉じます。再起動では未保存のアプリを順に確認します。
-- 設定の大きい文字は、ランチャー、Editor本文、共通ダイアログの一覧・入力、Filesの一覧、Clockの時刻、設定の見出しに適用します。共通ダイアログでは Tab／Shift+Tab、矢印、Ctrl+D（ドライブ）、Backspace（一覧から上へ）を使えます。
-- Filesの「TMP」からフォルダの直下に残ったファイル名・サイズとサブフォルダ名を参照できます。確認後に「Recover」で空いている別名へ復旧します。復旧するデータは中断時点の内容です。
-- Imagesの Ctrl+C／Ctrl+V は同じKGUI32セッションで最大128×128のRGB565を共有します。KDESKとの受け渡しは、Imagesのメニュー「Copy to KDESK」「Paste from KDESK」または Ctrl+B／Ctrl+J と、KDESK画像ウィンドウ下部の「Share」「Get」を使います。対応HDDの Work 内の KGCLIP.BMP が保存先です。KDESKで表示・編集するときはそのパレットに変換されます。
+- 大きい文字は、ランチャー、Editor本文、共通ダイアログ、Files、Clockの時刻、Calculatorの結果、Calendar、Imagesのファイル名、ユーザー辞書、設定に適用します。Calculator・Clock・Calendar・ユーザー辞書は Tab／Shift+Tab で項目を移動し、Enterで実行できます。Calendarの大きい表示はウィンドウに収まる週を表示し、Page Down または「週を送る」で続きを開きます。
+- Filesの「TMP」からサブフォルダに入り、TXTの先頭4 KiBまたはBMPを読み取り専用で確認できます。確認後に「Recover」で、TMPフォルダ全体を空いている別名へ復旧します。
+- Imagesの Ctrl+C／Ctrl+V は同じKGUI32セッションで最大128×128のRGB565を共有します。KDESKとの共有では、Imagesの Ctrl+B／Ctrl+J と、KDESK画像ウィンドウの「Share」「Get」を使います。対応HDDの `WORK/KGCLIP.BMP` に最大256×192のRGB565相当の色をBMP24で保持します。PEGCでの表示にはパレットを使います。
+- Editorのメニューまたは Ctrl+Shift+B／Ctrl+Shift+J と、KDESKのText Editorの「Share」「Get」（Ctrl+B／Ctrl+J）で、対応HDDの `WORK/KGTEXT.TXT` にShift-JISの文字列を最大1,024バイト共有できます。KGUI32は選択範囲か文書全体を共有し、KDESKは文書全体を共有します。

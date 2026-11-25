@@ -1,8 +1,9 @@
 /* Reuse the existing fixed-decimal calculator without its 16-bit UI/driver. */
 #include "stats.h"
 #include "../../window/utilities.h"
-#include "ui-calculator.h"
 #include "../sdk/menu.h"
+#include "../sdk/widgets.h"
+#include "ui-calculator.h"
 static const KmItem app_menu[]={
  {"Memory add",KG_KEY,CALC_PLUS,0},
  {"Memory subtract",KG_KEY,CALC_MINUS,0},
@@ -13,28 +14,37 @@ static const KmItem app_menu[]={
 };
 volatile KgStats calc_stats __attribute__((section(".data.gui_stats")))={.magic=0x3243474b,.version=1};
 static Calculator calc;
+static const unsigned keys[]={'7','8','9','/','4','5','6','*','1','2','3','-','0','.','=','+','c',CALC_CE,CALC_SIGN,'%'};
+static KwFocus focus;
+static unsigned keypad;
 static int draw(void){
  unsigned w=kg_width(),h=kg_height();kg_begin();
- kg_rect(0,0,w,h,0xeaf0f5);kg_rect(8,6,w-16,30,0xffffff);kg_text(16,13,calc_text(&calc),0x182c46);if(calc.memory)kg_text(w-24,13,"M",0x327ac0);
+ unsigned large=kg_large_text(),top=large?48:40;
+ kg_rect(0,0,w,h,0xeaf0f5);kg_rect(8,6,w-16,top-10,0xffffff);kw_readable(16,large?7:13,calc_text(&calc),w-50,0x182c46);if(calc.memory)kg_text(w-24,13,"M",0x327ac0);
  static const char *labels[]={"7","8","9","/","4","5","6","*","1","2","3","-","0",".","=","+","C","CE","+/-","%"};
- static const unsigned keys[]={'7','8','9','/','4','5','6','*','1','2','3','-','0','.','=','+','c',CALC_CE,CALC_SIGN,'%'};
- int bw=(w-24)/4,bh=(h-44)/5;
- for(unsigned i=0;i<20;i++)kg_button(keys[i],8+(i%4)*bw,40+(i/4)*bh,bw-4,bh-3,labels[i]);
+ int bw=(w-24)/4,bh=(h-top-4)/5;
+ for(unsigned i=0;i<focus.count;i++)kw_draw_button((KwRect){8+(i%4)*bw,top+(i/4)*bh,bw-4,bh-3},keys[i],KU(labels[i]),KW_SECONDARY,keypad&&i==focus.current?KW_FOCUSED:0);
  int e=kg_present();calc_stats.error=e<0?-e:0;if(!e)calc_stats.frames++;
  calc_stats.width=w;calc_stats.height=h;calc_stats.mode=calc.error;
  const char *s=calc_text(&calc);unsigned negative=*s=='-',value=0;if(negative)s++;for(;*s>='0'&&*s<='9';s++)value=value*10+*s-'0';calc_stats.value=negative?0u-value:value;return e;
 }
 int main(int argc,char **argv){
+ focus.count=sizeof keys/sizeof *keys;
  kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
  kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  int token=kg_open("Calculator",328,200);if(token<0){calc_stats.error=-token;return 1;}calc_stats.token=token;calc_init(&calc);
+ kg_subscribe(KG_INPUT_TAB|KG_INPUT_MODIFIERS);
  if(draw()<0)return 2;
  if(argc>1&&same(argv[1],"fault"))*(volatile unsigned *)0x10000=1;
  for(;;){
   KgEvent event;int got=kg_poll(&event);if(got<0){calc_stats.error=-got;return 3;}calc_stats.heartbeat++;
   int dirty=0;
   if(got){calc_stats.events++;
-   if(event.type==KG_KEY){calc_stats.keys++;if(event.key=='q'||event.key=='Q')break;dirty=calc_key(&calc,event.key);}
+   if(event.type==KG_KEY){
+    calc_stats.keys++;if(event.key=='q'||event.key=='Q')break;
+    if(kw_focus(&focus,&event)){keypad=1;dirty=1;}
+    else dirty=calc_key(&calc,keypad&&event.key==13?keys[focus.current]:event.key);
+   }
    if(event.type==KG_MOUSE&&(event.key&1)&&event.control){calc_stats.clicks++;dirty=calc_key(&calc,event.control);}
    if(event.type==KG_RESIZE)dirty=1;
   }

@@ -109,7 +109,7 @@ $(BUILD)/widgets.o: sdk/widgets.c sdk/widgets.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/widgets-draw.o: sdk/widgets-draw.c sdk/widgets.h sdk/kgui.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
-$(BUILD)/files.elf: $(BUILD)/files.app.o $(BUILD)/files-manager.app.o $(BUILD)/io.sdk.o $(BUILD)/libc.sdk.o $(BUILD)/fs.sdk.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+$(BUILD)/files.elf: $(BUILD)/files.app.o $(BUILD)/files-manager.app.o $(BUILD)/bitmap.o $(BUILD)/io.sdk.o $(BUILD)/libc.sdk.o $(BUILD)/fs.sdk.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGFILES.EXE: $(BUILD)/files.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 487 --client --compact
@@ -287,7 +287,7 @@ test-menu-run: $(BUILD)/test-menu
 
 
 $(BUILD)/calendar.app.o: sdk/calendar.h sdk/menu.h $(UI_HEADERS)
-$(BUILD)/calendar.elf: $(BUILD)/calendar.app.o $(BUILD)/sdk.o $(BUILD)/i18n.o $(BUILD)/menu.o $(BUILD)/menu-draw.o $(BUILD)/widgets-draw.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+$(BUILD)/calendar.elf: $(BUILD)/calendar.app.o $(BUILD)/sdk.o $(BUILD)/i18n.o $(BUILD)/menu.o $(BUILD)/menu-draw.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGCAL.EXE: $(BUILD)/calendar.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 39 --client --compact

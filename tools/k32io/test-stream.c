@@ -46,6 +46,23 @@ static K32Fs fs_request(unsigned action,const char *path,const char *destination
  strcpy(r.path,path);strcpy(r.destination,destination);
  return r;
 }
+static void test_preview(void){
+ clear();Owner *o=&owners[0];o->owner=1;
+ assert(!change_dir("A:\\WORK\\STAGE.TMP",0));
+ assert(!change_dir("A:\\WORK\\STAGE.TMP\\SUB",0));
+ int file=open_path("A:\\WORK\\STAGE.TMP\\SUB\\DOC.TXT",1);
+ memcpy(buffer,"preview",7);assert(data_io(file,7,1)==7&&!close_handle(file));
+ K32Fs r=fs_request(K32_FS_LIST,"STAGE","SUB");r.flags=K32_FS_LIST_TMP_CONTENT;
+ assert(!filesystem(o,&r));
+ r=fs_request(K32_FS_TMP_OPEN,"STAGE","../DOC.TXT");assert(filesystem(o,&r)==-22);
+ r=fs_request(K32_FS_TMP_OPEN,"STAGE","SUB\\DOC.BAK");assert(filesystem(o,&r)==-22);
+ r=fs_request(K32_FS_TMP_OPEN,"STAGE","SUB\\DOC.TXT");assert(!filesystem(o,&r)&&r.length==7);
+ K32Io request_read=request(K32_IO_READ,0);request_read.token=r.token;request_read.bytes=7;
+ assert(dispatch(o,&request_read)==7&&!memcmp(buffer,"preview",7));
+ K32Fs restore=fs_request(K32_FS_TREE_RECOVER,"STAGE","RESTORED");assert(filesystem(o,&restore)==-16);
+ assert(!file_close(o,r.token)&&!filesystem(o,&restore));
+ assert(!memcmp(disk[find("A:\\WORK\\RESTORED\\SUB\\DOC.TXT")].data,"preview",7));
+}
 static void test_management(Owner *o){
  K32Fs f=fs_request(K32_FS_MKDIR,"box","");
  assert(!filesystem(o,&f));
@@ -129,6 +146,7 @@ static void test_folders(void){
  assert(filesystem(o,&r)==-2);
 }
 int main(void){
+ test_preview();
  test_folders();
  clear();
  char p[24];assert(!k32_io_path(1,"abc.bin",2,p)&&!strcmp(p,"B:\\WORK\\ABC.BAK"));

@@ -146,6 +146,26 @@ static int append_path(char out[DOS_PATH],const char *base,const char *relative)
 }
 
 enum { DRIVE_LIST = K32_FS_LIST_TMP_CONTENT+1 };
+/* Only the broker adds .TMP. Callers supply a normal Work path for the
+ * stage and a separately validated path relative to that stage. */
+static int preview_path(Owner *o,const K32Fs *r,char path[DOS_PATH],int open){
+ if(tree.owner)return -16;
+ int e=parents(path,0,0,0);if(e)return e;
+ char stage[DOS_PATH];sibling(path,"TMP",stage);
+ if((attributes(stage)&0x5f)!=16)return -2;
+ if(!r->destination[0]){
+  if(open)return -22;
+  copy(path,stage,path_length(stage)+1);return 0;
+ }
+ char child[DOS_PATH];e=work_path(o,r->destination,0,0,child);if(e)return e;
+ e=append_path(path,stage,child+8);if(e)return e;
+ if(path_length(path)>=WORK_PATH_BYTES)return -22;
+ e=parents(path,0,0,!open);if(e||!open)return e;
+ unsigned n=path_length(path);
+ if(n<4||(!same(path+n-4,".TXT")&&!same(path+n-4,".BMP")))return -22;
+ int a=attributes(path);
+ return a<0?a:(a&0x5e)?-13:0;
+}
 static int list_entry(Owner *o,K32Fs *r,char path[DOS_PATH]){
  int next=r->action==K32_FS_NEXT;
  if(next){if(!r->token||r->token!=o->cursor)return -9;}
@@ -153,13 +173,7 @@ static int list_entry(Owner *o,K32Fs *r,char path[DOS_PATH]){
   o->cursor=0;
   o->list_kind=r->action==K32_FS_DRIVE_LIST?DRIVE_LIST:r->flags;
   int preview=o->list_kind==K32_FS_LIST_TMP_CONTENT;
-  int e=o->list_kind==DRIVE_LIST?0:parents(path,o->list_kind==K32_FS_LIST_TRASH,0,!preview);
-  if(!e&&preview){
-   char stage[DOS_PATH];sibling(path,"TMP",stage);
-   if(tree.owner)return -16;
-   if((attributes(stage)&0x5f)!=16)return -2;
-   copy(path,stage,path_length(stage)+1);
-  }
+  int e=o->list_kind==DRIVE_LIST?0:preview?preview_path(o,r,path,0):parents(path,o->list_kind==K32_FS_LIST_TRASH,0,1);
   if(e==-2&&o->list_kind==K32_FS_LIST_TRASH)goto empty;
   if(e)return e;
   unsigned end=path_length(path);
@@ -322,7 +336,7 @@ static int folder_copy(Owner *o,K32Fs *r){
 static int filesystem(Owner *o,K32Fs *r){
  unsigned drive=r->action==K32_FS_DRIVE_LIST||r->action==K32_FS_DRIVE_OPEN;
  unsigned limit=r->action==K32_FS_LIST?K32_FS_LIST_TMP_CONTENT:drive?25:r->action==K32_FS_TREE_BEGIN||r->action==K32_FS_SAVE?1:0;
- if(r->version!=1||r->size!=sizeof *r||r->action<K32_FS_LIST||r->action>K32_FS_TREE_RECOVER||
+ if(r->version!=1||r->size!=sizeof *r||r->action<K32_FS_LIST||r->action>K32_FS_TMP_OPEN||
     (r->action!=K32_FS_BOOT_WRITE&&r->flags>limit)||
     (r->action!=K32_FS_NEXT&&r->token)||
     (r->action!=K32_FS_BOOT_WRITE&&r->action!=K32_FS_SAVE&&(r->length||r->hash)))return -22;
@@ -359,6 +373,7 @@ static int filesystem(Owner *o,K32Fs *r){
  int trash=r->action==K32_FS_RESTORE||(r->action==K32_FS_LIST&&r->flags==K32_FS_LIST_TRASH);
  e=work_path(o,r->path,trash,r->action==K32_FS_LIST&&r->flags!=K32_FS_LIST_TMP_CONTENT,path);if(e)return e;
  if(r->action==K32_FS_LIST)return list_entry(o,r,path);
+ if(r->action==K32_FS_TMP_OPEN){e=preview_path(o,r,path,1);return e?e:fs_open(o,r,path,0);}
  if(r->action==K32_FS_RESTORE){
   int mirror=attributes(path);
   if(mirror==-2||mirror==-3){
@@ -379,6 +394,7 @@ static int filesystem(Owner *o,K32Fs *r){
   char *leaf=path;for(char *p=path;*p;p++)if(*p=='\\')leaf=p+1;
   char stage[DOS_PATH];sibling(path,"TMP",stage);
   if((attributes(stage)&0x5f)!=16)return -2;
+  for(unsigned i=0;i<16;i++)if(locks[i][0]&&below(stage,locks[i]))return -16;
   copy(leaf,dest+3,path_length(dest+3)+1);
   e=attributes(path);if(e!=-2)return e<0?-5:-17;
   e=pending(path);if(e)return e;

@@ -1,6 +1,8 @@
 #include "files-manager.h"
 #include "../sdk/widgets.h"
 #include "../sdk/menu.h"
+#include "../sdk/bitmap.h"
+#include "../sdk/text.h"
 #include "../../k38632/sdk/fs.h"
 #include "../../k38632/sdk/libc.h"
 #include "ui-files-manager.h"
@@ -16,18 +18,22 @@ static KwScroll scroll;
 static KwInput target;
 static KwFocus focus;
 static const char *root_name,*status;
-static char folder[K32_FS_PATH],selected[K32_FS_PATH],preview_stage[K32_FS_PATH];
+static char folder[K32_FS_PATH],selected[K32_FS_PATH],preview_stage[K32_FS_PATH],preview_folder[K32_FS_PATH];
 static unsigned count,cursor,loading,trash,archive_scan,action,sort,descending;
 static unsigned drive_mask,volume,recovery_view,preview,preview_ok;
 static unsigned selected_dir;
 static struct {
- unsigned phase,count,scan,item,cursor,bytes;
+ unsigned phase,count,scan,item,cursor,bytes,move;
+ char destination[K32_FS_PATH];
  char relative[FILE_LIMIT][K32_FS_PATH];
  unsigned char folders[FILE_LIMIT];
 } tree;
 static unsigned reader,remaining,opening;
 static K32Io writer;
 static unsigned char block[4096];
+static char preview_name[13];
+static unsigned preview_type,preview_bytes,preview_top,preview_surface;
+static KgBmp preview_bitmap;
 
 static const char *find_char(const char *s,char c){for(;*s;s++)if(*s==c)return s;return 0;}
 static void copy_text(char *out,const char *in,unsigned cap){
@@ -64,6 +70,74 @@ static int join(char out[K32_FS_PATH],const char *base,const char *name){
  if(!m||n+(n!=0)+m>=K32_FS_PATH)return 0;
  k32_memcpy(out,base,n);if(n)out[n++]='\\';
  k32_memcpy(out+n,name,m+1);return 1;
+}
+static int parent_path(char *path){
+ if(!*path)return 0;
+ char *end=path;for(char *p=path;*p;p++)if(*p=='\\')end=p;
+ *end=0;return 1;
+}
+static void close_preview(void){
+ if(preview_surface)kg_surface_destroy(preview_surface);
+ preview_type=preview_surface=0;
+}
+static int read_preview(int fd,unsigned char *out,unsigned bytes){
+ for(unsigned at=0;at<bytes;){
+  unsigned n=bytes-at;if(n>4096)n=4096;
+  int got=k32_io_read(fd,out+at,n);if(got<=0)return -5;
+  at+=got;
+ }
+ return 0;
+}
+static void open_preview(const K32DirEntry *entry,const char *relative){
+ const char *ext=find_char(entry->name,'.');
+ unsigned bitmap=ext&&!k32_strcmp(ext,".BMP");
+ if(!bitmap&&(!ext||k32_strcmp(ext,".TXT"))){status="Select a TXT or BMP file";return;}
+ K32Fs r=k32_fs_request(K32_FS_TMP_OPEN,preview_stage,relative);
+ int e=k32_fs(&r);if(e){status=error_text(e);return;}
+ unsigned bytes=r.length;
+ unsigned char *data=block;
+ if(bitmap){
+  data=bytes<=KG_BITMAP_FILE_BYTES?k32_alloc(bytes?bytes:1):0;
+ }else if(bytes>sizeof block)bytes=sizeof block;
+ e=data?read_preview(r.token,data,bytes):-27;
+ int closed=k32_io_close(r.token);if(!e&&closed<0)e=closed;
+ if(!e&&bitmap){
+  e=kg_bmp_header(data,bytes,bytes,&preview_bitmap);
+  if(!e){
+   unsigned seen=preview_bitmap.width*preview_bitmap.height;
+   u16 *pixels=k32_alloc(seen*2);
+   e=pixels?kg_bmp_decode(data,bytes,&preview_bitmap,pixels,seen):-12;
+   if(!e){
+    e=kg_surface_create(preview_bitmap.width,preview_bitmap.height);
+    if(e>0){preview_surface=e;e=kg_surface_upload(preview_surface,pixels,seen*2);}
+   }
+   if(pixels)k32_free(pixels);
+  }
+ }else if(!e){
+  if(bytes<r.length&&bytes&&(sjis_lead(data[bytes-1])||data[bytes-1]=='\r')&&
+      kt_valid((const char *)data,bytes-1,KT_LINES|KT_CRLF))bytes--;
+  if(!kt_valid((const char *)data,bytes,KT_LINES|KT_CRLF))e=-22;
+ }
+ if(bitmap&&data)k32_free(data);
+ if(e){close_preview();status="Preview read failed";return;}
+ copy_text(preview_name,entry->name,sizeof preview_name);
+ preview_bytes=bytes;preview_top=0;preview_type=bitmap?2:1;
+ status=bytes<r.length?"First 4 KiB of text shown":0;
+}
+static unsigned text_row(unsigned at,char line[48],unsigned cols){
+ unsigned size=0;
+ while(at<preview_bytes){
+  unsigned char c=block[at];
+  if(c=='\r'||c=='\n'){
+   at++;if(c=='\r'&&at<preview_bytes&&block[at]=='\n')at++;
+   break;
+  }
+  unsigned n=kt_next((const char *)block,preview_bytes,at)-at;
+  if(size+n>cols)break;
+  for(unsigned i=0;i<n;i++)line[size++]=c=='\t'?' ':block[at+i];
+  at+=n;
+ }
+ line[size]=0;return at;
 }
 static int compare(const K32DirEntry *a,const K32DirEntry *b){
  unsigned x=0,y=0;
@@ -137,6 +211,7 @@ static void start_folder(const char *dest,unsigned move){
  K32Fs r=k32_fs_request(K32_FS_TREE_BEGIN,selected,dest);r.flags=move;
  int e=k32_fs(&r);if(e){status=error_text(e);return;}
  tree.phase=1;tree.count=tree.item=1;tree.scan=tree.cursor=tree.bytes=0;
+ tree.move=move;copy_text(tree.destination,dest,sizeof tree.destination);
  tree.relative[0][0]=0;tree.folders[0]=1;status="Scanning folder / Esc cancels";
 }
 static int folder_step(void){
@@ -161,7 +236,7 @@ static int folder_step(void){
  }
  if(tree.item==tree.count){
   K32Fs r=k32_fs_request(K32_FS_TREE_PUBLISH,0,0);int e=k32_fs(&r);
-  if(!e)tree.phase=0;
+  if(!e){tree.phase=0;if(tree.move)kg_note_move(selected,tree.destination);}
   finish_folder(e);return 1;
  }
  const char *rel=tree.relative[tree.item];int e;
@@ -184,7 +259,7 @@ int files_manager_step(void){
  if(tree.phase)return folder_step();
  if(!loading)return 0;
  for(unsigned i=0;i<6;i++){
-  K32Fs r=k32_fs_request(cursor?K32_FS_NEXT:volume?K32_FS_DRIVE_LIST:K32_FS_LIST,preview?preview_stage:folder,0);
+  K32Fs r=k32_fs_request(cursor?K32_FS_NEXT:volume?K32_FS_DRIVE_LIST:K32_FS_LIST,preview?preview_stage:folder,preview?preview_folder:0);
   r.token=cursor;r.flags=cursor?0:volume?volume-1:preview?K32_FS_LIST_TMP_CONTENT:recovery_view?K32_FS_LIST_TMP:archive_scan?K32_FS_LIST_ARCHIVED:trash;
   int e=k32_fs(&r);cursor=r.token;
   if(!e&&!cursor&&trash&&!archive_scan){archive_scan=1;continue;}
@@ -194,6 +269,7 @@ int files_manager_step(void){
  return 1;
 }
 void files_manager_close(void){
+ close_preview();
  if(reader)finish_copy(-125,0);
  if(tree.phase)finish_folder(-125);
 }
@@ -230,13 +306,19 @@ static void execute(void){
  int e=k32_fs(&r);
  if(e==-21&&op==FM_MOVE&&selected_dir){start_folder(dest,1);return;}
  status=e?error_text(e):op==FM_FOLDER?"Folder created":op==FM_RENAME?"Renamed":"Moved";
- if(!e)refresh();
+ if(!e){if(op!=FM_FOLDER)kg_note_move(selected,r.destination);refresh();}
 }
 static void command(unsigned cmd){
  if(preview){
-  if(cmd==FM_UP||cmd==FM_BACK){preview=0;status=0;focus.current=LIST_FOCUS;refresh();return;}
+  if(cmd==FM_UP||cmd==FM_BACK){if(cmd==FM_BACK||!parent_path(preview_folder))preview=0;status=0;focus.current=LIST_FOCUS;refresh();return;}
   if(cmd==FM_DELETE&&!loading&&preview_ok){
    copy_text(selected,preview_stage,sizeof selected);action=FM_RESCUE;target=(KwInput){0};
+  }
+  if(cmd==FM_OPEN&&!loading&&list.count){
+   char relative[K32_FS_PATH];K32DirEntry *entry=&entries[list.selected];
+   if(!join(relative,preview_folder,entry->name)){status=error_text(-22);return;}
+   if(entry->attributes&16){copy_text(preview_folder,relative,sizeof preview_folder);status=0;focus.current=LIST_FOCUS;refresh();}
+   else open_preview(entry,relative);
   }
   if(cmd!=FM_REFRESH&&(cmd<FM_NAME||cmd>FM_KIND))return;
  }
@@ -251,8 +333,7 @@ static void command(unsigned cmd){
  if(recovery_view&&cmd>=FM_FOLDER&&cmd<=FM_RENAME)return;
  if(volume&&(cmd==FM_TRASH||(cmd>=FM_FOLDER&&cmd<=FM_DELETE)))return;
  if(cmd==FM_UP){
-  char *end=0;for(char *p=folder;*p;p++)if(*p=='\\')end=p;
-  if(end)*end=0;else folder[0]=0;
+  parent_path(folder);
   status=0;refresh();return;
  }
  if(cmd==FM_TRASH){recovery_view=0;trash=!trash;status=0;refresh();return;}
@@ -269,7 +350,7 @@ static void command(unsigned cmd){
  if(recovery_view){
   if(cmd==FM_OPEN||cmd==FM_DELETE){
    selected[k32_len(selected)-4]=0;copy_text(preview_stage,selected,sizeof preview_stage);
-   preview=1;preview_ok=0;status=0;focus.current=LIST_FOCUS;refresh();
+   preview=1;preview_folder[0]=0;preview_ok=0;status=0;focus.current=LIST_FOCUS;refresh();
   }
   return;
  }
@@ -294,6 +375,16 @@ static void command(unsigned cmd){
 static const unsigned controls[]={0,FM_NAME,FM_SIZE,FM_DATE,FM_KIND,FM_UP,FM_TRASH,FM_OPEN,FM_REFRESH,FM_FOLDER,FM_COPY,FM_MOVE,FM_RENAME,FM_DELETE,FM_BACK,FM_DRIVE,FM_RECOVERY};
 static KwRect list_rect(void){return (KwRect){8,66,(int)kg_width()-38,(int)(list.rows*list.line_height)};}
 int files_manager_event(const KgEvent *e){
+ if(preview_type){
+  unsigned key=e->type==KG_KEY?e->key:0;
+  if(key==27||key==8||kw_button(FM_BACK,e)){close_preview();status=0;return 1;}
+  if(preview_type==1){
+   if((key==256||kw_button(FM_UP,e))&&preview_top)preview_top--;
+   if((key==257||kw_button(FM_OPEN,e))&&preview_top<preview_bytes)preview_top++;
+   if(key==260)preview_top=0;
+  }
+  return 1;
+ }
  if(reader||tree.phase){
   if(kw_button(FM_CANCEL,e)||(e->type==KG_KEY&&e->key==27))copy_finished(reader?finish_copy(-125,0):-125);
   return 1;
@@ -321,7 +412,7 @@ int files_manager_event(const KgEvent *e){
  if(cmd==FM_BACK){if(!preview)return -1;command(cmd);return 1;}
  if(cmd>=FM_UP&&cmd<=FM_RECOVERY){command(cmd);return 1;}
  if(kw_focus(&focus,e)){
-  while((preview&&(focus.current==TRASH_FOCUS||focus.current==OPEN_FOCUS||focus.current>=DRIVE_FOCUS))||(focus.current==KIND_FOCUS&&kg_width()<468)||((trash||volume||recovery_view)&&focus.current>=FOLDER_FOCUS&&focus.current<DELETE_FOCUS+(volume!=0))||(volume&&(focus.current==TRASH_FOCUS||focus.current==RECOVERY_FOCUS)))kw_focus(&focus,e);
+  while((preview&&(focus.current==TRASH_FOCUS||focus.current>=DRIVE_FOCUS))||(focus.current==KIND_FOCUS&&kg_width()<468)||((trash||volume||recovery_view)&&focus.current>=FOLDER_FOCUS&&focus.current<DELETE_FOCUS+(volume!=0))||(volume&&(focus.current==TRASH_FOCUS||focus.current==RECOVERY_FOCUS)))kw_focus(&focus,e);
   return 1;
  }
  if(kw_scroll(&scroll,e)){list.top=scroll.top;if(list.selected<list.top||list.selected>=list.top+list.rows)list.selected=list.top;return 1;}
@@ -369,17 +460,44 @@ static void row(const K32DirEntry *d,unsigned y,unsigned w,int active){
  }
  kw_text(12,y,line,(w-42)/8,active?0xffffff:0x20344a);
 }
+static void draw_preview(unsigned w,unsigned h){
+ kw_readable(8,4,preview_name,w-16,0x20344a);
+ int bottom=h-58;
+ kg_rect(8,38,w-16,bottom-40,0xffffff);
+ if(preview_type==2){
+  unsigned width=preview_bitmap.width,height=preview_bitmap.height;
+  unsigned available=w-24,vertical=bottom-46;
+  if(width>available){height=height*available/width;width=available;}
+  if(height>vertical){width=width*vertical/height;height=vertical;}
+  if(width&&height)kg_bitmap_scaled(preview_surface,(w-width)/2,42,0,0,preview_bitmap.width,preview_bitmap.height,width,height);
+ }else{
+  unsigned cell=kg_large_text()?16:8,rows=(bottom-41)/(cell*2),cols=(w-24)/cell;
+  if(rows>22)rows=22;
+  if(cols>47)cols=47;
+  char line[48];unsigned at=0,last=0;
+  for(unsigned i=0;i<preview_top&&at<preview_bytes;i++){last=at;at=text_row(at,line,cols);}
+  if(at==preview_bytes&&preview_top){preview_top--;at=last;}
+  for(unsigned row=0;row<rows&&at<preview_bytes;row++){
+   at=text_row(at,line,cols);kw_readable(12,40+row*cell*2,line,cols*cell,0x20344a);
+  }
+  button((KwRect){8,bottom,64,34},FM_UP,"Up",~0u,KW_SECONDARY);
+  button((KwRect){80,bottom,72,34},FM_OPEN,"Down",~0u,KW_SECONDARY);
+ }
+ button((KwRect){(int)w-96,bottom,88,34},FM_BACK,"Back",~0u,KW_SECONDARY);
+ kw_label(8,h-16,status?status:"Read-only preview",(w-16)/8,0x20344a);
+}
 int files_manager_draw(void){
  unsigned w=kg_width(),h=kg_height();int bottom=(int)h-93;
  if(w<468&&focus.current==KIND_FOCUS)focus.current=DATE_FOCUS;
  kg_menu_enable(0);kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
- if(action)modal(w,h);
+ if(preview_type)draw_preview(w,h);
+ else if(action)modal(w,h);
  else {
   char crumb[64];
-  if(preview)k32_snprintf(crumb,sizeof crumb,"Preview %s.TMP",preview_stage);
+  if(preview)k32_snprintf(crumb,sizeof crumb,"Preview %s.TMP%s%s",preview_stage,preview_folder[0]?"\\":"",preview_folder);
   else if(volume)k32_snprintf(crumb,sizeof crumb,"%c:\\%s",(int)('A'+volume-1),folder);
   else k32_snprintf(crumb,sizeof crumb,"%s%s%s",root_name,folder[0]?"\\":"",folder);
-  kw_text(8,8,crumb,(w-(volume?130:198))/8,0x20344a);
+  kw_text(8,8,crumb,(w-(preview?16:volume?130:198))/8,0x20344a);
   if(!volume&&!preview)button((KwRect){(int)w-184,0,62,28},FM_RECOVERY,recovery_view?"Work":"TMP",RECOVERY_FOCUS,KW_SECONDARY);
   if(!preview)button((KwRect){(int)w-116,0,108,28},FM_DRIVE,"Drives",DRIVE_FOCUS,KW_SECONDARY);
   button((KwRect){8,30,110,34},FM_NAME,"Name",NAME_FOCUS,KW_SECONDARY);
@@ -407,7 +525,7 @@ int files_manager_draw(void){
    const char *low_labels[]={"New folder","Copy","Move","Rename",preview?"Recover":recovery_view?"Preview":trash?"Restore":"Delete"};
    unsigned width=(w-16)/5;
    for(unsigned i=0;i<5;i++){
-    if((!preview||(i!=1&&i!=2))&&(!volume||i!=1))button((KwRect){8+i*width,bottom,width-3,36},top_ids[i],top_labels[i],i==4?BACK_FOCUS:UP_FOCUS+i,KW_SECONDARY);
+    if((!preview||i!=1)&&(!volume||i!=1))button((KwRect){8+i*width,bottom,width-3,36},top_ids[i],top_labels[i],i==4?BACK_FOCUS:UP_FOCUS+i,KW_SECONDARY);
     if(!volume&&(!preview||preview_ok)&&((!trash&&!recovery_view)||i==4))button((KwRect){8+i*width,bottom+38,width-3,36},low_ids[i],i==0&&width<87?"Mkdir":low_labels[i],FOLDER_FOCUS+i,i==4&&!trash?KW_DANGER:KW_SECONDARY);
    }
   }

@@ -463,4 +463,17 @@ Shared limit: 128 x 128	共有サイズの上限：128 x 128
 Recent items could not be saved.	最近使った項目を保存できませんでした
 Unpin a document before adding another.	文書の固定を1件解除してください
 Read-only preview / TMP may be incomplete	読み取り専用 / TMPは未完了の可能性あり
+Read-only preview	読み取り専用の確認
+First 4 KiB of text shown	先頭4 KiBを表示
+Forget	除外
+Del: forget selected	Del: 選んだ項目を履歴から除外
+More weeks	週を送る
+Share text with KDESK	KDESKへ文字列共有
+Get text from KDESK	KDESKから文字列取得
+Shared text with KDESK	KDESKへ文字列を共有しました
+Pasted text from KDESK	KDESKから文字列を貼り付けました
+Share 1 to 1024 bytes of text	1〜1024バイトの文字列を共有できます
+Text share failed / recovery preserved	文字列共有に失敗 / 復旧データを保持
+Shared text / original BAK kept	文字列を共有 / 元のBAKを保持
+No usable shared text / document kept	共有文字列が使えません / 原文を保持
 Empty TMP / partial copy	空のTMP / 中断されたコピー

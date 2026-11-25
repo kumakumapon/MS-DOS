@@ -256,8 +256,8 @@ static void save_history(void){
   u32 hash=2166136261u;const u8 *p=(const u8 *)&saved;
   for(unsigned i=0;i<sizeof saved;i++)hash=(hash^p[i])*16777619u;
   history_revision=(K32Revision){1,sizeof saved,hash};
+  scene.history_dirty=0;
  }else scene_notice_set(&scene,GN_HISTORY_SAVE_FAILED);
- scene.history_dirty=0;
 }
 static void collect_history(void){
  const volatile KgRecentDocument *docs=shared.documents;
@@ -268,9 +268,12 @@ static void collect_history(void){
   }
   if(index==KG_RECENT_COUNT)return;
   ShellDocument doc={.volume=docs[index].volume,.bitmap=docs[index].bitmap};
-  for(unsigned i=0;i<KG_RECENT_PATH;i++)doc.path[i]=docs[index].path[i];
+  char destination[KG_RECENT_PATH];
+  for(unsigned i=0;i<KG_RECENT_PATH;i++){doc.path[i]=docs[index].path[i];destination[i]=docs[index].destination[i];}
   if(docs[index].serial!=serial)return;
-  history_serial=serial;shell_accept_document(&scene,&doc);
+  history_serial=serial;
+  if(destination[0]){if(shell_follow_move(&scene,doc.path,destination))save_history();}
+  else shell_accept_document(&scene,&doc);
  }
 }
 static void follow_cursor(unsigned id){
@@ -562,7 +565,9 @@ static void graphical(unsigned id,int x,int y,int width,int height){
   }
   if(d->op==KG_BUTTON){
    box(xx,yy,d->w,d->h,color(11));box(xx+1,yy+1,d->w-2,d->h-2,c);box(xx+2,yy+2,d->w-4,1,color(7));
-   text(xx+(d->w-8*(int)k32_len(d->text))/2,yy+(d->h-16)/2,d->text,color(0));
+   int label=(int)k32_len(d->text);
+   if(preferences.large&&d->h>=34&&d->w>=16*label+4)text_double(xx+(d->w-16*label)/2,yy+(d->h-32)/2,d->text,color(0));
+   else text(xx+(d->w-8*label)/2,yy+(d->h-16)/2,d->text,color(0));
   }
  }
  if(!r->token)ui_label(x+24,y+86,views[id].state==4?"Application faulted":"Application ended",color(10));
@@ -670,7 +675,7 @@ static void draw_shell(void){
   box(16,62,204,26,color(7));text(20,68,scene.shell_query,color(0));
   if(!count)ui_label(20,103,"No matching apps",color(0));
  }else if(scene.shell_page==SHELL_SWITCH)ui_label(20,66,"Alt+Tab / Enter",color(0));
- else if(scene.shell_page==SHELL_RECENT&&!count)ui_label(20,102,"Nothing opened yet",color(0));
+ else if(scene.shell_page==SHELL_RECENT)ui_label(20,count?66:102,count?"Del: forget selected":"Nothing opened yet",color(0));
  else if(scene.shell_page==SHELL_REBOOT)ui_label(20,66,"Review unsaved changes first",color(0));
  if((scene.shell_page==SHELL_SEARCH||scene.shell_page==SHELL_RECENT)&&count>SHELL_ROWS)button(224,62,88,"Next page");
  for(unsigned i=0;i<SHELL_ROWS&&i+scene.shell_top<count;i++){
@@ -683,6 +688,7 @@ static void draw_shell(void){
   }else if(scene.shell_page==SHELL_SEARCH||(scene.shell_page==SHELL_RECENT&&shell_document(&scene,item))){
    button(246,row.y+2,64,shell_pinned(&scene,item)?"Unpin":"Pin");row.w=222;
   }
+  if(scene.shell_page==SHELL_RECENT){button(174,row.y+2,64,"Forget");row.w=150;}
   label=KU(label);
   unsigned role=at==scene.shell_selected?DESKTOP_BUTTON_PRIMARY:DESKTOP_BUTTON_SECONDARY;
   styled_button(row.x,row.y,row.w,row.h,preferences.large?"":label,role,0);

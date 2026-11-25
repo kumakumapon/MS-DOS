@@ -126,9 +126,11 @@ for pencil, line, rectangle, fill, color picker, eraser, selection, clipboard,
 undo/redo and safe BMP saving. COLORS.BMP is an original 256-index color chart.
 
 In the KDESK image windows, Share / Ctrl+B and Get / Ctrl+J exchange a
-BMP up to 128x128 with KGUI32 via KGCLIP.BMP on a verified HDD's Work.
+BMP up to 256x192 with KGUI32 via KGCLIP.BMP on a verified HDD's Work.
 In Paint, select a smaller rectangle to share part of a larger image.
-KDESK converts the imported bitmap to its display palette.
+KDESK uses XMS to retain RGB565 in shared images. PEGC uses the display palette.
+In Text Editor, Share / Ctrl+B and Get / Ctrl+J exchange up to 1024 bytes
+of Shift_JIS text via KGTEXT.TXT on the same Work drive.
 
 WebNP2: the toolbar's More menu contains KDESK Clipboard and Images. Explicit
 buttons exchange text and images with the host clipboard, export PNG, and
