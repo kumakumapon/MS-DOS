@@ -23,6 +23,7 @@ static unsigned dictionary_checked,ime_target;
 /* Extension is app-private diagnostics. The original 64-byte v4 sample stays. */
 static const char *message;static KwScroll editor_scroll;
 #include "../sdk/menu.h"
+enum { EDIT_SHARE_TEXT=16643,EDIT_GET_TEXT };
 static const KmItem app_menu[]={
  {"New",KG_KEY,14,0},
  {"Open",KG_KEY,15,0},
@@ -41,8 +42,8 @@ static const KmItem app_menu[]={
  {"Use CRLF",KG_KEY,16641,0},
  {"Recovery",KG_KEY,20,0},
  {"IME settings",KG_KEY,16642,0},
- {"Share text with KDESK",KG_KEY,16643,0},
- {"Get text from KDESK",KG_KEY,16644,0},
+ {"Share text with KDESK",KG_KEY,EDIT_SHARE_TEXT,0},
+ {"Get text from KDESK",KG_KEY,EDIT_GET_TEXT,0},
  {"Close",KG_QUIT,1,0},
 };
 volatile struct {u32 magic,version,frames,events,bytes,hash,cursor,anchor,dirty,mode,top,heartbeat,error,history,redo,workspace;
@@ -270,7 +271,7 @@ static void shared_text(int put){
 static unsigned hit(const KgEvent *e){unsigned r=top+(e->y<40?0:(unsigned)(e->y-40)/line_height);if(r>=line_count)return ke_view(&doc)->n;unsigned col=e->x<8?0:(unsigned)(e->x-8)/cell_width;if(col>cols)col=cols;unsigned at=lines[r]+col,end=r+1<line_count?lines[r+1]:ke_view(&doc)->n;KeVersion *v=ke_view(&doc);if(end>lines[r]&&v->text[end-1]=='\n')end--;return kt_floor(v->text,v->n,at>end?end:at);}
 static void edit_key(unsigned k,unsigned modifiers){
  KeVersion *v=ke_view(&doc);unsigned at=v->cursor,r=row_at(at),col=at-lines[r];
- if(k==16643||k==16644||((k==2||k==10)&&(modifiers&(KG_MOD_SHIFT|KG_MOD_CTRL))==(KG_MOD_SHIFT|KG_MOD_CTRL))){shared_text(k==16643||k==2);return;}
+ if(k==EDIT_SHARE_TEXT||k==EDIT_GET_TEXT){shared_text(k==EDIT_SHARE_TEXT);return;}
  if(k==1){ke_select(&doc,0,v->n);return;}
  if(k==2){mark=!mark;if(mark)v->anchor=v->cursor;notice=mark?"Selection mode on / tap end":"Selection mode off";return;}
  if(k==3){copy_selection(0);return;}if(k==24){copy_selection(1);return;}
@@ -401,6 +402,10 @@ int main(int argc,char **argv){
   if((mode==1||mode==3)&&kp_tick(&picker))dirty=1;
   if(mode==6&&kr_tick(&recovery))dirty=1;
   if(got){editor_stats.events++;dirty=1;
+   if(e.type==KG_KEY&&(e.control&(KG_MOD_SHIFT|KG_MOD_CTRL))==(KG_MOD_SHIFT|KG_MOD_CTRL)){
+    if(e.key==2)e.key=EDIT_SHARE_TEXT;
+    if(e.key==10)e.key=EDIT_GET_TEXT;
+   }
    /* Resize/focus apply to the document even while a modal owns input. */
    if(e.type==KG_RESIZE){editor_scroll.dragging=0;drag=0;index_lines(1);}
    if(e.type==KG_FOCUS&&!e.key){drag=0;editor_scroll.dragging=0;}
