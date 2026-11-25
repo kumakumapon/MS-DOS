@@ -145,8 +145,8 @@ int kp_draw(KpPicker *p){layout(p);unsigned w=kg_width(),h=kg_height();char titl
  kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kw_text(8,4,title,(w-148)/8,0x20344a);
  KwRect up_button={(int)w-138,0,48,20},drives={(int)w-84,0,76,20};
  KwRect accept={8,(int)h-46,72,28},back={88,(int)h-46,72,28};
- kw_draw_button(up_button,704,"Up",KW_SECONDARY,p->focus.current==parent?KW_FOCUSED:0);
- kw_draw_button(drives,703,"Drives",KW_SECONDARY,p->focus.current==drive?KW_FOCUSED:0);
+ kw_draw_button(up_button,704,KU("Up"),KW_SECONDARY,p->focus.current==parent?KW_FOCUSED:0);
+ kw_draw_button(drives,703,KU("Drives"),KW_SECONDARY,p->focus.current==drive?KW_FOCUSED:0);
  kw_draw_input((KwRect){8,large?18:20,(int)w-20,large?36:24},&p->filter,p->focus.current==0);
  if(p->list.count&&p->list.selected>=p->list.top&&p->list.selected<p->list.top+p->list.rows){
   int y=top+(p->list.selected-p->list.top)*row;
@@ -156,6 +156,6 @@ int kp_draw(KpPicker *p){layout(p);unsigned w=kg_width(),h=kg_height();char titl
  for(unsigned i=0;i<p->list.rows&&p->list.top+i<p->list.count;i++)kw_readable(12,top+i*row,p->entries[p->matches[p->list.top+i]].name,w-46,0x20344a);
  kw_draw_scroll(&p->scroll);
  if(p->saving)kw_draw_input((KwRect){8,(int)h-(large?82:78),(int)w-20,large?36:24},&p->name,p->focus.current==2);
- kw_draw_button(accept,701,p->saving?"Save":"Open",KW_PRIMARY,p->focus.current==cancel-1?KW_FOCUSED:0);
- kw_draw_button(back,702,"Cancel",KW_SECONDARY,p->focus.current==cancel?KW_FOCUSED:0);
+ kw_draw_button(accept,701,KU(p->saving?"Save":"Open"),KW_PRIMARY,p->focus.current==cancel-1?KW_FOCUSED:0);
+ kw_draw_button(back,702,KU("Cancel"),KW_SECONDARY,p->focus.current==cancel?KW_FOCUSED:0);
  kw_text(8,h-16,status,(w-16)/8,0x20344a);return kg_present();}

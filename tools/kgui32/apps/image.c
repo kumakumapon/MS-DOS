@@ -204,7 +204,7 @@ static int shared_image(unsigned put){
  return publish_paste(next);
 }
 static void image_button(unsigned focus,int x,int y,int w,int h,const char *label){
- kw_draw_button((KwRect){x,y,w,h},image_controls[focus],label,KW_SECONDARY,image_focus.current==focus?KW_FOCUSED:0);
+ kw_draw_button((KwRect){x,y,w,h},image_controls[focus],KU(label),KW_SECONDARY,image_focus.current==focus?KW_FOCUSED:0);
 }
 static int change(unsigned key){
  if(!image.width)return 0;
