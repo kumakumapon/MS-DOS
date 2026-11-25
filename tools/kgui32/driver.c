@@ -85,12 +85,14 @@ static void pump(void){
   * the keyboard's F-key group and emit the close chord on the down edge. */
  unsigned mods=input_modifiers(),pressed=0;
  if(mods&KG_MOD_ALT){
-  unsigned a=0x040b;
+  unsigned a=0x040c;
   __asm__ volatile("int $0x18":"+a"(a)::"ebx","ecx","edx","cc","memory");
-  pressed=!!(a&0x0200); /* Make code 59h = group 0Bh, bit 1. */
+  pressed=!!(a&0x2000); /* Make code 65h = group 0Ch, bit 5. */
  }
- if(pressed&&!alt_f4_down)
+ if(pressed&&!alt_f4_down){
+  gui_record.last_key=KEY_F1+3;
   enqueue((GuiEvent){.type=GUI_KEY,.key=KEY_F1+3,.x=previous.x,.y=previous.y,.buttons=mods,.ticks=input_ticks()});
+ }
  alt_f4_down=pressed;
  for(unsigned n=0;n<16&&key_ready();n++){
   unsigned k=key_read(),m=key_modifiers();gui_record.last_key=k;
