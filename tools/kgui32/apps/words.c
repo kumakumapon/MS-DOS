@@ -1,4 +1,5 @@
 /* A second independent consumer of the common IME, with explicit persistence. */
+#include "../sdk/preferences.h"
 #include "../sdk/kgui.h"
 #include "../sdk/widgets.h"
 #include "../sdk/text.h"
@@ -60,6 +61,8 @@ int main(void){
  kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  if(kg_open("User dictionary",480,264)<0)return 1;
  if(kg_subscribe(KG_INPUT_TAB|KG_INPUT_KEYS|KG_INPUT_CLOSE|KG_INPUT_MODIFIERS))return 2;
+ KgPreferences defaults={0};K32Revision preference_revision;
+ if(!kg_preferences_load(&defaults,&preference_revision))ime.scheme=defaults.ime;
  ki_store_init(&store);int e=ki_store_load(&store);if(e)failure(e);refresh_user();system_load();int dirty=1,quit=0;
  while(!quit){KgEvent event;int got=kg_poll(&event);words_stats[8]++;if(got<0)return 3;
   if(got){words_stats[3]++;dirty=1;

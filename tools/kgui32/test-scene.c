@@ -1,5 +1,7 @@
 #include <assert.h>
 #include "scene.h"
+#include "shell-ui.h"
+#include "layout.h"
 #include "sdk/protocol.h"
 static void mouse(Scene *s,int type,int x,int y,int buttons){
  GuiEvent e={.type=type,.x=x,.y=y,.buttons=buttons};scene_event(s,&e);
@@ -123,7 +125,8 @@ static void clients(int width,int height){
  s.window[0].hidden=1;e.key=281;
  assert(scene_event(&s,&e)==ACT_NONE&&s.active==0&&!s.window[0].hidden);
  scene_focus(&s,3);e.key=11;
- assert(scene_event(&s,&e)==ACT_NONE&&s.active==0&&s.order[3]==0);
+ assert(scene_event(&s,&e)==ACT_NOTICE_INPUT&&s.shell_page);
+ key(&s,281);assert(s.active==0&&s.order[3]==0);
  Rect r=s.window[0].r;
  e=(GuiEvent){.type=GUI_BUTTON,.x=r.x+40,.y=r.y+128,.buttons=1};
  assert(scene_event(&s,&e)==ACT_CALCULATOR);
@@ -178,4 +181,28 @@ static void four(int width,int height){
  assert(scene_event4(&s,&timer)==ACT_NONE&&s.states[3]==4&&s.counters[2]==30);
  scene_focus(&s,5);key(&s,16);assert(s.slot==3);scene_close(&s,5);assert(s.active!=5&&!s.window[5].open);
 }
-int main(void){four(640,400);four(800,600);launcher(640,400);launcher(800,600);notices();check(640,400);check(800,600);sessions(640,400);sessions(800,600);clients(640,400);clients(800,600);return 0;}
+static void shell_and_layout(void){
+ Scene s;scene_init(&s,800,600);
+ mouse(&s,GUI_BUTTON,40,16,1);mouse(&s,GUI_BUTTON,40,16,0);
+ assert(s.shell_page==SHELL_KUMA);
+ key(&s,11);assert(s.shell_page==SHELL_SEARCH);
+ for(const char *q="kgclock";*q;q++)key(&s,*q);
+ assert(shell_count(&s)==1&&shell_item(&s,0)==ACT_CLOCK);
+ GuiEvent enter={.type=GUI_KEY,.key=13};
+ assert(scene_event(&s,&enter)==ACT_CLOCK&&s.shell_page==SHELL_CLOSED);
+ scene_focus(&s,2);scene_focus(&s,3);
+ GuiEvent alt_tab={.type=GUI_KEY,.key=9,.buttons=KG_MOD_ALT};
+ assert(scene_event(&s,&alt_tab)==ACT_NOTICE_INPUT&&s.shell_page==SHELL_SWITCH);
+ GuiEvent timer={.type=GUI_TIMER};scene_event(&s,&timer);
+ assert(!s.shell_page&&s.active==2);
+ s.window[2].r=(Rect){385,120,400,280};
+ WindowLayout layout={0};layout_validate(&layout);
+ assert(layout_remember(&layout,&s,2,"KGCALC.EXE"));
+ assert(!layout_remember(&layout,&s,2,"KGCALC.EXE"));
+ Scene pegc;scene_init(&pegc,640,400);
+ assert(layout_restore(&layout,&pegc,3,"KGCALC.EXE"));
+ assert(pegc.window[3].r.x==232&&pegc.window[3].r.y==80);
+ assert(!layout_restore(&layout,&pegc,2,"KGCLOCK.EXE"));
+}
+int main(void){
+ shell_and_layout();four(640,400);four(800,600);launcher(640,400);launcher(800,600);notices();check(640,400);check(800,600);sessions(640,400);sessions(800,600);clients(640,400);clients(800,600);return 0;}

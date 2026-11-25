@@ -3,7 +3,7 @@ static int work_component(const char *name,unsigned n,char out[16]){
  if(!k32_filename(name,n,out))return 0;
  const char *base=out+3,*ext=0;
  for(const char *p=base;*p;p++)if(*p=='.')ext=p+1;
- return !same(base,"KTRASH")&&(!ext||(!same(ext,"TMP")&&!same(ext,"BAK")));
+ return !same(base,"KTRASH")&&(!ext||(!same(ext,"TMP")&&!same(ext,"BAK")&&!same(ext,"KTR")));
 }
 
 static int work_path(const Owner *o,const char *name,int trash,int directory,char out[DOS_PATH]){
@@ -57,10 +57,13 @@ static int change_dir(const char *path,unsigned remove){
  return a==~0u?-5:0;
 }
 
-static int hide_dir(const char *path){
+static int set_dir_attributes(const char *path,unsigned attrs){
  unsigned a=0x4301;
- __asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"c"(0x02),"d"((unsigned)path):"cc","memory");
- if(a!=~0u)return 0;
+ __asm__ volatile("int $0x21; jnc 1f; movl $-1,%%eax; 1:":"+a"(a):"c"(attrs),"d"((unsigned)path):"cc","memory");
+ return a==~0u?-5:0;
+}
+static int hide_dir(const char *path){
+ if(!set_dir_attributes(path,2))return 0;
  return change_dir(path,1)?-117:-5;
 }
 
@@ -70,7 +73,7 @@ static int find_entry(const char *pattern,unsigned char *dta,int next){
  a=0x1a00;
  __asm__ volatile("int $0x21":"+a"(a):"d"((unsigned)dta):"cc","memory");
  a=next?0x4f00:0x4e00;
- __asm__ volatile("int $0x21; movzwl %%ax,%%eax; jc 1f; xorl %%eax,%%eax; jmp 2f; 1: negl %%eax; 2:":"+a"(a):"d"((unsigned)pattern),"c"(0x10):"cc","memory");
+ __asm__ volatile("int $0x21; movzwl %%ax,%%eax; jc 1f; xorl %%eax,%%eax; jmp 2f; 1: negl %%eax; 2:":"+a"(a):"d"((unsigned)pattern),"c"(0x37):"cc","memory");
  int result=(int)a;
  a=0x1a00;
  __asm__ volatile("pushw %%ds; movw %w2,%%ds; int $0x21; popw %%ds":"+a"(a):"d"(old),"r"((unsigned)seg):"cc","memory");
@@ -79,6 +82,7 @@ static int find_entry(const char *pattern,unsigned char *dta,int next){
 #else
 static int change_dir(const char *,unsigned);
 static int hide_dir(const char *);
+static int set_dir_attributes(const char *,unsigned);
 static int find_entry(const char *,unsigned char *,int);
 #endif
 
@@ -104,16 +108,54 @@ static int parents(char path[DOS_PATH],int trash,int create,int leaf){
  return 0;
 }
 
+static unsigned path_length(const char *p){unsigned n=0;while(p[n])n++;return n;}
+static int below(const char *parent,const char *path){
+ unsigned i=0;while(parent[i]&&parent[i]==path[i])i++;
+ return !parent[i]&&(!path[i]||path[i]=='\\');
+}
+static int folder_marker(const char *path,char marker[DOS_PATH]){
+ unsigned n=path_length(path);
+ static const char suffix[]="\\KRECYCLE.KTR";
+ if(n+sizeof suffix>DOS_PATH)return -22;
+ copy(marker,path,n);copy(marker+n,suffix,sizeof suffix);return 0;
+}
+static int is_recycled(const char *path){
+ char marker[DOS_PATH];
+ if(folder_marker(path,marker))return 0;
+ int a=attributes(marker);return a>=0&&(a&0x5f)==0;
+}
+static int folder_recycle(const char *path,int restore){
+ char marker[DOS_PATH];int e=folder_marker(path,marker);if(e)return e;
+ for(unsigned i=0;i<16;i++)if(locks[i][0]&&below(path,locks[i]))return -16;
+ if(restore){
+  if(!is_recycled(path))return -2;
+  e=set_dir_attributes(path,0);if(e)return e;
+  if(remove_path(marker)){set_dir_attributes(path,6);return -117;}
+  return 0;
+ }
+ int h=open_path(marker,1);if(h<0)return h;
+ if(close_handle(h)&&close_handle(h))return -117;
+ e=set_dir_attributes(path,6);
+ if(e&&remove_path(marker))return -117;
+ return e;
+}
+static int append_path(char out[DOS_PATH],const char *base,const char *relative){
+ unsigned n=path_length(base),m=path_length(relative);
+ if(n+1+m>=DOS_PATH)return -22;
+ copy(out,base,n);out[n]='\\';copy(out+n+1,relative,m+1);return 0;
+}
+
 static int list_entry(Owner *o,K32Fs *r,char path[DOS_PATH]){
  int next=r->action==K32_FS_NEXT;
  if(next){if(!r->token||r->token!=o->cursor)return -9;}
  else{
   o->cursor=0;
-  int e=parents(path,r->flags,0,1);
-  if(e==-2&&r->flags)goto empty;
+  o->list_kind=r->action==K32_FS_DRIVE_LIST?4:r->flags;
+  int e=o->list_kind==4?0:parents(path,o->list_kind==K32_FS_LIST_TRASH,0,1);
+  if(e==-2&&o->list_kind==K32_FS_LIST_TRASH)goto empty;
   if(e)return e;
-  unsigned end=0;while(path[end])end++;
-  copy(path+end,"\\*.*",5);
+  unsigned end=path_length(path);
+  copy(path+end,path[end-1]=='\\'?"*.*":"\\*.*",path[end-1]=='\\'?4:5);
   o->cursor=token();if(!o->cursor)return -75;
  }
  for(;;next=1){
@@ -123,7 +165,15 @@ static int list_entry(Owner *o,K32Fs *r,char path[DOS_PATH]){
   unsigned char *d=o->dta;
   char name[16];unsigned n=0;
   while(n<13&&d[30+n])n++;
-  if((d[21]&0x4e)||!work_component((const char *)d+30,n,name))continue;
+  if(d[30]=='.'&&(n==1||(n==2&&d[31]=='.')))continue;
+  int valid=work_component((const char *)d+30,n,name);
+  if(o->list_kind==K32_FS_LIST_STRICT&&((d[21]&0x4f)||!valid)){o->cursor=0;return -117;}
+  if(!valid)continue;
+  if(o->list_kind==K32_FS_LIST_ARCHIVED){
+   char parent[DOS_PATH],item[DOS_PATH];
+   if((d[21]&0x5f)!=0x16||work_path(o,r->path,0,1,parent)||
+      append_path(item,parent,name+3)||!is_recycled(item))continue;
+  }else if(d[21]&0x4e)continue;
   r->entry=(K32DirEntry){.version=1,.size=sizeof r->entry,.cursor=o->cursor,.attributes=d[21],
     .time=d[22]|(unsigned)d[23]<<8,.date=d[24]|(unsigned)d[25]<<8,
     .bytes=d[26]|(unsigned)d[27]<<8|(unsigned)d[28]<<16|(unsigned)d[29]<<24};
@@ -152,8 +202,6 @@ static int fs_begin(Owner *o,K32Fs *r,const char *path,int boot){
  Transaction tx={.exists=boot,.old_length=r->length,.old_hash=r->hash,
   .limit=boot?K32_FS_BOOT_LIMIT:K32_IO_LIMIT};
  for(unsigned i=0;;i++){tx.target[i]=path[i];if(!path[i])break;}
- sibling(path,"TMP",tx.temporary);
- sibling(path,"BAK",tx.backup);
  int e=begin_paths(o,&tx,!boot);
  if(!e)r->token=o->tx.token;
  return e;
@@ -212,25 +260,94 @@ static void prune_trash(char path[DOS_PATH]){
  }
 }
 
+static void expire_lists(void){for(unsigned i=0;i<8;i++)owners[i].cursor=0;}
+
+static int folder_copy(Owner *o,K32Fs *r){
+ char stage[DOS_PATH];
+ if(r->action==K32_FS_TREE_BEGIN){
+  if(tree.owner)return -16;
+  int e=work_path(o,r->path,0,0,tree.source);
+  if(!e)e=work_path(o,r->destination,0,0,tree.target);
+  if(!e)e=parents(tree.source,0,0,0);
+  if(!e)e=parents(tree.target,0,0,0);
+  if(e)return e;
+  if(below(tree.source,tree.target))return -22;
+  int src=attributes(tree.source),dst=attributes(tree.target);
+  if(src!=16&&src!=48)return src<0?-2:-13;
+  if(dst!=-2)return dst<0?-5:-17;
+  if((e=pending(tree.source))||(e=pending(tree.target)))return e;
+  for(unsigned i=0;i<16;i++)if(locks[i][0]&&below(tree.source,locks[i]))return -16;
+  sibling(tree.target,"TMP",stage);e=change_dir(stage,0);
+  if(e)return e;
+  tree.owner=o;tree.move=r->flags;
+  return 0;
+ }
+ if(tree.owner!=o)return -9;
+ sibling(tree.target,"TMP",stage);
+ if(r->action==K32_FS_TREE_CANCEL){tree.owner=0;return 0;}
+ if(r->action==K32_FS_TREE_PUBLISH){
+  if(o->tx.phase)return -16;
+  int e=attributes(tree.target);
+  if(e!=-2)return e<0?-5:-17;
+  if(tree.move&&(e=folder_recycle(tree.source,0)))return e;
+  e=rename_path(stage,tree.target);
+  if(e&&tree.move&&folder_recycle(tree.source,1))return -117;
+  if(!e){tree.owner=0;expire_lists();}
+  return e;
+ }
+ char canonical[DOS_PATH],path[DOS_PATH];
+ int e=work_path(o,r->path,0,0,canonical);if(e)return e;
+ unsigned depth=1;
+ for(const char *p=tree.target+8;*p;p++)depth+=*p=='\\';
+ for(const char *p=canonical+8;*p;p++)depth+=*p=='\\';
+ if(depth>=3||path_length(tree.target+8)+path_length(canonical+8)+1>=K32_FS_PATH)return -22;
+ e=append_path(path,stage,canonical+8);if(e)return e;
+ if(r->action==K32_FS_TREE_MKDIR)return change_dir(path,0);
+ return fs_begin(o,r,path,0);
+}
+
 static int filesystem(Owner *o,K32Fs *r){
- if(r->version!=1||r->size!=sizeof *r||r->action<K32_FS_LIST||r->action>K32_FS_BOOT_WRITE||
-    (r->action!=K32_FS_BOOT_WRITE&&r->flags>(r->action==K32_FS_LIST?K32_FS_LIST_TRASH:0))||
+ unsigned limit=r->action==K32_FS_LIST?K32_FS_LIST_STRICT:r->action==K32_FS_DRIVE_LIST?25:r->action==K32_FS_TREE_BEGIN?K32_FS_TREE_MOVE:0;
+ if(r->version!=1||r->size!=sizeof *r||r->action<K32_FS_LIST||r->action>K32_FS_TREE_CANCEL||
+    (r->action!=K32_FS_BOOT_WRITE&&r->flags>limit)||
     (r->action!=K32_FS_NEXT&&r->token)||
     (r->action!=K32_FS_BOOT_WRITE&&(r->length||r->hash)))return -22;
  char path[DOS_PATH]={0},dest[DOS_PATH];
- if(r->action>=K32_FS_BOOT_OPEN){
+ if(r->action==K32_FS_DRIVES){r->length=1u|(1u<<o->drive);r->flags=o->drive;return 0;}
+ if(r->action==K32_FS_DRIVE_LIST){
+  if(r->flags&&r->flags!=o->drive)return -15;
+  if(r->path[0]){
+   int e=work_path(o,r->path,0,0,path);if(e)return e;
+   unsigned n=path_length(path);for(unsigned i=3;i<=n-5;i++)path[i]=path[i+5];
+   path[0]='A'+r->flags;int a=attributes(path);if(a<0)return a;if((a&0x5e)!=16)return -13;
+  }else copy(path,"A:\\",4);
+  path[0]='A'+r->flags;
+  return list_entry(o,r,path);
+ }
+ if(r->action==K32_FS_BOOT_OPEN||r->action==K32_FS_BOOT_WRITE){
   if(!same(r->path,"CONFIG.SYS")&&!same(r->path,"AUTOEXEC.BAT"))return -22;
   if(r->length>K32_FS_BOOT_LIMIT)return -27;
   copy(path,"A:\\",3);
   for(unsigned i=0;;i++){path[3+i]=r->path[i];if(!r->path[i])break;}
   return r->action==K32_FS_BOOT_OPEN?fs_open(o,r,path,1):boot_write(o,r,path,same(r->path,"AUTOEXEC.BAT"));
  }
+ if(r->action==K32_FS_NEXT)return list_entry(o,r,path);
  int e=ready(o);
  if(e)return e;
- if(r->action==K32_FS_NEXT)return list_entry(o,r,path);
- int trash=r->action==K32_FS_RESTORE||(r->action==K32_FS_LIST&&r->flags);
+ if(r->action>=K32_FS_TREE_BEGIN)return folder_copy(o,r);
+ int trash=r->action==K32_FS_RESTORE||(r->action==K32_FS_LIST&&r->flags==K32_FS_LIST_TRASH);
  e=work_path(o,r->path,trash,r->action==K32_FS_LIST,path);if(e)return e;
  if(r->action==K32_FS_LIST)return list_entry(o,r,path);
+ if(r->action==K32_FS_RESTORE){
+  int mirror=attributes(path);
+  if(mirror==-2||mirror==-3){
+  e=work_path(o,r->path,0,0,path);if(e)return e;
+  e=parents(path,0,0,0);if(e)return e;
+  if((attributes(path)&0x5f)!=0x16)return -2;
+  e=folder_recycle(path,1);if(!e)expire_lists();return e;
+  }
+ }
+ if(tree.owner&&tree.owner!=o&&below(tree.source,path))return -16;
  e=parents(path,trash,0,0);if(e)return e;
  if(r->action==K32_FS_OPEN)return fs_open(o,r,path,0);
  if(r->action==K32_FS_CREATE)return fs_begin(o,r,path,0);
@@ -245,6 +362,7 @@ static int filesystem(Owner *o,K32Fs *r){
  e=pending(path);if(e)return e;
  if(r->action==K32_FS_MOVE){
   e=work_path(o,r->destination,0,0,dest);if(e)return e;
+  if(tree.owner&&tree.owner!=o&&below(tree.source,dest))return -16;
   if(is_dir){
    unsigned i=0,end=0;
    while(path[i]&&dest[i]&&path[i]==dest[i]){if(path[i]=='\\')end=i;i++;}
@@ -268,9 +386,10 @@ static int filesystem(Owner *o,K32Fs *r){
  if(a!=-2)return a<0?-5:-17;
  e=pending(dest);if(e)return e;
  e=is_dir&&r->action!=K32_FS_MOVE?transfer_empty_dir(path,dest):rename_path(path,dest);
+ if(e==-39&&r->action==K32_FS_TRASH&&is_dir){e=folder_recycle(path,0);if(!e)prune_trash(dest);}
  if(!e){
   if(r->action==K32_FS_RESTORE)prune_trash(path);
-  for(unsigned i=0;i<8;i++)owners[i].cursor=0;
+  expire_lists();
  }
  return e;
 }

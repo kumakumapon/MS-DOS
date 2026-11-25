@@ -39,6 +39,7 @@ def build(dest,window=False):
  sources={'window':ROOT/'../window/window.c'} if window else SOURCES
  for name,path in sources.items():
   text=path.read_text()
+  if name=='desktop':text+='\n'+(ROOT/'shell-ui.c').read_text()
   if name in ('editor','words'):text+='\n'+(ROOT/'sdk/ime.c').read_text()
   button_bounds(text,rows,cell_units=window)
   keys=[key for key in rows if json.dumps(key) in text or name=='desktop' and key in ('Files','Editor','Images / BMP24','Images / BMP','User dictionary','Calculator','Clock')]

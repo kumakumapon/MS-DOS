@@ -12,14 +12,24 @@ void kp_workspace_info(K32WorkInfo *out){
  *out=got;
 }
 void kp_close(KpPicker *p){if(p->cursor)k32_dir_close(p->cursor);p->cursor=p->loading=0;}
-void kp_open(KpPicker *p){*p=(KpPicker){.loading=1,.focus={.count=4},.list={.rows=1}};kp_workspace_info(&p->location);p->work=!!(p->location.flags&K32_WORK_HDD);}
-void kp_save_size(KpPicker *p,const char *name,unsigned bytes){kp_open(p);p->document_bytes=bytes;p->work=p->saving=1;p->focus.count=5;p->focus.current=2;for(unsigned i=0;i<12&&name[i];i++){p->name.text[i]=name[i];p->name.length++;}p->name.cursor=p->name.length;}
+void kp_open_kind(KpPicker *p,unsigned kind){
+ *p=(KpPicker){.loading=1,.focus={.count=4},.list={.rows=1},.kind=kind};
+ kp_workspace_info(&p->location);p->work=!!(p->location.flags&K32_WORK_HDD);
+}
+void kp_open(KpPicker *p){kp_open_kind(p,0);}
+void kp_save_kind(KpPicker *p,const char *name,unsigned bytes,unsigned kind){kp_open_kind(p,kind);p->document_bytes=bytes;p->work=p->saving=1;p->focus.count=5;p->focus.current=2;for(unsigned i=0;i<12&&name[i];i++){p->name.text[i]=name[i];p->name.length++;}p->name.cursor=p->name.length;}
+void kp_save_size(KpPicker *p,const char *name,unsigned bytes){kp_save_kind(p,name,bytes,0);}
 void kp_save(KpPicker *p,const char *name){kp_save_size(p,name,0);}
-int kp_tick(KpPicker *p){if(!p->loading)return 0;for(unsigned i=0;i<4;i++){K32DirEntry e;int r=p->cursor?k32_dir_next(p->cursor,&e):(p->work?k32_work_first(&e):k32_dir_first(&e));if(r<0){p->error=r;kp_close(p);break;}p->cursor=e.cursor;if(!r){kp_close(p);break;}if(p->count==KP_ENTRIES){p->error=-28;kp_close(p);break;}p->entries[p->count++]=e;}rebuild(p);return 1;}
+int kp_tick(KpPicker *p){if(!p->loading)return 0;for(unsigned i=0;i<4;i++){K32DirEntry e;K32Work req=k32_work_name(K32_WORK_FIRST,"");
+ req.flags=p->kind;req.data=(unsigned)&e;req.bytes=sizeof e;
+ int r=p->cursor?k32_dir_next(p->cursor,&e):(p->work?k32_work(&req):k32_dir_first(&e));if(r<0){p->error=r;kp_close(p);break;}p->cursor=e.cursor;if(!r){kp_close(p);break;}if(p->kind){
+  char path[24];if((e.attributes&16)||k32_work_path_kind_at(0,e.name,p->kind,path))continue;
+ }
+ if(p->count==KP_ENTRIES){p->error=-28;kp_close(p);break;}p->entries[p->count++]=e;}rebuild(p);return 1;}
 static void layout(KpPicker *p){p->list.rows=(kg_height()-(p->saving?128:96))/16;kw_reveal(&p->list);p->scroll.r=(KwRect){(int)kg_width()-28,44,20,(int)p->list.rows*16};p->scroll.total=p->list.count;p->scroll.rows=p->list.rows;p->scroll.top=p->list.top;}
 int kp_event(KpPicker *p,const KgEvent *e,char name[13]){
  layout(p);if(e->type==KG_KEY&&e->key==27){kp_close(p);return -1;}
- if(!p->saving&&(kw_button(703,e)||(e->type==KG_KEY&&e->key==23))&&(k32_query()&K32_FEATURE_SAVE)){unsigned work=!p->work;kp_close(p);kp_open(p);p->work=work;return 0;}
+ if(!p->saving&&(kw_button(703,e)||(e->type==KG_KEY&&e->key==23))&&(k32_query()&K32_FEATURE_SAVE)){unsigned work=!p->work;kp_close(p);kp_open_kind(p,p->kind);p->work=work;return 0;}
  if(kw_focus(&p->focus,e))return 0;
  if(e->type==KG_MOUSE&&(e->key&1)){if(p->saving&&e->y>=(int)kg_height()-80&&e->y<(int)kg_height()-48)p->focus.current=2;else if(e->y<40)p->focus.current=0;else if(e->y<(int)kg_height()-(p->saving?80:48))p->focus.current=1;}
  if(p->focus.current==0&&kw_input(&p->filter,e)==2){p->list.selected=p->list.top=0;rebuild(p);}
@@ -28,7 +38,7 @@ int kp_event(KpPicker *p,const KgEvent *e,char name[13]){
  if(p->saving&&p->focus.current==1&&p->list.count&&(e->type==KG_MOUSE||(e->type==KG_KEY&&(e->key==13||(e->key>=256&&e->key<=263))))){K32DirEntry *d=&p->entries[p->matches[p->list.selected]];p->name=(KwInput){0};for(unsigned i=0;i<12&&d->name[i];i++)p->name.text[p->name.length++]=d->name[i];p->name.cursor=p->name.length;}
  if(kw_scroll(&p->scroll,e))p->list.top=p->scroll.top;
  if(kw_button(702,e)||(e->type==KG_KEY&&e->key==13&&p->focus.current==(p->saving?4u:3u))){kp_close(p);return -1;}
- if(p->saving&&(kw_button(701,e)||(e->type==KG_KEY&&e->key==13&&(p->focus.current==1||p->focus.current==2||p->focus.current==3)))){char path[24];if(k32_work_path(p->name.text,path)){p->error=-22;return 0;}for(unsigned i=0;i<13;i++){name[i]=path[8+i];if(!name[i])break;}kp_close(p);return 1;}
+ if(p->saving&&(kw_button(701,e)||(e->type==KG_KEY&&e->key==13&&(p->focus.current==1||p->focus.current==2||p->focus.current==3)))){char path[24];if(k32_work_path_kind_at(0,p->name.text,p->kind,path)){p->error=-22;return 0;}for(unsigned i=0;i<13;i++){name[i]=path[8+i];if(!name[i])break;}kp_close(p);return 1;}
  if(!p->saving&&!p->loading&&(kw_button(701,e)||(e->type==KG_KEY&&e->key==13&&(p->focus.current==1||p->focus.current==2)))&&p->list.count){K32DirEntry *d=&p->entries[p->matches[p->list.selected]];if(d->attributes&16){p->error=-21;return 0;}for(unsigned i=0;i<13;i++)name[i]=d->name[i];kp_close(p);return 1;}return 0;
 }
 static void append(char *s,unsigned *n,const char *text){while(*text&&*n<79)s[(*n)++]=*text++;s[*n]=0;}
@@ -36,7 +46,7 @@ static void number(char *s,unsigned *n,unsigned value){char b[11];unsigned i=10;
 int kp_draw(KpPicker *p){layout(p);unsigned w=kg_width(),h=kg_height();char title[80]={0},status[80]={0};unsigned n=0;
  if(p->saving||p->work){append(title,&n,p->saving?KU("Save As / "):KU("Open / "));append(title,&n,p->location.root);append(title,&n,p->location.flags&K32_WORK_HDD?" / HDD":" / FD");}else append(title,&n,"Open / A: root / read only");
  n=0;
- if(p->error)append(status,&n,"Use 8.3 TXT / workspace unavailable");
+ if(p->error)append(status,&n,p->kind?"Use 8.3 BMP / workspace unavailable":"Use 8.3 TXT / workspace unavailable");
  else if(p->loading)append(status,&n,"Loading...");
  else if((p->work||p->saving)&&p->location.error)append(status,&n,"Workspace unavailable / Esc: cancel");
  else if((p->work||p->saving)&&p->location.version){

@@ -15,7 +15,11 @@ extern char host_command[128];
 /* Parsed before loader I/O starts; no second conventional command buffer. */
 
 volatile GuiDriverRecord gui_record={.signature={'K','G','3','2','D','R','V','1'},.version=1,.size=sizeof(GuiDriverRecord)};
-static GuiInfo info;static GuiEvent queue[32];
+static GuiInfo info;
+/* Only input travels through the queue. Full public event records, including
+ * worker snapshots, are assembled at delivery. */
+typedef struct {u16 x,y,key;u8 type,buttons;u32 ticks;} QueuedInput;
+static QueuedInput queue[32];
 enum {GUI_SCRATCH_BYTES=28*1024};
 _Static_assert(GUI_SCRATCH_BYTES>=800*2,"one maximum RGB565 row fits");
 static unsigned head,count,segment,scratch,tables,started,quit;
@@ -63,7 +67,8 @@ static int start_workers(void){
   owned[id]=1;owned_generation[id]=u.generation;
  }workers();return 0;
 }
-static void enqueue(GuiEvent e){
+static void enqueue(GuiEvent event){
+ QueuedInput e={event.x,event.y,event.key,event.type,event.buttons,event.ticks};
  if(count&&e.type==GUI_MOTION&&queue[(head+count-1)%32].type==GUI_MOTION){queue[(head+count-1)%32]=e;return;}
  if(count==32){head=(head+1)%32;count--;gui_record.input_lost++;}
  queue[(head+count++)%32]=e;
@@ -86,7 +91,9 @@ static int event(u32 pointer,unsigned bytes){
  if(bytes!=sizeof(GuiEvent)&&bytes!=sizeof(GuiEvent4))return -22;
  GuiEvent4 extended={.base={.type=GUI_TIMER,.x=previous.x,.y=previous.y,.buttons=previous.buttons,.ticks=input_ticks()}};
  GuiEvent *e=&extended.base;
- if(count)*e=queue[head];else if(((e->ticks-last_timer)&0xffffff)<30720)return 0;
+ if(count){
+  QueuedInput q=queue[head];*e=(GuiEvent){.type=q.type,.x=q.x,.y=q.y,.buttons=q.buttons,.key=q.key,.ticks=q.ticks};
+ }else{if(((e->ticks-last_timer)&0xffffff)<30720)return 0;e->key=input_modifiers();}
  e->sequence=gui_record.events+1;workers();
  for(unsigned id=0;id<2;id++){e->states[id]=gui_record.worker_state[id];e->counters[id]=gui_record.worker_counter[id];extended.extra_states[id]=gui_record.reserved[6+id];extended.extra_counters[id]=gui_record.reserved[4+id];}
  e->lost=gui_record.input_lost;
@@ -141,6 +148,7 @@ static int dispatch(void){
  case GUI_CLIENT_EVENT:error=kg_clients_event(b,c);break;
  case GUI_SURFACE_ACK:error=kg_clients_surface_ack(b,c);break;
  case GUI_VIDEO_READ:error=gui_video_read(b,c);break;
+ case GUI_PREFERENCES_REV:{extern unsigned kg_preferences_revision;error=b||c?-22:(int)kg_preferences_revision;break;}
  case GUI_LANGUAGE:{extern unsigned kg_language;error=b>1||c?-22:0;if(!error)kg_language=b;break;}
  default:gui_record.unknown++;return -38;
  }if(error<0)gui_record.rejected++;return error;

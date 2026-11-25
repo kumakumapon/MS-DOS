@@ -399,3 +399,38 @@ EMS on may stop KGUI32 after reboot	EMS有効でKGUI32が起動しない場合�
 Memo  F4	メモ F4
 Memo / Ctrl S saves NOTE.TXT	メモ／Ctrl S でNOTE.TXTを保存
 Boot file is read-only	起動ファイルは読込専用です
+Kuma	Kuma
+About KGUI32	KGUI32 について
+KGUI32 32-bit protected desktop	KGUI32 32ビットデスクトップ
+New DOS	DOS を開く
+Switch windows	ウィンドウ切替
+Tap to close / Esc	タップまたは Esc で閉じる
+Next page	次へ
+Window layout could not be saved.	ウィンドウ配置を保存できません
+Desktop preferences	デスクトップ設定
+Language: Japanese	言語: 日本語
+Language: English	言語: 英語
+Display: High contrast	表示: 高コントラスト
+Display: Classic	表示: 標準
+Input: Romaji	入力: ローマ字
+Input: JIS kana	入力: JIS かな
+Input: IME off	入力: IME オフ
+Apply preferences	設定を適用
+Boot settings	起動設定
+Desktop preferences unavailable	デスクトップ設定を読み込めません
+Choose display, input, and language	表示・入力・言語を選びます
+Preferences saved / IME for new apps	保存済み / IME は次のアプリから
+Desktop preferences changed / reload	他で変更されました / 再読込
+Preference save failed / original kept	保存失敗 / 原本を保持しました
+Drives	ドライブ
+Drive root / read only	ドライブ直下 / 読み取り専用
+Drive view is read only	ドライブ表示は読み取り専用です
+Scanning folder / Esc cancels	フォルダを確認中 / Esc で中止
+Copying folder / Esc cancels	フォルダをコピー中 / Esc で中止
+Folder operation complete	フォルダの操作が完了しました
+Folder incomplete / TMP kept	フォルダの操作失敗 / TMP を保持
+Cancelled / TMP folder kept	中止 / TMP フォルダを保持
+Folder cannot be moved here	ここへフォルダを移動できません
+Drive unavailable	ドライブを開けません
+Open BMP	BMP を開く
+Save BMP As	BMP を名前を付けて保存

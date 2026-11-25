@@ -13,6 +13,7 @@ int kg_poll(KgEvent *);
 int kg_close(void);
 int kg_date(unsigned *,unsigned *,unsigned *);
 int kg_capabilities(void);
+int kg_preferences_changed(void);
 int kg_subscribe(unsigned);
 int kg_clip_set(const char *,unsigned);
 int kg_clip_get(char *,unsigned);

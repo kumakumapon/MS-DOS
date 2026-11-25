@@ -6,9 +6,9 @@
 #include "ui-files-manager.h"
 
 enum {FM_BACK=400,FM_UP,FM_TRASH,FM_FOLDER,FM_COPY,FM_MOVE,FM_RENAME,FM_DELETE,
- FM_OPEN,FM_REFRESH,FM_OK,FM_CANCEL,FM_NAME,FM_SIZE,FM_DATE,FM_KIND};
+ FM_OPEN,FM_REFRESH,FM_OK,FM_CANCEL,FM_NAME,FM_SIZE,FM_DATE,FM_KIND,FM_DRIVE};
 enum {LIST_FOCUS,NAME_FOCUS,SIZE_FOCUS,DATE_FOCUS,KIND_FOCUS,UP_FOCUS,TRASH_FOCUS,
- OPEN_FOCUS,REFRESH_FOCUS,FOLDER_FOCUS,COPY_FOCUS,MOVE_FOCUS,RENAME_FOCUS,DELETE_FOCUS,BACK_FOCUS};
+ OPEN_FOCUS,REFRESH_FOCUS,FOLDER_FOCUS,COPY_FOCUS,MOVE_FOCUS,RENAME_FOCUS,DELETE_FOCUS,BACK_FOCUS,DRIVE_FOCUS};
 #define FILE_LIMIT 192
 static K32DirEntry entries[FILE_LIMIT];
 static KwList list;
@@ -17,7 +17,14 @@ static KwInput target;
 static KwFocus focus;
 static const char *root_name,*status;
 static char folder[K32_FS_PATH],selected[K32_FS_PATH];
-static unsigned count,cursor,loading,trash,action,sort,descending;
+static unsigned count,cursor,loading,trash,archive_scan,action,sort,descending;
+static unsigned drive_mask,volume;
+static unsigned selected_dir;
+static struct {
+ unsigned phase,count,scan,item,cursor,bytes;
+ char relative[FILE_LIMIT][K32_FS_PATH];
+ unsigned char folders[FILE_LIMIT];
+} tree;
 static unsigned reader,remaining,opening;
 static K32Io writer;
 static unsigned char block[4096];
@@ -32,7 +39,9 @@ static const char *error_text(int e){
  case -13:return "Read-only or protected item";
  case -16:return "File is in use";
  case -17:return "Name already exists";
- case -21:return "Folder operation unsupported";
+ case -21:return "Folder cannot be moved here";
+ case -15:return "Drive unavailable";
+ case -125:return "Copy cancelled";
  case -22:return "Use a DOS 8.3 Work path";
  case -39:return "Only empty folders can be recycled";
  case -27:return "File exceeds the 1 MiB limit";
@@ -42,11 +51,13 @@ static const char *error_text(int e){
  }
 }
 static void refresh(void){
- count=list.count=list.selected=list.top=cursor=0;loading=1;
+ count=list.count=list.selected=list.top=cursor=archive_scan=0;loading=1;
 }
-void files_manager_open(const char *root){
+void files_manager_open(const char *root,unsigned show_drive){
  root_name=root;status=0;folder[0]=0;trash=action=sort=descending=0;
- focus=(KwFocus){.count=BACK_FOCUS+1};list.rows=1;refresh();
+ K32Fs r=k32_fs_request(K32_FS_DRIVES,0,0);
+ drive_mask=k32_fs(&r)?1:r.length;volume=show_drive?1:0;
+ focus=(KwFocus){.count=DRIVE_FOCUS+1};list.rows=1;refresh();
 }
 static int join(char out[K32_FS_PATH],const char *base,const char *name){
  unsigned n=k32_len(base),m=k32_len(name);
@@ -87,17 +98,82 @@ static int finish_copy(int error,int keep){
   if(e<0&&error==-125)error=e;
   writer.token=0;
  }
- status=error==-125?"Copy cancelled":error?error_text(error):"Copied";
+ return error;
+}
+static void finish_folder(int error){
+ if(tree.phase){
+  K32Fs r=k32_fs_request(K32_FS_TREE_CANCEL,0,0);k32_fs(&r);
+  tree.phase=0;
+ }
+ status=error==-125?"Cancelled / TMP folder kept":error?"Folder incomplete / TMP kept":"Folder operation complete";
+ refresh();
+}
+static int copy_finished(int error){
+ if(tree.phase){
+  if(error)finish_folder(error);else tree.item++;
+ }else {
+  status=error?error_text(error):"Copied";refresh();
+ }
  return 1;
 }
 static int copy_step(void){
  unsigned n=remaining>sizeof block?sizeof block:remaining;
- if(!n){finish_copy(0,0);refresh();return 1;}
+ if(!n)return copy_finished(finish_copy(0,0));
  int got=k32_io_read(reader,block,n);
- if(got!=(int)n)return finish_copy(got<0?got:-5,1);
+ if(got!=(int)n)return copy_finished(finish_copy(got<0?got:-5,1));
  int e=k32_io_write(&writer,block,n);
- if(e!=(int)n)return finish_copy(e<0?e:-28,1);
+ if(e!=(int)n)return copy_finished(finish_copy(e<0?e:-28,1));
  remaining-=n;return 1;
+}
+static int copy_start(const char *source,const char *dest,unsigned operation){
+ K32Fs from=k32_fs_request(K32_FS_OPEN,source,0),to=k32_fs_request(operation,dest,0);
+ int e=k32_fs(&from);if(e)return e;
+ reader=from.token;remaining=from.length;
+ e=k32_fs(&to);
+ if(e){k32_io_close(reader);reader=0;return e;}
+ writer=k32_io_name(K32_IO_WRITE,0);writer.token=to.token;return 0;
+}
+static void start_folder(const char *dest,unsigned move){
+ K32Fs r=k32_fs_request(K32_FS_TREE_BEGIN,selected,dest);r.flags=move;
+ int e=k32_fs(&r);if(e){status=error_text(e);return;}
+ tree.phase=1;tree.count=tree.item=1;tree.scan=tree.cursor=tree.bytes=0;
+ tree.relative[0][0]=0;tree.folders[0]=1;status="Scanning folder / Esc cancels";
+}
+static int folder_step(void){
+ if(tree.phase==1){
+  while(tree.scan<tree.count&&!tree.folders[tree.scan])tree.scan++;
+  if(tree.scan==tree.count){tree.phase=2;status="Copying folder / Esc cancels";return 1;}
+  char source[K32_FS_PATH];
+  if(tree.relative[tree.scan][0]){
+   if(!join(source,selected,tree.relative[tree.scan])){finish_folder(-22);return 1;}
+  }else copy_text(source,selected,sizeof source);
+  K32Fs r=k32_fs_request(tree.cursor?K32_FS_NEXT:K32_FS_LIST,source,0);
+  r.flags=tree.cursor?0:K32_FS_LIST_STRICT;r.token=tree.cursor;
+  int e=k32_fs(&r);tree.cursor=r.token;
+  if(e){finish_folder(e);return 1;}
+  if(!r.token){tree.scan++;return 1;}
+  int directory=!!(r.entry.attributes&16);
+  if(tree.count==FILE_LIMIT||(!directory&&(r.entry.bytes>K32_IO_LIMIT||r.entry.bytes>8u*K32_IO_LIMIT-tree.bytes))||
+     !join(tree.relative[tree.count],tree.relative[tree.scan],r.entry.name)){finish_folder(-27);return 1;}
+  tree.folders[tree.count++]=directory;
+  if(!directory)tree.bytes+=r.entry.bytes;
+  return 1;
+ }
+ if(tree.item==tree.count){
+  K32Fs r=k32_fs_request(K32_FS_TREE_PUBLISH,0,0);int e=k32_fs(&r);
+  if(!e)tree.phase=0;
+  finish_folder(e);return 1;
+ }
+ const char *rel=tree.relative[tree.item];int e;
+ if(tree.folders[tree.item]){
+  K32Fs r=k32_fs_request(K32_FS_TREE_MKDIR,rel,0);e=k32_fs(&r);
+  if(!e)tree.item++;
+ }else{
+  char source[K32_FS_PATH];
+  e=join(source,selected,rel)?copy_start(source,rel,K32_FS_TREE_CREATE):-22;
+ }
+ if(e)finish_folder(e);
+ return 1;
 }
 int files_manager_step(void){
  if(opening){
@@ -105,25 +181,21 @@ int files_manager_step(void){
   if(e!=-11){opening=0;status=e<0?(e==-16?"Both slots in use: close a task":"Cannot start Editor"):"Opened";return 1;}
  }
  if(reader)return copy_step();
+ if(tree.phase)return folder_step();
  if(!loading)return 0;
  for(unsigned i=0;i<6;i++){
-  K32Fs r=k32_fs_request(cursor?K32_FS_NEXT:K32_FS_LIST,folder,"");
-  r.token=cursor;r.flags=cursor?0:trash;
+  K32Fs r=k32_fs_request(cursor?K32_FS_NEXT:volume?K32_FS_DRIVE_LIST:K32_FS_LIST,folder,0);
+  r.token=cursor;r.flags=cursor?0:volume?volume-1:archive_scan?K32_FS_LIST_ARCHIVED:trash;
   int e=k32_fs(&r);cursor=r.token;
+  if(!e&&!cursor&&trash&&!archive_scan){archive_scan=1;continue;}
   if(e||!cursor||count==FILE_LIMIT){loading=0;if(e)status=error_text(e);else if(cursor)status="First 192 items shown";sort_entries();break;}
   entries[count++]=r.entry;
  }
  return 1;
 }
-void files_manager_close(void){if(reader)finish_copy(-125,0);}
-static void copy_start(const char *dest){
- K32Fs from=k32_fs_request(K32_FS_OPEN,selected,""),to=k32_fs_request(K32_FS_CREATE,dest,"");
- int e=k32_fs(&from);
- if(e){status=error_text(e);return;}
- reader=from.token;remaining=from.length;
- e=k32_fs(&to);
- if(e){k32_io_close(reader);reader=0;status=error_text(e);return;}
- writer=k32_io_name(K32_IO_WRITE,0);writer.token=to.token;status="Copying / Esc cancels";
+void files_manager_close(void){
+ if(reader)finish_copy(-125,0);
+ if(tree.phase)finish_folder(-125);
 }
 static void execute(void){
  unsigned op=action;action=0;
@@ -142,13 +214,23 @@ static void execute(void){
  if(op==FM_FOLDER||op==FM_RENAME){
   if(!join(dest,folder,target.text)){status=error_text(-22);return;}
  }else copy_text(dest,target.text,sizeof dest);
- if(op==FM_COPY){copy_start(dest);return;}
+ if(op==FM_COPY){
+  if(selected_dir)start_folder(dest,0);
+  else {int e=copy_start(selected,dest,K32_FS_CREATE);status=e?error_text(e):"Copying / Esc cancels";}
+  return;
+ }
  K32Fs r=op==FM_FOLDER?k32_fs_request(K32_FS_MKDIR,dest,""):k32_fs_request(K32_FS_MOVE,selected,dest);
  int e=k32_fs(&r);
+ if(e==-21&&op==FM_MOVE&&selected_dir){start_folder(dest,1);return;}
  status=e?error_text(e):op==FM_FOLDER?"Folder created":op==FM_RENAME?"Renamed":"Moved";
  if(!e)refresh();
 }
 static void command(unsigned cmd){
+ if(cmd==FM_DRIVE){
+  do{volume=volume==26?0:volume+1;}while(volume&&!(drive_mask&(1u<<(volume-1))));
+  status=0;trash=0;folder[0]=0;refresh();return;
+ }
+ if(volume&&(cmd==FM_TRASH||(cmd>=FM_FOLDER&&cmd<=FM_DELETE)))return;
  if(cmd==FM_UP){
   char *end=0;for(char *p=folder;*p;p++)if(*p=='\\')end=p;
   if(end)*end=0;else folder[0]=0;
@@ -163,11 +245,14 @@ static void command(unsigned cmd){
  if(loading)return;
  if(cmd==FM_FOLDER){if(!trash){action=cmd;target=(KwInput){0};}return;}
  if(!list.count)return;
- K32DirEntry *d=&entries[list.selected];int dir=d->attributes&16;
+ K32DirEntry *d=&entries[list.selected];selected_dir=!!(d->attributes&16);
  if(!join(selected,folder,d->name)){status=error_text(-22);return;}
- if(cmd==FM_OPEN&&dir){copy_text(folder,selected,sizeof folder);status=0;refresh();return;}
+ if(cmd==FM_OPEN&&selected_dir){
+  if(trash&&(d->attributes&6)==6){status="Restore folder before opening";return;}
+  copy_text(folder,selected,sizeof folder);status=0;refresh();return;}
  if(trash){if(cmd==FM_DELETE)action=FM_TRASH;return;}
  if(cmd==FM_OPEN){
+  if(volume){status="Drive view is read only";return;}
   if(!folder[0]){
    if(opening)return;
    int e=kg_edit_document(d->name,1);
@@ -175,17 +260,16 @@ static void command(unsigned cmd){
   }else status="Open app is available at Work root";
   return;
  }
- if(dir&&(cmd==FM_COPY||cmd==FM_MOVE)){status=error_text(-21);return;}
  if(cmd==FM_COPY||cmd==FM_MOVE||cmd==FM_RENAME||cmd==FM_DELETE){
   action=cmd;target=(KwInput){0};
   if(cmd==FM_RENAME){target.length=target.cursor=k32_len(d->name);copy_text(target.text,d->name,sizeof target.text);}
  }
 }
-static const unsigned controls[]={0,FM_NAME,FM_SIZE,FM_DATE,FM_KIND,FM_UP,FM_TRASH,FM_OPEN,FM_REFRESH,FM_FOLDER,FM_COPY,FM_MOVE,FM_RENAME,FM_DELETE,FM_BACK};
+static const unsigned controls[]={0,FM_NAME,FM_SIZE,FM_DATE,FM_KIND,FM_UP,FM_TRASH,FM_OPEN,FM_REFRESH,FM_FOLDER,FM_COPY,FM_MOVE,FM_RENAME,FM_DELETE,FM_BACK,FM_DRIVE};
 static KwRect list_rect(void){return (KwRect){8,66,(int)kg_width()-38,(int)list.rows*16};}
 int files_manager_event(const KgEvent *e){
- if(reader){
-  if(kw_button(FM_CANCEL,e)||(e->type==KG_KEY&&e->key==27)){finish_copy(-125,0);refresh();}
+ if(reader||tree.phase){
+  if(kw_button(FM_CANCEL,e)||(e->type==KG_KEY&&e->key==27))copy_finished(reader?finish_copy(-125,0):-125);
   return 1;
  }
  if(action){
@@ -197,6 +281,7 @@ int files_manager_event(const KgEvent *e){
  unsigned cmd=0;
  if(e->type==KG_KEY){
   if(e->key==27)return -1;
+  if(e->key==4)cmd=FM_DRIVE;
   if(e->key==13)cmd=focus.current?controls[focus.current]:FM_OPEN;
  }
  if(e->type==KG_MOUSE&&(e->key&1)){
@@ -205,9 +290,9 @@ int files_manager_event(const KgEvent *e){
   if(kw_inside(list_rect(),e->x,e->y))focus.current=LIST_FOCUS;
  }
  if(cmd==FM_BACK)return -1;
- if(cmd>=FM_UP&&cmd<=FM_KIND){command(cmd);return 1;}
+ if(cmd>=FM_UP&&cmd<=FM_DRIVE){command(cmd);return 1;}
  if(kw_focus(&focus,e)){
-  while((focus.current==KIND_FOCUS&&kg_width()<468)||(trash&&focus.current>=FOLDER_FOCUS&&focus.current<DELETE_FOCUS))kw_focus(&focus,e);
+  while((focus.current==KIND_FOCUS&&kg_width()<468)||((trash||volume)&&focus.current>=FOLDER_FOCUS&&focus.current<DELETE_FOCUS+(volume!=0))||(volume&&focus.current==TRASH_FOCUS))kw_focus(&focus,e);
   return 1;
  }
  if(kw_scroll(&scroll,e)){list.top=scroll.top;if(list.selected<list.top||list.selected>=list.top+list.rows)list.selected=list.top;return 1;}
@@ -254,8 +339,10 @@ int files_manager_draw(void){
  if(action)modal(w,h);
  else {
   char crumb[64];
-  k32_snprintf(crumb,sizeof crumb,"%s%s%s",root_name,folder[0]?"\\":"",folder);
-  kw_text(8,8,crumb,(w-16)/8,0x20344a);
+  if(volume)k32_snprintf(crumb,sizeof crumb,"%c:\\%s",(int)('A'+volume-1),folder);
+  else k32_snprintf(crumb,sizeof crumb,"%s%s%s",root_name,folder[0]?"\\":"",folder);
+  kw_text(8,8,crumb,(w-130)/8,0x20344a);
+  button((KwRect){(int)w-116,0,108,28},FM_DRIVE,"Drives",DRIVE_FOCUS,KW_SECONDARY);
   button((KwRect){8,30,110,34},FM_NAME,"Name",NAME_FOCUS,KW_SECONDARY);
   button((KwRect){120,30,88,34},FM_SIZE,"Bytes",SIZE_FOCUS,KW_SECONDARY);
   button((KwRect){210,30,w>=468?136:(int)w-218,34},FM_DATE,"Updated",DATE_FOCUS,KW_SECONDARY);
@@ -272,7 +359,7 @@ int files_manager_draw(void){
    row(&entries[at],y,w,active);
   }
   kw_draw_scroll(&scroll);
-  if(reader)button((KwRect){8,bottom,110,36},FM_CANCEL,"Cancel",BACK_FOCUS,KW_SECONDARY);
+  if(reader||tree.phase)button((KwRect){8,bottom,110,36},FM_CANCEL,"Cancel",BACK_FOCUS,KW_SECONDARY);
   else {
    static const unsigned top_ids[]={FM_UP,FM_TRASH,FM_OPEN,FM_REFRESH,FM_BACK};
    static const unsigned low_ids[]={FM_FOLDER,FM_COPY,FM_MOVE,FM_RENAME,FM_DELETE};
@@ -280,11 +367,11 @@ int files_manager_draw(void){
    const char *low_labels[]={"New folder","Copy","Move","Rename",trash?"Restore":"Delete"};
    unsigned width=(w-16)/5;
    for(unsigned i=0;i<5;i++){
-    button((KwRect){8+i*width,bottom,width-3,36},top_ids[i],top_labels[i],i==4?BACK_FOCUS:UP_FOCUS+i,KW_SECONDARY);
-    if(!trash||i==4)button((KwRect){8+i*width,bottom+38,width-3,36},low_ids[i],i==0&&width<87?"Mkdir":low_labels[i],FOLDER_FOCUS+i,i==4&&!trash?KW_DANGER:KW_SECONDARY);
+    if(!volume||i!=1)button((KwRect){8+i*width,bottom,width-3,36},top_ids[i],top_labels[i],i==4?BACK_FOCUS:UP_FOCUS+i,KW_SECONDARY);
+    if(!volume&&(!trash||i==4))button((KwRect){8+i*width,bottom+38,width-3,36},low_ids[i],i==0&&width<87?"Mkdir":low_labels[i],FOLDER_FOCUS+i,i==4&&!trash?KW_DANGER:KW_SECONDARY);
    }
   }
-  kw_label(8,h-16,loading?"Loading...":status?status:trash?"Trash / Select an item to restore":"Work / Copy and Move use Work paths",(w-16)/8,0x20344a);
+  kw_label(8,h-16,loading&&!tree.phase?"Loading...":status?status:volume?"Drive root / read only":trash?"Trash / Select an item to restore":"Work / Copy and Move use Work paths",(w-16)/8,0x20344a);
  }
  return kg_present();
 }

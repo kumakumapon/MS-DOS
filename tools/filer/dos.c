@@ -245,6 +245,9 @@ int p_key(void) {
 #ifdef PC98
     __asm__ volatile("int $0x18" : "+a"(a) :: "ebx", "cc", "memory");
     unsigned scan = (a >> 8) & 255;
+#ifdef K32_GUI
+    if (scan == 0x0f) return 9; /* PC-98 Tab also under GRPH or Shift */
+#endif
     if (scan >= 0x62 && scan <= 0x6b) return KEY_F1 + (int)scan - 0x62;
     if (scan == 0x3a) return KEY_UP;
     if (scan == 0x3d) return KEY_DOWN;

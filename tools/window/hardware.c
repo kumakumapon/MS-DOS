@@ -42,6 +42,9 @@ static unsigned key_head, key_count;
 static u8 key_mods[128],last_key_mods;
 static unsigned bios_modifiers(void){unsigned a=0x0200;__asm__ volatile("int $0x18":"+a"(a)::"ebx","ecx","edx","cc","memory");return ((a&1)?1u:0u)|((a&16)?2u:0u)|((a&8)?4u:0u);}
 #endif
+#ifdef KGUI32_DRIVER
+unsigned input_modifiers(void){return bios_modifiers();}
+#endif
 unsigned key_modifiers(void){
 #ifdef KGUI32_DRIVER
  return last_key_mods;

@@ -1,6 +1,9 @@
 /* Original flat-pointer GUI: composition, cursor, hit testing and window state
  * execute only in CPL3 protected mode. No physical VRAM or I/O mapping. */
 #include "scene.h"
+#include "shell-ui.h"
+#include "layout.h"
+#include "sdk/preferences.h"
 #include "sdk/i18n.h"
 unsigned ku_language;
 #include "sdk/protocol.h"
@@ -22,6 +25,24 @@ typedef struct {u32 magic,version,frames,events,mx,my,x0,y0,x1,y1,active,drag,pr
 } GuiState;
 volatile GuiState gui_state __attribute__((used,section(".data.gui_state")))={.magic=0x3147554b,.version=1,.terminal_magic=0x3254474b};
 static GuiInfo info;static Scene scene;static u8 font[95*16];
+static WindowLayout layout;
+static K32Revision layout_revision;
+static unsigned layout_available,layout_dirty,layout_changed;
+static unsigned preference_revision;
+static KgPreferences preferences;
+static void layout_save(void){
+ if(!layout_dirty)return;
+ int e=k32_io_save(KG_LAYOUT_FILE,&layout,sizeof layout,&layout_revision);
+ if(e>=0){
+  unsigned hash=2166136261u;const unsigned char *p=(const unsigned char *)&layout;
+  for(unsigned i=0;i<sizeof layout;i++)hash=(hash^p[i])*16777619u;
+  layout_revision=(K32Revision){1,sizeof layout,hash};
+ }else scene_notice_set(&scene,GN_LAYOUT_SAVE_FAILED);
+ layout_dirty=0;
+}
+static int same_rect(Rect a,Rect b){
+ return a.x==b.x&&a.y==b.y&&a.w==b.w&&a.h==b.h;
+}
 static struct {u32 code;u8 bitmap[32];} glyph_cache[128];
 static unsigned glyph_slot;
 /* 64-row transfers reclaim 857600 bytes without growing the 4 MiB desktop. */
@@ -86,6 +107,7 @@ static void refresh(void){
   if(k32_call(GUI_SNAPSHOT,(u32)&v,sizeof v))continue;
   if(v.owned&&v.state==4&&(views[id].state!=4||views[id].generation!=v.generation))scene_notice_set(&scene,GN_APP_FAULTED);
   GuiWindow *w=&scene.window[id+2];
+  if(layout_available&&v.owned&&!v.kind&&v.generation!=views[id].generation)layout_restore(&layout,&scene,id+2,v.program);
   if(v.kind||!v.owned){terminal_valid[id]=0;}
   else if(!terminal_valid[id]||terminals[id].generation!=v.generation||terminals[id].revision!=v.text_revision||terminals[id].state!=v.state){
    terminal_stage=(GuiTerminalView){.version=2,.size=sizeof terminal_stage,.slot=id,.generation=v.generation};
@@ -144,6 +166,7 @@ static void refresh_graphical(unsigned id){
   w->r.w=client_io.width+16;w->r.h=client_io.height+104;
   w->r.x=id?scene.width-w->r.w-16:16;w->r.y=id?scene.height-w->r.h-40:40;
   if(w->r.y<40)w->r.y=40;
+  if(layout_available)layout_restore(&layout,&scene,id+2,views[id].program);
   scene_focus(&scene,id+2);scene_damage(&scene,w->r);
  }
  if(exit_pending&&clients[id].event.key!=client_io.event.key)exit_pending=0;
@@ -162,7 +185,8 @@ static void launch(int act){
  if(id==(unsigned)scene.slots){
   scene.action_result=-16;scene_damage(&scene,scene.window[0].r);scene_notice_set(&scene,GN_SLOTS_FULL);return;
  }
- const char *path=act==ACT_MEMO?"KGEDIT.EXE memo":act==ACT_SETTINGS?"KGSET.EXE":act==ACT_CALENDAR?"KGCAL.EXE":act==ACT_CALCULATOR?"KGCALC.EXE":act==ACT_CLOCK?"KGCLOCK.EXE":act==ACT_FILES?"KGFILES.EXE":act==ACT_EDITOR?"KGEDIT.EXE":act==ACT_IMAGE?"KGIMAGE.EXE":act==ACT_WORDS?"KGWORDS.EXE":act==ACT_SHELL32?"KSH32.EXE":"KSH.EXE";
+ const ShellApp *app=shell_app(act);if(!app)return;
+ const char *path=app->command;
  for(unsigned i=0;i<128;i++){paths[id][i]=path[i];if(!path[i])break;}
  errors[id]=session_command(id,GS_CREATE,0);scene.action_result=errors[id];
  if(!errors[id])scene_focus(&scene,id+2);
@@ -235,11 +259,12 @@ static void action(int act){
 static void input_focus(void){
  unsigned id=scene.active>=2?(unsigned)scene.active-2:0;
  unsigned on=0;
- if(scene.active>=2&&scene.window[scene.active].open&&!scene.window[scene.active].hidden)on=editing[id]?2:views[id].owned?1:0;
+ if(scene.shell_page)on=2;
+ else if(scene.active>=2&&scene.window[scene.active].open&&!scene.window[scene.active].hidden)on=editing[id]?2:views[id].owned?1:0;
  session_command(id,GS_FOCUS,on);
 }
 
-static u32 color(unsigned n){u32 c=info.colors[n];return info.bpp==1?n:((c>>19)<<11)|(((c>>10)&63)<<5)|((c>>3)&31);}
+static u32 color(unsigned n){if(preferences.theme==KG_THEME_CONTRAST){if(n==2)n=7;else if(n==4||n==6)n=14;}u32 c=info.colors[n];return info.bpp==1?n:((c>>19)<<11)|(((c>>10)&63)<<5)|((c>>3)&31);}
 static u32 rgb(unsigned r,unsigned g,unsigned b){return info.bpp==1?16+(r+25)/51*36+(g+25)/51*6+(b+25)/51:(r>>3)<<11|(g>>2)<<5|(b>>3);}
 static void box(int x,int y,int w,int h,u32 c){
  int right=x+w,bottom=y+h;
@@ -312,7 +337,8 @@ static void draw_notice(void){
   [GN_WORKERS_STOPPED]="CPU workers stopped.",
   [GN_WORKER_FAILED]="Worker action failed. Check the slots.",
   [GN_SESSION_FAILED]="Session failed. Check the command.",
-  [GN_APP_FAULTED]="App stopped unexpectedly. Reopen it."
+  [GN_APP_FAULTED]="App stopped unexpectedly. Reopen it.",
+  [GN_LAYOUT_SAVE_FAILED]="Window layout could not be saved."
  };
  if(!scene.notice)return;
  Rect r=scene_notice_rect(&scene);
@@ -531,12 +557,39 @@ static void cursor(void){
  static const u16 body[16]={0,0,0x4000,0x6000,0x7000,0x7800,0x7c00,0x7e00,0x7f00,0x7c00,0x5800,0x0800,0x0400,0x0200,0x0200,0};
  for(int y=0;y<16;y++)for(int x=0;x<16;x++)if(edge[y]&(0x8000>>x))box(scene.mx+x,scene.my+y,1,1,color(body[y]&(0x8000>>x)?7:0));
 }
+static void draw_shell(void){
+ if(!scene.shell_page)return;
+ Rect r=shell_panel();box(r.x,r.y,r.w,r.h,color(2));box(r.x,r.y,r.w,24,color(0));
+ const char *title=scene.shell_page==SHELL_KUMA?"Kuma":scene.shell_page==SHELL_SEARCH?"Find apps":scene.shell_page==SHELL_SWITCH?"Switch windows":"About KGUI32";
+ ui_label(r.x+8,r.y+5,title,color(7));
+ if(scene.shell_page==SHELL_ABOUT){
+  ui_label(20,76,"KGUI32 32-bit protected desktop",color(0));
+  ui_label(20,102,info.bpp==2?"Cirrus 800x600 RGB565":"PEGC 640x400 indexed",color(0));
+  ui_label(20,130,"Tap to close / Esc",color(0));return;
+ }
+ unsigned count=shell_count(&scene);
+ if(scene.shell_page==SHELL_SEARCH){
+  box(16,62,204,26,color(7));text(20,68,scene.shell_query,color(0));
+  if(count>SHELL_ROWS)button(224,62,88,"Next page");
+  if(!count)ui_label(20,103,"No matching apps",color(0));
+ }else if(scene.shell_page==SHELL_SWITCH)ui_label(20,66,"Alt+Tab / Enter",color(0));
+ for(unsigned i=0;i<SHELL_ROWS&&i+scene.shell_top<count;i++){
+  unsigned at=i+scene.shell_top;Rect row=shell_row(i);
+  const char *label=shell_label(&scene,at);
+  if(scene.shell_page==SHELL_SWITCH){
+   int id=shell_item(&scene,at);
+   label=id==0?"Welcome":id==1?"System":scene.graphical[id-2]?clients[id-2].title:views[id-2].program;
+   if(!*label)label="DOS Shell";
+  }
+  styled_button(row.x,row.y,row.w,row.h,KU(label),at==scene.shell_selected?DESKTOP_BUTTON_PRIMARY:DESKTOP_BUTTON_SECONDARY,0);
+ }
+}
 static int paint(void){
  if(!scene.damage.w)return 0;
  clip=scene.damage;
- for(int y=clip.y;y<clip.y+clip.h;y++)box(clip.x,y,clip.w,1,rgb(18+y*14/info.height,30+y*34/info.height,58+y*40/info.height));
+ for(int y=clip.y;y<clip.y+clip.h;y++)box(clip.x,y,clip.w,1,preferences.theme==KG_THEME_CONTRAST?color(0):rgb(18+y*14/info.height,30+y*34/info.height,58+y*40/info.height));
  box(0,0,info.width,32,color(0));box(0,31,info.width,1,color(4));
- box(12,8,12,16,color(6));box(26,8,6,16,color(4));text(44,9,"KGUI32",color(7));text(124,9,"32-bit",color(9));ui_label(190,9,"F8:JP/EN",color(9));
+ Rect kuma=shell_button();button(kuma.x,kuma.y,kuma.w,"Kuma");text(100,9,"KGUI32",color(7));ui_label(170,9,"F8:JP/EN",color(9));
  for(int i=0;i<scene.slots;i++){char label[]="DOS 1";label[4]+=i;if(scene.slots==2)button(info.width-312+i*92,3,84,i?"New DOS 2":"New DOS 1");else button(info.width-360+i*56,3,52,label);}
  button(info.width-128,3,120,"Exit to DOS");
  for(int i=0;i<scene.slots+2;i++)window(scene.order[i]);
@@ -544,7 +597,7 @@ static int paint(void){
  button(6,info.height-29,136,"Welcome");button(152,info.height-29,136,"System");
  if(scene.active<=1)box(10+146*scene.active,info.height-5,128,DESKTOP_ACTIVE_MARKER_HEIGHT,color(6));
  for(int i=0;i<scene.slots;i++)if(scene.window[i+2].open){char label[]="DOS 1";label[4]+=i;int step=scene.slots==2?146:(info.width-300)/4;button(300+i*step,info.height-29,step-10,scene.graphical[i]?clients[i].title:label);if(scene.active==i+2)box(304+i*step,info.height-5,step-18,DESKTOP_ACTIVE_MARKER_HEIGHT,color(6));}
- draw_notice();
+ draw_notice();draw_shell();
  cursor();
  unsigned row_bytes=clip.w*info.bpp;
  for(int offset=0;offset<clip.h;offset+=64){
@@ -638,7 +691,15 @@ int main(int argc,char **argv){
  gui_state.bitmap_magic=0x3153474b;gui_state.bitmap_meta=(u32)images;gui_state.bitmap_pixels=(u32)image_pixels;gui_state.bitmap_stride=sizeof image_pixels[0];gui_state.bitmap_frames=(u32)clients;
  gui_state.surfaces_version=2;gui_state.extra_meta=(u32)extra_images;gui_state.extra_pixels=(u32)extra_pixels;gui_state.extra_stride=sizeof extra_pixels[0];gui_state.surface_budget=sizeof image_pixels+sizeof extra_pixels;
  scene_init(&scene,info.width,info.height);scene_slots(&scene,info.features&GUI_FOUR_SLOTS?4:2);gui_state.x0=scene.window[0].r.x;gui_state.y0=scene.window[0].r.y;gui_state.x1=scene.window[1].r.x;gui_state.y1=scene.window[1].r.y;
- if(startup_japanese(argc,argv)){ku_language=1;k32_call(GUI_LANGUAGE,1,0);}
+ preferences.language=startup_japanese(argc,argv);
+ K32Revision prefs_file;kg_preferences_load(&preferences,&prefs_file);
+ if(argc>1&&equal(argv[1],"ja"))preferences.language=1;
+ ku_language=preferences.language;k32_call(GUI_LANGUAGE,ku_language,0);
+ layout_available=!kg_state_read(KG_LAYOUT_FILE,&layout,sizeof layout,&layout_revision);
+ if(!layout_validate(&layout)&&layout_revision.exists)layout_available=0;
+ for(int id=0;id<2;id++)layout_restore(&layout,&scene,id,0);
+ gui_state.x0=scene.window[0].r.x;gui_state.y0=scene.window[0].r.y;
+ gui_state.x1=scene.window[1].r.x;gui_state.y1=scene.window[1].r.y;
  refresh();
  int once=argc>1&&equal(argv[1],"once"),proof=argc>1&&equal(argv[1],"proof");
  if(argc>1&&equal(argv[1],"sessionapi")){int bad=session_negative();gui_state.error=bad?200+bad:0;return bad?5:0;}
@@ -654,6 +715,17 @@ int main(int argc,char **argv){
   scene_notice_tick(&scene,event.ticks);
   gui_state.events++;gui_state.heartbeat++;key_modifiers=event.type==GUI_KEY?event.buttons:0;if(event.type==GUI_KEY)gui_state.last_key=event.key;
   if(event.type==GUI_KEY&&event.key==287){ku_language^=1;k32_call(GUI_LANGUAGE,ku_language,0);scene_damage(&scene,(Rect){0,0,info.width,info.height});if(paint())return 7;continue;}
+  if(event.type==GUI_TIMER){
+   int revision=k32_call(GUI_PREFERENCES_REV,0,0);
+   if(revision>=0&&(unsigned)revision!=preference_revision){
+    preference_revision=(unsigned)revision;K32Revision changed;
+    if(!kg_preferences_load(&preferences,&changed)&&changed.exists){
+     ku_language=preferences.language;k32_call(GUI_LANGUAGE,ku_language,0);
+     scene_damage(&scene,(Rect){0,0,info.width,info.height});
+    }
+   }
+   if(layout_dirty&&!scene.drag&&!scene.resize&&((event.ticks-layout_changed)&0xffffff)>=230400)layout_save();
+  }
   if(!terminal_tick)terminal_tick=event.ticks;
   if(((event.ticks-terminal_tick)&0xffffff)>=153600){terminal_tick=event.ticks;terminal_phase^=1;
    for(unsigned id=0;id<(unsigned)scene.slots;id++)if(terminal_valid[id]&&scene.window[id+2].open&&!scene.window[id+2].hidden){
@@ -676,15 +748,23 @@ int main(int argc,char **argv){
   /* A child may OPEN/SUBSCRIBE between timer events. Route input against
    * its current generation/token, never the ended root's cached canvas. */
   if(event.type==GUI_KEY||event.type==GUI_BUTTON)refresh();
+  Rect prior[6];unsigned placement[4];
+  for(int id=0;id<scene.slots+2;id++)prior[id]=scene.window[id].r;
+  for(int id=0;id<scene.slots;id++)placement[id]=scene.placement[id];
   int act;
   for(unsigned id=0;id<(unsigned)scene.slots;id++){
    scene.shell[id]=views[id].owned&&views[id].kind==1&&equal(views[id].program,"KSH32.EXE");
    scene.command[id]=editing[id];
   }
-  if(event.type==GUI_KEY&&scene.active>=2&&event.key!=281&&event.key!=11&&event.key!=289&&
+  if(event.type==GUI_KEY&&!scene.shell_page&&!(event.key==9&&(event.buttons&KG_MOD_ALT))&&scene.active>=2&&event.key!=281&&event.key!=11&&event.key!=289&&
      ((editing[scene.active-2]&&event.key!=9)||(!editing[scene.active-2]&&clients[scene.active-2].token&&event.key!=289&&((event.key==9&&(clients[scene.active-2].event.control&KG_INPUT_TAB))||((clients[scene.active-2].event.control&KG_INPUT_KEYS)&&event.key!=9))))){
    scene.slot=scene.active-2;scene.key=event.key;act=ACT_KEY;
   }else act=scene_event4(&scene,&event4);
+  if(layout_available)for(int id=0;id<scene.slots+2;id++)
+   if(!same_rect(prior[id],scene.window[id].r)||(id>=2&&placement[id-2]!=(unsigned)scene.placement[id-2])){
+    if(layout_remember(&layout,&scene,id,id<2?0:views[id-2].program)){layout_dirty=1;layout_changed=event.ticks;}
+   }
+  if(event.type==GUI_BUTTON&&!(event.buttons&1)&&!scene.drag&&!scene.resize)layout_save();
   if(act==ACT_EXIT){
    exit_pending=1;
    for(unsigned id=0;id<(unsigned)scene.slots;id++)if(clients[id].token&&(clients[id].event.control&KG_INPUT_CLOSE)){
@@ -697,7 +777,7 @@ int main(int argc,char **argv){
    KgEvent q={.type=KG_QUIT,.key=1};if(!client_event(id,&q)){close_generation[id]=views[id].generation;close_token[id]=clients[id].token;close_cancel[id]=clients[id].event.key;}act=ACT_NONE;
   }
   action(act);if(event.type==GUI_TIMER)refresh();
-  if(exit_pending){unsigned pending=0;for(unsigned id=0;id<(unsigned)scene.slots;id++)if(clients[id].token&&(clients[id].event.control&KG_INPUT_CLOSE))pending=1;if(!pending)return 0;}
+  if(exit_pending){unsigned pending=0;for(unsigned id=0;id<(unsigned)scene.slots;id++)if(clients[id].token&&(clients[id].event.control&KG_INPUT_CLOSE))pending=1;if(!pending){layout_save();return 0;}}
   for(unsigned id=0;id<(unsigned)scene.slots;id++)if(scene.graphical[id]&&clients[id].token){
    Rect r=scene.window[id+2].r;
    if(r.w!=previous_rect[id].w||r.h!=previous_rect[id].h){capture=0;KgEvent change={.type=KG_RESIZE,.width=r.w-16,.height=r.h-104};client_event(id,&change);}
