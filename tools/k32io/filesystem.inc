@@ -341,10 +341,10 @@ static int filesystem(Owner *o,K32Fs *r){
  if(r->action==K32_FS_RESTORE){
   int mirror=attributes(path);
   if(mirror==-2||mirror==-3){
-  e=work_path(o,r->path,0,0,path);if(e)return e;
-  e=parents(path,0,0,0);if(e)return e;
-  if((attributes(path)&0x5f)!=0x16)return -2;
-  e=folder_recycle(path,1);if(!e)expire_lists();return e;
+   e=work_path(o,r->path,0,0,path);if(e)return e;
+   e=parents(path,0,0,0);if(e)return e;
+   if((attributes(path)&0x5f)!=0x16)return -2;
+   e=folder_recycle(path,1);if(!e)expire_lists();return e;
   }
  }
  if(tree.owner&&tree.owner!=o&&below(tree.source,path))return -16;

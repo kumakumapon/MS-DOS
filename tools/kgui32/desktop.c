@@ -88,6 +88,13 @@ static unsigned exit_pending;
 static unsigned scale_xmap[800];
 static u32 close_generation[4],close_token[4],close_cancel[4];
 static unsigned capture,capture_generation,capture_token;
+static int equal(const char *,const char *);
+static void restore_app_layout(unsigned id,const char *program){
+ if(!layout_available)return;
+ for(unsigned peer=0;peer<(unsigned)scene.slots;peer++)
+  if(peer!=id&&views[peer].owned&&views[peer].state&&equal(views[peer].program,program))return;
+ layout_restore(&layout,&scene,id+2,program);
+}
 static void refresh_graphical(unsigned);
 static int client_event(unsigned,const KgEvent *);
 static void follow_cursor(unsigned);
@@ -107,7 +114,7 @@ static void refresh(void){
   if(k32_call(GUI_SNAPSHOT,(u32)&v,sizeof v))continue;
   if(v.owned&&v.state==4&&(views[id].state!=4||views[id].generation!=v.generation))scene_notice_set(&scene,GN_APP_FAULTED);
   GuiWindow *w=&scene.window[id+2];
-  if(layout_available&&v.owned&&!v.kind&&v.generation!=views[id].generation)layout_restore(&layout,&scene,id+2,v.program);
+  if(v.owned&&!v.kind&&v.generation!=views[id].generation)restore_app_layout(id,v.program);
   if(v.kind||!v.owned){terminal_valid[id]=0;}
   else if(!terminal_valid[id]||terminals[id].generation!=v.generation||terminals[id].revision!=v.text_revision||terminals[id].state!=v.state){
    terminal_stage=(GuiTerminalView){.version=2,.size=sizeof terminal_stage,.slot=id,.generation=v.generation};
@@ -166,7 +173,7 @@ static void refresh_graphical(unsigned id){
   w->r.w=client_io.width+16;w->r.h=client_io.height+104;
   w->r.x=id?scene.width-w->r.w-16:16;w->r.y=id?scene.height-w->r.h-40:40;
   if(w->r.y<40)w->r.y=40;
-  if(layout_available)layout_restore(&layout,&scene,id+2,views[id].program);
+  restore_app_layout(id,views[id].program);
   scene_focus(&scene,id+2);scene_damage(&scene,w->r);
  }
  if(exit_pending&&clients[id].event.key!=client_io.event.key)exit_pending=0;

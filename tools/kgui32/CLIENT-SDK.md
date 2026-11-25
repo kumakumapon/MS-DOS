@@ -19,7 +19,7 @@ Start K386.EXE, K32HOST.EXE and KGUILDR.EXE, with KGUI32.EXE, KGCALC.EXE and
 KGCLOCK.EXE on A:. The optional WebNP2 KGUI32 image contains all of them.
 Welcome is a minimal launcher: Calculator, Clock and DOS Shell use the first
 free/owned-ended slot. A full pair reports busy without ending either task.
-F2 or Ctrl+K returns to the launcher. The taskbar restores either application.
+F2 returns to Welcome. Ctrl+K opens application search. The taskbar restores either application.
 
 The calculator uses the existing KDESK fixed-decimal arithmetic (four fraction
 digits, overflow/divide-by-zero checks), rebuilt without its real-mode UI.
