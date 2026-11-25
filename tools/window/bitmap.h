@@ -12,6 +12,9 @@ int bitmap_save(const Bitmap *image, const char *path);
 int bitmap_load_shared(Bitmap *image, const char *path);
 int bitmap_save_shared(const Bitmap *image, const char *path);
 int bitmap_enable_rgb(Bitmap *image);
+unsigned bitmap_get(const Bitmap *image,u32 at);
 void bitmap_set(Bitmap *image, u32 at, unsigned color);
-void bitmap_transfer(Bitmap *out, u32 to, const Bitmap *in, u32 from, unsigned count);
+int bitmap_read_indices(const Bitmap *image, u32 at, u8 *pixels, unsigned count);
+int bitmap_read_rgb(const Bitmap *image, u32 at, u16 *pixels, unsigned count);
+int bitmap_transfer(Bitmap *out, u32 to, const Bitmap *in, u32 from, unsigned count);
 #endif

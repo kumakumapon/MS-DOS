@@ -12,7 +12,7 @@ static int palette_ready;
 static int pan[2],color=196,image_tool,stroke,sx,sy,last_x,last_y,selection,x1,y1,x2,y2;
 static const char *image_tools[]={"Pencil","Line","Rectangle","Fill","Pick","Erase","Select"};
 static int inside(const Bitmap *b,int x,int y){return x>=0&&y>=0&&x<b->width&&y<b->height;}
-static void publish(const Bitmap *b){clip_image(b->segment,b->width,b->height);}
+static void publish(const Bitmap *b){if(b->segment)clip_image(b->segment,b->width,b->height);else clip_image(0,0,0);}
 static void pixel(Bitmap *b,int x,int y,int c){if(inside(b,x,y))bitmap_set(b,y*(u32)b->width+x,c);}
 static void stroke_line(Bitmap *b,int ax,int ay,int bx,int by,int c){
  int dx=bx>ax?bx-ax:ax-bx,dy=by>ay?ay-by:by-ay;
@@ -21,13 +21,13 @@ static void stroke_line(Bitmap *b,int ax,int ay,int bx,int by,int c){
 }
 static int checkpoint(void){return bitmap_clone(&undo,&pictures[1]);}
 static void fill_image(Bitmap *b,int x,int y){
- int old=mem_get(b->segment,y*(u32)b->width+x);if(old==color)return;
+ int old=bitmap_get(b,y*(u32)b->width+x);if(old==color)return;
  unsigned queue=mem_alloc(b->width*(u32)b->height*2);if(!queue)return;
  u32 head=0,tail=1;unsigned n=y*b->width+x;
  mem_put(queue,0,n);mem_put(queue,1,n>>8);pixel(b,x,y,color);
  while(head<tail){n=mem_get(queue,head*2)|(unsigned)mem_get(queue,head*2+1)<<8;head++;
   for(int d=0;d<4;d++){int xx=n%b->width+(d==0?-1:d==1?1:0),yy=n/b->width+(d==2?-1:d==3?1:0);
-   if(inside(b,xx,yy)&&mem_get(b->segment,yy*(u32)b->width+xx)==old){unsigned at=yy*b->width+xx;pixel(b,xx,yy,color);mem_put(queue,tail*2,at);mem_put(queue,tail*2+1,at>>8);tail++;}}
+   if(inside(b,xx,yy)&&bitmap_get(b,yy*(u32)b->width+xx)==(unsigned)old){unsigned at=yy*b->width+xx;pixel(b,xx,yy,color);mem_put(queue,tail*2,at);mem_put(queue,tail*2+1,at>>8);tail++;}}
   if(!(head&255))input_poll();
  }
  mem_free(queue);
@@ -59,6 +59,7 @@ static void paste_shared(int tool){
  if(shared_path(path,KG_SHARED_IMAGE)){
   int e=bitmap_load_shared(&next,path);
   if(e==-27)say("Shared limit: 256 x 192");
+  else if(e==-8)say("Not enough shared image memory");
   else if(e<0)say("No readable shared image");
   else {
    Bitmap *current=&pictures[tool-WT_VIEW];
@@ -183,7 +184,9 @@ void wt_key(int tool,int key){
   if(key==2&&!ax&&!ay&&ww==b->width&&hh==b->height){share_image(b);return;}
   Bitmap next={0};
   if(!bitmap_new(&next,ww,hh,WHITE)||(b->rgb&&!bitmap_enable_rgb(&next))){bitmap_free(&next);say("Not enough clipboard memory");return;}
-  for(int y=0;y<hh;y++)bitmap_transfer(&next,y*(u32)ww,b,(ay+y)*(u32)b->width+ax,ww);
+  for(int y=0;y<hh;y++)if(!bitmap_transfer(&next,y*(u32)ww,b,(ay+y)*(u32)b->width+ax,ww)){
+   bitmap_free(&next);say("Shared image transfer failed");return;
+  }
   bitmap_free(&copied);copied=next;
   publish(&copied);
   if(key==2)share_image(&copied);else say("Copied image");
@@ -197,15 +200,19 @@ void wt_key(int tool,int key){
  if(key==19)image_save(tool);
  else if(key==23){prompts[tool]=1;say("Save as: type BMP path / Enter / Esc");}
  else if(key==18){prompts[tool]=2;say("Discard image edits? Enter confirms / Esc cancels");}
- else if(key==26&&undo.segment){Bitmap old=*b;*b=undo;undo=old;changed[tool]=1;publish(b);}
- else if(key==22&&copied.segment&&checkpoint()){
+ else if(key==26&&(undo.segment||undo.rgb)){Bitmap old=*b;*b=undo;undo=old;changed[tool]=1;publish(b);}
+ else if(key==22&&(copied.segment||copied.rgb)&&checkpoint()){
   if(copied.rgb&&!b->rgb){
+   Bitmap indexed=*b;
    if(!bitmap_enable_rgb(b)){say("Not enough clipboard memory");return;}
-   for(u32 i=0,n=b->width*(u32)b->height;i<n;i++)bitmap_set(b,i,mem_get(b->segment,i));
+   for(int y=0;y<b->height;y++)if(!bitmap_transfer(b,y*(u32)b->width,&indexed,y*(u32)b->width,b->width))goto failed_paste;
   }
   int ww=copied.width<b->width?copied.width:b->width,hh=copied.height<b->height?copied.height:b->height;
-  for(int y=0;y<hh;y++)bitmap_transfer(b,y*(u32)b->width,&copied,y*(u32)copied.width,ww);
+  for(int y=0;y<hh;y++)if(!bitmap_transfer(b,y*(u32)b->width,&copied,y*(u32)copied.width,ww))goto failed_paste;
   changed[tool]=1;publish(b);say("Pasted image");
+  return;
+failed_paste:
+  bitmap_free(b);*b=undo;undo=(Bitmap){0};publish(b);say("Image paste failed / original kept");return;
  }
  else if(key=='+'||key=='=')color=(color+1)&255;
  else if(key=='-')color=(color+255)&255;
@@ -244,8 +251,10 @@ __attribute__((noinline)) void wt_draw(int tool,int x,int y,int w,int h,int top,
   if(colors>256&&!palette_ready){for(int i=0;i<256;i++){u32 rgb=gfx_rgb(i);image_palette[i]=((rgb>>19)<<11)|(((rgb>>10)&63)<<5)|((rgb>>3)&31);}palette_ready=1;}
   for(int yy=0;yy<height;yy++){
    u32 at=(yy+top*16)*(u32)b->width+*left;
-   if(colors>256&&b->rgb){gfx_write_span(x*8,(y+1)*16+yy,b->rgb,at*2,width);continue;}
-   mem_copy(ds,(unsigned)image_row,b->segment,at,width);
+   if(colors>256&&b->rgb&&bitmap_read_rgb(b,at,image_pixels,width)){
+    gfx_write_span(x*8,(y+1)*16+yy,ds,(unsigned)image_pixels,width);continue;
+   }
+   if(!bitmap_read_indices(b,at,image_row,width))continue;
    if(colors>256){for(int xx=0;xx<width;xx++)image_pixels[xx]=image_palette[image_row[xx]];gfx_write_span(x*8,(y+1)*16+yy,ds,(unsigned)image_pixels,width);}
    else if(colors==256)gfx_write_span(x*8,(y+1)*16+yy,ds,(unsigned)image_row,width);
    else for(int xx=0;xx<width;xx++)gfx_pixel(x*8+xx,(y+1)*16+yy,image_row[xx]);
@@ -304,7 +313,7 @@ int wt_close(int tool){
  if(changed[tool]){say("Unsaved work: save or Ctrl+R reload before closing");return 0;}
  if(tool>=WT_VIEW){
   Bitmap *b=&pictures[tool-WT_VIEW];
-  if(clipboard.segment==b->segment){if(copied.segment)publish(&copied);else clip_image(0,0,0);}
+  if(b->segment&&clipboard.segment==b->segment){if(copied.segment)publish(&copied);else clip_image(0,0,0);}
   bitmap_free(b);if(tool==WT_PAINT){bitmap_free(&undo);stroke=selection=0;}
  }
  initialized[tool]=0;return 1;
@@ -337,7 +346,7 @@ int wt_pointer(int tool,int x,int y,int w,int h,int top,int px,int py,int button
  }
  if(!valid)return 0;
  if(!stroke){
-  if(image_tool==4){color=mem_get(b->segment,py*(u32)b->width+px);return 1;}
+  if(image_tool==4){color=bitmap_get(b,py*(u32)b->width+px);return 1;}
   if(image_tool!=6&&!checkpoint()){say("Cannot reserve undo; image retained");return 0;}
   stroke=1;sx=last_x=px;sy=last_y=py;
   if(image_tool==3){fill_image(b,px,py);changed[tool]=1;publish(b);return 1;}
