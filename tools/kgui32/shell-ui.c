@@ -148,7 +148,7 @@ void shell_timer(Scene *s,unsigned modifiers){
 }
 int shell_key(Scene *s,const GuiEvent *e){
  if(e->key==281&&s->shell_page){open_page(s,SHELL_CLOSED);return -1;}
- if(e->key==11){open_page(s,SHELL_SEARCH);return ACT_NOTICE_INPUT;}
+ if(e->key==11){open_page(s,e->buttons&KG_MOD_SHIFT?SHELL_KUMA:SHELL_SEARCH);return ACT_NOTICE_INPUT;}
  if(e->key==9&&(e->buttons&KG_MOD_ALT)){
   if(s->shell_page!=SHELL_SWITCH)open_page(s,SHELL_SWITCH);
   s->shell_alt=1;select_row(s,e->buttons&KG_MOD_SHIFT?-1:1);return ACT_NOTICE_INPUT;

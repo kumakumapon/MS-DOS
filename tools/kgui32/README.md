@@ -174,7 +174,7 @@ controls are described in [RECOVERY-SDK.md](RECOVERY-SDK.md).
 
 ### 最近使った項目とファイル操作
 
-- Kumaメニューの「最近」で、現在のセッションで使ったアプリとTXT／BMPを開けます。
+- Kumaメニュー（Ctrl+Shift+K）の「最近」で、現在のセッションで使ったアプリとTXT／BMPを開けます。
   検索結果の「固定」または Ctrl+P でアプリを先頭に移し、対応HDDでは固定項目を保存します。
 - 上部バーはDOS時刻、IMEの既定値、使用中の実行枠、Workの媒体を表示します。
   Alt+←／→で左右に配置、Alt+↑で最大化、Alt+↓で復元、Alt+F4でウィンドウを閉じます。

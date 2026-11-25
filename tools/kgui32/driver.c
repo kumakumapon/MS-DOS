@@ -1,6 +1,7 @@
 /* Dedicated desktop context. Shared CPU engine, independent DOS allocation,
  * stacks, page tables and XMS owner; neither application slot is a GUI slot. */
 #include "gui.h"
+#include "sdk/protocol.h"
 #include "../k38632/services.h"
 #include "../window/hardware.h"
 #include "../window/k386_client.h"
@@ -24,7 +25,7 @@ enum {GUI_SCRATCH_BYTES=28*1024};
 _Static_assert(GUI_SCRATCH_BYTES>=800*2,"one maximum RGB565 row fits");
 static unsigned head,count,segment,scratch,tables,started,quit;
 static u32 last_schedule,last_timer;
-static unsigned expanded_here;
+static unsigned expanded_here,alt_f4_down;
 unsigned manager,owned[4],session_focus;u32 owned_generation[4];
 extern int gui_video_read(u32,unsigned);
 extern int gui_session(u32,unsigned),gui_snapshot(u32,unsigned),kg_clients_start(void),kg_clients_snapshot(u32,unsigned),kg_clients_event(u32,unsigned);
@@ -80,11 +81,23 @@ static void pump(void){
    enqueue((GuiEvent){.type=m.buttons!=previous.buttons?GUI_BUTTON:GUI_MOTION,.x=m.x,.y=m.y,.buttons=m.buttons,.ticks=m.ticks});
   previous=m;if(!mouse_queued())break;
  }
+ /* PC-98 BIOS suppresses the buffered F4 character under GRPH. Read
+  * the keyboard's F-key group and emit the close chord on the down edge. */
+ unsigned mods=input_modifiers(),pressed=0;
+ if(mods&KG_MOD_ALT){
+  unsigned a=0x040b;
+  __asm__ volatile("int $0x18":"+a"(a)::"ebx","ecx","edx","cc","memory");
+  pressed=!!(a&0x0200); /* Make code 59h = group 0Bh, bit 1. */
+ }
+ if(pressed&&!alt_f4_down)
+  enqueue((GuiEvent){.type=GUI_KEY,.key=KEY_F1+3,.x=previous.x,.y=previous.y,.buttons=mods,.ticks=input_ticks()});
+ alt_f4_down=pressed;
  for(unsigned n=0;n<16&&key_ready();n++){
-  unsigned k=key_read();gui_record.last_key=k;
+  unsigned k=key_read(),m=key_modifiers();gui_record.last_key=k;
+  if(pressed&&k==KEY_F1+3&&(m&KG_MOD_ALT))continue;
   extern int kg_clients_close_guard(void);
   if(k==7||(k==KEY_F1+9&&!kg_clients_close_guard())||(k==27&&!session_focus))quit=1;
-  else enqueue((GuiEvent){.type=GUI_KEY,.key=k,.x=previous.x,.y=previous.y,.buttons=key_modifiers(),.ticks=input_ticks()});
+  else enqueue((GuiEvent){.type=GUI_KEY,.key=k,.x=previous.x,.y=previous.y,.buttons=m,.ticks=input_ticks()});
  }
 }
 static int event(u32 pointer,unsigned bytes){
