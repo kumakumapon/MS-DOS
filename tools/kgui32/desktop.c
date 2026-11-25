@@ -30,7 +30,7 @@ static K32Revision layout_revision;
 static unsigned layout_available,layout_dirty,layout_changed;
 static unsigned preference_revision;
 static K32Revision pins_revision,history_revision;
-static unsigned history_available,history_serial,history_poll;
+static unsigned history_available,history_serial;
 static unsigned pins_available;
 static unsigned desktop_minute,desktop_slots;
 static u32 desktop_clock_poll,drive_last[2];
@@ -245,6 +245,12 @@ static void load_history(void){
 }
 static void save_history(void){
  if(!scene.history_dirty||!history_available)return;
+ K32WorkInfo workspace;
+ if(k32_work_info(&workspace)||!(workspace.flags&K32_WORK_HDD)||!workspace.sector_bytes||
+    workspace.sector_bytes>4096||!workspace.cluster_sectors||workspace.cluster_sectors>128||
+    workspace.free_bytes<3*workspace.sector_bytes*workspace.cluster_sectors){
+  scene_notice_set(&scene,GN_HISTORY_SAVE_FAILED);return;
+ }
  ShellHistory saved={.version=1,.recent_apps=scene.history.recent_apps};
  for(unsigned i=0;i<saved.recent_apps;i++)saved.app_recent[i]=scene.history.app_recent[i];
  for(unsigned i=0;i<scene.history.document_count;i++){
@@ -872,7 +878,6 @@ int main(int argc,char **argv){
      scene_damage(&scene,(Rect){0,0,info.width,info.height});
     }
    }
-   if(scene.history_dirty&&((event.ticks-history_poll)&0xffffff)>=460800){history_poll=event.ticks;save_history();}
    if(layout_dirty&&!scene.drag&&!scene.resize&&((event.ticks-layout_changed)&0xffffff)>=230400)layout_save();
   }
   if(!terminal_tick)terminal_tick=event.ticks;
