@@ -1,4 +1,5 @@
 #include "scene.h"
+#include "shell-ui.h"
 #include "gallery.h"
 #include "sdk/protocol.h"
 #include "../desktop-style.h"
@@ -110,8 +111,19 @@ static void place_window(Scene *s,int id,int mode){
  s->placement[id-2]=mode;
  scene_damage(s,covered(w));
 }
+void scene_restore_window(Scene *s,int id,Rect r,unsigned mode){
+ GuiWindow *w=&s->window[id];scene_damage(s,covered(w));
+ if(id>=2){
+  r.w=clamp(r.w,176,s->width-16);r.h=clamp(r.h,184,s->height-80);
+  s->restored[id-2]=(Rect){0};s->placement[id-2]=0;
+ }
+ r.x=clamp(r.x,8,s->width-r.w-8);r.y=clamp(r.y,40,s->height-40-r.h);w->r=r;
+ if(id>=2&&mode)place_window(s,id,mode);
+ scene_damage(s,covered(w));
+}
 int scene_event(Scene *s,const GuiEvent *e){
  if(e->type==GUI_TIMER){
+  shell_timer(s,e->key);
   GuiWindow *w=&s->window[1];
   for(int i=0;i<2;i++){
    if(w->open&&!w->hidden){
@@ -124,7 +136,8 @@ int scene_event(Scene *s,const GuiEvent *e){
  }
  if(e->type==GUI_KEY){
   if(e->key==289)return ACT_EXIT;
-  if(e->key==11||e->key==281){if(s->help)launcher_page(s,LAUNCHER_APPS);scene_focus(s,0);return ACT_NONE;}
+  int shell=shell_key(s,e);if(shell>=0)return shell;
+  if(e->key==281){if(s->help)launcher_page(s,LAUNCHER_APPS);scene_focus(s,0);return ACT_NONE;}
   if(s->active==0&&e->key==280){launcher_page(s,s->help?LAUNCHER_APPS:LAUNCHER_GUIDE);return ACT_NONE;}
   if(s->active==0&&e->key==27&&s->help){launcher_page(s,s->help==LAUNCHER_GALLERY?LAUNCHER_GUIDE:LAUNCHER_APPS);return ACT_NONE;}
   if(s->active==0&&s->help==LAUNCHER_GUIDE&&(e->key=='g'||e->key=='G')){
@@ -163,6 +176,7 @@ int scene_event(Scene *s,const GuiEvent *e){
   scene_damage(s,covered(w));if(!(s->buttons&1))s->resize=0;return ACT_NONE;
  }
  if(s->drag){move(s,s->drag-1,s->mx-s->dx,s->my-s->dy);if(!(s->buttons&1))s->drag=0;return ACT_NONE;}
+ int shell=shell_mouse(s,e,down);if(shell>=0)return shell;
  if(s->notice_click){
   if(!(s->buttons&1))s->notice_click=0;
   return ACT_NOTICE_INPUT;

@@ -22,7 +22,7 @@
 #define KG_MOD_CTRL 2u
 #define KG_MOD_ALT 4u
 #define KG_INPUT_FLAGS (KG_INPUT_MOTION|KG_INPUT_TAB)
-enum {KG_OPEN=1,KG_FRAME,KG_POLL,KG_CLOSE,KG_CAPABILITIES,KG_SUBSCRIBE,KG_CLIP_SET,KG_CLIP_GET,KG_CANCEL_CLOSE,KG_EDIT_DOCUMENT,KG_EDIT_STATUS,KG_SURFACE_CREATE,KG_SURFACE_UPLOAD,KG_SURFACE_STATUS,KG_SURFACE_DESTROY,KG_DATE};
+enum {KG_OPEN=1,KG_FRAME,KG_POLL,KG_CLOSE,KG_CAPABILITIES,KG_SUBSCRIBE,KG_CLIP_SET,KG_CLIP_GET,KG_CANCEL_CLOSE,KG_EDIT_DOCUMENT,KG_EDIT_STATUS,KG_SURFACE_CREATE,KG_SURFACE_UPLOAD,KG_SURFACE_STATUS,KG_SURFACE_DESTROY,KG_DATE,KG_PREFERENCES_CHANGED};
 enum {KG_RECT=1,KG_TEXT,KG_BUTTON,KG_BITMAP,KG_BITMAP_SCALE};
 enum {KG_KEY=1,KG_MOUSE,KG_RESIZE,KG_FOCUS,KG_POINTER,KG_QUIT};
 typedef struct {u32 op;int x,y,w,h;u32 color,id;char text[48];} KgDraw;
@@ -35,7 +35,7 @@ typedef struct {
  * replies need the event/draw tail only for poll and clipboard reads. */
 #define KG_REQUEST_HEADER 72u
 _Static_assert(__builtin_offsetof(KgRequest,draw)==KG_REQUEST_HEADER,"compact request header preserves draw offset");
-static inline unsigned kg_request_bytes(unsigned op){return op==KG_SURFACE_STATUS?KG_REQUEST_HEADER:sizeof(KgRequest);}
+static inline unsigned kg_request_bytes(unsigned op){return (op==KG_SURFACE_STATUS||op==KG_PREFERENCES_CHANGED)?KG_REQUEST_HEADER:sizeof(KgRequest);}
 static inline unsigned kg_reply_bytes(unsigned op){return op==KG_POLL||op==KG_CLIP_GET?sizeof(KgRequest):KG_REQUEST_HEADER;}
 static inline void kg_transport_copy(void *to,const void *from,unsigned bytes){
  unsigned words=bytes/4,tail=bytes&3;unsigned char *d=to;const unsigned char *s=from;

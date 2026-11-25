@@ -20,7 +20,7 @@ application slots, each with a 4 MiB total code/data/heap/stack budget.
   with one space and display non-ASCII bytes as `?`. Empty files are supported.
   Binary control bytes, non-TXT files, directories and larger files show a
   dismissible dialog. There is no write, rename, delete, EXEC or subdirectory API.
-- F2/Ctrl+K focuses Welcome. The taskbar switches apps. The existing title bar,
+- F2 focuses Welcome. Ctrl+K opens application search. The taskbar switches apps. The existing title bar,
   resize grip, minimize, Stop/Resume, End and Again controls remain available.
   `Ctrl+P`, `Ctrl+R`, `Ctrl+E`, `Ctrl+L`, F2 and F10 remain desktop shortcuts.
   Close ends only Files. F10 exits the desktop and returns to DOS.

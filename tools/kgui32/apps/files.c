@@ -120,19 +120,19 @@ static void diagnostics(void){
  for(unsigned i=0;i<count;i++){K32DirEntry *d=&entries[i];metadata=(metadata^hash(d->name,k32_len(d->name)))*16777619;metadata=(metadata^d->bytes)*16777619;metadata=(metadata^d->attributes)*16777619;metadata=(metadata^d->date)*16777619;metadata=(metadata^d->time)*16777619;}
  files_stats.records=metadata;
 }
-static int manage_work(void){
+static int manage_work(unsigned show_drive){
  if(!work)switch_root();
  if(destination.error||!work)return 0;
- back();close_cursor();files_manager_open(destination.root);
+ back();close_cursor();files_manager_open(destination.root,show_drive);
  managing=1;files_stats.mode=160;return 1;
 }
 static int draw(void){
  kg_menu_enable(!message&&!holding);layout();unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
  kg_label(8,8,mode?filename:work?destination.root:"A: root / read only",0x20344a);
  if(focus.current>=6&&focus.current<=7)kg_rect(w-(focus.current==6?169:89),1,focus.current==6?78:82,22,0x327ac0);
- if(work&&!mode){
+ if(!mode){
   if(focus.current==8)kw_draw_focus((KwRect){(int)w-268,0,96,24});
-  kg_button(106,w-266,2,92,20,"Manage");
+  kg_button(106,w-266,2,92,20,work?"Manage":"Drives");
  }
  kg_button(104,w-168,2,76,20,work?"Root":"Work");kg_button(105,w-88,2,80,20,"Open app");
  if(mode)kg_label(8,30,"TXT preview / 40 columns",0x466581);
@@ -238,7 +238,7 @@ int main(int argc,char **argv){
     if(command==2){if(mode)back();else refresh();dirty=1;}
     if(command==3){message="Root: read only / Work: Editor";dirty=1;}
     if(command==4)quit=1;
-    if(command==7&&manage_work()){dirty=1;continue;}
+    if((command==7||(e.type==KG_KEY&&e.key==286))&&manage_work(!work)){dirty=1;continue;}
    }
   }
   if(dirty&&!quit){int error=draw();if(error==-22)dirty=1;else if(error<0){files_stats.error=-error;break;}else dirty=0;}

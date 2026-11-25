@@ -374,12 +374,18 @@ static int workspace(u32 pointer,u32 size){
  done:critical(0,old);return e;
 }
 #endif
-#ifndef K32_GUI
+#ifdef K32_GUI
+#include "../kgui32/sdk/preferences.h"
+static unsigned io_touched K32_STATE;
+static int gui_state_name(const char *name,const char *expected){
+ unsigned i=0;while(expected[i]&&name[i]==expected[i])i++;return !name[i]&&!expected[i];
+}
+#endif
 static unsigned io_handles K32_STATE;
 static int io_broker(K32Io *r,unsigned operation){
  unsigned process=r&&r->operation>=KP_INFO;
  unsigned authority=io_handles;
-#ifdef K32_HOST
+#if defined(K32_HOST) && !defined(K32_GUI)
  extern unsigned host_active,host_slot_bias;if(process)authority=host_active+host_slot_bias;
 #endif
  K32IoPacket p={1,sizeof p,get(28),get(56),(unsigned)r,(unsigned)loader_buffer,operation,-16,authority};
@@ -389,29 +395,40 @@ static int io_broker(K32Io *r,unsigned operation){
  if(operation!=3&&!process){put(820,get(820)-io_handles+p.handles);io_handles=p.handles;if(get(820)>get(824))put(824,get(820));}
  return p.result;
 }
-#ifdef K32_HOST
+#if defined(K32_HOST) && !defined(K32_GUI)
 static int io_lock(const char *name,unsigned drive){
  K32Io r={.version=1,.size=sizeof r,.offset=drive};for(unsigned i=0;i<16;i++)r.name[i]=name[i];
  int e=io_broker(&r,3);return e==-38?0:e;
 }
 #endif
 static int io_dispatch(u32 pointer,unsigned n){
+ #ifndef K32_GUI
  if(!(loader_plan.features&K32_FEATURE_IO))return -38;
+ #endif
  if(n!=sizeof(K32Io))return -22;
  if(!k32_user_access(loader_map,pointer,n,1))return -14;
  K32Io r;if(!transfer(pointer-K32_BASE,&r,n,0))return -5;
  if(r.bytes>4096)return -22;
+ #ifdef K32_GUI
+ /* The desktop can persist its own state, with the same broker ownership
+  * and revision checks as a client. It cannot use the general Work API. */
+ if(r.operation<K32_IO_STAT||r.operation>K32_IO_ABORT||r.flags>1)return -13;
+ if((r.operation<=K32_IO_OPEN||r.operation==K32_IO_BEGIN)&&
+    !gui_state_name(r.name,KG_PREFERENCES_FILE)&&!gui_state_name(r.name,KG_LAYOUT_FILE))return -13;
+ #endif
  if(r.operation>=KP_INFO){if(!(loader_plan.features&K32_FEATURE_PROCESS))return -38;if(r.bytes>256)return -22;}
  unsigned reading=r.operation==K32_IO_FS||r.operation==K32_IO_READ||r.operation==KP_READ||r.operation==KP_RECEIVE;
  unsigned writing=r.operation==K32_IO_FS||r.operation==K32_IO_WRITE||r.operation==K32_IO_RECOVER||r.operation==KP_SPAWN||r.operation==KP_SEND||r.operation==KP_WRITE;
  if((reading||writing)&&!k32_user_access(loader_map,r.data,r.bytes,reading))return -14;
  if(writing&&r.bytes&&!transfer(r.data-K32_BASE,loader_buffer,r.bytes,0))return -5;
+ #ifdef K32_GUI
+ io_touched=1;
+ #endif
  int result=io_broker(&r,1);
  if(reading&&result>0){if((unsigned)result>r.bytes||!transfer(r.data-K32_BASE,loader_buffer,(unsigned)result,1))return -5;}
  if(!transfer(pointer-K32_BASE,&r,n,1))return -5;
  return result;
 }
-#endif
 int services_dispatch(void){
  u32 nr=loader_request;loader_request=0;
  if(nr==1)return loader_write();
@@ -429,9 +446,7 @@ int services_dispatch(void){
  case 10:return read_file(b,c,d);
  case 11:return seek_file(b,c);
  case 12:return close_file(b);
- #ifndef K32_GUI
  case 18:return io_dispatch(b,c);
- #endif
  #if defined(K32_HOST) && !defined(K32_GUI)
  case 14:case 15:case 16:return directory_at(nr,b,c,d,"A:\\*.*");
  case 17:return workspace(b,c);
@@ -452,7 +467,9 @@ int services_dispatch(void){
  }
 }
 void services_close(void){
- #ifndef K32_GUI
+ #ifdef K32_GUI
+ if(io_touched&&io_broker(0,2)<0&&io_handles)put(16,23);
+ #else
  if((loader_plan.features&K32_FEATURE_IO)&&io_broker(0,2)<0&&io_handles)put(16,23);
  #endif
  #if defined(K32_HOST) && !defined(K32_GUI)

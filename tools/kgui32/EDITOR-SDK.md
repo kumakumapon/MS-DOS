@@ -30,7 +30,7 @@ up to 47 columns and 14 visible rows, within the 40-command frame budget.
 - Title X requests normal close. Modified text offers Discard (D) or Cancel
   (Esc). F10 negotiates desktop exit with all SDK3 clients. Cancellation keeps
   the desktop running; another client may already have accepted and exited.
-- F2/Ctrl+K focus Welcome. Stop/Resume/End/Again remain desktop buttons. End
+- F2 focuses Welcome. Ctrl+K opens application search. Stop/Resume/End/Again remain desktop buttons. End
   forcefully discards the process; Ctrl+G is a native emergency desktop stop that discards all owned tasks,
   even if the desktop is nonresponsive. F2 then Esc also forces desktop exit.
 

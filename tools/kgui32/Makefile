@@ -47,8 +47,10 @@ $(BUILD)/scene.o: scene.c scene.h gui.h gallery.h ../desktop-style.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/crt.o: $(K32)/sdk/crt1.S | $(BUILD)
 	as --32 $< -o $@
-$(BUILD)/desktop.elf: $(BUILD)/terminal-video.o $(BUILD)/desktop.o $(BUILD)/scene.o $(BUILD)/gallery.o $(BUILD)/surface.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
-	ld -m elf_i386 -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
+$(BUILD)/shell-ui.o: shell-ui.c shell-ui.h scene.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/desktop.elf: $(BUILD)/shell-ui.o $(BUILD)/terminal-video.o $(BUILD)/desktop.o $(BUILD)/scene.o $(BUILD)/gallery.o $(BUILD)/surface.app.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGUI32.EXE: $(BUILD)/desktop.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 257 --features 23 --gui --compact
 $(BUILD)/proof.o: proof.c ../k38632/host.h ../window/k386_client.h | $(BUILD)
@@ -59,8 +61,8 @@ $(BUILD)/proof.elf: $(BUILD)/proof.o $(BUILD)/proof-start.o $(BUILD)/hardware.o 
 	ld -m elf_i386 --gc-sections -T ../filer/com.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGPROOF.COM: $(BUILD)/proof.elf
 	objcopy -O binary $< $@
-$(BUILD)/test-scene: test-scene.c scene.c scene.h gui.h gallery.h ../desktop-style.h | $(BUILD)
-	$(CC) -Wall -Wextra -Werror test-scene.c scene.c -o $@
+$(BUILD)/test-scene: test-scene.c scene.c shell-ui.c layout.c scene.h gui.h gallery.h ../desktop-style.h | $(BUILD)
+	$(CC) -Wall -Wextra -Werror test-scene.c scene.c shell-ui.c layout.c -o $@
 $(BUILD)/test-sessions: test-sessions.c sessions.c document.c document.h $(K32)/services.c $(K32)/services.h gui.h | $(BUILD)
 	$(CC) -Wall -Wextra -Werror test-sessions.c sessions.c document.c $(K32)/services.c ../kvideo/video.c -o $@
 $(BUILD)/test-client-policy: test-client-policy.c client-policy.c surface.c document.c document.h $(K32)/services.c $(K32)/services.h client-policy.h sdk/protocol.h sdk/text.h | $(BUILD)
@@ -197,7 +199,7 @@ $(BUILD)/bitmap.o: sdk/bitmap.c sdk/bitmap.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
 $(BUILD)/image.app.o: apps/image.c sdk/kgui.h sdk/bitmap.h sdk/widgets.h | $(BUILD)
 	$(CC) $(CFLAGS) -m32 -c $< -o $@
-$(BUILD)/image.elf: $(BUILD)/io.sdk.o $(BUILD)/libc.sdk.o $(BUILD)/image.app.o $(BUILD)/bitmap.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
+$(BUILD)/image.elf: $(BUILD)/picker.o $(BUILD)/workspace-policy.o $(BUILD)/workspace-services.o $(BUILD)/io.sdk.o $(BUILD)/libc.sdk.o $(BUILD)/image.app.o $(BUILD)/bitmap.o $(BUILD)/widgets.o $(BUILD)/widgets-draw.o $(BUILD)/sdk.o $(BUILD)/crt.o $(K32)/sdk/app.ld
 	ld -m elf_i386 --gc-sections -T $(K32)/sdk/app.ld $(filter %.o,$^) -o $@
 $(BUILD)/KGIMAGE.EXE: $(BUILD)/image.elf $(K32)/package.py
 	python3 $(K32)/package.py $< $@ --abi 258 --features 495 --client --compact --stack-bytes 16384 --min-heap 65536
@@ -229,7 +231,7 @@ test: test-image-ui-run
 
 # Additive switchable UI; private tables include only labels used by a module.
 UI_HEADERS = $(addprefix $(BUILD)/ui-,$(addsuffix .h,desktop gallery editor files files-manager settings image calculator clock calendar picker recovery widgets words menu))
-$(UI_HEADERS) &: ui-build.py ui/strings.tsv desktop.c gallery.c apps/editor.c apps/files.c apps/files-manager.c apps/settings.c apps/image.c apps/calculator.c apps/clock.c apps/calendar.c apps/words.c sdk/ime.c sdk/picker.c sdk/recovery.c sdk/widgets-draw.c sdk/menu-draw.c sdk/menu.h sdk/stopwatch.h | $(BUILD)
+$(UI_HEADERS) &: ui-build.py ui/strings.tsv desktop.c shell-ui.c gallery.c apps/editor.c apps/files.c apps/files-manager.c apps/settings.c apps/image.c apps/calculator.c apps/clock.c apps/calendar.c apps/words.c sdk/ime.c sdk/picker.c sdk/recovery.c sdk/widgets-draw.c sdk/menu-draw.c sdk/menu.h sdk/stopwatch.h | $(BUILD)
 	python3 ui-build.py $(BUILD)
 $(BUILD)/desktop.o $(BUILD)/editor.app.o $(BUILD)/files.app.o $(BUILD)/image.app.o $(BUILD)/calculator.app.o $(BUILD)/clock.app.o $(BUILD)/words.app.o $(BUILD)/picker.o $(BUILD)/recovery.o $(BUILD)/widgets-draw.o: $(UI_HEADERS)
 $(BUILD)/i18n.o: sdk/i18n.c sdk/i18n.h | $(BUILD)
@@ -306,3 +308,12 @@ test: settings-test
 settings-test: $(BUILD)/test-settings
 	$(BUILD)/test-settings
 .PHONY: settings-test
+
+$(BUILD)/preferences.o: sdk/preferences.c sdk/preferences.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/desktop.elf: $(BUILD)/io.sdk.o $(BUILD)/preferences.o
+$(BUILD)/editor.elf $(BUILD)/settings.elf $(BUILD)/words.elf: $(BUILD)/preferences.o
+
+$(BUILD)/layout.o: layout.c layout.h | $(BUILD)
+	$(CC) $(CFLAGS) -m32 -c $< -o $@
+$(BUILD)/desktop.elf: $(BUILD)/layout.o

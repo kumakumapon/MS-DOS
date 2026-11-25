@@ -1,6 +1,7 @@
 /* Bounded BMP editor; Work writes use the native revision-checked broker. */
 #include "../sdk/kgui.h"
 #include "../sdk/widgets.h"
+#include "../sdk/picker.h"
 #include "../sdk/bitmap.h"
 #include "../../k38632/sdk/io.h"
 #include "ui-image.h"
@@ -21,6 +22,8 @@ static const KmItem app_menu[]={
  {"Actual size",KG_KEY,'0',0},
  {"Preview",KG_KEY,'v',0},
  {"Close",KG_KEY,'q',0},
+ {"Open BMP",KG_KEY,15,0},
+ {"Save BMP As",KG_KEY,25,0},
 };
 volatile ImageStats image_stats __attribute__((section(".data.gui_stats")))={.magic=0x3149474b,.version=1};
 static u16 pixels[KG_BITMAP_PIXELS],original[KG_BITMAP_PIXELS],undo_pixels[KG_BITMAP_PIXELS],candidate[KG_BITMAP_PIXELS],load_backup[KG_BITMAP_PIXELS],thumbnail[64*48];
@@ -32,6 +35,7 @@ static char current[13],recovery_base[13];
 static KwInput rescue;
 static K32Work revision,replacement;
 static K32RecoveryInfo recovery;
+static KpPicker picker;
 static u8 encoded[KG_BITMAP_FILE_BYTES];
 static unsigned raw_hash(const u8 *p,unsigned n){unsigned v=2166136261u;while(n--)v=(v^*p++)*16777619;return v;}
 static void namecopy(char *to,const char *from){unsigned i=0;for(;i<12&&from[i];i++)to[i]=from[i];to[i]=0;}
@@ -160,7 +164,9 @@ static int change(unsigned key){
  return upload();
 }
 static int draw(void){
- kg_menu_enable(!modal);if(modal)return dialog();
+ kg_menu_enable(!modal);
+ if(modal>=5){stats();int e=kp_draw(&picker);if(!e)image_stats.frames++;return e;}
+ if(modal)return dialog();
  stats();unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
  kw_draw_input((KwRect){8,4,160,28},&filename,focused);kg_button('o',176,4,72,28,"Load");kg_button('q',w-80,4,72,28,"Close");
  kg_button('i',8,40,72,28,"Invert");kg_button('h',88,40,72,28,"Flip H");kg_button('u',168,40,72,28,"Undo");kg_button('p',248,40,80,28,paintmode?"Painting":"Paint");
@@ -183,7 +189,7 @@ int main(int argc,char **argv){
  kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
  kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  int token=kg_open("Images / BMP",328,196);if(token<0){image_stats.error=-token;return 1;}
- kg_subscribe(KG_INPUT_TAB|KG_INPUT_KEYS|KG_INPUT_MOTION);
+ kg_subscribe(KG_INPUT_TAB|KG_INPUT_KEYS|KG_INPUT_MOTION|KG_INPUT_MODIFIERS);
  unsigned fault=argc>1&&equal(argv[1],"fault");
  work=argc>2&&equal(argv[1],"work");
  const char *name=fault?"SAMPLE.BMP":argc>2&&(equal(argv[1],"root")||work)?argv[2]:argc>1?argv[1]:"SAMPLE.BMP";
@@ -194,6 +200,22 @@ int main(int argc,char **argv){
  if(fault)*(volatile unsigned *)0x10000=1;
  for(;;){
   KgEvent v;int got=kg_poll(&v);if(got<0)return 3;image_stats.heartbeat++;unsigned key=0,dirty=0;e=0;
+  if(modal>=5){
+   if(kp_tick(&picker))dirty=1;
+   if(got){
+    char name[13];int selected=kp_event(&picker,&v,name);
+    if(selected<0)modal=0;
+    if(selected>0){
+     unsigned opening=modal==5;
+     namecopy(filename.text,name);filename.length=filename.cursor=k32_len(name);
+     work=picker.work;modal=0;e=opening?load():save(0);
+     image_stats.error=e<0?-e:0;if(e<0)message=error_text(e);
+    }
+    dirty=1;
+   }
+   if(dirty&&draw()<0)return 4;
+   k32_wait(K32_WAIT_TIME,50);continue;
+  }
   if(got){image_stats.events++;
    if(modal){
     unsigned action=v.type==KG_KEY?v.key:v.type==KG_MOUSE&&(v.key&1)?v.control:0;
@@ -220,7 +242,7 @@ int main(int argc,char **argv){
     }
    }else if(v.type==KG_MOUSE&&(v.key&1)){if(kw_inside((KwRect){8,4,160,28},v.x,v.y)){focused=1;dirty=1;}else{focused=0;key=v.control;}}
    if(v.type==KG_KEY){
-    if(v.key==19||v.key==23||v.key==18||v.x==-1){key=v.key;focused=0;}
+    if(v.key==19||v.key==23||v.key==18||v.key==15||v.x==-1){key=v.key==19&&(v.control&KG_MOD_SHIFT)?25:v.key;focused=0;}
     else if(v.key==9){focused^=1;dirty=1;}
     else if(focused&&v.key==13)key='o';
     else if(focused){if(kw_input(&filename,&v)){dirty=1;message=0;}}
@@ -229,10 +251,12 @@ int main(int argc,char **argv){
    }
    }
   }
-  if((key=='q'||key=='Q'||key=='o'||key=='O')&&image_stats.dirty&&pending!=~0u){pending=key;modal=3;message=0;draw();continue;}
+  if((key=='q'||key=='Q'||key=='o'||key=='O'||key==15)&&image_stats.dirty&&pending!=~0u){pending=key;modal=3;message=0;draw();continue;}
   if(key=='q'||key=='Q')break;
   if(pending==~0u)pending=0;
-  if(key==19||key=='s'||key=='S'){e=save(0);dirty=1;}
+  if(key==15){kp_open_kind(&picker,K32_WORK_BMP);modal=5;dirty=1;}
+  else if(key==25){kp_save_kind(&picker,filename.text,54+((image.width*3+3)&~3u)*image.height,K32_WORK_BMP);modal=6;dirty=1;}
+  else if(key==19||key=='s'||key=='S'){e=save(0);dirty=1;}
   else if(key==23){work^=1;message=work?"Work / enter BMP name then Load":"A: root / read only";dirty=1;}
   else if(key==18){e=inspect();dirty=1;}
   else if(key=='o'||key=='O'){e=load();focused=0;dirty=1;}

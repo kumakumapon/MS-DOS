@@ -1,4 +1,5 @@
 /* Original SDK4 editor. Writes use only the bounded workspace broker. */
+#include "../sdk/preferences.h"
 #include "../sdk/editor.h"
 #include "../sdk/picker.h"
 #include "../document.h"
@@ -317,6 +318,8 @@ int main(int argc,char **argv){
  ke_load(&doc,"",0);if(kg_open(memo?"Memo":"Editor / workspace TXT",576,320)<0)return 1;
  if((kg_capabilities()&KG_CAP_SUPPORTED)!=KG_CAP_SUPPORTED||kg_subscribe(KG_CAP_SUPPORTED))return 2;
  index_lines(1);if(!(k32_query()&K32_FEATURE_SAVE))return 2;
+ KgPreferences defaults={0};K32Revision preference_revision;
+ if(!kg_preferences_load(&defaults,&preference_revision))ime.scheme=defaults.ime;
  kp_workspace_info(&destination);
  if(argc>1&&k32_len(argv[1])==5&&argv[1][0]=='f'&&argv[1][1]=='a'&&argv[1][2]=='u'&&argv[1][3]=='l'&&argv[1][4]=='t'){load("EDITTEST.TXT",0);draw();*(volatile u32 *)0x10000=1;}
  if(memo)memo_open();

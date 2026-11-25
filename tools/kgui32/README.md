@@ -161,3 +161,13 @@ Work recovery and Editor Find/Replace, Shift selection, LF/CRLF and viewport
 controls are described in [RECOVERY-SDK.md](RECOVERY-SDK.md).
 
 [Calendar, window placement and shell touch controls](APPS-AND-TOUCH.md)
+
+
+### デスクトップとファイル管理
+
+- 上部の **Kuma** からシステム情報、設定、DOS、アプリ検索、ウィンドウ切替、DOSへの終了を開けます。検索は Ctrl+K またはメニューから開き、アプリ名や実行ファイル名で絞り込めます。F2 は Welcome を開きます。
+- Alt+Tab で一覧を表示し、Alt を離すと選択したウィンドウへ切り替わります。PC-98のキー名は GRPH+Tab です。同じ一覧をKumaメニューから開いてタップでも切り替えられます。
+- 専用HDDの Work に Welcome／System とアプリごとの位置・大きさ・スナップ状態を保存します。同じアプリを開いたときに画面内へ収めて復元します。ファイルと実行中のアプリの再開はそれぞれのアプリから操作します。
+- Files の **Drives** は Work、A:、認識済みの対応HDDを切り替えます。ドライブ直下は読み取り専用で、ファイル操作はWorkにあります。フォルダのコピーは192項目、1ファイル1 MiB、合計8 MiB、Workから3階層までです。宛先と同じ親にTMPを作り、成功時に公開します。中止・失敗時は原本とTMPを保持します。フォルダの移動は同じ親の中では名前変更を使い、親をまたぐ場合はコピー後に元のフォルダをごみ箱から復元できる状態にします。
+- EditorとImagesは共通のファイル選択画面を使います。Imagesは Ctrl+O でBMPを開き、Ctrl+Shift+SでWorkへの名前付き保存を選べます。画像の上書き確認と原本保持は引き続き有効です。
+- Settingsの **Desktop preferences** で標準／高コントラスト、日本語／英語、IMEオフ／ローマ字／JISかなを選べます。表示と言語は保存後に適用し、IMEの既定値は次に開くEditorとUser dictionaryが読み込みます。

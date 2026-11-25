@@ -47,6 +47,7 @@ int kg_date(unsigned *year,unsigned *month,unsigned *day){
  *year=y;*month=m;*day=d;
  return 0;
 }
+int kg_preferences_changed(void){return call(KG_PREFERENCES_CHANGED);}
 int kg_capabilities(void){return call(KG_CAPABILITIES);}
 int kg_subscribe(unsigned flags){input_flags=flags;request.count=flags|KG_INPUT_LANGUAGE|(menu.count?KG_INPUT_MENU:0)|(menu.open?KG_INPUT_TAB:0);int e=call(KG_SUBSCRIBE);if(e==-22){request.count=flags;e=call(KG_SUBSCRIBE);}return e;}
 unsigned kg_width(void){return width;}
