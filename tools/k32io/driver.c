@@ -201,6 +201,11 @@ static int dispatch(Owner *o,K32Io *r){
  return -38;
 }
 #ifndef K32IO_TEST
+static int history_space(unsigned drive){
+ unsigned a=0x3600,b;
+ __asm__ volatile("int $0x21":"+a"(a),"=b"(b):"d"(drive+1):"ecx","cc","memory");
+ return (a&65535)!=65535&&(b&65535)>=3;
+}
 void io_dispatch(void){
  if(io_sender_offset>65536-sizeof(K32IoPacket))return;
  K32IoPacket p;mem_copy(self,(unsigned)&p,io_sender_segment,io_sender_offset,sizeof p);p.result=-22;
@@ -220,6 +225,7 @@ void io_dispatch(void){
  K32Io r;mem_copy(self,(unsigned)&r,io_sender_segment,p.request,sizeof r);
  if((r.operation==K32_IO_WRITE||r.operation==K32_IO_RECOVER||r.operation==K32_IO_FS)&&r.bytes<=4096)mem_copy(self,(unsigned)buffer,io_sender_segment,p.buffer,r.bytes);
  if((r.operation==K32_IO_OPEN||r.operation==K32_IO_BEGIN)&&(same(r.name,KG_LAYOUT_FILE)||same(r.name,KG_HISTORY_FILE))&&!fd_hdd_verified(o->drive))p.result=-13;
+ else if(r.operation==K32_IO_BEGIN&&same(r.name,KG_HISTORY_FILE)&&!history_space(o->drive))p.result=-28;
  else p.result=dispatch(o,&r);
  if((r.operation==K32_IO_READ||r.operation==K32_IO_FS)&&p.result>0)mem_copy(io_sender_segment,p.buffer,self,(unsigned)buffer,(unsigned)p.result);
  mem_copy(io_sender_segment,p.request,self,(unsigned)&r,sizeof r);

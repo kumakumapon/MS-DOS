@@ -245,12 +245,6 @@ static void load_history(void){
 }
 static void save_history(void){
  if(!scene.history_dirty||!history_available)return;
- K32WorkInfo workspace;
- if(k32_work_info(&workspace)||!(workspace.flags&K32_WORK_HDD)||!workspace.sector_bytes||
-    workspace.sector_bytes>4096||!workspace.cluster_sectors||workspace.cluster_sectors>128||
-    workspace.free_bytes<3*workspace.sector_bytes*workspace.cluster_sectors){
-  scene_notice_set(&scene,GN_HISTORY_SAVE_FAILED);return;
- }
  ShellHistory saved={.version=1,.recent_apps=scene.history.recent_apps};
  for(unsigned i=0;i<saved.recent_apps;i++)saved.app_recent[i]=scene.history.app_recent[i];
  for(unsigned i=0;i<scene.history.document_count;i++){
