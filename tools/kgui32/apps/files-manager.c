@@ -6,9 +6,9 @@
 #include "ui-files-manager.h"
 
 enum {FM_BACK=400,FM_UP,FM_TRASH,FM_FOLDER,FM_COPY,FM_MOVE,FM_RENAME,FM_DELETE,
- FM_OPEN,FM_REFRESH,FM_OK,FM_CANCEL,FM_NAME,FM_SIZE,FM_DATE,FM_KIND,FM_DRIVE};
+ FM_OPEN,FM_REFRESH,FM_OK,FM_CANCEL,FM_NAME,FM_SIZE,FM_DATE,FM_KIND,FM_DRIVE,FM_RECOVERY,FM_RESCUE};
 enum {LIST_FOCUS,NAME_FOCUS,SIZE_FOCUS,DATE_FOCUS,KIND_FOCUS,UP_FOCUS,TRASH_FOCUS,
- OPEN_FOCUS,REFRESH_FOCUS,FOLDER_FOCUS,COPY_FOCUS,MOVE_FOCUS,RENAME_FOCUS,DELETE_FOCUS,BACK_FOCUS,DRIVE_FOCUS};
+ OPEN_FOCUS,REFRESH_FOCUS,FOLDER_FOCUS,COPY_FOCUS,MOVE_FOCUS,RENAME_FOCUS,DELETE_FOCUS,BACK_FOCUS,DRIVE_FOCUS,RECOVERY_FOCUS};
 #define FILE_LIMIT 192
 static K32DirEntry entries[FILE_LIMIT];
 static KwList list;
@@ -18,7 +18,7 @@ static KwFocus focus;
 static const char *root_name,*status;
 static char folder[K32_FS_PATH],selected[K32_FS_PATH];
 static unsigned count,cursor,loading,trash,archive_scan,action,sort,descending;
-static unsigned drive_mask,volume;
+static unsigned drive_mask,volume,recovery_view;
 static unsigned selected_dir;
 static struct {
  unsigned phase,count,scan,item,cursor,bytes;
@@ -54,10 +54,10 @@ static void refresh(void){
  count=list.count=list.selected=list.top=cursor=archive_scan=0;loading=1;
 }
 void files_manager_open(const char *root,unsigned show_drive){
- root_name=root;status=0;folder[0]=0;trash=action=sort=descending=0;
+ root_name=root;status=0;folder[0]=0;trash=action=sort=descending=recovery_view=0;
  K32Fs r=k32_fs_request(K32_FS_DRIVES,0,0);
  drive_mask=k32_fs(&r)?1:r.length;volume=show_drive?1:0;
- focus=(KwFocus){.count=DRIVE_FOCUS+1};list.rows=1;refresh();
+ focus=(KwFocus){.count=RECOVERY_FOCUS+1};list.rows=1;refresh();
 }
 static int join(char out[K32_FS_PATH],const char *base,const char *name){
  unsigned n=k32_len(base),m=k32_len(name);
@@ -185,7 +185,7 @@ int files_manager_step(void){
  if(!loading)return 0;
  for(unsigned i=0;i<6;i++){
   K32Fs r=k32_fs_request(cursor?K32_FS_NEXT:volume?K32_FS_DRIVE_LIST:K32_FS_LIST,folder,0);
-  r.token=cursor;r.flags=cursor?0:volume?volume-1:archive_scan?K32_FS_LIST_ARCHIVED:trash;
+  r.token=cursor;r.flags=cursor?0:volume?volume-1:recovery_view?K32_FS_LIST_TMP:archive_scan?K32_FS_LIST_ARCHIVED:trash;
   int e=k32_fs(&r);cursor=r.token;
   if(!e&&!cursor&&trash&&!archive_scan){archive_scan=1;continue;}
   if(e||!cursor||count==FILE_LIMIT){loading=0;if(e)status=error_text(e);else if(cursor)status="First 192 items shown";sort_entries();break;}
@@ -199,6 +199,13 @@ void files_manager_close(void){
 }
 static void execute(void){
  unsigned op=action;action=0;
+ if(op==FM_RESCUE){
+  K32Fs r=k32_fs_request(K32_FS_TREE_RECOVER,selected,target.text);
+  int e=k32_fs(&r);
+  status=e?error_text(e):"TMP folder recovered / inspect its files";
+  if(!e)refresh();
+  return;
+ }
  if(op==FM_DELETE||op==FM_TRASH){
   K32Fs r=k32_fs_request(op==FM_DELETE?K32_FS_TRASH:K32_FS_RESTORE,selected,"");
   int e=k32_fs(&r);
@@ -228,15 +235,20 @@ static void execute(void){
 static void command(unsigned cmd){
  if(cmd==FM_DRIVE){
   do{volume=volume==26?0:volume+1;}while(volume&&!(drive_mask&(1u<<(volume-1))));
-  status=0;trash=0;folder[0]=0;refresh();return;
+  status=0;trash=recovery_view=0;folder[0]=0;refresh();return;
  }
+ if(cmd==FM_RECOVERY){
+  if(!volume){recovery_view=!recovery_view;trash=0;status=0;refresh();}
+  return;
+ }
+ if(recovery_view&&cmd>=FM_FOLDER&&cmd<=FM_RENAME)return;
  if(volume&&(cmd==FM_TRASH||(cmd>=FM_FOLDER&&cmd<=FM_DELETE)))return;
  if(cmd==FM_UP){
   char *end=0;for(char *p=folder;*p;p++)if(*p=='\\')end=p;
   if(end)*end=0;else folder[0]=0;
   status=0;refresh();return;
  }
- if(cmd==FM_TRASH){trash=!trash;status=0;refresh();return;}
+ if(cmd==FM_TRASH){recovery_view=0;trash=!trash;status=0;refresh();return;}
  if(cmd==FM_REFRESH){status=0;refresh();return;}
  if(cmd>=FM_NAME&&cmd<=FM_KIND){
   unsigned column=cmd-FM_NAME;descending=column==sort?!descending:0;sort=column;
@@ -247,6 +259,12 @@ static void command(unsigned cmd){
  if(!list.count)return;
  K32DirEntry *d=&entries[list.selected];selected_dir=!!(d->attributes&16);
  if(!join(selected,folder,d->name)){status=error_text(-22);return;}
+ if(recovery_view){
+  if(cmd==FM_OPEN||cmd==FM_DELETE){
+   selected[k32_len(selected)-4]=0;action=FM_RESCUE;target=(KwInput){0};
+  }
+  return;
+ }
  if(cmd==FM_OPEN&&selected_dir){
   if(trash&&(d->attributes&6)==6){status="Restore folder before opening";return;}
   copy_text(folder,selected,sizeof folder);status=0;refresh();return;}
@@ -265,7 +283,7 @@ static void command(unsigned cmd){
   if(cmd==FM_RENAME){target.length=target.cursor=k32_len(d->name);copy_text(target.text,d->name,sizeof target.text);}
  }
 }
-static const unsigned controls[]={0,FM_NAME,FM_SIZE,FM_DATE,FM_KIND,FM_UP,FM_TRASH,FM_OPEN,FM_REFRESH,FM_FOLDER,FM_COPY,FM_MOVE,FM_RENAME,FM_DELETE,FM_BACK,FM_DRIVE};
+static const unsigned controls[]={0,FM_NAME,FM_SIZE,FM_DATE,FM_KIND,FM_UP,FM_TRASH,FM_OPEN,FM_REFRESH,FM_FOLDER,FM_COPY,FM_MOVE,FM_RENAME,FM_DELETE,FM_BACK,FM_DRIVE,FM_RECOVERY};
 static KwRect list_rect(void){return (KwRect){8,66,(int)kg_width()-38,(int)list.rows*16};}
 int files_manager_event(const KgEvent *e){
  if(reader||tree.phase){
@@ -282,6 +300,7 @@ int files_manager_event(const KgEvent *e){
  if(e->type==KG_KEY){
   if(e->key==27)return -1;
   if(e->key==4)cmd=FM_DRIVE;
+  if(e->key==20&&!volume)cmd=FM_RECOVERY;
   if(e->key==13)cmd=focus.current?controls[focus.current]:FM_OPEN;
  }
  if(e->type==KG_MOUSE&&(e->key&1)){
@@ -290,9 +309,9 @@ int files_manager_event(const KgEvent *e){
   if(kw_inside(list_rect(),e->x,e->y))focus.current=LIST_FOCUS;
  }
  if(cmd==FM_BACK)return -1;
- if(cmd>=FM_UP&&cmd<=FM_DRIVE){command(cmd);return 1;}
+ if(cmd>=FM_UP&&cmd<=FM_RECOVERY){command(cmd);return 1;}
  if(kw_focus(&focus,e)){
-  while((focus.current==KIND_FOCUS&&kg_width()<468)||((trash||volume)&&focus.current>=FOLDER_FOCUS&&focus.current<DELETE_FOCUS+(volume!=0))||(volume&&focus.current==TRASH_FOCUS))kw_focus(&focus,e);
+  while((focus.current==KIND_FOCUS&&kg_width()<468)||((trash||volume||recovery_view)&&focus.current>=FOLDER_FOCUS&&focus.current<DELETE_FOCUS+(volume!=0))||(volume&&(focus.current==TRASH_FOCUS||focus.current==RECOVERY_FOCUS)))kw_focus(&focus,e);
   return 1;
  }
  if(kw_scroll(&scroll,e)){list.top=scroll.top;if(list.selected<list.top||list.selected>=list.top+list.rows)list.selected=list.top;return 1;}
@@ -303,14 +322,17 @@ static void button(KwRect r,unsigned id,const char *label,unsigned at,unsigned s
  kw_draw_button(r,id,KU(label),style,at==focus.current?KW_FOCUSED:0);
 }
 static void modal(unsigned w,unsigned h){
- const char *title=action==FM_TRASH?"Restore from Trash":action==FM_DELETE?"Move to Trash?":
+ const char *title=action==FM_RESCUE?"Recover incomplete TMP folder":action==FM_TRASH?"Restore from Trash":action==FM_DELETE?"Move to Trash?":
   action==FM_FOLDER?"New folder":action==FM_COPY?"Copy to Work path":action==FM_MOVE?"Move to Work path":"Rename";
  int x=16,y=(h-152)/2;
  kg_rect(x,y,w-32,152,0xffffff);
  kg_label(x+12,y+12,title,0x20344a);
  if(action==FM_DELETE||action==FM_TRASH)kw_text(x+12,y+42,selected,(w-56)/8,0x20344a);
- else kw_draw_input((KwRect){x+12,y+36,(int)w-56,30},&target,1);
- kw_draw_button((KwRect){x+12,y+102,116,36},FM_OK,KU(action==FM_DELETE?"Trash":action==FM_TRASH?"Restore":"OK"),action==FM_DELETE?KW_DANGER:KW_PRIMARY,KW_FOCUSED);
+ else {
+  kw_draw_input((KwRect){x+12,y+36,(int)w-56,30},&target,1);
+  if(action==FM_RESCUE)kw_label(x+12,y+74,"Unused name in this folder",(w-56)/8,0x20344a);
+ }
+ kw_draw_button((KwRect){x+12,y+102,116,36},FM_OK,KU(action==FM_DELETE?"Trash":action==FM_TRASH?"Restore":action==FM_RESCUE?"Recover":"OK"),action==FM_DELETE?KW_DANGER:KW_PRIMARY,KW_FOCUSED);
  kw_draw_button((KwRect){x+140,y+102,112,36},FM_CANCEL,KU("Cancel"),KW_SECONDARY,0);
 }
 static void digits(char *out,unsigned n,unsigned width){
@@ -341,7 +363,8 @@ int files_manager_draw(void){
   char crumb[64];
   if(volume)k32_snprintf(crumb,sizeof crumb,"%c:\\%s",(int)('A'+volume-1),folder);
   else k32_snprintf(crumb,sizeof crumb,"%s%s%s",root_name,folder[0]?"\\":"",folder);
-  kw_text(8,8,crumb,(w-130)/8,0x20344a);
+  kw_text(8,8,crumb,(w-(volume?130:198))/8,0x20344a);
+  if(!volume)button((KwRect){(int)w-184,0,62,28},FM_RECOVERY,recovery_view?"Work":"TMP",RECOVERY_FOCUS,KW_SECONDARY);
   button((KwRect){(int)w-116,0,108,28},FM_DRIVE,"Drives",DRIVE_FOCUS,KW_SECONDARY);
   button((KwRect){8,30,110,34},FM_NAME,"Name",NAME_FOCUS,KW_SECONDARY);
   button((KwRect){120,30,88,34},FM_SIZE,"Bytes",SIZE_FOCUS,KW_SECONDARY);
@@ -364,14 +387,14 @@ int files_manager_draw(void){
    static const unsigned top_ids[]={FM_UP,FM_TRASH,FM_OPEN,FM_REFRESH,FM_BACK};
    static const unsigned low_ids[]={FM_FOLDER,FM_COPY,FM_MOVE,FM_RENAME,FM_DELETE};
    const char *top_labels[]={"Up",trash?"Work":"Trash","Open","Refresh","Back"};
-   const char *low_labels[]={"New folder","Copy","Move","Rename",trash?"Restore":"Delete"};
+   const char *low_labels[]={"New folder","Copy","Move","Rename",recovery_view?"Recover":trash?"Restore":"Delete"};
    unsigned width=(w-16)/5;
    for(unsigned i=0;i<5;i++){
     if(!volume||i!=1)button((KwRect){8+i*width,bottom,width-3,36},top_ids[i],top_labels[i],i==4?BACK_FOCUS:UP_FOCUS+i,KW_SECONDARY);
-    if(!volume&&(!trash||i==4))button((KwRect){8+i*width,bottom+38,width-3,36},low_ids[i],i==0&&width<87?"Mkdir":low_labels[i],FOLDER_FOCUS+i,i==4&&!trash?KW_DANGER:KW_SECONDARY);
+    if(!volume&&((!trash&&!recovery_view)||i==4))button((KwRect){8+i*width,bottom+38,width-3,36},low_ids[i],i==0&&width<87?"Mkdir":low_labels[i],FOLDER_FOCUS+i,i==4&&!trash?KW_DANGER:KW_SECONDARY);
    }
   }
-  kw_label(8,h-16,loading&&!tree.phase?"Loading...":status?status:volume?"Drive root / read only":trash?"Trash / Select an item to restore":"Work / Copy and Move use Work paths",(w-16)/8,0x20344a);
+  kw_label(8,h-16,loading&&!tree.phase?"Loading...":status?status:volume?"Drive root / read only":recovery_view?"TMP folders / may be incomplete":trash?"Trash / Select an item to restore":"Work / Copy and Move use Work paths",(w-16)/8,0x20344a);
  }
  return kg_present();
 }

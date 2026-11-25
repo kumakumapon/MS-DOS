@@ -6,6 +6,8 @@ int kg_open(const char *,unsigned,unsigned);
 void kg_begin(void);
 int kg_rect(int,int,int,int,u32);
 int kg_text(int,int,const char *,u32);
+int kg_text_double(int,int,const char *,u32);
+unsigned kg_large_text(void);
 int kg_button(u32,int,int,int,int,const char *);
 int kg_button_color(u32,int,int,int,int,const char *,u32);
 int kg_present(void);
@@ -15,6 +17,12 @@ int kg_date(unsigned *,unsigned *,unsigned *);
 int kg_capabilities(void);
 int kg_preferences_changed(void);
 int kg_subscribe(unsigned);
+/* Images are opaque, row-major RGB565 with up to 128 pixels per side.
+ * Read into scratch and use the result only after all chunks succeed. */
+int kg_note_document(const char *,unsigned,unsigned);
+int kg_recent_volume(const char *);
+int kg_clip_image_copy(const u16 *,unsigned,unsigned);
+int kg_clip_image_paste(u16 *,unsigned,unsigned *,unsigned *);
 int kg_clip_set(const char *,unsigned);
 int kg_clip_get(char *,unsigned);
 int kg_cancel_close(void);

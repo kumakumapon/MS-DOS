@@ -19,17 +19,19 @@ int kg_state_read(const char *name,void *data,unsigned size,K32Revision *revisio
  *revision=(K32Revision){1,size,digest};return 0;
 }
 static int valid(const KgPreferences *p){
- return p->language<=1&&p->theme<=KG_THEME_CONTRAST&&p->ime<=KI_KANA;
+ return p->language<=1&&p->theme<=KG_THEME_CONTRAST&&p->ime<=KI_KANA&&p->large<=1;
 }
 int kg_preferences_load(KgPreferences *out,K32Revision *revision){
- PreferencesFile file;
+ PreferencesFile file={0};
  int e=kg_state_read(KG_PREFERENCES_FILE,&file,sizeof file,revision);
+ unsigned version=2;
+ if(e==-22){version=1;e=kg_state_read(KG_PREFERENCES_FILE,&file,sizeof file-4,revision);}
  if(e||!revision->exists)return e;
- if(file.magic!=PREFS_MAGIC||file.version!=1||!valid(&file.values))return -22;
+ if(file.magic!=PREFS_MAGIC||file.version!=version||!valid(&file.values))return -22;
  *out=file.values;return 0;
 }
 int kg_preferences_save(const KgPreferences *prefs,const K32Revision *revision){
  if(!valid(prefs))return -22;
- PreferencesFile file={PREFS_MAGIC,1,*prefs};
+ PreferencesFile file={PREFS_MAGIC,2,*prefs};
  return k32_io_save(KG_PREFERENCES_FILE,&file,sizeof file,revision);
 }

@@ -6,7 +6,7 @@ static int work_component(const char *name,unsigned n,char out[16]){
  return !same(base,"KTRASH")&&(!ext||(!same(ext,"TMP")&&!same(ext,"BAK")&&!same(ext,"KTR")));
 }
 
-static int work_path(const Owner *o,const char *name,int trash,int directory,char out[DOS_PATH]){
+static int work_path(const Owner *o,const char *name,int trash,int directory,char *out){
  const char *prefix=trash?"A:\\WORK\\KTRASH":"A:\\WORK";
  unsigned n=trash?14:7,at=0;
  copy(out,prefix,n+1);
@@ -88,7 +88,7 @@ static int find_entry(const char *,unsigned char *,int);
 
 /* Check each component before traversing it. Existing trash has to be hidden
  * and all other directories have to be ordinary writable Work directories. */
-static int parents(char path[DOS_PATH],int trash,int create,int leaf){
+static int parents(char *path,int trash,int create,int leaf){
  for(unsigned i=8;path[i];i++){
   int last=!path[i+1]&&leaf;
   if(path[i]!='\\'&&!last)continue;
@@ -145,13 +145,14 @@ static int append_path(char out[DOS_PATH],const char *base,const char *relative)
  copy(out,base,n);out[n]='\\';copy(out+n+1,relative,m+1);return 0;
 }
 
+enum { DRIVE_LIST = K32_FS_LIST_TMP+1 };
 static int list_entry(Owner *o,K32Fs *r,char path[DOS_PATH]){
  int next=r->action==K32_FS_NEXT;
  if(next){if(!r->token||r->token!=o->cursor)return -9;}
  else{
   o->cursor=0;
-  o->list_kind=r->action==K32_FS_DRIVE_LIST?4:r->flags;
-  int e=o->list_kind==4?0:parents(path,o->list_kind==K32_FS_LIST_TRASH,0,1);
+  o->list_kind=r->action==K32_FS_DRIVE_LIST?DRIVE_LIST:r->flags;
+  int e=o->list_kind==DRIVE_LIST?0:parents(path,o->list_kind==K32_FS_LIST_TRASH,0,1);
   if(e==-2&&o->list_kind==K32_FS_LIST_TRASH)goto empty;
   if(e)return e;
   unsigned end=path_length(path);
@@ -166,7 +167,13 @@ static int list_entry(Owner *o,K32Fs *r,char path[DOS_PATH]){
   char name[16];unsigned n=0;
   while(n<13&&d[30+n])n++;
   if(d[30]=='.'&&(n==1||(n==2&&d[31]=='.')))continue;
-  int valid=work_component((const char *)d+30,n,name);
+  int stage=o->list_kind==K32_FS_LIST_TMP;
+  unsigned stem=n;
+  if(stage){
+   if((d[21]&0x5f)!=16||n<5||!same((const char *)d+30+n-4,".TMP"))continue;
+   stem=n-4;
+  }
+  int valid=work_component((const char *)d+30,stem,name);
   if(o->list_kind==K32_FS_LIST_STRICT&&((d[21]&0x4f)||!valid)){o->cursor=0;return -117;}
   if(!valid)continue;
   if(o->list_kind==K32_FS_LIST_ARCHIVED){
@@ -177,7 +184,7 @@ static int list_entry(Owner *o,K32Fs *r,char path[DOS_PATH]){
   r->entry=(K32DirEntry){.version=1,.size=sizeof r->entry,.cursor=o->cursor,.attributes=d[21],
     .time=d[22]|(unsigned)d[23]<<8,.date=d[24]|(unsigned)d[25]<<8,
     .bytes=d[26]|(unsigned)d[27]<<8|(unsigned)d[28]<<16|(unsigned)d[29]<<24};
-  copy(r->entry.name,name+3,n+1);
+  copy(r->entry.name,stage?(const char *)d+30:name+3,n+1);
   r->token=o->cursor;
   return 0;
  }
@@ -194,15 +201,14 @@ static int fs_open(Owner *o,K32Fs *r,const char *path,int boot){
  int h=file_open(o,path);
  if(h<0){if(lock)locks[lock-1][0]=0;return h;}
  File *f=&o->file[file_index(o,h)];f->lock=lock;
- if(boot&&f->bytes>K32_FS_BOOT_LIMIT){int e=file_close(o,h);return e?e:-27;}
+ if(boot==1&&f->bytes>K32_FS_BOOT_LIMIT){int e=file_close(o,h);return e?e:-27;}
  r->token=h;r->length=f->bytes;return 0;
 }
 
 static int fs_begin(Owner *o,K32Fs *r,const char *path,int boot){
- Transaction tx={.exists=boot,.old_length=r->length,.old_hash=r->hash,
-  .limit=boot?K32_FS_BOOT_LIMIT:K32_IO_LIMIT};
+ Transaction tx={.exists=boot||r->flags,.old_length=r->length,.old_hash=r->hash,.limit=boot?K32_FS_BOOT_LIMIT:K32_IO_LIMIT};
  for(unsigned i=0;;i++){tx.target[i]=path[i];if(!path[i])break;}
- int e=begin_paths(o,&tx,!boot);
+ int e=begin_paths(o,&tx,!tx.exists);
  if(!e)r->token=o->tx.token;
  return e;
 }
@@ -307,19 +313,27 @@ static int folder_copy(Owner *o,K32Fs *r){
 }
 
 static int filesystem(Owner *o,K32Fs *r){
- unsigned limit=r->action==K32_FS_LIST?K32_FS_LIST_STRICT:r->action==K32_FS_DRIVE_LIST?25:r->action==K32_FS_TREE_BEGIN?K32_FS_TREE_MOVE:0;
- if(r->version!=1||r->size!=sizeof *r||r->action<K32_FS_LIST||r->action>K32_FS_TREE_CANCEL||
+ unsigned drive=r->action==K32_FS_DRIVE_LIST||r->action==K32_FS_DRIVE_OPEN;
+ unsigned limit=r->action==K32_FS_LIST?K32_FS_LIST_TMP:drive?25:r->action==K32_FS_TREE_BEGIN||r->action==K32_FS_SAVE?1:0;
+ if(r->version!=1||r->size!=sizeof *r||r->action<K32_FS_LIST||r->action>K32_FS_TREE_RECOVER||
     (r->action!=K32_FS_BOOT_WRITE&&r->flags>limit)||
     (r->action!=K32_FS_NEXT&&r->token)||
-    (r->action!=K32_FS_BOOT_WRITE&&(r->length||r->hash)))return -22;
+    (r->action!=K32_FS_BOOT_WRITE&&r->action!=K32_FS_SAVE&&(r->length||r->hash)))return -22;
  char path[DOS_PATH]={0},dest[DOS_PATH];
  if(r->action==K32_FS_DRIVES){r->length=1u|(1u<<o->drive);r->flags=o->drive;return 0;}
- if(r->action==K32_FS_DRIVE_LIST){
+ if(drive){
   if(r->flags&&r->flags!=o->drive)return -15;
+  if(r->action==K32_FS_DRIVE_OPEN&&!r->path[0])return -22;
   if(r->path[0]){
    int e=work_path(o,r->path,0,0,path);if(e)return e;
    unsigned n=path_length(path);for(unsigned i=3;i<=n-5;i++)path[i]=path[i+5];
-   path[0]='A'+r->flags;int a=attributes(path);if(a<0)return a;if((a&0x5e)!=16)return -13;
+   path[0]='A'+r->flags;
+   for(unsigned i=3;path[i];i++)if(path[i]=='\\'){
+    path[i]=0;int a=attributes(path);path[i]='\\';
+    if(a<0||(a&0x5e)!=16)return -13;
+   }
+   if(r->action==K32_FS_DRIVE_OPEN)return fs_open(o,r,path,2);
+   int a=attributes(path);if(a<0)return a;if((a&0x5e)!=16)return -13;
   }else copy(path,"A:\\",4);
   path[0]='A'+r->flags;
   return list_entry(o,r,path);
@@ -334,7 +348,7 @@ static int filesystem(Owner *o,K32Fs *r){
  if(r->action==K32_FS_NEXT)return list_entry(o,r,path);
  int e=ready(o);
  if(e)return e;
- if(r->action>=K32_FS_TREE_BEGIN)return folder_copy(o,r);
+ if(r->action>=K32_FS_TREE_BEGIN&&r->action<=K32_FS_TREE_CANCEL)return folder_copy(o,r);
  int trash=r->action==K32_FS_RESTORE||(r->action==K32_FS_LIST&&r->flags==K32_FS_LIST_TRASH);
  e=work_path(o,r->path,trash,r->action==K32_FS_LIST,path);if(e)return e;
  if(r->action==K32_FS_LIST)return list_entry(o,r,path);
@@ -351,6 +365,18 @@ static int filesystem(Owner *o,K32Fs *r){
  e=parents(path,trash,0,0);if(e)return e;
  if(r->action==K32_FS_OPEN)return fs_open(o,r,path,0);
  if(r->action==K32_FS_CREATE)return fs_begin(o,r,path,0);
+ if(r->action==K32_FS_SAVE)return r->length>K32_IO_LIMIT||(!r->flags&&(r->length||r->hash))?-22:fs_begin(o,r,path,0);
+ if(r->action==K32_FS_TREE_RECOVER){
+  if(tree.owner)return -16;
+  if(r->destination[K32_FS_PATH-1]||!work_component(r->destination,path_length(r->destination),dest))return -22;
+  char *leaf=path;for(char *p=path;*p;p++)if(*p=='\\')leaf=p+1;
+  char stage[DOS_PATH];sibling(path,"TMP",stage);
+  if((attributes(stage)&0x5f)!=16)return -2;
+  copy(leaf,dest+3,path_length(dest+3)+1);
+  e=attributes(path);if(e!=-2)return e<0?-5:-17;
+  e=pending(path);if(e)return e;
+  e=rename_path(stage,path);if(!e)expire_lists();return e;
+ }
  if(r->action==K32_FS_MKDIR){
   int a=attributes(path);
   return a==-2?change_dir(path,0):a<0?-5:-17;

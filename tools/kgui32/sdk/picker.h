@@ -2,8 +2,9 @@
 #define KG_PICKER_H
 #include "kgui.h"
 #include "widgets.h"
+#include "../../k38632/sdk/fs.h"
 #define KP_ENTRIES 192
-typedef struct {K32DirEntry entries[KP_ENTRIES];unsigned matches[KP_ENTRIES],count,cursor,loading,work,saving,document_bytes,kind;K32WorkInfo location;KwInput filter,name;KwList list;KwFocus focus;KwScroll scroll;int error;} KpPicker;
+typedef struct {K32DirEntry entries[KP_ENTRIES];unsigned matches[KP_ENTRIES],count,cursor,loading,work,saving,document_bytes,kind,volume,drives;char folder[K32_FS_PATH],target[K32_FS_PATH];K32WorkInfo location;KwInput filter,name;KwList list;KwFocus focus;KwScroll scroll;int error;} KpPicker;
 void kp_workspace_info(K32WorkInfo *);
 void kp_open(KpPicker *);
 void kp_open_kind(KpPicker *,unsigned);

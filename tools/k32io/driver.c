@@ -9,19 +9,20 @@ extern unsigned short io_sender_segment,io_sender_offset;
 extern unsigned char __io_stack_guard[];
 extern unsigned io_old_vector;extern void io_api(void);
 #define DOS_PATH 64
+#define WORK_PATH_BYTES (8+K32_FS_PATH)
 /* DOS handles are below the broker PSP's 96-handle ceiling. */
 typedef struct __attribute__((packed)) {unsigned token,bytes;unsigned char h,lock;} File;
 typedef struct {
  unsigned token,length,limit,old_length,old_hash,hash,scanned,reader;
  short writer;unsigned char phase,exists,kind,lock[2];
- char target[DOS_PATH],destination[24];
+ char target[WORK_PATH_BYTES],destination[21];
 } Transaction;
 typedef struct {unsigned owner,epoch,cursor;File file[8];Transaction tx;unsigned char drive,list_kind,dta[43];} Owner;
-#define LOCK_PATH 56
+#define LOCK_PATH WORK_PATH_BYTES
 static Owner owners[8];static char locks[16][LOCK_PATH];
 static unsigned self,psp,serial,indos_segment,indos_offset;
 static unsigned char buffer[4096];
-typedef struct {Owner *owner;char source[DOS_PATH],target[DOS_PATH];unsigned move;} FolderCopy;
+typedef struct {Owner *owner;char source[WORK_PATH_BYTES],target[WORK_PATH_BYTES];unsigned move;} FolderCopy;
 static FolderCopy tree;
 volatile struct {char signature[8];unsigned short version,size,ready,busy;unsigned owner,calls,rejected,stack_ok;struct {unsigned owner,epoch,handles,phase,bytes;} task[8];} io_record={.signature={'K','3','2','I','O','V','0','1'},.version=1,.size=sizeof io_record};
 static void copy(void *d,const void *s,unsigned n){unsigned char *a=d;const unsigned char *b=s;for(unsigned i=0;i<n;i++)a[i]=b[i];}
@@ -107,8 +108,8 @@ static int begin_paths(Owner *o,Transaction *next,int creation){
  if(next->kind){
   int a=attributes(next->target);if(a<0||(a&0x5f)){e=a<0?-2:-13;goto failed;}
   char destlock[24];e=k32_io_path(o->drive,next->destination,1,destlock);if(e)goto failed;
-  char name[16];copy(name,next->destination,sizeof name);
-  e=k32_io_path(o->drive,name,0,next->destination);if(e)goto failed;
+  char dest[24];e=k32_io_path(o->drive,next->destination,0,dest);if(e)goto failed;
+  copy(next->destination,dest,sizeof next->destination);
   lock=lock_path(destlock);if(lock<0){e=lock;goto failed;}next->lock[1]=lock;
   a=attributes(next->destination);if(a!=-2){e=a<0?-5:-17;goto failed;}
   int h=file_open(o,next->target);if(h<0){e=h;goto failed;}

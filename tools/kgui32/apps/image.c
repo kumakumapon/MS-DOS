@@ -2,6 +2,7 @@
 #include "../sdk/kgui.h"
 #include "../sdk/widgets.h"
 #include "../sdk/picker.h"
+#include "../../k38632/sdk/libc.h"
 #include "../sdk/bitmap.h"
 #include "../../k38632/sdk/io.h"
 #include "ui-image.h"
@@ -24,14 +25,17 @@ static const KmItem app_menu[]={
  {"Close",KG_KEY,'q',0},
  {"Open BMP",KG_KEY,15,0},
  {"Save BMP As",KG_KEY,25,0},
+ {"Copy image",KG_KEY,3,0},
+ {"Paste image",KG_KEY,22,0},
 };
 volatile ImageStats image_stats __attribute__((section(".data.gui_stats")))={.magic=0x3149474b,.version=1};
 static u16 pixels[KG_BITMAP_PIXELS],original[KG_BITMAP_PIXELS],undo_pixels[KG_BITMAP_PIXELS],candidate[KG_BITMAP_PIXELS],load_backup[KG_BITMAP_PIXELS],thumbnail[64*48];
-static KgBmp image;static KwInput filename;static unsigned handle,sw,sh,undo_valid,focused,paintmode,painting;static int panx,pany,lastx,lasty;
+static KgBmp image,baseline,undo_image;static KwInput filename;static unsigned handle,sw,sh,undo_valid,focused,paintmode,painting;static int panx,pany,lastx,lasty;
 static const char *message;
-static unsigned work,loaded_work,modal,pending,kind;
+static unsigned work,loaded_work,modal,pending,kind,closing;
 static unsigned common_read,generic_recovery,zoom,preview,secondary;
-static char current[13],recovery_base[13];
+static char current[13],recovery_base[13],current_path[K32_FS_PATH],open_path[K32_FS_PATH];
+static unsigned open_volume;
 static KwInput rescue;
 static K32Work revision,replacement;
 static K32RecoveryInfo recovery;
@@ -39,6 +43,7 @@ static KpPicker picker;
 static u8 encoded[KG_BITMAP_FILE_BYTES];
 static unsigned raw_hash(const u8 *p,unsigned n){unsigned v=2166136261u;while(n--)v=(v^*p++)*16777619;return v;}
 static void namecopy(char *to,const char *from){unsigned i=0;for(;i<12&&from[i];i++)to[i]=from[i];to[i]=0;}
+static void remember_path(char *to,const char *from){k32_memcpy(to,from,k32_len(from)+1);}
 static K32Work request(unsigned op,const char *name){K32Work r=k32_work_name(op,name);r.flags=K32_WORK_BMP;return r;}
 
 static unsigned hash(const u16 *p,unsigned n){unsigned v=2166136261u;const u8 *b=(const u8 *)p;for(unsigned i=0;i<n*2;i++)v=(v^b[i])*16777619;return v;}
@@ -47,7 +52,7 @@ static int equal(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return 
 static void stats(void){image_stats.width=kg_width();image_stats.height=kg_height();image_stats.image_width=image.width;image_stats.image_height=image.height;image_stats.hash=hash(pixels,image.width*image.height);image_stats.dirty=image_stats.hash!=image_stats.original_hash;image_stats.surface=handle;image_stats.mode=focused|paintmode<<1|painting<<2|work<<3|modal<<4;image_stats.zoom=zoom==3?50:100u<<zoom;image_stats.secondary=secondary;image_stats.source_bits=image.bits;}
 static int preview_upload(void){
  if(!secondary){int h=kg_surface_create_extra(64,48);if(h<0)return h;secondary=(unsigned)h;}
- for(unsigned y=0;y<48;y++)for(unsigned x=0;x<64;x++)thumbnail[y*64+x]=original[(y*image.height/48)*image.width+x*image.width/64];
+ for(unsigned y=0;y<48;y++)for(unsigned x=0;x<64;x++)thumbnail[y*64+x]=original[(y*baseline.height/48)*baseline.width+x*baseline.width/64];
  return kg_surface_upload(secondary,thumbnail,sizeof thumbnail);
 }
 static int upload(void){
@@ -72,39 +77,50 @@ static int decode(unsigned h,KgBmp *next,const K32WorkRevision *expected){
 static int load(void){
  unsigned n=filename.length;if(n<5||n>12)return -22;
  K32Work next_revision=request(K32_WORK_STAT,filename.text);int e=0;
- common_read=work&&!!(k32_query()&K32_FEATURE_IO);
- if(work){if(common_read){K32Revision r;e=k32_io_revision(filename.text,0,&r);if(!e){next_revision.exists=r.exists;next_revision.length=r.length;next_revision.hash=r.hash;}}else e=k32_work(&next_revision);if(e<0)return e;if(!next_revision.exists)return -2;}
+ common_read=open_path[0]||(work&&!!(k32_query()&K32_FEATURE_IO));
+ if(work){if(common_read){K32Revision r;e=open_path[0]?k32_fs_revision(open_path,&r):k32_io_revision(filename.text,0,&r);if(!e){next_revision.exists=r.exists;next_revision.length=r.length;next_revision.hash=r.hash;}}else e=k32_work(&next_revision);if(e<0)return e;if(!next_revision.exists)return -2;}
  K32Work opened=request(K32_WORK_OPEN,filename.text);
- int h=common_read?k32_io_open(filename.text,0,0):work?k32_work(&opened):k32_open(filename.text);if(h<0)return h;
+ int h=open_path[0]?k32_fs_read(open_path,open_volume,0):common_read?k32_io_open(filename.text,0,0):work?k32_work(&opened):k32_open(filename.text);if(h<0)return h;
  KgBmp next;K32WorkRevision expected={next_revision.exists,next_revision.length,next_revision.hash,0};
  e=decode(h,&next,work?&expected:0);if(e)return e;
  /* A rejected file never changes the image, baseline or Undo. */
  KgBmp before=image;copy(load_backup,pixels,image.width*image.height);image=next;copy(pixels,candidate,image.width*image.height);
  e=upload();if(e){image=before;copy(pixels,load_backup,image.width*image.height);if(image.width)(void)upload();return e;}
- copy(original,pixels,image.width*image.height);undo_valid=painting=zoom=0;panx=pany=0;
- revision=next_revision;loaded_work=work;namecopy(current,filename.text);
- image_stats.original_hash=hash(original,image.width*image.height);if(preview&&preview_upload())preview=0;return 0;
+ baseline=image;copy(original,pixels,image.width*image.height);undo_valid=painting=zoom=0;panx=pany=0;
+ revision=next_revision;loaded_work=work;namecopy(current,filename.text);remember_path(current_path,work?open_path:"");
+ image_stats.original_hash=hash(original,image.width*image.height);if(preview&&preview_upload())preview=0;
+ kg_note_document(open_path[0]?open_path:filename.text,work?0:open_volume?open_volume:1,1);return 0;
 }
 static int save(unsigned approved){
  if(!image.width)return -22;
+ if(open_volume>1||(!work&&open_path[0]))return -13;
  K32Work r=request(K32_WORK_STAT,filename.text);int e;
  if(approved)r=replacement;
- else if(loaded_work&&equal(current,filename.text))r=revision;
+ else if(loaded_work&&equal(current,filename.text)&&equal(current_path,open_path))r=revision;
  else {
   /* Preserve the legacy protected-target refusal before overwrite prompts.
    * Large regular files alone fall back to the common binary revision scan. */
-  e=k32_work(&r);if(e==-27){K32Revision old;e=k32_io_revision(filename.text,0,&old);if(e<0)return e;r.exists=old.exists;r.length=old.length;r.hash=old.hash;}else if(e<0)return e;
+  if(open_path[0]){
+   K32Revision old;e=k32_fs_revision(open_path,&old);if(e<0)return e;
+   r.exists=old.exists;r.length=old.length;r.hash=old.hash;
+  }else {
+   e=k32_work(&r);if(e==-27){K32Revision old;e=k32_io_revision(filename.text,0,&old);if(e<0)return e;r.exists=old.exists;r.length=old.length;r.hash=old.hash;}else if(e<0)return e;
+  }
   if(r.exists){replacement=r;modal=1;return 2;}
  }
  int bytes=kg_bmp_encode(pixels,image.width,image.height,encoded,sizeof encoded);if(bytes<0)return bytes;
  r.operation=K32_WORK_SAVE;r.data=(unsigned)encoded;r.bytes=bytes;
- if((unsigned)bytes>K32_BMP_LIMIT||r.length>K32_BMP_LIMIT||image.width>256||image.height>192){K32Revision old={r.exists,r.length,r.hash};e=k32_io_save(r.name,encoded,(unsigned)bytes,&old);}else e=k32_work(&r);if(e<0)return e;
+ if(open_path[0]){K32Revision old={r.exists,r.length,r.hash};e=k32_fs_save(open_path,encoded,(unsigned)bytes,&old);}
+ else if((unsigned)bytes>K32_BMP_LIMIT||r.length>K32_BMP_LIMIT||image.width>256||image.height>192){K32Revision old={r.exists,r.length,r.hash};e=k32_io_save(r.name,encoded,(unsigned)bytes,&old);}else e=k32_work(&r);
+ if(e<0)return e;
  revision=request(K32_WORK_STAT,r.name);revision.exists=1;revision.length=bytes;revision.hash=raw_hash(encoded,bytes);
- namecopy(current,r.name);loaded_work=1;copy(original,pixels,image.width*image.height);image_stats.original_hash=hash(original,image.width*image.height);
+ namecopy(current,r.name);remember_path(current_path,open_path);loaded_work=1;baseline=image;copy(original,pixels,image.width*image.height);image_stats.original_hash=hash(original,image.width*image.height);
  if(preview&&preview_upload())preview=0;
+ kg_note_document(open_path[0]?open_path:filename.text,0,1);
  message=e?"Saved / BAK retained: inspect recovery":"Saved to Work";return 0;
 }
 static int inspect(void){
+ if(open_path[0])return -13;
  K32Work r=request(K32_WORK_REC_INFO,filename.text);r.data=(unsigned)&recovery;r.bytes=sizeof recovery;
  int e=k32_work(&r);if(e)return e;generic_recovery=0;
  for(unsigned i=0;i<3;i++)if(recovery.file[i].error==-27)generic_recovery=1;
@@ -152,14 +168,25 @@ static int dialog(void){
  if(message)kw_text(8,h-24,message,(w-16)/8,0x263e58);
  stats();int e=kg_present();if(!e)image_stats.frames++;return e;
 }
-static void backup(void){copy(undo_pixels,pixels,image.width*image.height);undo_valid=1;}
+static void backup(void){undo_image=image;copy(undo_pixels,pixels,image.width*image.height);undo_valid=1;}
+static int paste(void){
+ unsigned w,h;int e=kg_clip_image_paste(candidate,KG_BITMAP_PIXELS,&w,&h);
+ if(e)return e;
+ KgBmp old=image;copy(load_backup,pixels,old.width*old.height);
+ image=(KgBmp){.width=w,.height=h,.bits=24};copy(pixels,candidate,w*h);
+ e=upload();
+ if(e){image=old;copy(pixels,load_backup,old.width*old.height);if(old.width)(void)upload();return e;}
+ undo_image=old;copy(undo_pixels,load_backup,old.width*old.height);undo_valid=!!old.width;
+ painting=zoom=0;panx=pany=0;if(!baseline.width)preview=0;
+ return 0;
+}
 static int change(unsigned key){
  if(!image.width)return 0;
  unsigned n=image.width*image.height;
  if(key=='i'){backup();kg_bitmap_invert(pixels,n);}
  else if(key=='h'){backup();kg_bitmap_flip(pixels,image.width,image.height);}
- else if(key=='u'){if(!undo_valid)return 0;for(unsigned i=0;i<n;i++){u16 p=pixels[i];pixels[i]=undo_pixels[i];undo_pixels[i]=p;}}
- else if(key=='r'){backup();copy(pixels,original,n);}
+ else if(key=='u'){if(!undo_valid)return 0;unsigned m=undo_image.width*undo_image.height;if(m>n)n=m;KgBmp swap=image;image=undo_image;undo_image=swap;for(unsigned i=0;i<n;i++){u16 p=pixels[i];pixels[i]=undo_pixels[i];undo_pixels[i]=p;}}
+ else if(key=='r'){if(!baseline.width)return 0;backup();image=baseline;copy(pixels,original,image.width*image.height);}
  else return 0;
  return upload();
 }
@@ -189,10 +216,16 @@ int main(int argc,char **argv){
  kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
  kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
  int token=kg_open("Images / BMP",328,196);if(token<0){image_stats.error=-token;return 1;}
- kg_subscribe(KG_INPUT_TAB|KG_INPUT_KEYS|KG_INPUT_MOTION|KG_INPUT_MODIFIERS);
+ kg_subscribe(KG_INPUT_TAB|KG_INPUT_KEYS|KG_INPUT_MOTION|KG_INPUT_MODIFIERS|KG_INPUT_CLOSE);
  unsigned fault=argc>1&&equal(argv[1],"fault");
  work=argc>2&&equal(argv[1],"work");
  const char *name=fault?"SAMPLE.BMP":argc>2&&(equal(argv[1],"root")||work)?argv[2]:argc>1?argv[1]:"SAMPLE.BMP";
+ int recent=argc==3?kg_recent_volume(argv[1]):-1;
+ if(recent>=0&&k32_len(argv[2])<sizeof open_path){
+  open_volume=recent;work=!recent;
+  remember_path(open_path,argv[2]);name=argv[2];
+  for(const char *c=name;*c;c++)if(*c=='\\')name=c+1;
+ }
  for(unsigned i=0;name[i]&&i<12;i++)filename.text[i]=name[i];
  filename.length=k32_len(filename.text);filename.cursor=filename.length;
  int e=k32_len(name)>12?-22:load();if(e<0){image_stats.error=-e;message=error_text(e);}
@@ -200,6 +233,13 @@ int main(int argc,char **argv){
  if(fault)*(volatile unsigned *)0x10000=1;
  for(;;){
   KgEvent v;int got=kg_poll(&v);if(got<0)return 3;image_stats.heartbeat++;unsigned key=0,dirty=0;e=0;
+  if(got&&v.type==KG_QUIT){
+   if(modal>=5)kp_close(&picker);
+   if(!image_stats.dirty)break;
+   pending='q';modal=3;closing=1;message=0;
+   if(draw()<0)return 4;
+   continue;
+  }
   if(modal>=5){
    if(kp_tick(&picker))dirty=1;
    if(got){
@@ -208,7 +248,9 @@ int main(int argc,char **argv){
     if(selected>0){
      unsigned opening=modal==5;
      namecopy(filename.text,name);filename.length=filename.cursor=k32_len(name);
-     work=picker.work;modal=0;e=opening?load():save(0);
+     work=picker.work;open_volume=picker.volume;
+     remember_path(open_path,picker.folder[0]||picker.volume>1?picker.target:"");
+     modal=0;e=opening?load():save(0);
      image_stats.error=e<0?-e:0;if(e<0)message=error_text(e);
     }
     dirty=1;
@@ -220,7 +262,7 @@ int main(int argc,char **argv){
    if(modal){
     unsigned action=v.type==KG_KEY?v.key:v.type==KG_MOUSE&&(v.key&1)?v.control:0;
     unsigned old=modal;
-    if(action==27){modal=pending=0;message=0;}
+    if(action==27){if(closing){kg_cancel_close();closing=0;}modal=pending=0;message=0;}
     else if(old==1&&(action=='R'||action=='r')){e=save(1);if(!e){modal=0;key=pending;pending=~0u;}}
     else if(old==3&&(action=='D'||action=='d')){modal=0;key=pending;pending=~0u;}
     else if(old==3&&(action=='S'||action=='s')){e=save(0);if(!e){modal=0;key=pending;pending=~0u;}}
@@ -228,7 +270,7 @@ int main(int argc,char **argv){
     else if(old==4&&(action=='R'||action=='r')&&v.type==KG_MOUSE)e=restore();
     else if(old==4&&action==13)e=restore();
     else if(old==4)kw_input(&rescue,&v);
-    if(e<0){image_stats.error=-e;message=error_text(e);pending=0;}else if(action)image_stats.error=0;
+    if(e<0){image_stats.error=-e;message=error_text(e);if(!closing)pending=0;}else if(action)image_stats.error=0;
     if(!key){if(draw()<0)return 4;k32_wait(K32_WAIT_TIME,50);continue;}
    }
    else {
@@ -242,10 +284,10 @@ int main(int argc,char **argv){
     }
    }else if(v.type==KG_MOUSE&&(v.key&1)){if(kw_inside((KwRect){8,4,160,28},v.x,v.y)){focused=1;dirty=1;}else{focused=0;key=v.control;}}
    if(v.type==KG_KEY){
-    if(v.key==19||v.key==23||v.key==18||v.key==15||v.x==-1){key=v.key==19&&(v.control&KG_MOD_SHIFT)?25:v.key;focused=0;}
+    if(v.key==3||v.key==22||v.key==19||v.key==23||v.key==18||v.key==15||v.x==-1){key=v.key==19&&(v.control&KG_MOD_SHIFT)?25:v.key;focused=0;}
     else if(v.key==9){focused^=1;dirty=1;}
     else if(focused&&v.key==13)key='o';
-    else if(focused){if(kw_input(&filename,&v)){dirty=1;message=0;}}
+    else if(focused){if(kw_input(&filename,&v)==2){open_path[0]=0;open_volume=0;dirty=1;message=0;}else dirty=1;}
     else if(v.key>=256&&v.key<=259){panx+=v.key==258?-8:v.key==259?8:0;pany+=v.key==256?-8:v.key==257?8:0;if(panx < -1536)panx=-1536;if(panx>1536)panx=1536;if(pany < -1024)pany=-1024;if(pany>1024)pany=1024;dirty=1;}
     else key=v.key;
    }
@@ -256,8 +298,10 @@ int main(int argc,char **argv){
   if(pending==~0u)pending=0;
   if(key==15){kp_open_kind(&picker,K32_WORK_BMP);modal=5;dirty=1;}
   else if(key==25){kp_save_kind(&picker,filename.text,54+((image.width*3+3)&~3u)*image.height,K32_WORK_BMP);modal=6;dirty=1;}
+  else if(key==3){e=kg_clip_image_copy(pixels,image.width,image.height);dirty=1;}
+  else if(key==22){e=paste();dirty=1;}
   else if(key==19||key=='s'||key=='S'){e=save(0);dirty=1;}
-  else if(key==23){work^=1;message=work?"Work / enter BMP name then Load":"A: root / read only";dirty=1;}
+  else if(key==23){open_path[0]=0;open_volume=0;work^=1;message=work?"Work / enter BMP name then Load":"A: root / read only";dirty=1;}
   else if(key==18){e=inspect();dirty=1;}
   else if(key=='o'||key=='O'){e=load();focused=0;dirty=1;}
   else if(key=='p'||key=='P'){paintmode^=1;painting=0;dirty=1;}
@@ -266,7 +310,7 @@ int main(int argc,char **argv){
   else if(key=='0'){zoom=0;panx=pany=0;dirty=1;}
   else if(key=='v'||key=='V'){if(image.width){preview^=1;if(preview){e=preview_upload();if(e)preview=0;}}dirty=1;}
   else if(key=='i'||key=='h'||key=='u'||key=='r'){e=change(key);dirty=1;}
-  if(dirty){if(e<0){image_stats.error=-e;message=error_text(e);}else if(key){image_stats.error=0;if(key!=19&&key!=23&&key!=18&&key!='s'&&key!='S')message=0;}e=draw();if(e<0){image_stats.error=-e;return 4;}}
+  if(dirty){if(e<0){image_stats.error=-e;message=key==3?"Image clipboard limit: 128 x 128":key==22?"No available clipboard image":error_text(e);}else if(key){image_stats.error=0;if(key==3)message="Image copied";else if(key==22)message="Image pasted";else if(key!=19&&key!=23&&key!=18&&key!='s'&&key!='S')message=0;}e=draw();if(e<0){image_stats.error=-e;return 4;}}
   k32_wait(K32_WAIT_TIME,50);
  }
  if(handle)kg_surface_destroy(handle);
