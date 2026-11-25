@@ -155,7 +155,7 @@ void wt_key(int tool,int key){
   else if(key==13||key==9||(key>=32&&key<=255)){u8 c=key==13?'\n':key;ed_insert(&editor,&c,1);}
   changed[0]=editor.dirty;return;
  }
- if(key==4){paste_shared(tool);return;}
+ if(key==10){paste_shared(tool);return;}
  if(key==2||key==3||key==24){
   Bitmap *b=&pictures[tool-WT_VIEW];int ax=tool==WT_PAINT&&selection?x1:0,ay=tool==WT_PAINT&&selection?y1:0;
   int ww=tool==WT_PAINT&&selection?x2-x1+1:b->width,hh=tool==WT_PAINT&&selection?y2-y1+1:b->height;
@@ -251,7 +251,7 @@ int wt_click(int tool,int x,int y,int w,int h,int top,int px,int py){
  if(px<0||px>=w*8||py<0||py>=h*16)return 0;
  if(py/16==h-1){
   int col=px/8;
-  if(tool>=WT_VIEW&&col<13)wt_key(tool,col<7?2:col>=8?4:0);
+  if(tool>=WT_VIEW&&col<13)wt_key(tool,col<7?2:col>=8?10:0);
   else wt_key(tool,tool==WT_SETTINGS?'s':19);
   return 1;
  }

@@ -28,7 +28,7 @@ static const KmItem app_menu[]={
  {"Copy image",KG_KEY,3,0},
  {"Paste image",KG_KEY,22,0},
  {"Copy to KDESK",KG_KEY,2,0},
- {"Paste from KDESK",KG_KEY,4,0},
+ {"Paste from KDESK",KG_KEY,10,0},
 };
 volatile ImageStats image_stats __attribute__((section(".data.gui_stats")))={.magic=0x3149474b,.version=1};
 static u16 pixels[KG_BITMAP_PIXELS],original[KG_BITMAP_PIXELS],undo_pixels[KG_BITMAP_PIXELS],candidate[KG_BITMAP_PIXELS],load_backup[KG_BITMAP_PIXELS],thumbnail[64*48];
@@ -313,7 +313,7 @@ int main(int argc,char **argv){
     for(unsigned i=1;i<image_focus.count;i++)if(image_controls[i]==key)image_focus.current=i;
    }}
    if(v.type==KG_KEY){
-    if(v.key==2||v.key==4||v.key==3||v.key==22||v.key==19||v.key==23||v.key==18||v.key==15||v.x==-1){key=v.key==19&&(v.control&KG_MOD_SHIFT)?25:v.key;focused=0;}
+    if(v.key==2||v.key==10||v.key==3||v.key==22||v.key==19||v.key==23||v.key==18||v.key==15||v.x==-1){key=v.key==19&&(v.control&KG_MOD_SHIFT)?25:v.key;focused=0;}
     else if(kw_focus(&image_focus,&v)){focused=!image_focus.current;dirty=1;}
     else if(v.key==13)key=focused?'o':image_controls[image_focus.current]?image_controls[image_focus.current]:'o';
     else if(focused){if(kw_input(&filename,&v)==2){open_path[0]=0;open_volume=0;dirty=1;message=0;}else dirty=1;}
@@ -329,7 +329,7 @@ int main(int argc,char **argv){
   else if(key==25){kp_save_kind(&picker,filename.text,54+((image.width*3+3)&~3u)*image.height,K32_WORK_BMP);modal=6;dirty=1;}
   else if(key==3){e=kg_clip_image_copy(pixels,image.width,image.height);dirty=1;}
   else if(key==22){e=paste();dirty=1;}
-  else if(key==2||key==4){e=shared_image(key==2);dirty=1;}
+  else if(key==2||key==10){e=shared_image(key==2);dirty=1;}
   else if(key==19||key=='s'||key=='S'){e=save(0);dirty=1;}
   else if(key==23){open_path[0]=0;open_volume=0;work^=1;message=work?"Work / enter BMP name then Load":"A: root / read only";dirty=1;}
   else if(key==18){e=inspect();dirty=1;}
@@ -340,7 +340,7 @@ int main(int argc,char **argv){
   else if(key=='0'){zoom=0;panx=pany=0;dirty=1;}
   else if(key=='v'||key=='V'){if(image.width){preview^=1;if(preview){e=preview_upload();if(e)preview=0;}}dirty=1;}
   else if(key=='i'||key=='h'||key=='u'||key=='r'){e=change(key);dirty=1;}
-  if(dirty){if(e<0){image_stats.error=-e;message=key==3?"Image clipboard limit: 128 x 128":key==22?"No available clipboard image":(key==2||key==4)&&e==-15?"Shared clipboard requires verified HDD":(key==2||key==4)&&e==-27?"Shared limit: 128 x 128":error_text(e);}else if(key){image_stats.error=0;if(key==2)message=e?"Shared with KDESK / BAK retained":"Shared with KDESK";else if(key==4)message="Pasted from KDESK";else if(key==3)message="Image copied";else if(key==22)message="Image pasted";else if(key!=19&&key!=23&&key!=18&&key!='s'&&key!='S')message=0;}e=draw();if(e<0){image_stats.error=-e;return 4;}}
+  if(dirty){if(e<0){image_stats.error=-e;message=key==3?"Image clipboard limit: 128 x 128":key==22?"No available clipboard image":(key==2||key==10)&&e==-15?"Shared clipboard requires verified HDD":(key==2||key==10)&&e==-27?"Shared limit: 128 x 128":error_text(e);}else if(key){image_stats.error=0;if(key==2)message=e?"Shared with KDESK / BAK retained":"Shared with KDESK";else if(key==10)message="Pasted from KDESK";else if(key==3)message="Image copied";else if(key==22)message="Image pasted";else if(key!=19&&key!=23&&key!=18&&key!='s'&&key!='S')message=0;}e=draw();if(e<0){image_stats.error=-e;return 4;}}
   k32_wait(K32_WAIT_TIME,50);
  }
  if(handle)kg_surface_destroy(handle);

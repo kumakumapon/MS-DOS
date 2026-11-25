@@ -178,4 +178,4 @@ controls are described in [RECOVERY-SDK.md](RECOVERY-SDK.md).
 - FD・HDDの表示は、Workや共通ダイアログがDOSのファイルブローカーを使ったときに点灯します。Alt+矢印で配置・最大化・復元、Alt+F4で閉じます。再起動では未保存のアプリを順に確認します。
 - 設定の大きい文字は、ランチャー、Editor本文、共通ダイアログの一覧・入力、Filesの一覧、Clockの時刻、設定の見出しに適用します。共通ダイアログでは Tab／Shift+Tab、矢印、Ctrl+D（ドライブ）、Backspace（一覧から上へ）を使えます。
 - Filesの「TMP」からフォルダの直下に残ったファイル名・サイズとサブフォルダ名を参照できます。確認後に「Recover」で空いている別名へ復旧します。復旧するデータは中断時点の内容です。
-- Imagesの Ctrl+C／Ctrl+V は同じKGUI32セッションで最大128×128のRGB565を共有します。KDESKとの受け渡しは、Imagesのメニュー「Copy to KDESK」「Paste from KDESK」または Ctrl+B／Ctrl+D と、KDESK画像ウィンドウ下部の「Share」「Get」を使います。対応HDDの Work 内の KGCLIP.BMP が保存先です。KDESKで表示・編集するときはそのパレットに変換されます。
+- Imagesの Ctrl+C／Ctrl+V は同じKGUI32セッションで最大128×128のRGB565を共有します。KDESKとの受け渡しは、Imagesのメニュー「Copy to KDESK」「Paste from KDESK」または Ctrl+B／Ctrl+J と、KDESK画像ウィンドウ下部の「Share」「Get」を使います。対応HDDの Work 内の KGCLIP.BMP が保存先です。KDESKで表示・編集するときはそのパレットに変換されます。
