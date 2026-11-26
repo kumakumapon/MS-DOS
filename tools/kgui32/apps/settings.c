@@ -7,7 +7,7 @@
 #include "../../k38632/sdk/libc.h"
 #include "ui-settings.h"
 
-enum {S_XMS=510,S_EMS,S_LESS,S_MORE,S_BUFFERS,S_FD98,S_CONFIG,S_AUTO,S_RELOAD,S_CLOSE,S_OK,S_CANCEL,S_PREFS,S_LANG,S_THEME,S_IME,S_APPLY,S_BACK,S_SIZE};
+enum {S_XMS=510,S_EMS,S_LESS,S_MORE,S_BUFFERS,S_FD98,S_CONFIG,S_AUTO,S_RELOAD,S_CLOSE,S_OK,S_CANCEL,S_PREFS,S_LANG,S_THEME,S_IME,S_APPLY,S_BACK,S_SIZE,S_OPTIONS,S_WALL,S_KEYS,S_SPEED,S_DATE,S_TIME,S_START,S_OPTIONS_BACK};
 typedef struct {u32 magic,version,frames,saved,error,xms,ems,files,buffers,fd98,dirty,ready,control;} SettingsStats;
 volatile SettingsStats stats __attribute__((section(".data.gui_stats")))={.magic=0x3253474b,.version=1};
 typedef struct {char data[K32_FS_BOOT_LIMIT];unsigned n,hash;int error;} BootFile;
@@ -15,8 +15,10 @@ static BootFile boot[2];
 static const char *const boot_path[]={"CONFIG.SYS","AUTOEXEC.BAT"};
 static KgBootSettings old,next;
 static KwFocus focus;
-static const unsigned preference_order[]={S_LANG,S_THEME,S_SIZE,S_IME,S_APPLY,S_BACK};
+static const unsigned preference_order[]={S_LANG,S_THEME,S_SIZE,S_IME,S_APPLY,S_BACK,S_OPTIONS};
+static const unsigned options_order[]={S_WALL,S_KEYS,S_SPEED,S_DATE,S_TIME,S_START,S_APPLY,S_OPTIONS_BACK};
 static unsigned dialog,page,closing;
+static const unsigned *page_order(void){return page==2?options_order:preference_order;}
 static KgPreferences prefs,next_prefs;
 static K32Revision prefs_revision;
 static int prefs_error;
@@ -26,7 +28,9 @@ static unsigned digest(const char *data,unsigned n){
  unsigned h=2166136261u;for(unsigned i=0;i<n;i++)h=(h^(unsigned char)data[i])*16777619u;return h;
 }
 static int preferences_dirty(void){
- return next_prefs.language!=prefs.language||next_prefs.theme!=prefs.theme||next_prefs.ime!=prefs.ime||next_prefs.large!=prefs.large;
+ return next_prefs.language!=prefs.language||next_prefs.theme!=prefs.theme||next_prefs.ime!=prefs.ime||next_prefs.large!=prefs.large||
+  next_prefs.wallpaper!=prefs.wallpaper||next_prefs.keyboard!=prefs.keyboard||next_prefs.mouse!=prefs.mouse||
+  next_prefs.date!=prefs.date||next_prefs.time!=prefs.time||next_prefs.startup!=prefs.startup;
 }
 static unsigned modified(void){
  return ((next.xms!=old.xms||next.ems!=old.ems||next.files!=old.files||next.buffers!=old.buffers)?1:0)|
@@ -66,37 +70,69 @@ static void save(unsigned startup){
   }
   if(r.flags)e=1;
  }
+ kg_notify(e<0?KG_NOTICE_SAVE_FAILED:KG_NOTICE_SAVED);
  stats.error=e<0?-e:0;
  status=e==1?"Saved / BAK kept":e==0?"Saved / reboot to apply":e==-116?"Boot file changed / reload":
   e==-13?"Boot file is read-only":e==-17||e==-117?"TMP or BAK needs recovery":e==-28?"Disk full / TMP kept":"Boot file save failed";
 }
 static void button(int x,int y,int w,unsigned id,const char *label,unsigned disabled,unsigned primary){
  unsigned state=(disabled?KW_DISABLED:0)|(focus.current==id-S_XMS?KW_FOCUSED:0);
- kw_draw_button((KwRect){x,y,w,36},id,KU(label),primary?KW_PRIMARY:KW_SECONDARY,state);
+ int compact=kg_height()<216;
+ if(compact)y=28+(y-30)/40*34;
+ kw_draw_button((KwRect){x,y,w,compact?30:36},id,KU(label),primary?KW_PRIMARY:KW_SECONDARY,state);
 }
 static void preference_button(int x,int y,int w,unsigned id,const char *label,unsigned disabled){
- kw_draw_button((KwRect){x,y,w,36},id,KU(label),id==S_APPLY?KW_PRIMARY:KW_SECONDARY,
-   (disabled?KW_DISABLED:0)|(preference_order[focus.current]==id?KW_FOCUSED:0));
+ int compact=kg_height()<216;
+ if(compact)y=28+(y-34)/40*34;
+ kw_draw_button((KwRect){x,y,w,compact?30:36},id,KU(label),id==S_APPLY?KW_PRIMARY:KW_SECONDARY,
+   (disabled?KW_DISABLED:0)|(page_order()[focus.current]==id?KW_FOCUSED:0));
+}
+static void draw_options(unsigned w){
+ int half=(w-24)/2,right=16+half;
+ static const char *const wall[]={"Wallpaper: Gradient","Wallpaper: Solid","Wallpaper: Grid"};
+ static const char *const speed[]={"Mouse: Normal","Mouse: Slow","Mouse: Fast"};
+ static const char *const dates[]={"Date: YYYY-MM-DD","Date: YYYY/MM/DD","Date: DD/MM/YYYY"};
+ static const char *const apps[]={"Start: Welcome","Start: Files","Start: Editor","Start: Clock","Start: Calendar","Start: Images"};
+ kw_readable(8,0,KU("Desktop and startup"),w-16,0x20344a);
+ preference_button(8,34,half,S_WALL,wall[next_prefs.wallpaper],prefs_error);
+ preference_button(right,34,half,S_KEYS,next_prefs.keyboard?"Keyboard: US":"Keyboard: JIS",prefs_error);
+ preference_button(8,74,half,S_SPEED,speed[next_prefs.mouse],prefs_error);
+ preference_button(right,74,half,S_DATE,dates[next_prefs.date],prefs_error);
+ preference_button(8,114,half,S_TIME,next_prefs.time?"Time: 12-hour":"Time: 24-hour",prefs_error);
+ preference_button(right,114,half,S_START,apps[next_prefs.startup],prefs_error);
+ preference_button(8,154,half,S_APPLY,"Apply preferences",prefs_error||!preferences_dirty());
+ preference_button(right,154,half,S_OPTIONS_BACK,"Desktop preferences",0);
+ if(kg_height()>=214)kw_label(8,198,prefs_error?"Desktop preferences unavailable":status,(w-16)/8,0x20344a);
 }
 static void draw_preferences(unsigned w){
  kw_readable(8,kg_large_text()?0:8,KU("Desktop preferences"),w-16,0x20344a);
- preference_button(8,34,w-16,S_LANG,next_prefs.language?"Language: Japanese":"Language: English",prefs_error);
- int half=(w-24)/2;
+ int half=(w-24)/2,right=16+half;
+ preference_button(8,34,half,S_LANG,next_prefs.language?"Language: Japanese":"Language: English",prefs_error);
+ preference_button(right,34,half,S_IME,next_prefs.ime==KI_ROMAJI?"Input: Romaji":next_prefs.ime==KI_KANA?"Input: JIS kana":"Input: IME off",prefs_error);
  preference_button(8,74,half,S_THEME,next_prefs.theme?"Display: High contrast":"Display: Classic",prefs_error);
- preference_button(8,114,w-16,S_IME,next_prefs.ime==KI_ROMAJI?"Input: Romaji":next_prefs.ime==KI_KANA?"Input: JIS kana":"Input: IME off",prefs_error);
- preference_button(16+half,74,half,S_SIZE,next_prefs.large?"Text: Large":"Text: Standard",prefs_error);
- preference_button(8,154,half,S_APPLY,"Apply preferences",prefs_error||!preferences_dirty());
- preference_button(16+half,154,half,S_BACK,"Boot settings",0);
- kw_label(8,198,prefs_error?"Desktop preferences unavailable":status,(w-16)/8,0x20344a);
+ preference_button(right,74,half,S_SIZE,next_prefs.large?"Text: Large":"Text: Standard",prefs_error);
+ preference_button(8,114,half,S_APPLY,"Apply preferences",prefs_error||!preferences_dirty());
+ preference_button(right,114,half,S_BACK,"Boot settings",0);
+ preference_button(8,154,w-16,S_OPTIONS,"Desktop and startup",0);
+ if(kg_height()>=214)kw_label(8,198,prefs_error?"Desktop preferences unavailable":status,(w-16)/8,0x20344a);
 }
 static void preference_command(unsigned cmd){
  if(cmd==S_LANG&&!prefs_error)next_prefs.language^=1;
  if(cmd==S_THEME&&!prefs_error)next_prefs.theme^=1;
  if(cmd==S_SIZE&&!prefs_error)next_prefs.large^=1;
  if(cmd==S_IME&&!prefs_error)next_prefs.ime=(next_prefs.ime+1)%3;
+ if(cmd==S_OPTIONS){page=2;focus=(KwFocus){.count=8};return;}
+ if(cmd==S_OPTIONS_BACK){page=1;focus=(KwFocus){.count=7,.current=6};return;}
+ if(cmd==S_WALL&&!prefs_error)next_prefs.wallpaper=(next_prefs.wallpaper+1)%KG_WALL_COUNT;
+ if(cmd==S_KEYS&&!prefs_error)next_prefs.keyboard^=1;
+ if(cmd==S_SPEED&&!prefs_error)next_prefs.mouse=(next_prefs.mouse+1)%3;
+ if(cmd==S_DATE&&!prefs_error)next_prefs.date=(next_prefs.date+1)%3;
+ if(cmd==S_TIME&&!prefs_error)next_prefs.time^=1;
+ if(cmd==S_START&&!prefs_error)next_prefs.startup=(next_prefs.startup+1)%KG_APP_COUNT;
  if(cmd==S_APPLY&&!prefs_error&&preferences_dirty()){
   int e=kg_preferences_save(&next_prefs,&prefs_revision);
   if(e>=0){prefs=next_prefs;prefs_error=kg_preferences_load(&prefs,&prefs_revision);kg_preferences_changed();}
+  kg_notify(e<0?KG_NOTICE_SAVE_FAILED:KG_NOTICE_SAVED);
   status=e>=0?"Preferences saved / IME for new apps":e==-116?"Desktop preferences changed / reload":"Preference save failed / original kept";
  }
  if(cmd==S_BACK){page=0;focus=(KwFocus){.count=11,.current=10};status="Changes take effect after reboot";}
@@ -105,7 +141,8 @@ static int draw(void){
  unsigned w=kg_width(),h=kg_height(),dirty=modified();
  char label[32];
  kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
- if(page)draw_preferences(w);
+ if(page==2)draw_options(w);
+ else if(page)draw_preferences(w);
  else {
  kg_label(8,8,"Boot settings / A:",0x20344a);
  kw_draw_button((KwRect){(int)w-180,0,172,28},S_PREFS,KU("Desktop preferences"),KW_SECONDARY,focus.current==10?KW_FOCUSED:0);
@@ -115,8 +152,8 @@ static int draw(void){
  button(8,70,40,S_LESS,"-",boot[0].error||next.files<=20,0);
  button(52,70,40,S_MORE,"+",boot[0].error||next.files>=60,0);
  k32_snprintf(label,sizeof label,"FILES=%u",next.files);
- if(kg_large_text()&&half>=94+16*k32_len(label))kg_text_double(100,72,label,0x20344a);
- else kg_text(100,80,label,0x20344a);
+ if(kg_large_text()&&half>=94+16*k32_len(label)&&h>=216)kg_text_double(100,72,label,0x20344a);
+ else kg_text(100,h<216?68:80,label,0x20344a);
  k32_snprintf(label,sizeof label,"BUFFERS=%u",next.buffers);button(18+half,70,half,S_BUFFERS,label,boot[0].error,0);
  button(8,110,half,S_FD98,next.fd98?"FD98 startup on":"FD98 startup off",boot[1].error,0);
  button(18+half,110,half,S_AUTO,"Apply AUTOEXEC",boot[1].error||!(dirty&2),1);
@@ -124,7 +161,7 @@ static int draw(void){
  int quarter=(half-6)/2;
  button(18+half,150,quarter,S_RELOAD,"Reload",0,0);
  button(24+half+quarter,150,quarter,S_CLOSE,"Close",0,0);
- kw_label(8,194,status,(w-16)/8,0x20344a);
+ if(h>=210)kw_label(8,194,status,(w-16)/8,0x20344a);
  }
  if(dialog){
   kg_begin();kg_rect(0,0,w,h,0xb4c2d0);
@@ -177,13 +214,13 @@ int main(void){
     }
    }else if(!kw_focus(&focus,&e)){
     if(page){
-     if(e.type==KG_KEY&&e.key==13)cmd=preference_order[focus.current];
-     if(e.type==KG_KEY&&e.key==27)cmd=S_BACK;
-     for(unsigned i=0;i<focus.count;i++)if(preference_order[i]==cmd){focus.current=i;preference_command(cmd);break;}
+     if(e.type==KG_KEY&&e.key==13)cmd=page_order()[focus.current];
+     if(e.type==KG_KEY&&e.key==27)cmd=page==2?S_OPTIONS_BACK:S_BACK;
+     for(unsigned i=0;i<focus.count;i++)if(page_order()[i]==cmd){focus.current=i;preference_command(cmd);break;}
     }else {
     if(e.type==KG_KEY&&e.key==13)cmd=focus.current==10?S_PREFS:S_XMS+focus.current;
     if(cmd==S_PREFS||(e.type==KG_KEY&&(e.key=='p'||e.key=='P'))){
-     page=1;focus=(KwFocus){.count=6};status="Choose display, input, and language";
+     page=1;focus=(KwFocus){.count=7};status="Choose display, input, and language";
     }
     if(e.type==KG_KEY&&e.key==27)cmd=S_CLOSE;
     if(cmd>=S_XMS&&cmd<=S_CLOSE){focus.current=cmd-S_XMS;closed=command(cmd);}

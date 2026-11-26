@@ -51,9 +51,16 @@ int main(void){
  assert(kg_policy(&client,&request,7,&serial,640,400)==-16);request.operation=KG_EDIT_STATUS;assert(kg_policy(&client,&request,7,&serial,640,400)==-11);
  client.edit_pending=0;client.edit_result=-16;assert(kg_policy(&client,&request,7,&serial,640,400)==-16);
  client.edit_pending=1;
+ request.operation=KG_IME_REPORT;request.count=KG_IME_ROMAJI|KG_IME_COMPOSING;
+ assert(kg_request_bytes(request.operation)==KG_REQUEST_HEADER);
+ assert(kg_policy(&client,&request,8,&serial,640,400)==-116&&!client.ime);
+ assert(!kg_policy(&client,&request,7,&serial,640,400)&&client.ime==request.count);
+ request.count=KG_IME_COMPOSING;assert(kg_validate(&request,344,200)==-22);
+ request.operation=KG_NOTIFY;request.count=KG_NOTICE_CANCELLED+1;assert(kg_validate(&request,344,200)==-22);
+ request.count=KG_NOTICE_COPIED;assert(!kg_policy(&client,&request,7,&serial,640,400));
  request.operation=KG_CLOSE;assert(!kg_policy(&client,&request,7,&serial,640,400));assert(!client.token&&!client.count&&!client.edit_pending);
  request.operation=KG_POLL;assert(kg_policy(&client,&request,7,&serial,640,400)==-116);
- open_window();assert(kg_policy(&client,&request,8,&serial,800,600)==2);assert(client.generation==8&&request.token==2);
+ open_window();assert(kg_policy(&client,&request,8,&serial,800,600)==2);assert(client.generation==8&&request.token==2&&!client.ime);
  request=(KgRequest){.version=1,.size=sizeof request,.operation=KG_SUBSCRIBE,.token=2,.count=KG_CAP_SUPPORTED};
  assert(!kg_policy(&client,&request,8,&serial,800,600));client.count=client.head=0;
  e=(KgEvent){.type=KG_KEY,.key=259,.control=KG_MOD_SHIFT};kg_enqueue(&client,&e);assert(client.event[0].control==KG_MOD_SHIFT);

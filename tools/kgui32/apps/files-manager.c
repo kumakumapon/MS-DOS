@@ -31,7 +31,7 @@ static struct {
  char relative[FILE_LIMIT][K32_FS_PATH];
  unsigned char folders[FILE_LIMIT];
 } tree;
-static unsigned reader,remaining,opening;
+static unsigned reader,remaining,copy_bytes,opening;
 static K32Io writer;
 static unsigned char block[4096];
 static char preview_name[13];
@@ -249,6 +249,7 @@ static void finish_folder(int error){
   K32Fs r=k32_fs_request(K32_FS_TREE_CANCEL,0,0);k32_fs(&r);
   tree.phase=0;
  }
+ kg_notify(error==-125?KG_NOTICE_CANCELLED:error?KG_NOTICE_COPY_FAILED:KG_NOTICE_COPIED);
  status=error==-125?"Cancelled / TMP folder kept":error?"Folder incomplete / TMP kept":"Folder operation complete";
  refresh();
 }
@@ -256,6 +257,7 @@ static int copy_finished(int error){
  if(tree.phase){
   if(error)finish_folder(error);else tree.item++;
  }else {
+  kg_notify(error==-125?KG_NOTICE_CANCELLED:error?KG_NOTICE_COPY_FAILED:KG_NOTICE_COPIED);
   status=error?error_text(error):"Copied";refresh();
  }
  return 1;
@@ -272,14 +274,14 @@ static int copy_step(void){
 static int copy_start(const char *source,const char *dest,unsigned operation){
  K32Fs from=k32_fs_request(K32_FS_OPEN,source,0),to=k32_fs_request(operation,dest,0);
  int e=k32_fs(&from);if(e)return e;
- reader=from.token;remaining=from.length;
+ reader=from.token;remaining=copy_bytes=from.length;
  e=k32_fs(&to);
  if(e){k32_io_close(reader);reader=0;return e;}
  writer=k32_io_name(K32_IO_WRITE,0);writer.token=to.token;return 0;
 }
 static void start_folder(const char *dest,unsigned move){
  K32Fs r=k32_fs_request(K32_FS_TREE_BEGIN,selected,dest);r.flags=move;
- int e=k32_fs(&r);if(e){status=error_text(e);return;}
+ int e=k32_fs(&r);if(e){kg_notify(KG_NOTICE_COPY_FAILED);status=error_text(e);return;}
  tree.phase=1;tree.count=tree.item=1;tree.scan=tree.cursor=tree.bytes=0;
  tree.move=move;copy_text(tree.destination,dest,sizeof tree.destination);
  tree.relative[0][0]=0;tree.folders[0]=1;status="Scanning folder / Esc cancels";
@@ -370,7 +372,7 @@ static void execute(void){
  }else copy_text(dest,target.text,sizeof dest);
  if(op==FM_COPY){
   if(selected_dir)start_folder(dest,0);
-  else {int e=copy_start(selected,dest,K32_FS_CREATE);status=e?error_text(e):"Copying / Esc cancels";}
+  else {int e=copy_start(selected,dest,K32_FS_CREATE);if(e)kg_notify(KG_NOTICE_COPY_FAILED);status=e?error_text(e):"Copying / Esc cancels";}
   return;
  }
  K32Fs r=op==FM_FOLDER?k32_fs_request(K32_FS_MKDIR,dest,""):k32_fs_request(K32_FS_MOVE,selected,dest);
@@ -448,6 +450,10 @@ static const unsigned controls[]={0,FM_NAME,FM_SIZE,FM_DATE,FM_KIND,FM_UP,FM_TRA
 #define FILE_LIST_Y 66
 static KwRect list_rect(void){return (KwRect){8,FILE_LIST_Y,(int)kg_width()-38,(int)(list.rows*list.line_height)};}
 int files_manager_event(const KgEvent *e){
+ if(preview_fd){
+  if(kw_progress_cancel(e,FM_CANCEL)||kw_button(FM_BACK,e)){close_preview();kg_notify(KG_NOTICE_CANCELLED);}
+  return 1;
+ }
  if(preview_type){
   unsigned key=e->type==KG_KEY?e->key:0;
   if(kw_button(FM_BACK,e)||(key==27&&!preview_search)||(key==8&&!preview_search)){close_preview();status=0;return 1;}
@@ -467,7 +473,7 @@ int files_manager_event(const KgEvent *e){
   return 1;
  }
  if(reader||tree.phase){
-  if(kw_button(FM_CANCEL,e)||(e->type==KG_KEY&&e->key==27))copy_finished(reader?finish_copy(-125,0):-125);
+  if(kw_progress_cancel(e,FM_CANCEL))copy_finished(reader?finish_copy(-125,0):-125);
   return 1;
  }
  if(action){
@@ -534,7 +540,7 @@ static void modal(unsigned w,unsigned h){
 static void digits(char *out,unsigned n,unsigned width){
  while(width){out[--width]='0'+n%10;n/=10;}
 }
-static void row(const K32DirEntry *d,unsigned y,unsigned w,int active){
+static void row(const K32DirEntry *d,unsigned y,unsigned w,int active,unsigned format){
  char line[48],num[12];
  if(kg_large_text()){
   if(d->attributes&16)k32_snprintf(line,sizeof line,"%s /",d->name);
@@ -546,10 +552,17 @@ static void row(const K32DirEntry *d,unsigned y,unsigned w,int active){
  if(d->attributes&16)k32_memcpy(line+13,KU("Folder"),k32_len(KU("Folder")));
  else {k32_snprintf(num,sizeof num,"%u",d->bytes);k32_memcpy(line+13,num,k32_len(num));}
  char *date=line+25;
- digits(date,1980+(d->date>>9),4);date[4]='-';
- digits(date+5,(d->date>>5)&15,2);date[7]='-';digits(date+8,d->date&31,2);
+ unsigned year=1980+(d->date>>9),month=(d->date>>5)&15,day=d->date&31;
+ if((format&3)==2){
+  digits(date,day,2);date[2]='/';digits(date+3,month,2);date[5]='/';digits(date+6,year,4);
+ }else{
+  digits(date,year,4);date[4]=date[7]=(format&3)?'/':'-';
+  digits(date+5,month,2);digits(date+8,day,2);
+ }
  if(w>=468){
-  digits(date+11,d->time>>11,2);date[13]=':';digits(date+14,(d->time>>5)&63,2);
+  unsigned hour=d->time>>11;
+  if(format&4){date[16]=hour>=12?'P':'A';hour%=12;if(!hour)hour=12;}
+  digits(date+11,hour,2);date[13]=':';digits(date+14,(d->time>>5)&63,2);
   const char *ext=find_char(d->name,'.'),*kind=d->attributes&16?KU("Folder"):ext?ext+1:KU("File");
   k32_memcpy(line+42,kind,k32_len(kind)>5?5:k32_len(kind));
  }
@@ -558,6 +571,10 @@ static void row(const K32DirEntry *d,unsigned y,unsigned w,int active){
 static void draw_preview(unsigned w,unsigned h){
  kw_readable(8,4,preview_name,w-16,0x20344a);
  int bottom=h-58;
+ if(preview_fd){
+  kw_draw_progress((KwRect){8,48,(int)w-16,36},KU("Reading TXT preview"),preview_loaded,preview_bytes,FM_CANCEL);
+  return;
+ }
  kg_rect(8,38,w-16,bottom-40,0xffffff);
  if(preview_type==2){
   unsigned width=preview_bitmap.width,height=preview_bitmap.height;
@@ -619,7 +636,20 @@ int files_manager_draw(void){
  unsigned w=kg_width(),h=kg_height();int bottom=(int)h-93;
  if(w<468&&focus.current==KIND_FOCUS)focus.current=DATE_FOCUS;
  kg_menu_enable(0);kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
- if(preview_type)draw_preview(w,h);
+ if(reader||tree.phase){
+  char label[44];
+  unsigned done=copy_bytes-remaining,total=copy_bytes;
+  if(tree.phase==1){
+   done=tree.scan;total=0;
+   k32_snprintf(label,sizeof label,"%s %u",KU("Scanning folder"),tree.count);
+  }else if(tree.phase==2){
+   unsigned fraction=reader&&copy_bytes?done*64u/copy_bytes:0;
+   done=(tree.item-1)*64+fraction;total=(tree.count-1)*64;
+   k32_snprintf(label,sizeof label,"%s %u/%u",KU("Copying folder"),tree.item-1,tree.count-1);
+  }else k32_snprintf(label,sizeof label,"%s %u/%u KB",KU("Copying file"),done/1024,(total+1023)/1024);
+  kw_draw_progress((KwRect){8,bottom,(int)w-16,36},label,done,total,FM_CANCEL);
+ }
+ else if(preview_type)draw_preview(w,h);
  else if(action)modal(w,h);
  else if(drive_panel)draw_drives(w);
  else {
@@ -638,15 +668,15 @@ int files_manager_draw(void){
   KwRect area=list_rect();
   kg_rect(area.x,area.y,area.w,area.h,0xffffff);
   scroll=(KwScroll){.r={(int)w-28,top,20,area.h},.top=list.top,.rows=list.rows,.total=list.count,.dragging=scroll.dragging,.offset=scroll.offset};
+  int format=kg_ui_format();
   for(unsigned i=0;i<list.rows&&list.top+i<list.count;i++){
    unsigned y=top+i*list.line_height,at=list.top+i;
    int active=list.selected==at;
    if(active)kg_rect(8,y,area.w,list.line_height,0x3270a2);
-   row(&entries[at],y,w,active);
+   row(&entries[at],y,w,active,format<0?0:(unsigned)format);
   }
   kw_draw_scroll(&scroll);
-  if(reader||tree.phase)button((KwRect){8,bottom,110,36},FM_CANCEL,"Cancel",BACK_FOCUS,KW_SECONDARY);
-  else {
+  {
    static const unsigned top_ids[]={FM_UP,FM_TRASH,FM_OPEN,FM_REFRESH,FM_BACK};
    static const unsigned low_ids[]={FM_FOLDER,FM_COPY,FM_MOVE,FM_RENAME,FM_DELETE};
    const char *top_labels[]={"Up",trash?"Work":"Trash","Open","Refresh","Back"};

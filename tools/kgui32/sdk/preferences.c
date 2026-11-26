@@ -19,19 +19,21 @@ int kg_state_read(const char *name,void *data,unsigned size,K32Revision *revisio
  *revision=(K32Revision){1,size,digest};return 0;
 }
 static int valid(const KgPreferences *p){
- return p->language<=1&&p->theme<=KG_THEME_CONTRAST&&p->ime<=KI_KANA&&p->large<=1;
+ return p->language<=1&&p->theme<=KG_THEME_CONTRAST&&p->ime<=KI_KANA&&p->large<=1&&
+  p->wallpaper<KG_WALL_COUNT&&p->keyboard<=1&&p->mouse<=2&&p->date<=2&&p->time<=1&&p->startup<KG_APP_COUNT;
 }
 int kg_preferences_load(KgPreferences *out,K32Revision *revision){
  PreferencesFile file={0};
  int e=kg_state_read(KG_PREFERENCES_FILE,&file,sizeof file,revision);
- unsigned version=2;
- if(e==-22){version=1;e=kg_state_read(KG_PREFERENCES_FILE,&file,sizeof file-4,revision);}
+ unsigned version=3;
+ if(e==-22){version=2;e=kg_state_read(KG_PREFERENCES_FILE,&file,24,revision);}
+ if(e==-22){version=1;e=kg_state_read(KG_PREFERENCES_FILE,&file,20,revision);}
  if(e||!revision->exists)return e;
  if(file.magic!=PREFS_MAGIC||file.version!=version||!valid(&file.values))return -22;
  *out=file.values;return 0;
 }
 int kg_preferences_save(const KgPreferences *prefs,const K32Revision *revision){
  if(!valid(prefs))return -22;
- PreferencesFile file={PREFS_MAGIC,2,*prefs};
+ PreferencesFile file={PREFS_MAGIC,3,*prefs};
  return k32_io_save(KG_PREFERENCES_FILE,&file,sizeof file,revision);
 }

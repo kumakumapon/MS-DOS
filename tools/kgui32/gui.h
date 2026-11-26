@@ -1,7 +1,7 @@
 #ifndef KGUI32_PROTOCOL_H
 #define KGUI32_PROTOCOL_H
 #include "../k38632/elf.h"
-enum {GUI_INFO=64,GUI_EVENT,GUI_PRESENT,GUI_FONT,GUI_PROOF,GUI_SESSION,GUI_SNAPSHOT,GUI_CLIENT_VIEW,GUI_CLIENT_EVENT,GUI_SURFACE_ACK,GUI_LANGUAGE,GUI_VIDEO_READ,GUI_PREFERENCES_REV,GUI_IMAGE_CLIP,GUI_REBOOT,GUI_DESKTOP_CLOCK,GUI_DISK_ACTIVITY};
+enum {GUI_INFO=64,GUI_EVENT,GUI_PRESENT,GUI_FONT,GUI_PROOF,GUI_SESSION,GUI_SNAPSHOT,GUI_CLIENT_VIEW,GUI_CLIENT_EVENT,GUI_SURFACE_ACK,GUI_LANGUAGE,GUI_VIDEO_READ,GUI_PREFERENCES_REV,GUI_IMAGE_CLIP,GUI_REBOOT,GUI_DESKTOP_CLOCK,GUI_DISK_ACTIVITY,GUI_OPTIONS,GUI_STATUS,GUI_NOTICE,GUI_TICKS,GUI_PERFORMANCE};
 enum {GS_CREATE=1,GS_END,GS_PAUSE,GS_RESUME,GS_KEY,GS_RESTART,GS_FOCUS=8};
 typedef struct {u32 version,size,slot,generation,operation,key;char path[128];} GuiSessionCommand;
 typedef struct {
@@ -31,6 +31,14 @@ typedef struct {u32 pixels,x,y,width,height,pitch;} GuiPresent;
  * 1520-byte ASCII table. Only the dedicated desktop can request CG-ROM data. */
 typedef struct {u32 version,size,code,columns;u8 bitmap[32];} GuiGlyph;
 _Static_assert(sizeof(GuiGlyph)==48,"CG-ROM glyph ABI");
+#define GUI_HOST_TAG 0x314c4f56u /* VOL1: host volume byte, then absolute mouse flag */
+typedef struct {u32 date,minutes,free_kib,volume;} GuiStatus;
+typedef struct {u32 elapsed,pixels,input,has_input;} GuiPaintSample;
+typedef struct {
+ char signature[8];u32 version,size,owner,cookie,hz,ready;
+ u32 startup,frames,paint_last,paint_max,pixels_last,pixels_total,input_count,input_last,input_max;
+} GuiPerformance;
+_Static_assert(sizeof(GuiPerformance)==68,"performance debugger ABI");
 /* Debugger producer, not an application interface. busy/ready guard the native
  * record. CPU samples are produced by actual protected execution. */
 typedef struct {
@@ -42,5 +50,5 @@ typedef struct {
 } GuiDriverRecord;
 _Static_assert(sizeof(GuiInfo)==96,"GUI info ABI");
 _Static_assert(sizeof(GuiEvent)==48,"GUI event ABI");
-_Static_assert(sizeof(GuiDriverRecord)==256,"GUI debugger ABI");
+_Static_assert(sizeof(GuiDriverRecord)==256&&__builtin_offsetof(GuiDriverRecord,reserved[24])==248,"GUI debugger ABI");
 #endif

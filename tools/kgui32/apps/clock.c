@@ -19,9 +19,11 @@ static int draw(unsigned seconds){
  if(watch){seconds=stopwatch.elapsed;hour=seconds/3600;}
  else if(clock_stats.mode){hour%=12;if(!hour)hour=12;}
  two(text,hour);two(text+3,seconds/60%60);two(text+6,seconds%60);
+ if(!watch&&clock_stats.mode){text[8]=' ';text[9]=seconds/3600>=12?'P':'A';text[10]='M';}
+ unsigned cells=!watch&&clock_stats.mode?11:8;
  kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_rect(12,12,w-24,48,0x182c46);
- if(kg_large_text())kg_text_double((w-128)/2,20,text,0xffffff);
- else kg_text((w-64)/2,28,text,0xffffff);
+ if(kg_large_text())kg_text_double((w-16*cells)/2,20,text,0xffffff);
+ else kg_text((w-8*cells)/2,28,text,0xffffff);
  kg_label(20,72,watch?(stopwatch.running?"Stopwatch / running":"Stopwatch / stopped"):"PC-98 / DOS wall clock",0x263e58);
  kw_draw_button((KwRect){(int)w-100,68,80,28},'w',KU(watch?"Clock":"Watch"),KW_SECONDARY,focus.current==0?KW_FOCUSED:0);
  kw_draw_button((KwRect){20,104,132,28},watch?'s':'t',KU(watch?(stopwatch.running?"Stop":"Start"):clock_stats.mode?"24-hour":"12-hour"),KW_SECONDARY,focus.current==1?KW_FOCUSED:0);
@@ -35,7 +37,7 @@ int main(int argc,char **argv){
  focus.count=3;
  kg_menu(app_menu,sizeof app_menu/sizeof *app_menu);
  kg_menu_labels(ku_labels,sizeof ku_labels/sizeof *ku_labels);
- int token=kg_open("Clock",328,160);if(token<0){clock_stats.error=-token;return 1;}clock_stats.token=token;unsigned previous=~0u;
+ int token=kg_open("Clock",328,160);if(token<0){clock_stats.error=-token;return 1;}clock_stats.token=token;unsigned previous=~0u;int system_time=-1;
  kg_subscribe(KG_INPUT_TAB|KG_INPUT_MODIFIERS);
  for(;;){
   KgEvent event;int got=kg_poll(&event);if(got<0){clock_stats.error=-got;return 2;}clock_stats.heartbeat++;
@@ -55,6 +57,10 @@ int main(int argc,char **argv){
   if(k=='w'||k=='W'){watch^=1;focus.count=watch?4:3;focus.current=0;dirty=1;}
   if(k=='s'||k=='S'){stopwatch.running^=1;watch=1;focus.count=4;dirty=1;}
   if(k=='r'||k=='R'){stopwatch.elapsed=0;dirty=1;}
+  if(previous!=event.seconds){
+   int format=kg_ui_format();
+   if(format>=0&&((format>>2)&1)!=system_time){system_time=(format>>2)&1;clock_stats.mode=system_time;}
+  }
   if(previous!=event.seconds||dirty){previous=event.seconds;int e=draw(previous);if(e==-22)previous=~0u;else if(e<0)return 3;}
   if(argc>1&&same(argv[1],"fault"))*(volatile unsigned *)0x10000=1;
   k32_wait(K32_WAIT_TIME,100);

@@ -39,7 +39,23 @@ static unsigned event_head, event_count;
 static int graphics_active;static u16 keys[128];
 static unsigned key_head, key_count;
 #ifdef KGUI32_DRIVER
-static u8 key_mods[128],last_key_mods;
+extern unsigned p_key_scan;
+static u8 key_mods[128],last_key_mods,last_key_scan;
+static unsigned mouse_speed;
+static const volatile u8 *absolute_flag;
+void mouse_absolute_flag(const volatile u8 *flag){absolute_flag=flag;}
+static int remainder_x,remainder_y;
+unsigned key_scan(void){return last_key_scan;}
+void mouse_speed_set(unsigned speed){
+ if(speed!=mouse_speed){mouse_speed=speed;remainder_x=remainder_y=0;}
+}
+static int scaled_delta(int delta,int *remainder){
+ if(mouse_speed==2)return delta*2;
+ if(!mouse_speed)return delta;
+ delta+=*remainder;
+ *remainder=delta%2;
+ return delta/2;
+}
 static unsigned bios_modifiers(void){unsigned a=0x0200;__asm__ volatile("int $0x18":"+a"(a)::"ebx","ecx","edx","cc","memory");return ((a&1)?1u:0u)|((a&16)?2u:0u)|((a&8)?4u:0u);}
 #endif
 #ifdef KGUI32_DRIVER
@@ -456,7 +472,16 @@ static Mouse read_raw(void) {
     out(0x7fdd, 0xd0); u8 y = in(0x7fd9) & 15;
     out(0x7fdd, 0xf0); y |= (in(0x7fd9) & 15) << 4;
     out(0x7fdd, 0x10);
+#ifdef KGUI32_DRIVER
+    if(absolute_flag&&*absolute_flag==1){
+        mouse.x+=(signed char)x;mouse.y+=(signed char)y;
+    }else{
+        mouse.x+=scaled_delta((signed char)x,&remainder_x);
+        mouse.y+=scaled_delta((signed char)y,&remainder_y);
+    }
+#else
     mouse.x += (signed char)x; mouse.y += (signed char)y;
+#endif
     if (mouse.x < 0) mouse.x = 0;
     if (mouse.x >= gfx_width()) mouse.x = gfx_width()-1;
     if (mouse.y < 0) mouse.y = 0;
@@ -468,10 +493,15 @@ static void mouse_pump(void) {
     /* Paints take longer than a BIOS key-buffer slot. Collect input while
      * drawing, then let the desktop apply a batch before its next repaint. */
     if (graphics_active) while (key_count < 128 && bios_key_ready()) {
-        #ifdef KGUI32_DRIVER
-        key_mods[(key_head + key_count) & 127] = bios_modifiers();
+        unsigned at=(key_head+key_count)&127;
+#ifdef KGUI32_DRIVER
+        key_mods[at]=bios_modifiers();
 #endif
-        keys[(key_head + key_count) & 127] = p_key(); key_count++;
+        keys[at]=p_key();key_count++;
+#ifdef KGUI32_DRIVER
+        /* Native key codes fit in nine bits; keep the physical make code with them. */
+        keys[at]|=(p_key_scan&127)<<9;
+#endif
     }
     if (!mouse_active) return;
     int previous = mouse.buttons;
@@ -507,14 +537,16 @@ int key_read(void) {
     if (!key_count) {
 #ifdef KGUI32_DRIVER
         last_key_mods=bios_modifiers();
-#endif
+        int key=p_key();last_key_scan=p_key_scan;return key;
+#else
         return p_key();
+#endif
     }
 #ifdef KGUI32_DRIVER
-    last_key_mods=key_mods[key_head];
+    last_key_mods=key_mods[key_head];last_key_scan=keys[key_head]>>9;
 #endif
     int result = keys[key_head]; key_head = (key_head + 1) & 127; key_count--;
-    return result;
+    return result&511;
 }
 u32 input_ticks(void) {
     /* The PC-98 ARTIC counter advances at 307200 Hz and wraps at 24 bits.

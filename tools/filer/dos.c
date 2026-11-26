@@ -240,12 +240,16 @@ void p_finish(void) {
     __asm__ volatile("int $0x10" : "+a"(a) :: "cc", "memory");
 #endif
 }
+#ifdef K32_GUI
+unsigned p_key_scan;
+#endif
 int p_key(void) {
     unsigned a = 0;
 #ifdef PC98
     __asm__ volatile("int $0x18" : "+a"(a) :: "ebx", "cc", "memory");
     unsigned scan = (a >> 8) & 255;
 #ifdef K32_GUI
+    p_key_scan=scan;
     if (scan == 0x0f) return 9; /* PC-98 Tab also under GRPH or Shift */
 #endif
     if (scan >= 0x62 && scan <= 0x6b) return KEY_F1 + (int)scan - 0x62;

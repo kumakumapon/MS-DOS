@@ -16,6 +16,9 @@ int kg_close(void);
 int kg_date(unsigned *,unsigned *,unsigned *);
 int kg_capabilities(void);
 int kg_preferences_changed(void);
+int kg_ui_format(void);
+int kg_notify(unsigned notice);
+void kg_ime_report(unsigned scheme,unsigned composing,unsigned candidates);
 int kg_subscribe(unsigned);
 /* Images are opaque, row-major RGB565 with up to 128 pixels per side.
  * Read into scratch and use the result only after all chunks succeed. */

@@ -5,7 +5,7 @@
 typedef struct {
  u32 generation,token,revision,width,height,head,count,received,dropped,input_flags,cancelled;
  char title[32];KgEvent event[KG_EVENTS];
- u32 edit_pending,edit_namespace;int edit_result;char edit_name[13];KgSurface surface,extra_surface;
+ u32 edit_pending,edit_namespace;int edit_result;char edit_name[13];u8 ime;KgSurface surface,extra_surface;
 } KgClient;
 #define KG_CLIENT_META 3200u
 #define KG_CLIENT_COMMAND 3968u
