@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: kumakumapon/webnp2
-          ref: f4b39f73972b620444c079206dc9e4085804a843
+          ref: b5234437f27bd1377d050150da075b68cb5d632e
           path: webnp2
           fetch-depth: 0
       - name: Require the pinned emulator to remain on master history
