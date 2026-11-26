@@ -810,8 +810,8 @@ static void draw_desktop_status(void){
  text(96,16,label,color(7));
  if(desktop_status.free_kib!=~0u){
   two_digits(label,desktop_status.free_kib/1024);label[2]='M';label[3]=0;
-  text(176,16,desktop_status.free_kib<10240?label+1:label,color(9));
- }else text(176,16,"--",color(9));
+  text(184,16,desktop_status.free_kib<10240?label+1:label,color(9));
+ }else text(184,16,"--",color(9));
  if(desktop_status.volume==100)text(208,16,"Vol 100%",color(7));
  else if(desktop_status.volume!=~0u){
   two_digits(label,desktop_status.volume);label[2]='%';label[3]=0;

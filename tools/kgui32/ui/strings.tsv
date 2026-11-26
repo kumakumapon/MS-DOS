@@ -531,4 +531,5 @@ Scanning folder	フォルダを確認中
 Copying folder	フォルダをコピー中
 Copying file	ファイルをコピー中
 Reading BMP	BMPを読み込み中
-Read cancelled / image kept	読込中止／画像保持
+Transfer cancelled / image kept	処理中止／画像保持
+Saving BMP	BMPを保存中
