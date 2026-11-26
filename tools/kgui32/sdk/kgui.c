@@ -33,7 +33,8 @@ int kg_present(void){if(menu.open)km_draw(&menu);return call(KG_FRAME);}
 int kg_poll(KgEvent *e){int n=call(KG_POLL);if(n>=0){
  *e=request.event;width=request.width;height=request.height;
  unsigned language=!!(e->control&KG_LANGUAGE_JA),large=!!(e->control&KG_LARGE_TEXT);e->control&=~(KG_LANGUAGE_JA|KG_LARGE_TEXT);
- if(large!=large_text){large_text=large;language_dirty=1;}
+ if(large!=large_text){large_text=menu.large=large;language_dirty=1;}
+ if(menu.open)km_layout(&menu,height);
  if(language!=ku_language){ku_language=language;language_dirty=1;}
  if(!n&&language_dirty){language_dirty=0;*e=(KgEvent){.type=KG_RESIZE,.width=width,.height=height,.seconds=e->seconds};return 1;}
  if(n){unsigned was=menu.open;int handled=km_event(&menu,e,height);
@@ -53,7 +54,7 @@ int kg_date(unsigned *year,unsigned *month,unsigned *day){
 }
 int kg_preferences_changed(void){return call(KG_PREFERENCES_CHANGED);}
 int kg_capabilities(void){return call(KG_CAPABILITIES);}
-int kg_subscribe(unsigned flags){input_flags=flags;request.count=flags|KG_INPUT_LANGUAGE|(menu.count?KG_INPUT_MENU:0)|(menu.open?KG_INPUT_TAB:0);int e=call(KG_SUBSCRIBE);if(e==-22){request.count=flags;e=call(KG_SUBSCRIBE);}return e;}
+int kg_subscribe(unsigned flags){input_flags=flags;request.count=flags|KG_INPUT_LANGUAGE|(menu.count?KG_INPUT_MENU:0)|(menu.open?KG_INPUT_TAB|KG_INPUT_MODIFIERS:0);int e=call(KG_SUBSCRIBE);if(e==-22){request.count=flags;e=call(KG_SUBSCRIBE);}return e;}
 unsigned kg_width(void){return width;}
 unsigned kg_height(void){return height;}
 

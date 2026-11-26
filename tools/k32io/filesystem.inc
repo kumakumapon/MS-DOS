@@ -145,7 +145,7 @@ static int append_path(char out[DOS_PATH],const char *base,const char *relative)
  copy(out,base,n);out[n]='\\';copy(out+n+1,relative,m+1);return 0;
 }
 
-enum { DRIVE_LIST = K32_FS_LIST_TMP_CONTENT+1 };
+enum { DRIVE_LIST = K32_FS_LIST_SYSTEM+1, DRIVE_LIST_SYSTEM };
 /* Only the broker adds .TMP. Callers supply a normal Work path for the
  * stage and a separately validated path relative to that stage. */
 static int preview_path(Owner *o,const K32Fs *r,char path[DOS_PATH],int open){
@@ -171,9 +171,9 @@ static int list_entry(Owner *o,K32Fs *r,char path[DOS_PATH]){
  if(next){if(!r->token||r->token!=o->cursor)return -9;}
  else{
   o->cursor=0;
-  o->list_kind=r->action==K32_FS_DRIVE_LIST?DRIVE_LIST:r->flags;
+  o->list_kind=r->action==K32_FS_DRIVE_LIST?((r->flags&K32_FS_DRIVE_SYSTEM)?DRIVE_LIST_SYSTEM:DRIVE_LIST):r->flags;
   int preview=o->list_kind==K32_FS_LIST_TMP_CONTENT;
-  int e=o->list_kind==DRIVE_LIST?0:preview?preview_path(o,r,path,0):parents(path,o->list_kind==K32_FS_LIST_TRASH,0,1);
+  int e=o->list_kind>=DRIVE_LIST?0:preview?preview_path(o,r,path,0):parents(path,o->list_kind==K32_FS_LIST_TRASH,0,1);
   if(e==-2&&o->list_kind==K32_FS_LIST_TRASH)goto empty;
   if(e)return e;
   unsigned end=path_length(path);
@@ -201,6 +201,8 @@ static int list_entry(Owner *o,K32Fs *r,char path[DOS_PATH]){
    char parent[DOS_PATH],item[DOS_PATH];
    if((d[21]&0x5f)!=0x16||work_path(o,r->path,0,1,parent)||
       append_path(item,parent,name+3)||!is_recycled(item))continue;
+  }else if(o->list_kind==K32_FS_LIST_SYSTEM||o->list_kind==DRIVE_LIST_SYSTEM){
+   if((d[21]&0x48)||(d[21]&0x16)==0x16)continue;
   }else if(d[21]&0x4e)continue;
   r->entry=(K32DirEntry){.version=1,.size=sizeof r->entry,.cursor=o->cursor,.attributes=d[21],
     .time=d[22]|(unsigned)d[23]<<8,.date=d[24]|(unsigned)d[25]<<8,
@@ -335,7 +337,8 @@ static int folder_copy(Owner *o,K32Fs *r){
 
 static int filesystem(Owner *o,K32Fs *r){
  unsigned drive=r->action==K32_FS_DRIVE_LIST||r->action==K32_FS_DRIVE_OPEN;
- unsigned limit=r->action==K32_FS_LIST?K32_FS_LIST_TMP_CONTENT:drive?25:r->action==K32_FS_TREE_BEGIN||r->action==K32_FS_SAVE?1:0;
+ unsigned drive_id=r->flags&~K32_FS_DRIVE_SYSTEM;
+ unsigned limit=r->action==K32_FS_LIST?K32_FS_LIST_SYSTEM:r->action==K32_FS_DRIVE_LIST?(25|K32_FS_DRIVE_SYSTEM):drive?25:r->action==K32_FS_TREE_BEGIN||r->action==K32_FS_SAVE?1:0;
  if(r->version!=1||r->size!=sizeof *r||r->action<K32_FS_LIST||r->action>K32_FS_TMP_OPEN||
     (r->action!=K32_FS_BOOT_WRITE&&r->flags>limit)||
     (r->action!=K32_FS_NEXT&&r->token)||
@@ -343,12 +346,12 @@ static int filesystem(Owner *o,K32Fs *r){
  char path[DOS_PATH]={0},dest[DOS_PATH];
  if(r->action==K32_FS_DRIVES){r->length=1u|(1u<<o->drive);r->flags=o->drive;return 0;}
  if(drive){
-  if(r->flags&&r->flags!=o->drive)return -15;
+  if(drive_id&&drive_id!=o->drive)return -15;
   if(r->action==K32_FS_DRIVE_OPEN&&!r->path[0])return -22;
   if(r->path[0]){
    int e=work_path(o,r->path,0,0,path);if(e)return e;
    unsigned n=path_length(path);for(unsigned i=3;i<=n-5;i++)path[i]=path[i+5];
-   path[0]='A'+r->flags;
+   path[0]='A'+drive_id;
    for(unsigned i=3;path[i];i++)if(path[i]=='\\'){
     path[i]=0;int a=attributes(path);path[i]='\\';
     if(a<0||(a&0x5e)!=16)return -13;
@@ -356,7 +359,7 @@ static int filesystem(Owner *o,K32Fs *r){
    if(r->action==K32_FS_DRIVE_OPEN)return fs_open(o,r,path,2);
    int a=attributes(path);if(a<0)return a;if((a&0x5e)!=16)return -13;
   }else copy(path,"A:\\",4);
-  path[0]='A'+r->flags;
+  path[0]='A'+drive_id;
   return list_entry(o,r,path);
  }
  if(r->action==K32_FS_BOOT_OPEN||r->action==K32_FS_BOOT_WRITE){

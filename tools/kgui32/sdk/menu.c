@@ -1,7 +1,12 @@
 #include "menu.h"
+void km_layout(KmMenu *m,unsigned height){
+ m->rows=height>88?(height-88)/(m->large?KM_LARGE_ROW_HEIGHT:KM_ROW_HEIGHT):1;
+ if(!m->rows)m->rows=1;
+ if(m->rows>8)m->rows=8;
+}
 int km_event(KmMenu *m,KgEvent *e,unsigned height){
  if(!m->items||!m->count||m->count>KM_MAX)return 0;
- m->rows=height>88?(height-88)/KM_ROW_HEIGHT:1;if(!m->rows)m->rows=1;if(m->rows>8)m->rows=8;
+ km_layout(m,height);
  if(e->type==KG_QUIT){m->open=0;return 0;}
  if(e->type==KG_FOCUS&&!e->key){m->open=0;return 0;}
  if(e->type==KG_KEY&&(e->key==KG_MENU_KEY||e->key==280)){m->open=!m->open;m->selected=0;m->keyboard=e->key==280;return 1;}
@@ -17,8 +22,13 @@ int km_event(KmMenu *m,KgEvent *e,unsigned height){
  if(e->type==KG_KEY){
   unsigned k=e->key;
   if(k==13||k==9||k==256||k==257||k==262||k==263)m->keyboard=1;
-  if(k==256)m->selected=m->selected?m->selected-1:m->count-1;
-  if(k==257||k==9)m->selected=(m->selected+1)%m->count;
+  if(k==256||k==257||k==9){
+   unsigned step=k==256||(k==9&&(e->control&KG_MOD_SHIFT))?m->count-1:1;
+   for(unsigned i=0;i<m->count;i++){
+    m->selected=(m->selected+step)%m->count;
+    if(!(m->disabled&(1u<<m->selected)))break;
+   }
+  }
   if(k==262)m->selected=m->selected>m->rows?m->selected-m->rows:0;
   if(k==263)m->selected=m->selected+m->rows<m->count?m->selected+m->rows:m->count-1;
   if(k==13)chosen=m->selected;

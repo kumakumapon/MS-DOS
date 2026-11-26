@@ -163,7 +163,7 @@ static int dispatch(Owner *o,K32Io *r){
   K32Fs fs;copy(&fs,buffer,sizeof fs);
   unsigned action=fs.action,hdd=o->hdd;
   if(action==K32_FS_NEXT)hdd=o->list_hdd;
-  else if(action==K32_FS_DRIVE_LIST||action==K32_FS_DRIVE_OPEN)hdd=hdd&&fs.flags==o->drive;
+  else if(action==K32_FS_DRIVE_LIST||action==K32_FS_DRIVE_OPEN)hdd=hdd&&(fs.flags&~K32_FS_DRIVE_SYSTEM)==o->drive;
   else if(action==K32_FS_BOOT_OPEN||action==K32_FS_BOOT_WRITE)hdd=hdd&&!o->drive;
   int e=filesystem(o,&fs);
   if(action!=K32_FS_DRIVES&&e!=-22&&e!=-9&&e!=-15){

@@ -26,6 +26,10 @@ int main(void){
  send(&m,KG_MOUSE,1,KM_ITEM);assert(m.open);
  send(&m,KG_KEY,13,0);assert(m.open);
  send(&m,KG_MOUSE,1,KM_ITEM+1);assert(!m.open);
+ m.disabled=1u<<23;m.large=1;
+ assert(send(&m,KG_KEY,280,0)==1&&m.rows==1);
+ assert(send(&m,KG_KEY,9,KG_MOD_SHIFT)==1&&m.selected==22);
+ assert(send(&m,KG_KEY,9,0)==1&&m.selected==0);
  unsigned year=1999,month=12;
  assert(calendar_move(&year,&month,1)&&year==2000&&month==1);
  assert(calendar_days(2000,2)==29&&calendar_days(2001,2)==28);

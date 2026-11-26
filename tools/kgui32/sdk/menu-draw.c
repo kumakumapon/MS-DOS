@@ -5,12 +5,12 @@
 #include "ui-menu.h"
 void km_draw(const KmMenu *m){
  unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,DESKTOP_COLOR_SURFACE);
- kg_label(8,10,m->enabled?"App menu":"Finish current dialog",DESKTOP_COLOR_INK);
+ kw_readable(8,4,KU(m->enabled?"App menu":"Finish current dialog"),w-106,DESKTOP_COLOR_INK);
  kg_button(KM_BACK,w-88,2,80,32,"Back");
  if(!m->enabled)return;
- unsigned first=m->selected/m->rows*m->rows;
+ unsigned first=m->selected/m->rows*m->rows,height=m->large?KM_LARGE_ROW_HEIGHT:KM_ROW_HEIGHT;
  for(unsigned i=first;i<m->count&&i<first+m->rows;i++){
-  unsigned y=KM_ROW_HEIGHT+(i-first)*KM_ROW_HEIGHT;
+  unsigned y=KM_ROW_HEIGHT+(i-first)*height;
   char label[48];const char *s=ku_lookup(m->labels,m->label_count,m->items[i].label);
   unsigned offset=0,n=0,cols=(w-24)/8;if(cols>47)cols=47;
   if(m->checked&(1u<<i)){label[0]='[';label[1]='x';label[2]=']';label[3]=' ';offset=4;cols-=4;}
@@ -25,7 +25,7 @@ void km_draw(const KmMenu *m){
   label[offset+n]=0;
   unsigned state=m->disabled&(1u<<i)?KW_DISABLED:0;
   if(m->keyboard&&i==m->selected)state|=KW_FOCUSED;
-  kw_draw_button((KwRect){8,(int)y,(int)w-16,DESKTOP_CONTROL_HEIGHT},KM_ITEM+i,label,
+  kw_draw_button((KwRect){8,(int)y,(int)w-16,height-DESKTOP_SPACE_SMALL},KM_ITEM+i,label,
    i==m->selected?KW_PRIMARY:KW_SECONDARY,state);
  }
  if(first)kg_button(KM_PREV,8,h-36,88,32,"Previous");
