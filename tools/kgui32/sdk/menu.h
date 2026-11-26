@@ -10,8 +10,10 @@
 #define KM_PREV 24609u
 #define KM_NEXT 24610u
 #define KM_ROW_HEIGHT (DESKTOP_CONTROL_HEIGHT + DESKTOP_SPACE_SMALL)
+#define KM_LARGE_ROW_HEIGHT 68u
 typedef struct {const char *label;unsigned type,key,control;} KmItem;
-typedef struct {const KmItem *items;unsigned count,open,enabled,selected,rows;const KuPair *labels;unsigned label_count,disabled,checked,keyboard;} KmMenu;
+typedef struct {const KmItem *items;unsigned count,open,enabled,selected,rows;const KuPair *labels;unsigned label_count,disabled,checked,keyboard,large;} KmMenu;
+void km_layout(KmMenu *,unsigned);
 /* 0: application event, 1: sheet owns event, 2: selected application command. */
 int km_event(KmMenu *,KgEvent *,unsigned);
 void km_draw(const KmMenu *);

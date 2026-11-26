@@ -464,6 +464,30 @@ Recent items could not be saved.	最近使った項目を保存できません�
 Unpin a document before adding another.	文書の固定を1件解除してください
 Read-only preview / TMP may be incomplete	読み取り専用 / TMPは未完了の可能性あり
 Read-only preview	読み取り専用の確認
+Alt+Tab / Enter	Alt+Tab / Enter
+Cirrus 800x600 RGB565	Cirrus 800x600 RGB565
+Ctrl+Tab: DOS controls	Ctrl+Tab: DOS操作
+No matching apps	該当するアプリなし
+PEGC 640x400 indexed	PEGC 640x400 256色
+..	..
+Ctrl F:Find H:Replace T:Recovery / Tools	Ctrl F:検索 H:置換 T:復旧／ツール
+F6: hira / F7: kata / Esc: cancel	F6:ひらがな F7:カタカナ Esc:取消
+Hide system files	システム非表示
+Show system files	システム表示
+Next match	次の一致
+Reading text...	テキストを読込中
+Recover	復旧
+TMP	TMP
+Match found	一致する文字列あり
+Text not found	一致する文字列なし
+Preview limit: 1 MiB	確認の上限: 1 MiB
++	+
+-	-
+Preview	確認
+V	V
+12-hour	12時間制
+24-hour	24時間制
+PC-98 / DOS wall clock	PC-98 / DOSの時刻
 First 4 KiB of text shown	先頭4 KiBを表示
 Forget	除外
 Del: forget selected	Del: 選んだ項目を履歴から除外

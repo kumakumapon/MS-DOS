@@ -12,7 +12,11 @@ through the existing PC-98 CG-ROM path. File names, document/preedit/candidate
 contents and application data are not translated. Technical identifiers and
 labels without a translation retain their English spelling. Per-module tables
 contain only their own labels, avoiding a full dictionary in every executable.
-Generated Japanese draw strings fit the 47-byte client text bound.
+Generated Japanese draw strings fit the 47-byte client text bound. The KGUI32
+build checks literal labels passed to its translation helpers and registered
+application menu items. Add the Japanese label to `ui/strings.tsv` when adding
+one of those strings. An intentionally shared symbol or product name may use
+the same text in both columns.
 
 The additive dedicated-GUI syscall 74 (GUI_LANGUAGE) accepts EBX=0 English or
 1 Japanese, ECX=0. Other values fail. Ordinary applications cannot invoke that

@@ -168,7 +168,7 @@ controls are described in [RECOVERY-SDK.md](RECOVERY-SDK.md).
 - 上部の **Kuma** からシステム情報、設定、DOS、アプリ検索、ウィンドウ切替、DOSへの終了を開けます。検索は Ctrl+K またはメニューから開き、アプリ名や実行ファイル名で絞り込めます。F2 は Welcome を開きます。
 - Alt+Tab で一覧を表示し、Alt を離すと選択したウィンドウへ切り替わります。PC-98のキー名は GRPH+Tab です。同じ一覧をKumaメニューから開いてタップでも切り替えられます。
 - 専用HDDの Work に Welcome／System とアプリごとの位置・大きさ・スナップ状態を保存します。同じアプリを開いたときに画面内へ収めて復元します。ファイルと実行中のアプリの再開はそれぞれのアプリから操作します。
-- Files の **Drives** は Work、A:、認識済みの対応HDDを切り替えます。ドライブ直下は読み取り専用で、ファイル操作はWorkにあります。フォルダのコピーは192項目、1ファイル1 MiB、合計8 MiB、Workから3階層までです。宛先と同じ親にTMPを作り、成功時に公開します。中止・失敗時は原本とTMPを保持します。フォルダの移動は同じ親の中では名前変更を使い、親をまたぐ場合はコピー後に元のフォルダをごみ箱から復元できる状態にします。
+- Files の **Drives** で左のパネルを開き、Work、A:、認識済みの対応HDDを直接選べます。Ctrl+Dでも開けます。「システム表示」で保護項目を一覧に表示できます。パンくずはタップ、またはTabとEnterで上位へ戻れます。ドライブ直下は読み取り専用で、ファイル操作はWorkにあります。フォルダのコピーは192項目、1ファイル1 MiB、合計8 MiB、Workから3階層までです。宛先と同じ親にTMPを作り、成功時に公開します。中止・失敗時は原本とTMPを保持します。フォルダの移動は同じ親の中では名前変更を使い、親をまたぐ場合はコピー後に元のフォルダをごみ箱から復元できる状態にします。
 - EditorとImagesは共通のファイル選択画面を使います。Imagesは Ctrl+O でBMPを開き、Ctrl+Shift+SでWorkへの名前付き保存を選べます。画像の上書き確認と原本保持は引き続き有効です。
 - Settingsの **Desktop preferences** で標準／高コントラスト、日本語／英語、IMEオフ／ローマ字／JISかなを選べます。表示と言語は保存後に適用し、IMEの既定値は次に開くEditorとUser dictionaryが読み込みます。
 
@@ -177,6 +177,7 @@ controls are described in [RECOVERY-SDK.md](RECOVERY-SDK.md).
 - Kumaメニュー（Ctrl+Shift+K）の「最近」でアプリとTXT／BMPを開けます。「固定」または Ctrl+P で文書を先頭に表示できます。固定は4件までです。「除外」またはDeleteで選んだ履歴を消し、文書は媒体に残します。FilesでWorkの文書や親フォルダを移動・改名すると、履歴が新しいパスへ移り、固定を引き継ぎます。対応HDDにアプリ履歴とWorkの最大10件の文書を保存します。読取専用ドライブの文書履歴は起動中に保持します。
 - FD・HDDの表示は、Workや共通ダイアログがDOSのファイルブローカーを使ったときに点灯します。Alt+矢印で配置・最大化・復元、Alt+F4で閉じます。再起動では未保存のアプリを順に確認します。
 - 大きい文字は、ランチャー、Editor本文、共通ダイアログ、Files、Clockの時刻、Calculatorの結果、Calendar、Imagesのファイル名、ユーザー辞書、設定に適用します。Calculator・Clock・Calendar・ユーザー辞書は Tab／Shift+Tab で項目を移動し、Enterで実行できます。Calendarの大きい表示はウィンドウに収まる週を表示し、Page Down または「週を送る」で続きを開きます。
-- Filesの「TMP」からサブフォルダに入り、TXTの先頭4 KiBまたはBMPを読み取り専用で確認できます。確認後に「Recover」で、TMPフォルダ全体を空いている別名へ復旧します。
+- Filesの「TMP」からサブフォルダに入り、最大1 MiBのShift-JIS TXTやBMPを読み取り専用で確認できます。TXTはPage Up／Downでページ送りし、Ctrl+Fまたは「検索」で文字列を探せます。「Recover」でTMPフォルダ全体を空いている別名へ復旧します。
+- 大きい文字はDOS端末のテキスト表示とアプリメニューにも反映します。DOS端末ではCtrl+Tabで操作ボタンにフォーカスし、Tab／Shift+Tabで移動してEnterで実行します。Escで端末の入力に戻れます。アプリメニューでもTab／Shift+Tabで操作項目を移動できます。
 - Imagesの Ctrl+C／Ctrl+V は同じKGUI32セッションで最大128×128のRGB565を共有します。KDESKとの共有では、Imagesの Ctrl+B／Ctrl+J と、KDESK画像ウィンドウの「Share」「Get」を使います。対応HDDの `WORK/KGCLIP.BMP` に最大256×192のRGB565相当の色をBMP24で保持します。PEGCでの表示にはパレットを使います。
 - Editorのメニューまたは Ctrl+Shift+B／Ctrl+Shift+J と、KDESKのText Editorの「Share」「Get」（Ctrl+B／Ctrl+J）で、対応HDDの `WORK/KGTEXT.TXT` にShift-JISの文字列を最大1,024バイト共有できます。KGUI32は選択範囲か文書全体を共有し、KDESKは文書全体を共有します。

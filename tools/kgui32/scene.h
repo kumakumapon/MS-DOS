@@ -24,7 +24,7 @@ typedef struct {
  unsigned notice,notice_click;
  unsigned shell_page,shell_selected,shell_top,shell_length,shell_swallow,shell_alt;
  char shell_query[28];
- unsigned app_pins,document_index,history_dirty;
+ unsigned app_pins,document_index,history_dirty,terminal_focus;
  ShellHistory history;
 } Scene;
 enum {ACT_NONE,ACT_EXIT,ACT_START,ACT_STOP,ACT_NEW,ACT_RUN,ACT_KEY,ACT_END,ACT_PAUSE,ACT_RESUME,ACT_RESTART,ACT_SCROLL,ACT_CALCULATOR,ACT_CLOCK,ACT_SHELL,ACT_FILES,ACT_EDITOR,ACT_IMAGE,ACT_WORDS,ACT_SHELL32,ACT_CALENDAR,ACT_SETTINGS,ACT_MEMO,ACT_NOTICE_INPUT,ACT_REBOOT,ACT_OPEN_RECENT,ACT_PIN_CHANGED,ACT_HISTORY_CHANGED};

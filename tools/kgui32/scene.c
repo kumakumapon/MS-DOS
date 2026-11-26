@@ -77,17 +77,27 @@ void scene_slots(Scene *s,unsigned n){
 }
 void scene_focus(Scene *s,int id){
  if(s->active==id&&s->window[id].open&&!s->window[id].hidden)return;
+ s->terminal_focus=0;
  for(int i=0;i<s->slots+2;i++)if(s->window[i].open&&!s->window[i].hidden)scene_damage(s,covered(&s->window[i]));
  for(int i=0;i<s->slots+1;i++)if(s->order[i]==id){for(int j=i;j<s->slots+1;j++)s->order[j]=s->order[j+1];break;}
  s->order[s->slots+1]=id;s->active=id;s->window[id].open=1;s->window[id].hidden=0;scene_damage(s,covered(&s->window[id]));
  scene_damage(s,(Rect){0,s->height-32,s->width,32});
 }
 static void next_visible(Scene *s){
+ s->terminal_focus=0;
  scene_damage(s,(Rect){0,s->height-32,s->width,32});
  for(int n=s->slots+1;n>=0;n--){int id=s->order[n];if(s->window[id].open&&!s->window[id].hidden){s->active=id;scene_damage(s,covered(&s->window[id]));return;}}
  s->active=0;
 }
 void scene_close(Scene *s,int id){GuiWindow *w=&s->window[id];w->open=0;scene_damage(s,covered(w));if(s->active==id)next_visible(s);}
+static int terminal_scroll(Scene *s,int button){
+ int id=s->slot;
+ if(button==0)s->scroll_x[id]=clamp(s->scroll_x[id]-8,0,79);
+ if(button==1)s->scroll_x[id]=clamp(s->scroll_x[id]+8,0,79);
+ if(button==2)s->scroll_y[id]=clamp(s->scroll_y[id]-4,0,24);
+ if(button==3)s->scroll_y[id]=clamp(s->scroll_y[id]+4,0,24);
+ scene_damage(s,s->window[id+2].r);return ACT_SCROLL;
+}
 static void move(Scene *s,int id,int x,int y){
  GuiWindow *w=&s->window[id];scene_damage(s,covered(w));
  w->r.x=clamp(x,8,s->width-w->r.w-8);w->r.y=clamp(y,40,s->height-32-w->r.h-8);
@@ -143,6 +153,23 @@ int scene_event(Scene *s,const GuiEvent *e){
    if(e->key>=256&&e->key<=259){static const unsigned mode[]={1,0,2,3};place_window(s,id,mode[e->key-256]);return ACT_NONE;}
   }
   if(e->key==281){if(s->help)launcher_page(s,LAUNCHER_APPS);scene_focus(s,0);return ACT_NONE;}
+  if(s->active>=2&&!s->graphical[s->active-2]&&!s->command[s->active-2]){
+   int toggle=e->key==9&&(e->buttons&KG_MOD_CTRL);
+   if(toggle||s->terminal_focus){
+    s->slot=s->active-2;
+    scene_damage(s,s->window[s->active].r);
+    if(toggle||e->key==27)s->terminal_focus=!s->terminal_focus;
+    else if(e->key==9||e->key==258||e->key==259){
+     unsigned reverse=e->key==258||(e->key==9&&(e->buttons&KG_MOD_SHIFT));
+     s->terminal_focus=1+(s->terminal_focus-1+(reverse?8:1))%9;
+    }else if(e->key==13){
+     unsigned index=s->terminal_focus-1;s->terminal_focus=0;
+     static const int actions[]={ACT_RUN,ACT_PAUSE,ACT_RESUME,ACT_END,ACT_RESTART};
+     return index<5?actions[index]:terminal_scroll(s,index-5);
+    }
+    return ACT_NONE;
+   }
+  }
   if(s->active==0&&e->key==280){launcher_page(s,s->help?LAUNCHER_APPS:LAUNCHER_GUIDE);return ACT_NONE;}
   if(s->active==0&&e->key==27&&s->help){launcher_page(s,s->help==LAUNCHER_GALLERY?LAUNCHER_GUIDE:LAUNCHER_APPS);return ACT_NONE;}
   if(s->active==0&&s->help==LAUNCHER_GUIDE&&(e->key=='g'||e->key=='G')){
@@ -203,6 +230,7 @@ int scene_event(Scene *s,const GuiEvent *e){
   int id=s->order[n];GuiWindow *w=&s->window[id];
   if(!w->open||w->hidden||!inside(w->r,s->mx,s->my))continue;
   scene_focus(s,id);
+  s->terminal_focus=0;
   if(inside((Rect){w->r.x+w->r.w-25,w->r.y+6,18,18},s->mx,s->my)){w->open=0;scene_damage(s,covered(w));next_visible(s);if(id>=2){s->slot=id-2;return ACT_END;}return ACT_NONE;}
   if(inside((Rect){w->r.x+w->r.w-47,w->r.y+6,18,18},s->mx,s->my)){w->hidden=1;scene_damage(s,covered(w));next_visible(s);return ACT_NONE;}
   if(id>=2){
@@ -229,11 +257,7 @@ int scene_event(Scene *s,const GuiEvent *e){
    }
    if(s->my>=w->r.y+w->r.h-30){
     int b=(s->mx-w->r.x-8)/48;
-    if(b==0)s->scroll_x[id-2]=clamp(s->scroll_x[id-2]-8,0,79);
-    if(b==1)s->scroll_x[id-2]=clamp(s->scroll_x[id-2]+8,0,79);
-    if(b==2)s->scroll_y[id-2]=clamp(s->scroll_y[id-2]-4,0,24);
-    if(b==3)s->scroll_y[id-2]=clamp(s->scroll_y[id-2]+4,0,24);
-    scene_damage(s,w->r);return ACT_SCROLL;
+    return terminal_scroll(s,b);
    }
   }
   if(s->my<w->r.y+30){if(id>=2&&s->restored[id-2].w)return ACT_NONE;s->drag=id+1;s->dx=s->mx-w->r.x;s->dy=s->my-w->r.y;return ACT_NONE;}

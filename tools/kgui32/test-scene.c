@@ -98,6 +98,11 @@ static void sessions(int width,int height){
  e.key='t';assert(scene_event(&s,&e)==ACT_KEY);e.key=12;assert(scene_event(&s,&e)==ACT_RUN);
  e.key=16;assert(scene_event(&s,&e)==ACT_PAUSE);e.key=18;assert(scene_event(&s,&e)==ACT_RESUME);
  e.key=5;assert(scene_event(&s,&e)==ACT_END);
+ e.key=9;e.buttons=KG_MOD_CTRL;assert(scene_event(&s,&e)==ACT_NONE&&s.terminal_focus==1);
+ e.buttons=KG_MOD_SHIFT;assert(scene_event(&s,&e)==ACT_NONE&&s.terminal_focus==9);
+ e.key=13;e.buttons=0;assert(scene_event(&s,&e)==ACT_SCROLL&&s.scroll_y[0]==4&&!s.terminal_focus);
+ e.key=9;e.buttons=KG_MOD_CTRL;assert(scene_event(&s,&e)==ACT_NONE&&s.terminal_focus==1);
+ e.key=27;e.buttons=0;assert(scene_event(&s,&e)==ACT_NONE&&!s.terminal_focus);
  scene_focus(&s,3);assert(s.order[3]==3&&s.order[2]==2);
  Rect r=s.window[3].r;
  mouse(&s,GUI_BUTTON,r.x+r.w-8,r.y+r.h-8,1);assert(s.resize==4);

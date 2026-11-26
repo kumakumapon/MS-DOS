@@ -5,6 +5,7 @@
 #include "layout.h"
 #include "sdk/preferences.h"
 #include "sdk/i18n.h"
+#include "sdk/menu.h"
 unsigned ku_language;
 #include "sdk/protocol.h"
 #include "sdk/text.h"
@@ -121,6 +122,7 @@ static void refresh(void){
   if(k32_call(GUI_SNAPSHOT,(u32)&v,sizeof v))continue;
   if(v.owned&&v.state==4&&(views[id].state!=4||views[id].generation!=v.generation))scene_notice_set(&scene,GN_APP_FAULTED);
   GuiWindow *w=&scene.window[id+2];
+  int cell=preferences.large?16:8,line=cell*2;
   if(v.owned&&!v.kind&&v.generation!=views[id].generation)restore_app_layout(id,v.program);
   if(v.kind||!v.owned){terminal_valid[id]=0;}
   else if(!terminal_valid[id]||terminals[id].generation!=v.generation||terminals[id].revision!=v.text_revision||terminals[id].state!=v.state){
@@ -128,7 +130,8 @@ static void refresh(void){
    if(!k32_call(GUI_SNAPSHOT,(u32)&terminal_stage,sizeof terminal_stage)){
     if(w->open&&!w->hidden)for(unsigned r=0;r<25;r++){int changed=!terminal_valid[id]||terminals[id].generation!=v.generation;
      for(unsigned c=0;c<80&&!changed;c++){unsigned at=r*80+c;if(terminal_stage.codes[at]!=terminals[id].codes[at]||terminal_stage.attributes[at]!=terminals[id].attributes[at])changed=1;}
-     if(changed)scene_window_damage(&scene,id+2,(Rect){w->r.x+8,w->r.y+70+((int)r-scene.scroll_y[id])*16,(w->r.w-16)/8*8,16});
+     int row=(int)r-scene.scroll_y[id];
+     if(changed&&row>=0&&row<(w->r.h-104)/line)scene_window_damage(&scene,id+2,(Rect){w->r.x+8,w->r.y+70+row*line,(w->r.w-16)/cell*cell,line});
     }
     terminals[id]=terminal_stage;terminal_valid[id]=1;
    }
@@ -137,14 +140,14 @@ static void refresh(void){
    int changed=v.generation!=views[id].generation||v.state!=views[id].state||v.owned!=views[id].owned;
    for(int i=0;i<16;i++)if(v.program[i]!=views[id].program[i])changed=1;
    if(changed)scene_window_damage(&scene,id+2,w->r);
-   int cols=(w->r.w-16)/8,rows=(w->r.h-104)/16;
+   int cols=(w->r.w-16)/cell,rows=(w->r.h-104)/line;
    for(int row=0;row<rows;row++){
     int r=row+scene.scroll_y[id];if(r>=25)break;
     int dirty=(v.row==(u32)r||views[id].row==(u32)r)&&(v.row!=views[id].row||v.column!=views[id].column);
     for(int col=0;col<cols&&col+scene.scroll_x[id]<80;col++){
      int at=r*80+col+scene.scroll_x[id];if(v.screen[at]!=views[id].screen[at])dirty=1;
     }
-    if(dirty)scene_window_damage(&scene,id+2,(Rect){w->r.x+8,w->r.y+70+row*16,cols*8,16});
+    if(dirty)scene_window_damage(&scene,id+2,(Rect){w->r.x+8,w->r.y+70+row*line,cols*cell,line});
    }
   }
   refresh_video(id,&v);views[id]=v;refresh_graphical(id);if(following[id]){follow_cursor(id);following[id]--;}
@@ -277,7 +280,8 @@ static void collect_history(void){
  }
 }
 static void follow_cursor(unsigned id){
- GuiWindow *w=&scene.window[id+2];int cols=(w->r.w-16)/8,rows=(w->r.h-104)/16;
+ int cell=preferences.large?16:8;
+ GuiWindow *w=&scene.window[id+2];int cols=(w->r.w-16)/cell,rows=(w->r.h-104)/(cell*2);
  int x=scene.scroll_x[id],y=scene.scroll_y[id];
  if((int)views[id].column<x)x=views[id].column;
  if((int)views[id].column>=x+cols)x=(int)views[id].column-cols+1;
@@ -347,8 +351,14 @@ static void input_focus(void){
  session_command(id,GS_FOCUS,on);
 }
 
-static u32 color(unsigned n){if(preferences.theme==KG_THEME_CONTRAST){if(n==2)n=7;else if(n==4||n==6)n=14;}u32 c=info.colors[n];return info.bpp==1?n:((c>>19)<<11)|(((c>>10)&63)<<5)|((c>>3)&31);}
 static u32 rgb(unsigned r,unsigned g,unsigned b){return info.bpp==1?16+(r+25)/51*36+(g+25)/51*6+(b+25)/51:(r>>3)<<11|(g>>2)<<5|(b>>3);}
+static u32 color(unsigned n){
+ if(preferences.theme==KG_THEME_CONTRAST){
+  if(n==0||n==4||n==10||n==11)return rgb(0,0,0);
+  if(n==2||n==3||n==7)return rgb(255,255,255);
+ }
+ u32 c=info.colors[n];return info.bpp==1?n:((c>>19)<<11)|(((c>>10)&63)<<5)|((c>>3)&31);
+}
 static void box(int x,int y,int w,int h,u32 c){
  int right=x+w,bottom=y+h;
  if(x<clip.x)x=clip.x;
@@ -451,7 +461,7 @@ static const u8 *video_glyph(void *unused,unsigned code){(void)unused;return cod
 static void terminal_video(unsigned id,Rect area){
  KvCanvas *v=&video_cache[id];KvMeta *m=&v->meta;
  unsigned w=m->flags&KV_GRAPH?m->width:640,h=m->flags&KV_GRAPH?m->height:400;
- if(!w||w>640||!h||h>400)return;
+ if(!w||w>640||!h||h>400||!m->columns||!m->rows)return;
  if(video_composed_slot!=id||video_composed_revision!=video_revision[id]||video_composed_generation!=video_generation[id]||video_composed_phase!=terminal_phase){
   kt_video_compose(v,video_pixels,terminal_phase,video_glyph,0);video_composed_slot=id;video_composed_revision=video_revision[id];video_composed_generation=video_generation[id];video_composed_phase=terminal_phase;
  }
@@ -459,27 +469,48 @@ static void terminal_video(unsigned id,Rect area){
  for(unsigned i=0;i<8;i++)colors[16+i]=rgb(i&2?255:0,i&4?255:0,i&1?255:0);
  colors[24]=rgb(0,0,0);
  static u16 source_x[800];
- int dw=area.w,dh=area.h;if(dw*(int)h>dh*(int)w)dw=dh*w/h;else dh=dw*h/w;
- for(int i=0;i<dw;i++)source_x[i]=i*w/dw;
+ int dw=area.w,dh=area.h;
+ unsigned left=0,top=0,span_x=w,span_y=h;
+ if(preferences.large&&!(m->flags&KV_GRAPH)&&(m->flags&KV_TEXT)){
+  unsigned cols=(unsigned)scene.scroll_x[id],rows=(unsigned)scene.scroll_y[id];
+  if(cols>=m->columns)cols=m->columns-1;
+  if(rows>=m->rows)rows=m->rows-1;
+  left=cols*w/m->columns;top=rows*h/m->rows;
+  int maxw=(m->columns-cols)*16,maxh=(m->rows-rows)*32;
+  if(dw>maxw)dw=maxw;
+  if(dh>maxh)dh=maxh;
+  span_x=((unsigned)dw*w+m->columns*16-1)/(m->columns*16);
+  span_y=((unsigned)dh*h+m->rows*32-1)/(m->rows*32);
+  if(span_x>w-left)span_x=w-left;
+  if(span_y>h-top)span_y=h-top;
+ }else if(dw*(int)h>dh*(int)w)dw=dh*w/h;else dh=dw*h/w;
+ if(dw<=0||dh<=0)return;
+ for(int i=0;i<dw;i++)source_x[i]=left+i*span_x/dw;
  for(int yy=clip.y;yy<clip.y+clip.h&&yy<area.y+dh;yy++){
-  unsigned sy=(yy-area.y)*h/dh;u8 *line=framebuffer+yy*info.pitch;
+  unsigned sy=top+(yy-area.y)*span_y/dh;u8 *line=framebuffer+yy*info.pitch;
   for(int xx=clip.x;xx<clip.x+clip.w&&xx<area.x+dw;xx++){unsigned sx=source_x[xx-area.x];u32 c=colors[video_pixels[sy*w+sx]];if(info.bpp==1)line[xx]=(u8)c;else ((u16 *)line)[xx]=(u16)c;}
  }
+}
+static void terminal_button(unsigned id,unsigned focus,int x,int y,int w,const char *name){
+ button(x,y,w,name);
+ if(scene.active==(int)id+2&&scene.terminal_focus==focus)
+  style_outline(x,y,w,28,DESKTOP_FOCUS_WIDTH,DESKTOP_COLOR_FOCUS);
 }
 static void terminal(unsigned id,int x,int y,int width,int height){
  GuiSessionView *v=&views[id];
  const char *names[]={"Run","Stop","Resume","End","Again"};
- for(int i=0;i<5;i++)button(x+8+i*64,y+36,60,names[i]);
- int cols=(width-16)/8,rows=(height-104)/16;
- box(x+8,y+70,cols*8,rows*16,terminal_valid[id]&&!v->kind?rgb(0,0,0):color(0));
- Rect before=clip;Rect area={x+8,y+70,cols*8,rows*16};
+ for(int i=0;i<5;i++)terminal_button(id,i+1,x+8+i*64,y+36,60,names[i]);
+ int extra=video_valid[id]&&video_generation[id]==v->generation&&kt_video_extra(&video_cache[id].meta);
+ int scale=preferences.large&&(!extra||!(video_cache[id].meta.flags&KV_GRAPH))?2:1;
+ int cell=8*scale,line_height=16*scale,cols=(width-16)/cell,rows=(height-104)/line_height;
+ box(x+8,y+70,cols*cell,rows*line_height,terminal_valid[id]&&!v->kind?rgb(0,0,0):color(0));
+ Rect before=clip;Rect area={x+8,y+70,cols*cell,rows*line_height};
  int right=clip.x+clip.w,bottom=clip.y+clip.h;
  if(clip.x<area.x)clip.x=area.x;
  if(clip.y<area.y)clip.y=area.y;
  if(right>area.x+area.w)right=area.x+area.w;
  if(bottom>area.y+area.h)bottom=area.y+area.h;
  clip.w=right>clip.x?right-clip.x:0;clip.h=bottom>clip.y?bottom-clip.y:0;
- int extra=video_valid[id]&&video_generation[id]==v->generation&&kt_video_extra(&video_cache[id].meta);
  if(extra)terminal_video(id,area);
  for(int row=0;!extra&&row<rows;row++){
   int rr=row+scene.scroll_y[id];if(rr>=25)break;
@@ -492,9 +523,10 @@ static void terminal(unsigned id,int x,int y,int width,int height){
     const u8 *bitmap=kt_video_gaiji(video_valid[id]&&video_generation[id]==v->generation?&video_cache[id]:0,codes[at-half]);
     if(!bitmap)bitmap=code>=32&&code<=126?font+(code-32)*16:glyph(code);
     u32 ink=rgb((k98_rgb(attr)>>16)&255,(k98_rgb(attr)>>8)&255,k98_rgb(attr)&255);
-    int xx=x+8+col*8,yy=y+70+row*16;
+    int xx=x+8+col*cell,yy=y+70+row*line_height;
     for(unsigned scan=0;scan<16;scan++){
      unsigned bits=k98_ink(bitmap[half*16+scan],attr,scan,terminal_phase,0);
+     if(scale==2){for(unsigned bit=0;bit<8;bit++)if(bits&(128>>bit))box(xx+2*bit,yy+2*scan,2,2,ink);continue;}
      int py=yy+scan;if(py<clip.y||py>=clip.y+clip.h)continue;
      u8 *line=framebuffer+py*info.pitch;
      for(unsigned bit=0;bit<8;bit++)if(bits&(128>>bit)){int px=xx+bit;if(px<clip.x||px>=clip.x+clip.w)continue;if(info.bpp==1)line[px]=(u8)ink;else ((u16 *)line)[px]=(u16)ink;}
@@ -504,15 +536,17 @@ static void terminal(unsigned id,int x,int y,int width,int height){
   }
   char line[81];int col=0;
   for(;col<cols&&col+scene.scroll_x[id]<80;col++)line[col]=v->screen[rr*80+col+scene.scroll_x[id]];
-  line[col]=0;text(x+8,y+70+row*16,line,color(7));
+  line[col]=0;
+  if(scale==2)text_double(x+8,y+70+row*line_height,line,color(7));
+  else text(x+8,y+70+row*line_height,line,color(7));
  }
  if(!extra&&v->owned&&(v->state==1||v->state==2)&&scene.active==(int)id+2){
   unsigned half=0,code=32;if(terminal_valid[id]&&v->row<25&&v->column<80)code=k98_glyph(terminals[id].codes+v->row*80,v->column,&half);
-  box(x+8+((int)v->column-(int)half-scene.scroll_x[id])*8,y+84+((int)v->row-scene.scroll_y[id])*16,code>255?16:8,2,color(6));
+  box(x+8+((int)v->column-(int)half-scene.scroll_x[id])*cell,y+70+14*scale+((int)v->row-scene.scroll_y[id])*line_height,code>255?2*cell:cell,2*scale,color(6));
  }
  clip=before;
  int yy=y+height-30;const char *arrows[]={"Left","Right","Up","Down"};
- for(int i=0;i<4;i++)button(x+8+i*48,yy,44,arrows[i]);
+ for(int i=0;i<4;i++)terminal_button(id,i+6,x+8+i*48,yy,44,arrows[i]);
  if(scene.command[id]||scene.shell[id]){
   button(x+206,yy,60,scene.command[id]?"Enter":"Cancel");
   button(x+270,yy,60,scene.command[id]?"Esc":"EOF");
@@ -525,6 +559,25 @@ static void terminal(unsigned id,int x,int y,int width,int height){
   text(x+16,y+102,paths[id]+start,color(0));box(x+16+(n-start)*8,y+116,8,2,color(4));
   ui_label(x+16,y+126,"Enter: start   Esc: cancel",color(10));
  }
+}
+static void client_button_label(int x,int y,const KgDraw *d){
+ int n=k32_len(d->text),cols=(d->w-4)/16;
+ if(preferences.large&&d->h>=34&&n<=cols){
+  text_double(x+(d->w-16*n)/2,y+(d->h-32)/2,d->text,color(0));return;
+ }
+ if(preferences.large&&d->h>=64&&cols>=2&&d->id>=KM_ITEM&&d->id<KM_ITEM+KM_MAX){
+  unsigned split=kt_prefix(d->text,n,cols),rest=split;
+  for(unsigned i=split;i>0;i--)if(d->text[i]==' '&&n-(int)i-1<=cols){split=i;rest=i+1;break;}
+  char first[48],last[48];
+  for(unsigned i=0;i<split;i++)first[i]=d->text[i];
+  first[split]=0;
+  unsigned size=kt_prefix(d->text+rest,n-rest,cols);
+  for(unsigned i=0;i<size;i++)last[i]=d->text[rest+i];
+  last[size]=0;
+  text_double(x+(d->w-16*(int)split)/2,y,first,color(0));
+  text_double(x+(d->w-16*(int)size)/2,y+32,last,color(0));return;
+ }
+ text(x+(d->w-8*n)/2,y+(d->h-16)/2,d->text,color(0));
 }
 static void graphical(unsigned id,int x,int y,int width,int height){
  const char *names[]={"Run","Stop","Resume","End","Again"};
@@ -564,10 +617,8 @@ static void graphical(unsigned id,int x,int y,int width,int height){
    }
   }
   if(d->op==KG_BUTTON){
-   box(xx,yy,d->w,d->h,color(11));box(xx+1,yy+1,d->w-2,d->h-2,c);box(xx+2,yy+2,d->w-4,1,color(7));
-   int label=(int)k32_len(d->text);
-   if(preferences.large&&d->h>=34&&d->w>=16*label+4)text_double(xx+(d->w-16*label)/2,yy+(d->h-32)/2,d->text,color(0));
-   else text(xx+(d->w-8*label)/2,yy+(d->h-16)/2,d->text,color(0));
+   box(xx,yy,d->w,d->h,color(11));box(xx+1,yy+1,d->w-2,d->h-2,preferences.theme==KG_THEME_CONTRAST?color(7):c);box(xx+2,yy+2,d->w-4,1,color(7));
+   client_button_label(xx,yy,d);
   }
  }
  if(!r->token)ui_label(x+24,y+86,views[id].state==4?"Application faulted":"Application ended",color(10));
@@ -616,7 +667,7 @@ static void window(int id){
   Rect saved=clip;
   int title_right=x+width-126;
   if(clip.x+clip.w>title_right)clip.w=title_right>clip.x?title_right-clip.x:0;
-  ui_label(x+72,y+9,scene.graphical[id-2]?clients[id-2].title:views[id-2].program,color(7));
+  ui_label(x+72,y+9,scene.graphical[id-2]?clients[id-2].title:views[id-2].program,color(preferences.theme==KG_THEME_CONTRAST&&scene.active!=id?0:7));
   clip=saved;
   box(x+width-120,y+3,32,26,color(3));
   text(x+width-108,y+8,scene.placement[id-2]==2?">":scene.placement[id-2]==3?"=":"<",color(0));
@@ -638,6 +689,7 @@ static void window(int id){
    ui_label(x+18,y+150,"Tab: Switch window",color(0));
    ui_label(x+18,y+176,"F8: Language   F10: Exit",color(0));
    ui_label(x+18,y+202,"G: Components",color(0));
+   ui_label(x+18,y+228,"Ctrl+Tab: DOS controls",color(0));
   }
   ui_label(x+18,y+LAUNCHER_HINT_Y,scene.action_result<0?"Slots full / error":"F1: Shortcuts",color(10));
  }else{
@@ -887,7 +939,7 @@ int main(int argc,char **argv){
      KvCanvas *v=&video_cache[id];KvMeta *m=&v->meta;if(!(m->flags&KV_TEXT))continue;
      unsigned blink=0;for(unsigned i=0;i<4096;i++)if(v->attributes[i]&2){blink=1;break;}
      Rect r=scene.window[id+2].r;
-     if(blink){scene_window_damage(&scene,id+2,r);continue;}
+     if(blink||preferences.large){scene_window_damage(&scene,id+2,r);continue;}
      if((m->flags&KV_CURSOR)&&(views[id].state==1||views[id].state==2)){
       int dw=(r.w-16)/8*8,dh=(r.h-104)/16*16,gw=m->flags&KV_GRAPH?m->width:640,gh=m->flags&KV_GRAPH?m->height:400;if(dw*gh>dh*gw)dw=dh*gw/gh;else dh=dw*gh/gw;
       unsigned cursor=(m->text_cursor-m->text_start)&4095,row=cursor/m->text_pitch,col=cursor%m->text_pitch;
