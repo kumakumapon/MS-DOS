@@ -162,9 +162,9 @@ static void refresh(void){
  }
  for(int i=0;i<scene.slots;i++){
   unsigned group=0;
-  if(scene.window[i+2].open&&views[i].owned&&views[i].program[0]){
+  if(scene.window[i+2].open&&scene.graphical[i]&&clients[i].token&&views[i].program[0]){
    group=1u<<i;
-   for(int j=0;j<scene.slots;j++)if(j!=i&&scene.window[j+2].open&&views[j].owned&&equal(views[i].program,views[j].program)){
+   for(int j=0;j<scene.slots;j++)if(j!=i&&scene.window[j+2].open&&scene.graphical[j]&&clients[j].token&&equal(views[i].program,views[j].program)){
     if(j<i){group=0;break;}
     group|=1u<<j;
    }
