@@ -856,7 +856,7 @@ loader_trap:
 .ifdef GUI_HOST
     cmp eax,64
     jb gui_old_service
-    cmp eax,80                 /* Last dedicated GUI syscall in kgui32/gui.h. */
+    cmp eax,85                 /* GUI_PERFORMANCE in kgui32/gui.h. */
     jbe gui_service
 gui_old_service:
 .endif
