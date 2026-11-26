@@ -472,8 +472,8 @@ PEGC 640x400 indexed	PEGC 640x400 256色
 ..	..
 Ctrl F:Find H:Replace T:Recovery / Tools	Ctrl F:検索 H:置換 T:復旧／ツール
 F6: hira / F7: kata / Esc: cancel	F6:ひらがな F7:カタカナ Esc:取消
-Hide system files	システムファイルを隠す
-Show system files	システムファイルを表示
+Hide system files	システム非表示
+Show system files	システム表示
 Next match	次の一致
 Reading text...	テキストを読込中
 Recover	復旧
