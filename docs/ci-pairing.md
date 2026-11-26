@@ -1,7 +1,7 @@
 # Paired MS-DOS / webnp2 CI references
 
 Status: maintained. Native workflows currently use webnp2 master-line commit
-`f4b39f73972b620444c079206dc9e4085804a843`. CI checks its ancestry against master.
+`b5234437f27bd1377d050150da075b68cb5d632e`. CI checks its ancestry against master.
 Never pin a development-only branch: it may disappear after branch deletion/GC.
 
 1. Choose an immutable webnp2 commit reachable from `origin/master` and set the
