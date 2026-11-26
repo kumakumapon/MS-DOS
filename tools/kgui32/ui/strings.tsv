@@ -501,3 +501,35 @@ Text share failed / recovery preserved	文字列共有に失敗 / 復旧デー�
 Shared text / original BAK kept	文字列を共有 / 元のBAKを保持
 No usable shared text / document kept	共有文字列が使えません / 原文を保持
 Empty TMP / partial copy	空のTMP / 中断されたコピー
+Desktop and startup	デスクトップと起動
+Wallpaper: Gradient	壁紙：グラデーション
+Wallpaper: Solid	壁紙：単色
+Wallpaper: Grid	壁紙：格子
+Keyboard: US	配列：US
+Keyboard: JIS	配列：JIS
+Mouse: Normal	マウス：標準
+Mouse: Slow	マウス：低速
+Mouse: Fast	マウス：高速
+Date: YYYY-MM-DD	日付：年-月-日
+Date: YYYY/MM/DD	日付：年/月/日
+Date: DD/MM/YYYY	日付：日/月/年
+Time: 12-hour	時刻：12時間
+Time: 24-hour	時刻：24時間
+Start: Welcome	起動：ようこそ
+Start: Files	起動：ファイル
+Start: Editor	起動：エディター
+Start: Clock	起動：時計
+Start: Calendar	起動：カレンダー
+Start: Images	起動：画像
+Saved successfully.	保存しました。
+Save failed. Check the app.	保存失敗。アプリを確認。
+Copy completed.	コピーしました。
+Copy failed. Check the app.	コピー失敗。アプリを確認。
+Operation cancelled.	処理を中止しました。
+Reading TXT preview	TXTプレビュー読込
+Scanning folder	フォルダを確認中
+Copying folder	フォルダをコピー中
+Copying file	ファイルをコピー中
+Reading BMP	BMPを読み込み中
+Transfer cancelled / image kept	処理中止／画像保持
+Saving BMP	BMPを保存中

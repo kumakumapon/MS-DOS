@@ -17,6 +17,34 @@ extern char host_command[128];
 
 volatile GuiDriverRecord gui_record={.signature={'K','G','3','2','D','R','V','1'},.version=1,.size=sizeof(GuiDriverRecord)};
 static GuiInfo info;
+volatile GuiPerformance gui_performance={
+ .signature={'K','G','P','E','R','F','0','1'},.version=1,.size=sizeof(GuiPerformance),.hz=307200
+};
+static u32 startup_tick;
+static unsigned us_keyboard;
+static unsigned xms_free(void){
+ unsigned a=0x0800,b=0,c=0,d=0;
+ __asm__ volatile("pushw %%ds; pushw %%es; lcallw *%4; popw %%es; popw %%ds; cld"
+                  :"+a"(a),"+b"(b),"+c"(c),"+d"(d):"m"(xms_entry):"esi","edi","cc","memory");
+ return (b&255)?~0u:d&65535;
+}
+static int performance_sample(u32 pointer,unsigned bytes){
+ GuiPaintSample sample;
+ if(bytes!=sizeof sample)return -22;
+ int e=gui_copy(pointer,&sample,sizeof sample,0);if(e)return e;
+ if(sample.has_input>1||sample.elapsed>0xffffff||sample.input>0xffffff||
+    !sample.pixels||sample.pixels>info.width*info.height)return -22;
+ if(!gui_performance.frames)gui_performance.startup=(input_ticks()-startup_tick)&0xffffff;
+ gui_performance.paint_last=sample.elapsed;
+ if(sample.elapsed>gui_performance.paint_max)gui_performance.paint_max=sample.elapsed;
+ gui_performance.pixels_last=sample.pixels;gui_performance.pixels_total+=sample.pixels;
+ if(sample.has_input){
+  gui_performance.input_last=sample.input;
+  if(sample.input>gui_performance.input_max)gui_performance.input_max=sample.input;
+  gui_performance.input_count++;
+ }
+ gui_performance.frames++;return 0;
+}
 /* Only input travels through the queue. Full public event records, including
  * worker snapshots, are assembled at delivery. */
 typedef struct {u16 x,y,key;u8 type,buttons;u32 ticks;} QueuedInput;
@@ -74,6 +102,22 @@ static void enqueue(GuiEvent event){
  if(count==32){head=(head+1)%32;count--;gui_record.input_lost++;}
  queue[(head+count++)%32]=e;
 }
+static unsigned physical_key(unsigned k,unsigned mods){
+ if(!us_keyboard||k<32||k>126||(mods&(KG_MOD_CTRL|KG_MOD_ALT)))return k;
+ static const struct {u8 scan;char jis[2],us[2];} symbols[]={
+  {0x02,{'2','"'},{'2','@'}}, {0x06,{'6','&'},{'6','^'}},
+  {0x07,{'7','\''},{'7','&'}}, {0x08,{'8','('},{'8','*'}},
+  {0x09,{'9',')'},{'9','('}}, {0x0a,{'0','0'},{'0',')'}},
+  {0x0b,{'-','='},{'-','_'}}, {0x0c,{'^','`'},{'=','+'}},
+  {0x0d,{'\\','|'},{'`','~'}}, {0x1a,{'@','~'},{'[','{'}},
+  {0x1b,{'[','{'},{']','}'}}, {0x26,{';','+'},{';',':'}},
+  {0x27,{':','*'},{'\'','"'}}, {0x28,{']','}'},{'\\','|'}}
+ };
+ unsigned scan=key_scan(),shift=!!(mods&KG_MOD_SHIFT);
+ for(unsigned i=0;i<sizeof symbols/sizeof *symbols;i++)
+  if(scan==symbols[i].scan&&k==(unsigned)symbols[i].jis[shift])return (unsigned)symbols[i].us[shift];
+ return k;
+}
 static void pump(void){
  for(unsigned n=0;n<16;n++){
   Mouse m=mouse_read();
@@ -95,7 +139,7 @@ static void pump(void){
  }
  alt_f4_down=pressed;
  for(unsigned n=0;n<16&&key_ready();n++){
-  unsigned k=key_read(),m=key_modifiers();gui_record.last_key=k;
+  unsigned k=key_read(),m=key_modifiers();k=physical_key(k,m);gui_record.last_key=k;
   if(pressed&&k==KEY_F1+3&&(m&KG_MOD_ALT))continue;
   extern int kg_clients_close_guard(void);
   if(k==7||(k==KEY_F1+9&&!kg_clients_close_guard())||(k==27&&!session_focus))quit=1;
@@ -164,6 +208,22 @@ static int dispatch(void){
  case GUI_CLIENT_EVENT:error=kg_clients_event(b,c);break;
  case GUI_SURFACE_ACK:error=kg_clients_surface_ack(b,c);break;
  case GUI_VIDEO_READ:error=gui_video_read(b,c);break;
+ case GUI_OPTIONS:{
+  extern unsigned kg_ui_format;
+  error=b>1||c&~31u||(c&3)==3||((c>>2)&3)==3?-22:0;
+  if(!error){us_keyboard=b;mouse_speed_set(c&3);kg_ui_format=c>>2;}
+  break;
+ }
+ case GUI_STATUS:{
+  extern unsigned kg_clients_time(void),kg_clients_date(void);
+  if(c!=sizeof(GuiStatus)){error=-22;break;}
+  unsigned volume=gui_record.reserved[25]&255;
+  GuiStatus status={kg_clients_date(),kg_clients_time()/60,xms_free(),volume>=1&&volume<=101?volume-1:~0u};
+  error=gui_copy(b,&status,sizeof status,1);break;
+ }
+ case GUI_NOTICE:{extern int kg_take_notice(void);error=b||c?-22:kg_take_notice();break;}
+ case GUI_TICKS:error=b||c?-22:(int)input_ticks();break;
+ case GUI_PERFORMANCE:error=performance_sample(b,c);break;
  case GUI_DISK_ACTIVITY:{
   unsigned ax=0xd39f,activity=0;
   if(b||c){error=-22;break;}
@@ -181,7 +241,11 @@ static int dispatch(void){
 int gui_main(void){
  for(unsigned i=0;i<16;i++)*(volatile u8 *)(0xd400+i)=0xa5;
  p_init();__asm__ volatile("movw %%ds,%w0":"=r"(segment));
- gui_record.owner=segment;gui_record.cookie=input_ticks()|1;gui_record.runtime=(u32)segment*16+(unsigned)results;
+ startup_tick=input_ticks();
+ gui_record.owner=segment;gui_record.cookie=startup_tick|1;
+ gui_record.reserved[24]=GUI_HOST_TAG;gui_record.reserved[25]=0;
+ mouse_absolute_flag((volatile u8 *)&gui_record.reserved[25]+1);
+ gui_performance.owner=segment;gui_performance.cookie=gui_record.cookie;gui_record.runtime=(u32)segment*16+(unsigned)results;
  gui_record.largest_before=largest();gui_record.state=1;
  u16 msw;u8 mask;__asm__ volatile("smsw %0; inb $2,%1":"=r"(msw),"=a"(mask));
  if((msw&1)||!(mask&1)){gui_record.error=1;goto done;}
@@ -201,7 +265,7 @@ int gui_main(void){
  if(gfx_colors()<256){gui_record.error=11;goto cleanup;}
  info=(GuiInfo){.magic=0x3149474b,.version=1,.size=sizeof info,.width=gfx_width(),.height=gfx_height(),.bpp=gfx_colors()>256?2:1,.features=1|GUI_VIDEO_MODES|(k386_capacity()==4?GUI_FOUR_SLOTS:0)};info.pitch=info.width*info.bpp;
  for(unsigned i=0;i<16;i++)info.colors[i]=gfx_rgb(i);
- gui_record.width=info.width;gui_record.height=info.height;gui_record.bpp=info.bpp;gui_record.graphics=1;gui_record.ready=1;
+ gui_record.width=info.width;gui_record.height=info.height;gui_record.bpp=info.bpp;gui_record.graphics=1;gui_record.ready=1;gui_performance.ready=1;
  if(kg_clients_start()){gui_record.error=12;goto cleanup;}
  previous=mouse_read();enqueue((GuiEvent){.type=GUI_MOTION,.x=previous.x,.y=previous.y,.buttons=previous.buttons,.ticks=previous.ticks});
  while(!gui_record.error&&!quit){
@@ -217,6 +281,7 @@ int gui_main(void){
  }
  if(quit){put(12,5);put(68,65);}
 cleanup:
+ gui_performance.ready=0;gui_record.reserved[25]=0;
  gui_record.busy=1;stop_workers();kg_clients_close();if(expanded_here){if(k386_capacity_request(2))gui_record.error=14;expanded_here=0;}services_close();loader_close();
  if(initialized&&tables){mem_fill(get(24)>>4,0,12288,0);put(464,1);put(948,1);}
  host_drop_xms();

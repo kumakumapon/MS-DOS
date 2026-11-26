@@ -213,7 +213,9 @@ int scene_event(Scene *s,const GuiEvent *e){
   if(!(s->buttons&1))s->notice_click=0;
   return ACT_NOTICE_INPUT;
  }
- if(down&&s->notice&&inside(scene_notice_rect(s),s->mx,s->my)){
+ Rect notice=scene_notice_rect(s);
+ if(down&&s->notice&&inside(notice,s->mx,s->my)&&
+    (s->notice<GN_SAVED||s->mx>=notice.x+notice.w-32)){
   scene_notice_set(s,GN_NONE);s->notice_click=1;return ACT_NOTICE_INPUT;
  }
  if(!down)return ACT_NONE;
@@ -223,7 +225,23 @@ int scene_event(Scene *s,const GuiEvent *e){
  }
  if(s->my>=s->height-28){
   if(s->mx<146)scene_focus(s,0);else if(s->mx<292)scene_focus(s,1);
-  else for(int i=0;i<s->slots;i++)if(s->mx>=300+i*(s->slots==2?146:(s->width-300)/4)&&s->mx<300+(i+1)*(s->slots==2?146:(s->width-300)/4)-10&&s->window[i+2].open)scene_focus(s,i+2);
+  else {
+   int step=s->slots==2?146:(s->width-300)/4,i=(s->mx-300)/step;
+   if(s->mx>=300&&i<s->slots&&(s->mx-300)%step<step-10&&s->window[i+2].open){
+    unsigned group=s->task_group[i];
+    if(!group)scene_focus(s,i+2);
+    else if(group&(1u<<i)){
+     int next=i;
+     if(s->active>=2&&(group&(1u<<(s->active-2)))){
+      for(int offset=1;offset<=s->slots;offset++){
+       next=(s->active-2+offset)%s->slots;
+       if(group&(1u<<next))break;
+      }
+     }
+     scene_focus(s,next+2);
+    }
+   }
+  }
   return ACT_NONE;
  }
  for(int n=s->slots+1;n>=0;n--){

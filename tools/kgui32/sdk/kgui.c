@@ -9,13 +9,13 @@ void kg_menu_enable(unsigned enabled){menu.enabled=enabled;}
 void kg_menu_state(unsigned enabled,unsigned checked){menu.disabled=~enabled;menu.checked=checked;}
 void kg_menu_labels(const KuPair *labels,unsigned count){menu.labels=labels;menu.label_count=count;}
 unsigned ku_language;static unsigned language_dirty,large_text;
-static KgRequest request;static unsigned token,width,height,surface_handle[2],surface_width[2],surface_height[2];
+static KgRequest request;static unsigned reported_ime,token,width,height,surface_handle[2],surface_width[2],surface_height[2];
 static void copy(char *to,const char *from,unsigned n){unsigned i=0;while(from[i]){unsigned k=kt_unit(from+i,from[i+1]?2:1);if(!k)k=1;if(k>=n-i)break;for(unsigned j=0;j<k;j++)to[i+j]=from[i+j];i+=k;}to[i]=0;}
 static int call(unsigned op){request.version=1;request.size=sizeof request;request.operation=op;request.token=token;return k32_call(13,(u32)&request,sizeof request);}
 int kg_open(const char *title,unsigned w,unsigned h){
  if(!(k32_query()&KG_FEATURE))return -38;
  request=(KgRequest){.width=w,.height=h};copy(request.title,title,sizeof request.title);
- int e=call(KG_OPEN);if(e<0)return e;token=e;width=request.width;height=request.height;surface_handle[0]=surface_handle[1]=0;kg_subscribe(0);return e;
+ int e=call(KG_OPEN);if(e<0)return e;token=e;reported_ime=0;width=request.width;height=request.height;surface_handle[0]=surface_handle[1]=0;kg_subscribe(0);return e;
 }
 void kg_begin(void){request.count=0;request.width=width;request.height=height;}
 static KgDraw *add(unsigned op,int x,int y,int w,int h,u32 color){
@@ -53,6 +53,13 @@ int kg_date(unsigned *year,unsigned *month,unsigned *day){
  return 0;
 }
 int kg_preferences_changed(void){return call(KG_PREFERENCES_CHANGED);}
+int kg_ui_format(void){return call(KG_UI_FORMAT);}
+int kg_notify(unsigned notice){request.count=notice;return call(KG_NOTIFY);}
+void kg_ime_report(unsigned scheme,unsigned composing,unsigned candidates){
+ unsigned value=(scheme+KG_IME_OFF)|(candidates?KG_IME_CANDIDATES:composing?KG_IME_COMPOSING:0);
+ if(value==reported_ime)return;
+ request.count=value;if(!call(KG_IME_REPORT))reported_ime=value;
+}
 int kg_capabilities(void){return call(KG_CAPABILITIES);}
 int kg_subscribe(unsigned flags){input_flags=flags;request.count=flags|KG_INPUT_LANGUAGE|(menu.count?KG_INPUT_MENU:0)|(menu.open?KG_INPUT_TAB|KG_INPUT_MODIFIERS:0);int e=call(KG_SUBSCRIBE);if(e==-22){request.count=flags;e=call(KG_SUBSCRIBE);}return e;}
 unsigned kg_width(void){return width;}

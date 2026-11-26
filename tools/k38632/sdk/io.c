@@ -29,10 +29,25 @@ int k32_io_save(const char *name,const void *data,unsigned bytes,const K32Revisi
  return k32_io_finish_save(&r,data,bytes);
 }
 int k32_io_finish_save(K32Io *r,const void *data,unsigned bytes){
- int e;
+ return k32_io_finish_save_progress(r,data,bytes,0,0);
+}
+int k32_io_finish_save_progress(K32Io *r,const void *data,unsigned bytes,K32SaveProgress progress,const void *context){
  const unsigned char *p=data;
- for(unsigned at=0;at<bytes;){unsigned n=bytes-at;if(n>4096)n=4096;e=k32_io_write(r,p+at,n);if(e!=(int)n){int closed=k32_io_abort(r,1);return closed<0?closed:e<0?e:-28;}at+=n;}
- e=k32_io_commit(r);if(e<0){int closed=k32_io_abort(r,1);if(closed<0)return closed;}return e;
+ int error=0;unsigned keep=1;
+ for(unsigned at=0;at<bytes;){
+  if(progress&&!(at&32767)){
+   error=progress(at,bytes,context);
+   if(error<0){keep=error!=-125;break;}
+  }
+  unsigned n=bytes-at;if(n>4096)n=4096;
+  int written=k32_io_write(r,p+at,n);
+  if(written!=(int)n){error=written<0?written:-28;break;}
+  at+=n;
+ }
+ if(!error&&progress){error=progress(bytes,bytes,context);keep=error!=-125;}
+ if(!error)error=k32_io_commit(r);
+ if(error<0){int closed=k32_io_abort(r,keep);if(closed<0)return closed;}
+ return error;
 }
 int k32_io_recover(const char *name,unsigned variant,const char *destination,const K32Revision *old){
  unsigned n=k32_strlen(destination);if(n>12)return -22;

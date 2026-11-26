@@ -33,10 +33,17 @@ static unsigned preference_revision;
 static K32Revision pins_revision,history_revision;
 static unsigned history_available,history_serial;
 static unsigned pins_available;
-static unsigned desktop_minute,desktop_slots;
+static GuiStatus desktop_status;
+static unsigned desktop_slots,desktop_ime,input_pending,input_sample;
+static KgPreferences preferences;
+static const Rect status_rect={96,0,180,32};
+static void apply_preferences(void){
+ ku_language=preferences.language;
+ k32_call(GUI_LANGUAGE,ku_language|(preferences.large<<1),0);
+ k32_call(GUI_OPTIONS,preferences.keyboard,preferences.mouse|(preferences.date<<2)|(preferences.time<<4));
+}
 static u32 desktop_clock_poll,drive_last[2];
 static unsigned drive_counts[2],drive_lamps;
-static KgPreferences preferences;
 static void layout_save(void){
  if(!layout_dirty)return;
  int e=k32_io_save(KG_LAYOUT_FILE,&layout,sizeof layout,&layout_revision);
@@ -116,6 +123,7 @@ static int session_command(unsigned slot,unsigned operation,unsigned key){
  for(unsigned i=0;i<128;i++){c.path[i]=paths[slot][i];if(!c.path[i])break;}
  return k32_call(GUI_SESSION,(u32)&c,sizeof c);
 }
+static int equal(const char *,const char *);
 static void refresh(void){
  for(unsigned id=0;id<(unsigned)scene.slots;id++){
   GuiSessionView v={.version=1,.size=sizeof v,.slot=id};
@@ -151,6 +159,21 @@ static void refresh(void){
    }
   }
   refresh_video(id,&v);views[id]=v;refresh_graphical(id);if(following[id]){follow_cursor(id);following[id]--;}
+ }
+ for(int i=0;i<scene.slots;i++){
+  unsigned group=0;
+  if(scene.window[i+2].open&&scene.graphical[i]&&clients[i].token&&views[i].program[0]){
+   group=1u<<i;
+   for(int j=0;j<scene.slots;j++)if(j!=i&&scene.window[j+2].open&&scene.graphical[j]&&clients[j].token&&equal(views[i].program,views[j].program)){
+    if(j<i){group=0;break;}
+    group|=1u<<j;
+   }
+   /* A hidden duplicate carries a mask without its own bit. */
+   if(!group)for(int j=0;j<i;j++)if(scene.task_group[j]&(1u<<i)){group=scene.task_group[j]&~(1u<<i);break;}
+  }
+  if(group!=scene.task_group[i]){
+   scene.task_group[i]=group;scene_damage(&scene,(Rect){300,(int)info.height-32,(int)info.width-300,32});
+  }
  }
  terminal_report();
 }
@@ -446,11 +469,16 @@ static void draw_notice(void){
   [GN_APP_FAULTED]="App stopped unexpectedly. Reopen it.",
   [GN_LAYOUT_SAVE_FAILED]="Window layout could not be saved.",
   [GN_HISTORY_SAVE_FAILED]="Recent items could not be saved.",
-  [GN_DOCUMENT_PIN_LIMIT]="Unpin a document before adding another."
+  [GN_DOCUMENT_PIN_LIMIT]="Unpin a document before adding another.",
+  [GN_SAVED]="Saved successfully.",
+  [GN_SAVE_FAILED]="Save failed. Check the app.",
+  [GN_COPIED]="Copy completed.",
+  [GN_COPY_FAILED]="Copy failed. Check the app.",
+  [GN_CANCELLED]="Operation cancelled."
  };
  if(!scene.notice)return;
  Rect r=scene_notice_rect(&scene);
- int success=scene.notice==GN_WORKERS_STARTED||scene.notice==GN_WORKERS_STOPPED;
+ int success=scene.notice==GN_WORKERS_STARTED||scene.notice==GN_WORKERS_STOPPED||scene.notice==GN_SAVED||scene.notice==GN_COPIED||scene.notice==GN_CANCELLED;
  style_box(r.x,r.y,r.w,r.h,DESKTOP_COLOR_PAPER);
  style_outline(r.x,r.y,r.w,r.h,1,DESKTOP_COLOR_BORDER);
  style_box(r.x,r.y,DESKTOP_SPACE_SMALL,r.h,success?DESKTOP_COLOR_SUCCESS:DESKTOP_COLOR_DANGER);
@@ -752,23 +780,54 @@ static void draw_shell(void){
   }
  }
 }
+static void two_digits(char *out,unsigned n){out[0]='0'+n/10%10;out[1]='0'+n%10;}
 static void draw_desktop_status(void){
- unsigned hour=(desktop_minute/60)%24,min=desktop_minute%60;
+ unsigned hour=desktop_status.minutes/60%24,min=desktop_status.minutes%60;
  char clock[]={"00:00"};
- clock[0]='0'+hour/10;clock[1]='0'+hour%10;clock[3]='0'+min/10;clock[4]='0'+min%10;
+ char suffix[2]={0};
+ if(preferences.time){suffix[0]=hour>=12?'P':'A';hour=hour%12;if(!hour)hour=12;}
+ two_digits(clock,hour);two_digits(clock+3,min);
  char slots[]="0/0";slots[0]+=desktop_slots;slots[2]+=scene.slots;
- text(100,9,clock,color(7));text(148,9,preferences.ime==1?"ROM":preferences.ime==2?"JIS":"IME -",color(9));
- text(188,9,slots,color(7));
+ text(96,0,clock,color(7));text(136,0,suffix,color(7));
+ char ime[5]="IME-";
+ if((desktop_ime&3)==KG_IME_ROMAJI){ime[0]='R';ime[1]='O';ime[2]='M';}
+ if((desktop_ime&3)==KG_IME_KANA){ime[0]='J';ime[1]='I';ime[2]='S';}
+ if(desktop_ime==KG_IME_OFF){ime[0]='O';ime[1]='F';ime[2]='F';}
+ if(desktop_ime&KG_IME_COMPOSING)ime[3]='*';
+ else if(desktop_ime&KG_IME_CANDIDATES)ime[3]='+';
+ text(148,0,ime,color(9));text(184,0,slots,color(7));
+ unsigned date=desktop_status.date,year=date>>16,month=date>>8&255,day=date&255;
+ char label[16]="----/--/--";
+ if(date){
+  if(preferences.date==2){
+   two_digits(label,day);label[2]='/';two_digits(label+3,month);label[5]='/';
+   two_digits(label+6,year/100);two_digits(label+8,year);
+  }else{
+   two_digits(label,year/100);two_digits(label+2,year);
+   label[4]=label[7]=preferences.date?'/':'-';two_digits(label+5,month);two_digits(label+8,day);
+  }
+ }
+ text(96,16,label,color(7));
+ if(desktop_status.free_kib!=~0u){
+  two_digits(label,desktop_status.free_kib/1024);label[2]='M';label[3]=0;
+  text(184,16,desktop_status.free_kib<10240?label+1:label,color(9));
+ }else text(184,16,"--",color(9));
+ if(desktop_status.volume==100)text(208,16,"Vol 100%",color(7));
+ else if(desktop_status.volume!=~0u){
+  two_digits(label,desktop_status.volume);label[2]='%';label[3]=0;
+  text(208,16,"Vol",color(7));text(240,16,desktop_status.volume<10?label+1:label,color(7));
+ }else text(208,16,"Vol --",color(7));
  for(unsigned i=0;i<2;i++){
   int x=216+i*26,fill=color((drive_lamps&(1u<<i))?9:4);
   box(x+1,12,4,6,fill);box(x,13,6,4,fill);
-  text(x+7,9,i?"HDD":"FD",color(i==layout_available?7:4));
+  text(x+7,0,i?"HD":"FD",color(i==layout_available?7:4));
  }
 }
 static void update_status(const GuiEvent *event){
  unsigned slots=0;
  for(int i=0;i<scene.slots;i++)slots+=views[i].owned&&views[i].state>0&&views[i].state<4;
- if(slots!=desktop_slots){desktop_slots=slots;scene_damage(&scene,(Rect){100,3,174,28});}
+ unsigned ime=scene.active>=2&&clients[scene.active-2].token?(unsigned)clients[scene.active-2].event.x:0;
+ if(slots!=desktop_slots||ime!=desktop_ime){desktop_slots=slots;desktop_ime=ime;scene_damage(&scene,status_rect);}
  if(event->type!=GUI_TIMER)return;
  int counters=k32_call(GUI_DISK_ACTIVITY,0,0);
  if(counters>=0){
@@ -782,15 +841,26 @@ static void update_status(const GuiEvent *event){
  }
  if(((event->ticks-desktop_clock_poll)&0xffffff)<307200)return;
  desktop_clock_poll=event->ticks;
- int seconds=k32_call(GUI_DESKTOP_CLOCK,0,0);
- if(seconds<0)return;
- unsigned minute=(unsigned)seconds/60;
- if(minute!=desktop_minute){desktop_minute=minute;scene_damage(&scene,(Rect){100,3,174,28});}
+ GuiStatus next;
+ if(!k32_call(GUI_STATUS,(u32)&next,sizeof next)&&
+    (next.minutes!=desktop_status.minutes||next.date!=desktop_status.date||
+     next.free_kib!=desktop_status.free_kib||next.volume!=desktop_status.volume)){
+  desktop_status=next;scene_damage(&scene,status_rect);
+ }
 }
 static int paint(void){
  if(!scene.damage.w)return 0;
+ unsigned started=(unsigned)k32_call(GUI_TICKS,0,0);
  clip=scene.damage;
- for(int y=clip.y;y<clip.y+clip.h;y++)box(clip.x,y,clip.w,1,preferences.theme==KG_THEME_CONTRAST?color(0):rgb(18+y*14/info.height,30+y*34/info.height,58+y*40/info.height));
+ unsigned dark=preferences.theme==KG_THEME_CONTRAST;
+ if(preferences.wallpaper==KG_WALL_GRADIENT&&!dark)
+  for(int y=clip.y;y<clip.y+clip.h;y++)box(clip.x,y,clip.w,1,rgb(18+y*14/info.height,30+y*34/info.height,58+y*40/info.height));
+ else box(clip.x,clip.y,clip.w,clip.h,dark?color(0):rgb(22,50,69));
+ if(preferences.wallpaper==KG_WALL_GRID){
+  unsigned line=dark?color(4):rgb(40,75,94);
+  for(int y=(clip.y+31)&~31;y<clip.y+clip.h;y+=32)box(clip.x,y,clip.w,1,line);
+  for(int x=(clip.x+31)&~31;x<clip.x+clip.w;x+=32)box(x,clip.y,1,clip.h,line);
+ }
  box(0,0,info.width,32,color(0));box(0,31,info.width,1,color(4));
  Rect kuma=shell_button();button(kuma.x,kuma.y,kuma.w,"Kuma");draw_desktop_status();
  for(int i=0;i<scene.slots;i++){char label[]="DOS 1";label[4]+=i;if(scene.slots==2)button(info.width-312+i*92,3,84,i?"New DOS 2":"New DOS 1");else button(info.width-360+i*56,3,52,label);}
@@ -799,7 +869,30 @@ static int paint(void){
  box(0,info.height-32,info.width,32,color(0));box(0,info.height-32,info.width,1,color(4));
  button(6,info.height-29,136,"Welcome");button(152,info.height-29,136,"System");
  if(scene.active<=1)box(10+146*scene.active,info.height-5,128,DESKTOP_ACTIVE_MARKER_HEIGHT,color(6));
- for(int i=0;i<scene.slots;i++)if(scene.window[i+2].open){char label[]="DOS 1";label[4]+=i;int step=scene.slots==2?146:(info.width-300)/4;button(300+i*step,info.height-29,step-10,scene.graphical[i]?clients[i].title:label);if(scene.active==i+2)box(304+i*step,info.height-5,step-18,DESKTOP_ACTIVE_MARKER_HEIGHT,color(6));}
+ int step=scene.slots==2?146:(info.width-300)/4;
+ for(int i=0;i<scene.slots;i++)if(scene.window[i+2].open){
+  unsigned group=scene.task_group[i];
+  if(group&&!(group&(1u<<i)))continue;
+  char label[40]="DOS 1";label[4]+=i;
+  const char *name=scene.graphical[i]?clients[i].title:label;
+  if(group&(group-1)){
+   unsigned count=0;for(int j=0;j<scene.slots;j++)count+=!!(group&(1u<<j));
+   const ShellApp *app=0;
+   for(int act=ACT_CALCULATOR;act<=ACT_MEMO;act++){
+    const ShellApp *candidate=shell_app(act);
+    if(!candidate)continue;
+    unsigned n=0;while(views[i].program[n]&&views[i].program[n]==candidate->command[n])n++;
+    if(!views[i].program[n]&&(!candidate->command[n]||candidate->command[n]==' ')){app=candidate;break;}
+   }
+   if(app)name=KU(app->name);
+   unsigned cols=(step-18)/8,n=kt_prefix(name,k32_len(name),cols>4?cols-4:0);
+   char grouped[40];for(unsigned j=0;j<n;j++)grouped[j]=name[j];
+   grouped[n++]=' ';grouped[n++]='x';grouped[n++]='0'+count;grouped[n]=0;
+   button(300+i*step,info.height-29,step-10,grouped);
+  }else button(300+i*step,info.height-29,step-10,name);
+  if(scene.active==i+2||(scene.active>=2&&(group&(1u<<(scene.active-2)))))
+   box(304+i*step,info.height-5,step-18,DESKTOP_ACTIVE_MARKER_HEIGHT,color(6));
+ }
  draw_notice();draw_shell();
  cursor();
  unsigned row_bytes=clip.w*info.bpp;
@@ -812,7 +905,11 @@ static int paint(void){
   GuiPresent p={(u32)packed,clip.x,clip.y+offset,clip.w,rows,row_bytes};
   int e=k32_call(GUI_PRESENT,(u32)&p,sizeof p);if(e)return e;
  }
- scene.damage=(Rect){0};gui_state.presents++;gui_state.frames++;return 0;
+ unsigned ended=(unsigned)k32_call(GUI_TICKS,0,0);
+ GuiPaintSample sample={(ended-started)&0xffffff,(unsigned)(clip.w*clip.h),
+                       input_pending?(ended-input_sample)&0xffffff:0,input_pending};
+ k32_call(GUI_PERFORMANCE,(u32)&sample,sizeof sample);
+ input_pending=0;scene.damage=(Rect){0};gui_state.presents++;gui_state.frames++;return 0;
 }
 static int equal(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 static int session_negative(void){
@@ -898,7 +995,9 @@ int main(int argc,char **argv){
  preferences.language=startup_japanese(argc,argv);
  K32Revision prefs_file;kg_preferences_load(&preferences,&prefs_file);
  if(argc>1&&equal(argv[1],"ja"))preferences.language=1;
- ku_language=preferences.language;k32_call(GUI_LANGUAGE,ku_language|(preferences.large<<1),0);
+ apply_preferences();
+ desktop_status.free_kib=desktop_status.volume=~0u;
+ k32_call(GUI_STATUS,(u32)&desktop_status,sizeof desktop_status);
  layout_available=!kg_state_read(KG_LAYOUT_FILE,&layout,sizeof layout,&layout_revision);
  if(!layout_validate(&layout)&&layout_revision.exists)layout_available=0;
  load_pins();load_history();
@@ -913,11 +1012,22 @@ int main(int argc,char **argv){
  if(paint()){gui_state.error=6;return 6;}
  if(argc>1&&equal(argv[1],"fault"))*(volatile u32 *)0x10000=1;
  if(argc>1&&equal(argv[1],"spin"))for(;;)gui_state.heartbeat++;
+ if(argc==1||equal(argv[1],"ja")){
+  static const int startup[]={ACT_NONE,ACT_FILES,ACT_EDITOR,ACT_CLOCK,ACT_CALENDAR,ACT_IMAGE};
+  if(preferences.startup)launch_app(startup[preferences.startup],0);
+ }
  for(;;){
   GuiEvent4 event4={0};int got=k32_call(GUI_EVENT,(u32)&event4,sizeof event4);GuiEvent event=event4.base;
   if(got<0){gui_state.error=7;return 7;}
   if(!got){k32_wait(K32_WAIT_TIME,16);continue;}
   scene_notice_tick(&scene,event.ticks);
+  if(event.type==GUI_TIMER&&!scene.notice){
+   int note=k32_call(GUI_NOTICE,0,0);
+   if(note>=KG_NOTICE_SAVED&&note<=KG_NOTICE_CANCELLED)scene_notice_set(&scene,GN_SAVED+note-KG_NOTICE_SAVED);
+  }
+  if(event.type==GUI_KEY||(event.type==GUI_BUTTON&&(event.buttons&1))){
+   input_sample=event.ticks;input_pending=1;
+  }
   collect_history();
   gui_state.events++;gui_state.heartbeat++;key_modifiers=event.type==GUI_KEY?event.buttons:0;if(event.type==GUI_KEY)gui_state.last_key=event.key;
   if(event.type==GUI_KEY&&event.key==287){ku_language^=1;k32_call(GUI_LANGUAGE,ku_language|(preferences.large<<1),0);scene_damage(&scene,(Rect){0,0,info.width,info.height});if(paint())return 7;continue;}
@@ -926,7 +1036,7 @@ int main(int argc,char **argv){
    if(revision>=0&&(unsigned)revision!=preference_revision){
     preference_revision=(unsigned)revision;K32Revision changed;
     if(!kg_preferences_load(&preferences,&changed)&&changed.exists){
-     ku_language=preferences.language;k32_call(GUI_LANGUAGE,ku_language|(preferences.large<<1),0);
+     apply_preferences();
      scene_damage(&scene,(Rect){0,0,info.width,info.height});
     }
    }

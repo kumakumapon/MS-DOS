@@ -68,15 +68,43 @@ static int upload(void){
 }
 static int read_data(unsigned h,void *p,unsigned n){return common_read?k32_io_read(h,p,n):k32_read(h,p,n);}
 static int exact(unsigned h,void *p,unsigned n){u8 *b=p;unsigned at=0;while(at<n){unsigned chunk=n-at;if(chunk>4096)chunk=4096;int got=read_data(h,b+at,chunk);if(got<=0)return got?got:-5;at+=got;}return 0;}
+enum { IMAGE_CANCEL_TRANSFER=2600 };
+static int transfer_progress(unsigned done,unsigned bytes,const void *label){
+ kg_begin();kg_rect(0,0,kg_width(),kg_height(),DESKTOP_COLOR_SURFACE);
+ kw_draw_progress((KwRect){8,24,(int)kg_width()-16,36},label,done,bytes,IMAGE_CANCEL_TRANSFER);
+ int submitted=kg_present();if(submitted<0&&submitted!=-22)return submitted;
+ k32_wait(K32_WAIT_TIME,16);
+ /* Cancel the transfer first so a dirty image still gets normal close confirmation. */
+ for(unsigned n=0;n<KG_EVENTS;n++){
+  KgEvent event;int got=kg_poll(&event);
+  if(got<0)return got;
+  if(!got)break;
+  if(event.type==KG_QUIT){kg_cancel_close();return -125;}
+  if(kw_progress_cancel(&event,IMAGE_CANCEL_TRANSFER))return -125;
+ }
+ return 0;
+}
+static int read_bmp_body(unsigned handle,unsigned bytes){
+ if(bytes<=65536)return exact(handle,encoded,bytes);
+ for(unsigned at=0;at<bytes;){
+  int error=transfer_progress(at,bytes,KU("Reading BMP"));if(error)return error;
+  unsigned chunk=bytes-at;if(chunk>32768)chunk=32768;
+  error=exact(handle,encoded+at,chunk);if(error)return error;
+  at+=chunk;
+ }
+ return 0;
+}
 static int decode(unsigned h,KgBmp *next,const K32WorkRevision *expected){
  u8 header[54],extra;int e=exact(h,header,54);
  unsigned bytes=e?0:(u32)header[2]|(u32)header[3]<<8|(u32)header[4]<<16|(u32)header[5]<<24;
  if(!e&&(bytes>KG_BITMAP_FILE_BYTES||kg_bmp_header(header,54,bytes,next)))e=-22;
- if(!e){e=common_read?k32_io_seek(h,0):k32_seek(h,0);if(e>=0)e=exact(h,encoded,bytes);}
+ if(!e){e=common_read?k32_io_seek(h,0):k32_seek(h,0);if(e>=0)e=read_bmp_body(h,bytes);}
  if(!e){int got=read_data(h,&extra,1);if(got)e=got<0?got:-22;}
  if(!e&&expected&&(bytes!=expected->length||raw_hash(encoded,bytes)!=expected->hash))e=-116;
  if(!e)e=kg_bmp_decode(encoded,bytes,next,candidate,KG_BITMAP_PIXELS);
- int closed=common_read?k32_io_close(h):k32_close(h);return e?e:closed;
+ int closed=common_read?k32_io_close(h):k32_close(h);
+ if(e==-125)kg_notify(KG_NOTICE_CANCELLED);
+ return e?e:closed;
 }
 static int load(void){
  unsigned n=filename.length;if(n<5||n>12)return -22;
@@ -95,7 +123,7 @@ static int load(void){
  image_stats.original_hash=hash(original,image.width*image.height);if(preview&&preview_upload())preview=0;
  kg_note_document(open_path[0]?open_path:filename.text,work?0:open_volume?open_volume:1,1);return 0;
 }
-static int save(unsigned approved){
+static int save_image(unsigned approved){
  if(!image.width)return -22;
  if(open_volume>1||(!work&&open_path[0]))return -13;
  K32Work r=request(K32_WORK_STAT,filename.text);int e;
@@ -114,14 +142,26 @@ static int save(unsigned approved){
  }
  int bytes=kg_bmp_encode(pixels,image.width,image.height,encoded,sizeof encoded);if(bytes<0)return bytes;
  r.operation=K32_WORK_SAVE;r.data=(unsigned)encoded;r.bytes=bytes;
- if(open_path[0]){K32Revision old={r.exists,r.length,r.hash};e=k32_fs_save(open_path,encoded,(unsigned)bytes,&old);}
- else if((unsigned)bytes>K32_BMP_LIMIT||r.length>K32_BMP_LIMIT||image.width>256||image.height>192){K32Revision old={r.exists,r.length,r.hash};e=k32_io_save(r.name,encoded,(unsigned)bytes,&old);}else e=k32_work(&r);
+ K32Revision old={r.exists,r.length,r.hash};
+ if(bytes>65536){
+  K32Io writer;
+  e=open_path[0]?k32_fs_begin_save(open_path,&old,&writer):k32_io_begin(r.name,&old,&writer);
+  if(!e)e=k32_io_finish_save_progress(&writer,encoded,bytes,transfer_progress,KU("Saving BMP"));
+ }else if(open_path[0])e=k32_fs_save(open_path,encoded,(unsigned)bytes,&old);
+ else if((unsigned)bytes>K32_BMP_LIMIT||r.length>K32_BMP_LIMIT||image.width>256||image.height>192)
+  e=k32_io_save(r.name,encoded,(unsigned)bytes,&old);
+ else e=k32_work(&r);
  if(e<0)return e;
  revision=request(K32_WORK_STAT,r.name);revision.exists=1;revision.length=bytes;revision.hash=raw_hash(encoded,bytes);
  namecopy(current,r.name);remember_path(current_path,open_path);loaded_work=1;baseline=image;copy(original,pixels,image.width*image.height);image_stats.original_hash=hash(original,image.width*image.height);
  if(preview&&preview_upload())preview=0;
  kg_note_document(open_path[0]?open_path:filename.text,0,1);
  message=e?"Saved / BAK retained: inspect recovery":"Saved to Work";return 0;
+}
+static int save(unsigned approved){
+ int result=save_image(approved);
+ if(result<=0)kg_notify(result==-125?KG_NOTICE_CANCELLED:result<0?KG_NOTICE_SAVE_FAILED:KG_NOTICE_SAVED);
+ return result;
 }
 static int inspect(void){
  if(open_path[0])return -13;
@@ -142,7 +182,7 @@ static int restore(void){
  K32Work r=request(K32_WORK_REC_RESTORE_TMP+kind-1,recovery_base);r.data=(unsigned)&target;r.bytes=sizeof target;
  int e;if(generic_recovery){K32WorkRevision *v=&recovery.file[kind];K32Revision old={v->exists,v->length,v->hash};e=k32_io_recover(recovery_base,kind,rescue.text,&old);}else e=k32_work(&r);if(!e){modal=0;message="Recovered to unused BMP / image kept";}return e;
 }
-static const char *error_text(int e){return e==-116?"File changed / original kept":e==-17?"TMP or destination exists / kept":e==-117?"Inspect TMP/BAK / original kept":e==-28?"Disk full / original kept":e==-13?"Protected file / original kept":"Invalid BMP or I/O error / original kept";}
+static const char *error_text(int e){return e==-125?"Transfer cancelled / image kept":e==-116?"File changed / original kept":e==-17?"TMP or destination exists / kept":e==-117?"Inspect TMP/BAK / original kept":e==-28?"Disk full / original kept":e==-13?"Protected file / original kept":"Invalid BMP or I/O error / original kept";}
 static void hex(char out[9],unsigned v){for(unsigned i=0;i<8;i++)out[i]="0123456789ABCDEF"[v>>(28-i*4)&15];out[8]=0;}
 static int dialog(void){
  unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,DESKTOP_COLOR_SURFACE);

@@ -73,6 +73,24 @@ void kw_draw_scroll(const KwScroll *s){
  kg_text(s->r.x+4,s->r.y+s->r.h-16,"v",DESKTOP_COLOR_INK);
  kg_rect(s->r.x+2,s->r.y+16+pos,s->r.w-4,thumb,s->dragging?DESKTOP_COLOR_FOCUS:DESKTOP_COLOR_BORDER);
 }
+/* A zero total denotes a scan whose final length is still unknown. */
+void kw_draw_progress(KwRect r,const char *label,unsigned done,unsigned total,unsigned cancel){
+ int width=r.w-116,left=r.x+116;
+ if(width<32||r.h<36)return;
+ kw_text(left,r.y,label,width/8,DESKTOP_COLOR_INK);
+ kg_rect(left,r.y+23,width,9,DESKTOP_COLOR_BORDER);
+ kg_rect(left+1,r.y+24,width-2,7,DESKTOP_COLOR_PAPER);
+ if(total){
+  /* Divide before scaling for large byte counts without overflowing u32. */
+  while(total>0xffff){done=(done>>1)+(done&1);total=(total>>1)+(total&1);}
+  int fill=(int)((unsigned)(width-2)*(done>total?total:done)/total);
+  if(fill)kg_rect(left+1,r.y+24,fill,7,DESKTOP_COLOR_FOCUS);
+ }else {
+  int mark=width/5;
+  kg_rect(left+1+(done*4u)%(width-2-mark),r.y+24,mark,7,DESKTOP_COLOR_FOCUS);
+ }
+ kw_draw_button((KwRect){r.x,r.y,108,36},cancel,KU("Cancel"),KW_SECONDARY,KW_FOCUSED);
+}
 void kw_draw_dialog(unsigned w,unsigned h,const char *a,const char *b){
  if(h<80||w<80)return;
  int x=12,panel=h<112?(int)h:112,y=((int)h-panel)/2;

@@ -9,7 +9,13 @@ extern unsigned owned[4];extern u32 owned_generation[4];
 extern int gui_copy(u32,void *,unsigned,int);
 extern void kg_gate(void);
 extern u32 kg_old_vector;extern u16 kg_sender_segment,kg_sender_offset;
-unsigned kg_language,kg_preferences_revision;
+unsigned kg_language,kg_preferences_revision,kg_ui_format;
+static u8 notices[8];static unsigned notice_head,notice_count;
+int kg_take_notice(void){
+ if(!notice_count)return 0;
+ unsigned note=notices[notice_head];notice_head=(notice_head+1)%sizeof notices;notice_count--;
+ return (int)note;
+}
 int kg_clients_command(unsigned,char *,unsigned);
 int kg_image_clip_request(KgRequest *,unsigned,u32);
 void kg_image_clip_drop(unsigned,u32);
@@ -40,6 +46,7 @@ int kg_clients_command(unsigned id,char *path,unsigned write){
 static unsigned clipboard(void){return k386_capacity()*4096;}
 static u32 serial,seconds,last_clock,clip_bytes,dos_date;
 unsigned kg_clients_time(void){return seconds;}
+unsigned kg_clients_date(void){return dos_date;}
 volatile struct {
  char signature[8];u32 version,size,owner,arena,old_vector,vector,ready,requests,rejected;
  u32 generation[2],token[2],revision[2],events[2],dropped[2];
@@ -75,7 +82,7 @@ void kg_clients_tick(void){
  seconds=next;
 }
 int kg_clients_start(void){
- kg_language=kg_preferences_revision=0;
+ kg_language=kg_preferences_revision=kg_ui_format=notice_head=notice_count=0;
  unsigned a=0xd394,b=0;__asm__ volatile("int $0x2f":"+a"(a),"+b"(b)::"ecx","edx","esi","edi","cc","memory");if((a&65535)==0x394d)return -16;
  a=0xd390;b=0;unsigned di;u16 es;
  __asm__ volatile("pushw %%es; int $0x2f; movw %%es,%1; popw %%es":"+a"(a),"=c"(es),"=D"(di):"b"(b):"edx","esi","cc","memory");
@@ -120,7 +127,12 @@ void kg_dispatch(void){
   }
   if(r->operation==KG_DATE)p.result=(int)dos_date;
   if(r->operation==KG_CLOSE)kg_image_clip_drop(id+1,p.generation);
-  if(r->operation>=KG_IMAGE_COPY_BEGIN)p.result=kg_image_clip_request(r,id+1,p.generation);
+  if(r->operation>=KG_IMAGE_COPY_BEGIN&&r->operation<=KG_RECENT_MOVE)p.result=kg_image_clip_request(r,id+1,p.generation);
+  if(r->operation==KG_UI_FORMAT)p.result=(int)kg_ui_format;
+  if(r->operation==KG_NOTIFY){
+   if(notice_count==sizeof notices)kg_take_notice();
+   notices[(notice_head+notice_count++)%sizeof notices]=r->count;
+  }
   if(r->operation==KG_PREFERENCES_CHANGED)kg_preferences_revision=(kg_preferences_revision+1)&0x7fffffffu;
   if(r->operation==KG_CLIP_SET){clip_bytes=r->count;mem_copy(arena,clipboard(),self,(unsigned)r->draw,clip_bytes);}
   if(r->operation==KG_CLIP_GET){unsigned n=r->count<clip_bytes?r->count:clip_bytes;mem_copy(self,(unsigned)r->draw,arena,clipboard(),n);p.result=n;}
@@ -148,7 +160,7 @@ int kg_clients_snapshot(u32 pointer,unsigned bytes){
  if(arena&&c->token&&owned[id]&&owned_generation[id]==c->generation)mem_copy(self,(unsigned)r,arena,id*4096,sizeof *r);
  else {*r=(KgRequest){0};}
  r->version=1;r->size=sizeof *r;r->slot=id;r->generation=c->generation;r->token=owned[id]&&owned_generation[id]==c->generation?c->token:0;
- r->revision=c->revision;r->width=c->width;r->height=c->height;r->event.control=c->input_flags;r->event.key=c->cancelled;
+ r->revision=c->revision;r->width=c->width;r->height=c->height;r->event.control=c->input_flags;r->event.key=c->cancelled;r->event.x=r->token?c->ime:0;
  if(kg_surface_operation(r->operation)){
   KgSurface *s=kg_surface_word(r,16)?&c->extra_surface:&c->surface;
   if(s->pending)r->revision=s->pending;

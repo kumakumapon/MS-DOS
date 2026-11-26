@@ -74,4 +74,7 @@ int kw_scroll(KwScroll *s,const KgEvent *e){
  s->top=limit(s->top,s->total,s->rows);return 1;
 }
 int kw_button(unsigned id,const KgEvent *e){return e->type==KG_MOUSE&&(e->key&1)&&e->control==id;}
+int kw_progress_cancel(const KgEvent *e,unsigned button){
+ return kw_button(button,e)||(e->type==KG_KEY&&e->key==27);
+}
 int kw_dialog(const KgEvent *e){return (e->type==KG_KEY&&(e->key==13||e->key==27))||kw_button(900,e);}

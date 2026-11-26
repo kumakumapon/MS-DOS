@@ -13,13 +13,15 @@ typedef struct {
 } ShellHistory;
 enum {
  GN_NONE, GN_SLOTS_FULL, GN_START_FAILED, GN_APP_MISSING, GN_WORKERS_STARTED, GN_WORKERS_STOPPED,
- GN_WORKER_FAILED, GN_SESSION_FAILED, GN_APP_FAULTED, GN_LAYOUT_SAVE_FAILED, GN_HISTORY_SAVE_FAILED, GN_DOCUMENT_PIN_LIMIT
+ GN_WORKER_FAILED, GN_SESSION_FAILED, GN_APP_FAULTED, GN_LAYOUT_SAVE_FAILED, GN_HISTORY_SAVE_FAILED, GN_DOCUMENT_PIN_LIMIT,
+ GN_SAVED, GN_SAVE_FAILED, GN_COPIED, GN_COPY_FAILED, GN_CANCELLED
 };
 typedef struct {
  int width,height,mx,my,buttons,active,drag,dx,dy;
  GuiWindow window[6];Rect damage,restored[4];
  u32 counters[4],states[4];int action_result;
  int order[6],slot,key,resize,help,scroll_x[4],scroll_y[4],graphical[4],slots,menu[4],shell[4],command[4],placement[4];
+ unsigned task_group[4];
  u32 ticks,notice_started;
  unsigned notice,notice_click;
  unsigned shell_page,shell_selected,shell_top,shell_length,shell_swallow,shell_alt;

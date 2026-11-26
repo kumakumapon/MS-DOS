@@ -27,11 +27,14 @@ int k32_fs_revision(const char *path,K32Revision *out){
  unsigned bytes=0;int h=k32_fs_read(path,0,&bytes);
  return k32_io_scan(h,bytes,out);
 }
-int k32_fs_save(const char *path,const void *data,unsigned bytes,const K32Revision *old){
- if(bytes>K32_IO_LIMIT)return -27;
+int k32_fs_begin_save(const char *path,const K32Revision *old,K32Io *writer){
  K32Fs r=k32_fs_request(K32_FS_SAVE,path,0);
  r.flags=old->exists;r.length=old->length;r.hash=old->hash;
  int e=k32_fs(&r);if(e)return e;
- K32Io t={.version=1,.size=sizeof t,.token=r.token};
- return k32_io_finish_save(&t,data,bytes);
+ *writer=(K32Io){.version=1,.size=sizeof *writer,.token=r.token};return 0;
+}
+int k32_fs_save(const char *path,const void *data,unsigned bytes,const K32Revision *old){
+ if(bytes>K32_IO_LIMIT)return -27;
+ K32Io writer;int e=k32_fs_begin_save(path,old,&writer);
+ return e?e:k32_io_finish_save(&writer,data,bytes);
 }

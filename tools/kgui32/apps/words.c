@@ -38,6 +38,7 @@ static const char *error_note(int e){return e==-116?"File changed / edits kept":
 static void failure(int e){words_stats[9]=e<0?(unsigned)-e:0;note=e<0?error_note(e):"Saved to Work";}
 static unsigned candidate_rows(void){unsigned n=(kg_height()-104)/20;return n>6?6:n?n:1;}
 static int draw(void){
+ kg_ime_report(ime.scheme,ki_active(&ime),ime.selecting);
  kg_menu_enable(!modal&&!ki_active(&ime));unsigned w=kg_width(),h=kg_height();report();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);
  if(modal){kg_label(8,8,modal==2?"Unsaved user dictionary":"Reload user dictionary?",0x20344a);kg_label(8,36,"Save, discard or cancel",0x20344a);kg_button(201,8,72,88,28,"Save");kg_button(202,104,72,88,28,"Discard");kg_button(203,200,72,88,28,"Cancel");if(note)kw_label(8,h-20,note,(w-16)/8,0x20344a);return kg_present();}
  if(ki_active(&ime)){

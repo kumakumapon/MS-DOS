@@ -222,10 +222,11 @@ static int request(unsigned what){drag=mark=0;if(ke_dirty(&doc)){pending=what;mo
 static void cancel_pending(void){if(pending==1)kg_cancel_close();pending=0;}
 static int commit_save(void){
  KeVersion *v=ke_view(&doc);int serialized=ke_serialize(&doc,load_buffer,sizeof load_buffer);
- if(serialized<0){mode=0;editor_stats.error=-serialized;message="Serialized text exceeds 64 KiB";cancel_pending();return 0;}
+ if(serialized<0){kg_notify(KG_NOTICE_SAVE_FAILED);mode=0;editor_stats.error=-serialized;message="Serialized text exceeds 64 KiB";cancel_pending();return 0;}
  save_request.operation=K32_WORK_SAVE;save_request.flags=v->crlf?K32_WORK_CRLF:0;save_request.data=(unsigned)load_buffer;save_request.bytes=serialized;
  K32Revision old={save_request.exists,save_request.length,save_request.hash};
  int e=save_path[0]?k32_fs_save(save_path,load_buffer,serialized,&old):k32_work(&save_request);
+ kg_notify(e<0?KG_NOTICE_SAVE_FAILED:KG_NOTICE_SAVED);
  mode=0;kp_workspace_info(&destination);
  if(e<0){editor_stats.error=-e;recovery_suggested=e==-117||e==-17;message=e==-116?"File changed: reopen or Save As":e==-28?"Disk full: document kept":e==-117?"Recovery needed: keep TMP/BAK":e==-17?"Reserved TMP exists: use another name":"Save failed: document kept";cancel_pending();return 0;}
  for(unsigned i=0;i<13;i++){filename[i]=save_request.name[i];if(!filename[i])break;}
@@ -238,7 +239,7 @@ static int commit_save(void){
 static int save(int as){
  drag=mark=0;
  if(!as&&in_work&&filename[0]){save_request=revision;remember_path(save_path,file_path);return commit_save();}
- int bytes=ke_serialize(&doc,load_buffer,sizeof load_buffer);if(bytes<0){message="Serialized text exceeds 64 KiB";editor_stats.error=-bytes;cancel_pending();return 0;}
+ int bytes=ke_serialize(&doc,load_buffer,sizeof load_buffer);if(bytes<0){kg_notify(KG_NOTICE_SAVE_FAILED);message="Serialized text exceeds 64 KiB";editor_stats.error=-bytes;cancel_pending();return 0;}
  kp_save_size(&picker,in_work?filename:"",bytes);mode=3;return 0;
 }
 static void copy_selection(int cut){KeVersion *v=ke_view(&doc);unsigned a=v->anchor<v->cursor?v->anchor:v->cursor,b=v->anchor>v->cursor?v->anchor:v->cursor;if(b-a>1024){message="Clipboard limit: 1024 bytes";return;}if(b==a)return;if(kg_clip_set(v->text+a,b-a)<0){message="Clipboard unavailable";return;}if(cut)ke_replace(&doc,"",0);}
@@ -335,6 +336,7 @@ static void selection_rects(unsigned a,unsigned b){
  if(lo<=hi)kg_rect(8,40+(lo-top)*line_height,cols*cell_width,(hi-lo+1)*line_height,0xb4d6f0);
 }
 static int draw(void){
+ kg_ime_report(ime.scheme,ki_active(&ime),ime.selecting);
  kg_menu_enable(!mode&&!message&&!ki_active(&ime));layout();budget_rows();report();if(ki_active(&ime))return ime_draw();if(mode==1||mode==3)return kp_draw(&picker);if(mode==5)return search_draw();if(mode==6)return kr_draw(&recovery);if(mode==7)return tools_draw();
  if(mode==8){unsigned w=kg_width(),h=kg_height();kg_begin();kg_rect(0,0,w,h,0xeaf0f5);kg_label(8,4,"IME / input settings",0x20344a);
   kg_button(2210,8,30,88,24,"Off");kg_button(2211,104,30,96,24,"Romaji");kg_button(2212,208,30,112,24,"JIS kana");

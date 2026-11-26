@@ -27,5 +27,7 @@ void kw_draw_focus(KwRect);
 int kw_draw_button(KwRect,unsigned,const char *,unsigned,unsigned);
 void kw_draw_input(KwRect,const KwInput *,int);
 void kw_draw_scroll(const KwScroll *);
+int kw_progress_cancel(const KgEvent *,unsigned);
+void kw_draw_progress(KwRect,const char *,unsigned,unsigned,unsigned);
 void kw_draw_dialog(unsigned,unsigned,const char *,const char *);
 #endif
